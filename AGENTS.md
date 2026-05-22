@@ -98,15 +98,13 @@ Project đã kết nối Supabase MCP — có thể dùng AI để:
 - Comment bằng tiếng Việt hoặc tiếng Anh đều được
 
 ## Lưu ý quan trọng
-- SDK constraint: `>=3.0.0 <4.0.0`
+- SDK constraint: `^3.9.0` (Dart 3.9.0 / Flutter 3.35.1)
 - Min Android SDK: 21
 - Supabase URL và anon key lưu trong `.env` — không commit lên Git
 - RLS phải bật cho tất cả bảng trước khi deploy
 
 
-Đọc AGENTS.md, sau đó cập nhật file AGENTS.md:
-Thêm section mới tên "## UI Design Rules" với nội dung:
-
+## UI Design Rules
 - Luôn đọc DESIGN.md trước khi tạo hoặc sửa bất kỳ UI nào
 - Mọi màn hình phải follow design system trong DESIGN.md
 - Không dùng Material default widget thuần túy
