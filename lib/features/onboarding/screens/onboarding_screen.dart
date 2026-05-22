@@ -29,12 +29,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     _OnboardingPageData(
       title: 'Đặt hàng dễ dàng',
       description: 'Chọn địa chỉ giao hàng chỉ với vài chạm',
-      emoji: '📦',
+      emoji: '🛒',
     ),
     _OnboardingPageData(
       title: 'Tài xế gần bạn nhất',
       description: 'Hệ thống tự động tìm tài xế gần bạn để giao hàng nhanh nhất',
-      emoji: '📍',
+      emoji: '🚚',
     ),
     _OnboardingPageData(
       title: 'Giao hàng an toàn',
@@ -306,53 +306,44 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       },
       child: Padding(
         padding: const EdgeInsets.fromLTRB(28, 22, 28, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildSlideNumber(_currentPage),
-            const SizedBox(height: 12),
-            Text(
-              p.title,
-              style: const TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF15172A),
-                height: 1.2,
-                letterSpacing: -0.5,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 280),
-              child: Text(
-                p.description,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildSlideNumber(_currentPage),
+              const SizedBox(height: 12),
+              Text(
+                p.title,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
                   color: Color(0xFF15172A),
-                  height: 1.5,
-                  fontWeight: FontWeight.w400,
+                  height: 1.2,
+                  letterSpacing: -0.5,
                 ),
                 textAlign: TextAlign.center,
               ),
-            ),
-            const SizedBox(height: 12),
-            _buildPageIndicator(),
-            const SizedBox(height: 10),
-            GestureDetector(
-              onTap: _done,
-              child: Text(
-                'Bỏ qua',
-                style: TextStyle(
-                  color: const Color(0xFF15172A).withValues(alpha: 0.35),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
+              const SizedBox(height: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 280),
+                child: Text(
+                  p.description,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF15172A),
+                    height: 1.5,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            _buildButton(isLast),
-          ],
+              const SizedBox(height: 12),
+              _buildPageIndicator(),
+              const SizedBox(height: 10),
+              const SizedBox(height: 8),
+              _buildButton(isLast),
+            ],
+          ),
         ),
       ),
     );

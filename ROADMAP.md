@@ -143,18 +143,7 @@ tại lib/features/customer/screens/customer_home_screen.dart
 | `AGENTS.md` | Context project cho AI |
 | `DESIGN.md` | Design system UI |
 | `ROADMAP.md` | File này — theo dõi tiến độ |
-| `prompt.md` | Paste prompt dài để AI đọc |
 | `lib/core/router.dart` | Routing theo role |
 | `lib/core/services/auth_service.dart` | Google OAuth |
 
 ---
-
-## 💡 Workflow làm việc với OpenCode
-
-```
-1. Mở OpenCode trong thư mục project_app
-2. Paste prompt vào prompt.md
-3. Gõ: đọc prompt.md và làm theo
-4. Kiểm tra kết quả
-5. Cập nhật ROADMAP.md tick những việc đã xong
-```

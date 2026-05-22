@@ -1,0 +1,54 @@
+# .clinerules — Quy tắc làm việc với project DATN GiaoHang
+
+## 1) Đọc trước khi làm
+- Luôn đọc `DESIGN.md` trước khi tạo hoặc sửa bất kỳ UI nào
+- Luôn đọc `AGENTS.md` để hiểu context project
+- Luôn đọc `CLAUDE.md` để biết tech stack và cấu trúc thực tế
+- Kiểm tra `ROADMAP.md` để biết feature nào đang ưu tiên
+
+## 2) KHÔNG được tự ý thay đổi
+- **KHÔNG** sửa `main.dart` nếu không được yêu cầu rõ ràng
+- **KHÔNG** đổi cấu trúc thư mục `lib/core/` và `lib/features/` đã có
+- **KHÔNG** thay đổi Supabase URL/anon key trong `supabase_constants.dart`
+- **KHÔNG** xóa hoặc rename file đang hoạt động mà không hỏi trước
+- **KHÔNG** thay đổi database schema (bảng/trigger/RLS) mà không hỏi trước
+- **KHÔNG** đổi navigation library (đang dùng `go_router`) hoặc state management (đang dùng `riverpod`)
+- **KHÔNG** đổi bản đồ library (đang dùng `flutter_map`, KHÔNG phải google_maps_flutter)
+- **KHÔNG** thêm dependency mới vào `pubspec.yaml` mà không hỏi trước
+
+## 3) Quy tắc đặt tên
+- File Dart: `snake_case.dart`
+- Class: `PascalCase`
+- Thư mục feature: `lib/features/<feature_name>/screens/`, `lib/features/<feature_name>/widgets/`
+- Model: đặt trong `lib/core/models/<model_name>_model.dart`
+- Service: đặt trong `lib/core/services/<service_name>_service.dart`
+- Route path: kebab-case (vd: `/customer-home`, `/driver-home`, `/admin-home`)
+
+## 4) Kiến trúc feature-first
+- Mỗi feature (customer, driver, admin, auth, onboarding) có thư mục riêng trong `features/`
+- Trong mỗi feature có `screens/` và `widgets/`
+- Code dùng chung đặt trong `core/` (models, services, constants, router)
+
+## 5) Quy tắc code
+- Model class phải có `fromJson()` / `toJson()`
+- Không hardcode string — dùng constants
+- Tránh dùng Material default widget thuần túy — áp dụng design system từ `DESIGN.md`
+- Không insert thủ công vào bảng `users` (có trigger `handle_new_user` tự xử lý)
+- RLS phải bật cho tất cả bảng trước khi deploy
+
+## 6) UI Design
+- Target: premium mobile app aesthetic
+- Phải đọc `DESIGN.md` và follow design system
+- Dùng custom colors, typography, spacing — không dùng Flutter default colors
+- Onboarding và login screen đã có custom UI — giữ consistent style cho các màn hình mới
+
+## 7) Khi tạo màn hình mới
+1. Tạo file trong đúng feature folder: `lib/features/<feature>/screens/<screen_name>_screen.dart`
+2. Thêm route trong `lib/core/router.dart`
+3. Follow design system trong `DESIGN.md`
+4. Import đúng path (relative import)
+
+## 8) Git & Deploy
+- Không commit file `.env` hoặc credentials
+- `supabase_constants.dart` hiện hardcode key — cần chuyển sang `.env` trước khi deploy production
+- Chạy `flutter analyze` trước khi commit để check lỗi
