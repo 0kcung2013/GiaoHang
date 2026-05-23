@@ -1,10 +1,14 @@
 # .clinerules — Quy tắc làm việc với project DATN GiaoHang
 
+---
+
 ## 1) Đọc trước khi làm
 - Luôn đọc `DESIGN.md` trước khi tạo hoặc sửa bất kỳ UI nào
 - Luôn đọc `AGENTS.md` để hiểu context project
 - Luôn đọc `CLAUDE.md` để biết tech stack và cấu trúc thực tế
 - Kiểm tra `ROADMAP.md` để biết feature nào đang ưu tiên
+
+---
 
 ## 2) KHÔNG được tự ý thay đổi
 - **KHÔNG** sửa `main.dart` nếu không được yêu cầu rõ ràng
@@ -16,18 +20,106 @@
 - **KHÔNG** đổi bản đồ library (đang dùng `flutter_map`, KHÔNG phải google_maps_flutter)
 - **KHÔNG** thêm dependency mới vào `pubspec.yaml` mà không hỏi trước
 
+---
+
 ## 3) Quy tắc đặt tên
 - File Dart: `snake_case.dart`
 - Class: `PascalCase`
-- Thư mục feature: `lib/features/<feature_name>/screens/`, `lib/features/<feature_name>/widgets/`
 - Model: đặt trong `lib/core/models/<model_name>_model.dart`
 - Service: đặt trong `lib/core/services/<service_name>_service.dart`
-- Route path: kebab-case (vd: `/customer-home`, `/driver-home`, `/admin-home`)
+- Route path: kebab-case (vd: `/customer/home`, `/driver/home`, `/admin/dashboard`)
 
-## 4) Kiến trúc feature-first
-- Mỗi feature (customer, driver, admin, auth, onboarding) có thư mục riêng trong `features/`
-- Trong mỗi feature có `screens/` và `widgets/`
-- Code dùng chung đặt trong `core/` (models, services, constants, router)
+---
+
+## 4) Kiến trúc feature-first — Cấu trúc folder BẮT BUỘC
+
+Mỗi màn hình có **folder riêng** bên trong `screens/`, kèm `widgets/` của chính nó bên trong.
+
+```
+lib/features/
+├── customer/
+│   └── screens/
+│       ├── home/
+│       │   ├── home_screen.dart        ← entry point màn hình
+│       │   └── widgets/
+│       │       ├── greeting_section.dart
+│       │       ├── search_bar.dart
+│       │       └── recent_orders.dart
+│       ├── order/
+│       │   ├── order_screen.dart
+│       │   └── widgets/
+│       │       ├── order_form.dart
+│       │       └── address_picker.dart
+│       ├── tracking/
+│       │   ├── tracking_screen.dart
+│       │   └── widgets/
+│       │       ├── map_view.dart
+│       │       └── driver_info_sheet.dart
+│       └── history/
+│           ├── history_screen.dart
+│           └── widgets/
+│               └── order_history_card.dart
+├── driver/
+│   └── screens/
+│       ├── home/
+│       │   ├── home_screen.dart
+│       │   └── widgets/
+│       │       ├── status_toggle.dart
+│       │       └── pending_order_card.dart
+│       ├── order_list/
+│       │   ├── order_list_screen.dart
+│       │   └── widgets/
+│       │       └── order_item.dart
+│       ├── navigation/
+│       │   ├── navigation_screen.dart
+│       │   └── widgets/
+│       │       ├── route_map.dart
+│       │       └── step_instruction.dart
+│       └── history/
+│           ├── history_screen.dart
+│           └── widgets/
+│               └── delivery_card.dart
+├── admin/
+│   └── screens/
+│       ├── home/
+│       │   ├── home_screen.dart
+│       │   └── widgets/
+│       │       └── metric_card.dart
+│       ├── orders/
+│       │   ├── orders_screen.dart
+│       │   └── widgets/
+│       │       └── order_row.dart
+│       ├── drivers/
+│       │   ├── drivers_screen.dart
+│       │   └── widgets/
+│       │       └── driver_row.dart
+│       └── dashboard/
+│           ├── dashboard_screen.dart
+│           └── widgets/
+│               ├── stats_chart.dart
+│               └── summary_card.dart
+├── auth/
+│   └── screens/
+│       └── login/
+│           ├── login_screen.dart
+│           └── widgets/
+│               └── google_sign_in_button.dart
+└── onboarding/
+    └── screens/
+        └── onboarding/
+            ├── onboarding_screen.dart
+            └── widgets/
+                ├── onboarding_page.dart
+                └── page_indicator.dart
+```
+
+**Quy tắc:**
+- Widget **chỉ dùng cho 1 màn hình** → đặt trong `screens/<screen>/widgets/`
+- Widget **dùng chung nhiều màn hình** → đặt trong `lib/core/widgets/`
+- **KHÔNG** tạo file widget rời lẻ ngoài 2 vị trí trên
+- Mỗi `<screen>_screen.dart` chỉ chứa layout chính, logic phức tạp tách ra widget con
+
+---
 
 ## 5) Quy tắc code
 - Model class phải có `fromJson()` / `toJson()`
@@ -36,19 +128,155 @@
 - Không insert thủ công vào bảng `users` (có trigger `handle_new_user` tự xử lý)
 - RLS phải bật cho tất cả bảng trước khi deploy
 
-## 6) UI Design
-- Target: premium mobile app aesthetic
-- Phải đọc `DESIGN.md` và follow design system
-- Dùng custom colors, typography, spacing — không dùng Flutter default colors
-- Onboarding và login screen đã có custom UI — giữ consistent style cho các màn hình mới
+---
 
-## 7) Khi tạo màn hình mới
-1. Tạo file trong đúng feature folder: `lib/features/<feature>/screens/<screen_name>_screen.dart`
-2. Thêm route trong `lib/core/router.dart`
-3. Follow design system trong `DESIGN.md`
-4. Import đúng path (relative import)
+## 6) UI Design — Workflow (ui-ux-pro-max skill)
 
-## 8) Git & Deploy
+> Project dùng **Flutter** (`--stack flutter`). Skill path: `.cursor/skills/ui-ux-pro-max/scripts/search.py`
+
+Khi có yêu cầu UI/UX (thiết kế, tạo màn hình, cải thiện giao diện), làm theo workflow sau:
+
+### Bước 1: Phân tích yêu cầu
+Xác định từ request của user:
+- **Product type**: delivery app, logistics, driver dashboard, customer tracking...
+- **Style keywords**: premium, clean, modern, dark mode...
+- **Màn hình cụ thể**: home, order tracking, profile, driver map...
+
+### Bước 2: Generate Design System (BẮT BUỘC trước khi code UI)
+
+```bash
+python3 .cursor/skills/ui-ux-pro-max/scripts/search.py "<product_type> <keywords>" --design-system -p "GiaoHang"
+```
+
+Ví dụ cho project này:
+```bash
+# Màn hình tổng quát
+python3 .cursor/skills/ui-ux-pro-max/scripts/search.py "delivery logistics mobile app premium" --design-system -p "GiaoHang"
+
+# Màn hình driver
+python3 .cursor/skills/ui-ux-pro-max/scripts/search.py "driver dashboard map tracking mobile" --design-system -p "GiaoHang Driver"
+
+# Màn hình customer
+python3 .cursor/skills/ui-ux-pro-max/scripts/search.py "customer order tracking ecommerce mobile" --design-system -p "GiaoHang Customer"
+```
+
+### Bước 3: Tìm kiếm chi tiết (nếu cần thêm)
+
+```bash
+# UX guidelines cho animation/loading
+python3 .cursor/skills/ui-ux-pro-max/scripts/search.py "animation loading skeleton" --domain ux
+
+# Style cụ thể
+python3 .cursor/skills/ui-ux-pro-max/scripts/search.py "dark mode glassmorphism" --domain style
+
+# Chart/dashboard
+python3 .cursor/skills/ui-ux-pro-max/scripts/search.py "real-time tracking map" --domain chart
+```
+
+### Bước 4: Stack Guidelines (dùng flutter)
+
+```bash
+python3 .cursor/skills/ui-ux-pro-max/scripts/search.py "layout widget state" --stack flutter
+```
+
+### Bước 5: Implement theo design system
+- Áp dụng màu sắc, typography, spacing từ output của design system
+- **Ưu tiên** `DESIGN.md` của project nếu có conflict với skill output
+- `DESIGN.md` là source of truth cuối cùng cho project này
+
+---
+
+## 7) Quy tắc UI Flutter (áp dụng chung)
+
+### Widgets & Icons
+| Rule | Do | Don't |
+|------|----|----|
+| **Icons** | Dùng `Icons.*` (Material) hoặc `flutter_svg` với file SVG | Dùng emoji làm icon UI |
+| **Consistent sizing** | Dùng `const` và fixed size | Random size |
+| **Tap feedback** | Dùng `InkWell` / `GestureDetector` với ripple | Widget không có feedback |
+| **Smooth animation** | `AnimationController` 150–300ms | Instant state change |
+
+### Contrast & Theme
+| Rule | Do | Don't |
+|------|----|----|
+| **Text contrast** | Đảm bảo 4.5:1 ratio | Text màu nhạt trên nền nhạt |
+| **Dark mode** | Dùng `Theme.of(context)` colors | Hardcode màu hex |
+| **Opacity** | Card opacity ≥ 0.8 trong light mode | Quá trong suốt |
+
+### Layout
+| Rule | Do | Don't |
+|------|----|----|
+| **SafeArea** | Wrap screen với `SafeArea` | Để content bị che bởi notch/status bar |
+| **Scroll** | `SingleChildScrollView` hoặc `ListView` khi nội dung dài | Overflow |
+| **Responsive** | Dùng `MediaQuery` / `LayoutBuilder` | Hardcode width/height |
+
+---
+
+## 8) Pre-Delivery Checklist (Flutter)
+
+Trước khi deliver code UI, kiểm tra:
+
+### Visual Quality
+- [ ] Không dùng emoji làm icon — dùng `Icons.*` hoặc SVG
+- [ ] Màu sắc lấy từ `ThemeData` / `DESIGN.md`, không hardcode
+- [ ] Có tap/press feedback (InkWell, ripple, opacity)
+- [ ] Transition smooth (150–300ms)
+
+### Flutter-specific
+- [ ] Không có `RenderFlex overflow` trên màn hình nhỏ
+- [ ] Wrap với `SafeArea` ở screen gốc
+- [ ] Dùng `const` constructor khi có thể
+- [ ] Không rebuild không cần thiết (dùng `Consumer` đúng scope trong Riverpod)
+
+### Accessibility
+- [ ] `Semantics` label cho icon-only button
+- [ ] Contrast đủ 4.5:1
+- [ ] Không dùng màu là chỉ số duy nhất
+
+### Tích hợp
+- [ ] Route đã thêm vào `lib/core/router.dart`
+- [ ] File đặt đúng feature folder
+- [ ] Chạy `flutter analyze` không có error
+
+---
+
+## 9) Khi tạo màn hình mới
+
+Cấu trúc bắt buộc cho mỗi màn hình:
+```
+lib/features/<feature>/screens/<screen_name>/
+├── <screen_name>_screen.dart   ← file chính
+└── widgets/
+    ├── <widget_a>.dart
+    └── <widget_b>.dart
+```
+
+Các bước:
+1. Tạo **folder** `lib/features/<feature>/screens/<screen_name>/`
+2. Tạo `<screen_name>_screen.dart` bên trong folder đó
+3. Tạo subfolder `widgets/` và các widget con bên trong
+4. Thêm route trong `lib/core/router.dart`
+5. Chạy design system search (xem Mục 6)
+6. Follow `DESIGN.md`, import đúng path (relative import)
+
+**Ví dụ đúng:**
+```
+lib/features/customer/screens/home/
+├── home_screen.dart
+└── widgets/
+    ├── greeting_section.dart
+    └── recent_orders.dart
+```
+
+**KHÔNG làm thế này:**
+```
+lib/features/customer/screens/home_screen.dart     ← SAI (file rời, không có folder)
+lib/features/customer/widgets/greeting.dart        ← SAI (widget riêng của 1 màn hình không đặt đây)
+```
+
+---
+
+## 10) Git & Deploy
 - Không commit file `.env` hoặc credentials
 - `supabase_constants.dart` hiện hardcode key — cần chuyển sang `.env` trước khi deploy production
 - Chạy `flutter analyze` trước khi commit để check lỗi

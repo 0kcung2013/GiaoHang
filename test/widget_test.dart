@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:customer_app/features/onboarding/screens/onboarding_screen.dart';
+import 'package:customer_app/features/onboarding/screens/onboarding/onboarding_screen.dart';
 
 void main() {
   testWidgets('Onboarding screen renders core content', (

@@ -1,10 +1,14 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
   Future<void> signInWithGoogle() async {
-    await _supabase.auth.signInWithOAuth(OAuthProvider.google);
+    await _supabase.auth.signInWithOAuth(
+      OAuthProvider.google,
+      redirectTo: kIsWeb ? Uri.base.origin : null,
+    );
   }
 
   Future<void> signOut() async {

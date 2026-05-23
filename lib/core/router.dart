@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../features/admin/screens/admin_home_screen.dart';
-import '../features/auth/screens/login_screen.dart';
-import '../features/customer/screens/customer_home_screen.dart';
-import '../features/driver/screens/driver_home_screen.dart';
-import '../features/onboarding/screens/onboarding_screen.dart';
+import '../features/admin/screens/home/home_screen.dart';
+import '../features/auth/screens/login/login_screen.dart';
+import '../features/customer/screens/home/home_screen.dart';
+import '../features/driver/screens/home/home_screen.dart';
+import '../features/onboarding/screens/onboarding/onboarding_screen.dart';
 
 class _AuthStateNotifier extends ChangeNotifier {
   StreamSubscription? _subscription;
