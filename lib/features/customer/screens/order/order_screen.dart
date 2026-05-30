@@ -1,319 +1,195 @@
 import 'package:flutter/material.dart';
 
-class OrderScreen extends StatelessWidget {
+import '../../../../core/constants/colors.dart';
+
+// ── OrderScreen ──────────────────────────────────────────────────────────────
+//
+// Điểm đáng chú ý:
+//  • Chứa bộ lọc ngang nằm ngang (Tất cả / Đang giao / Hoàn thành / Huỷ).
+//  • Khi nhấn chọn tab, màu nền và màu chữ sẽ chuyển đổi bằng hiệu ứng động nhẹ nhàng.
+//  • Sử dụng thẻ đơn hàng bo góc 16px, viền mỏng và hiển thị đầy đủ thông tin:
+//    mã đơn, người nhận, địa chỉ giao hàng, thời gian và badge trạng thái.
+//  • Badge trạng thái sử dụng màu sematic đặc trưng (xanh / cam / đỏ / xám)
+//    với độ mờ 8% để chữ có độ tương phản và dễ chịu nhất.
+
+class OrderScreen extends StatefulWidget {
   const OrderScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return CustomScrollView(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              _AppSpacing.screenH,
-              _AppSpacing.lg,
-              _AppSpacing.screenH,
-              _AppSpacing.md,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Đơn hàng',
-                  style: TextStyle(
-                    fontSize: 22,
-                    height: 1.3,
-                    fontWeight: FontWeight.w700,
-                    color: _AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: _AppSpacing.xs),
-                const Text(
-                  'Theo dõi trạng thái và quản lý tất cả đơn giao của bạn.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.5,
-                    fontWeight: FontWeight.w400,
-                    color: _AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: _AppSpacing.lg),
-                const _OrdersSummaryCard(),
-                const SizedBox(height: _AppSpacing.lg),
-                const _OrderFilterRow(),
-                const SizedBox(height: _AppSpacing.xl),
-                _SectionTitle(
-                  title: 'Tất cả đơn hàng',
-                  actionLabel: 'Làm mới',
-                  onTap: () {},
-                ),
-                const SizedBox(height: _AppSpacing.md),
-              ],
-            ),
-          ),
-        ),
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: _AppSpacing.screenH),
-          sliver: SliverList.separated(
-            itemCount: _allOrders.length,
-            separatorBuilder: (context, index) =>
-                const SizedBox(height: _AppSpacing.md),
-            itemBuilder: (context, index) {
-              final order = _allOrders[index];
-              return _OrderCard(
-                order: order,
-                actionLabel:
-                    order.status == 'Hoàn thành' ? 'Đặt lại' : 'Chi tiết',
-                onTap: () {},
-              );
-            },
-          ),
-        ),
-        const SliverToBoxAdapter(
-          child: SizedBox(height: _AppSpacing.xl3),
-        ),
-      ],
-    );
-  }
+  State<OrderScreen> createState() => _OrderScreenState();
 }
 
-class _OrdersSummaryCard extends StatelessWidget {
-  const _OrdersSummaryCard();
+class _OrderScreenState extends State<OrderScreen> {
+  int _selectedFilterIndex = 0;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(_AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: _AppColors.primary,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: _AppShadow.card,
-      ),
-      child: const Row(
-        children: [
-          Expanded(
-            child: _SummaryItem(
-              label: 'Đang giao',
-              value: '03',
-              valueColor: _AppColors.textOnDark,
-            ),
-          ),
-          _SummaryDivider(),
-          Expanded(
-            child: _SummaryItem(
-              label: 'Hoàn thành',
-              value: '18',
-              valueColor: _AppColors.textOnDark,
-            ),
-          ),
-          _SummaryDivider(),
-          Expanded(
-            child: _SummaryItem(
-              label: 'Đã hủy',
-              value: '01',
-              valueColor: _AppColors.textOnDark,
-            ),
-          ),
-        ],
-      ),
-    );
+  static const List<String> _filters = ['Tất cả', 'Đang giao', 'Hoàn thành', 'Huỷ'];
+
+  static const List<_OrderCardData> _allOrders = [
+    _OrderCardData(
+      id: '#DH-20241',
+      recipient: 'Nguyễn Văn An',
+      address: '123 Lê Lợi, Quận 1, TP. Hồ Chí Minh',
+      time: '14:30 hôm nay',
+      status: 'Đang giao',
+      statusColor: NavColors.statusDelivering,
+    ),
+    _OrderCardData(
+      id: '#DH-20240',
+      recipient: 'Trần Thị Bích',
+      address: '45 Nguyễn Huệ, Quận 1, TP. Hồ Chí Minh',
+      time: '12:15 hôm nay',
+      status: 'Hoàn thành',
+      statusColor: NavColors.statusDone,
+    ),
+    _OrderCardData(
+      id: '#DH-20239',
+      recipient: 'Lê Minh Châu',
+      address: '789 Cách Mạng Tháng 8, Quận 3, TP. Hồ Chí Minh',
+      time: '10:00 hôm nay',
+      status: 'Huỷ',
+      statusColor: NavColors.statusCancelled,
+    ),
+    _OrderCardData(
+      id: '#DH-20238',
+      recipient: 'Phạm Quốc Duy',
+      address: '56 Võ Văn Tần, Quận 3, TP. Hồ Chí Minh',
+      time: 'Hôm qua 16:45',
+      status: 'Hoàn thành',
+      statusColor: NavColors.statusDone,
+    ),
+    _OrderCardData(
+      id: '#DH-20237',
+      recipient: 'Đỗ Thanh Tùng',
+      address: '11 Đinh Tiên Hoàng, Bình Thạnh, TP. Hồ Chí Minh',
+      time: 'Hôm qua 11:20',
+      status: 'Đang giao',
+      statusColor: NavColors.statusDelivering,
+    ),
+  ];
+
+  List<_OrderCardData> get _filteredOrders {
+    if (_selectedFilterIndex == 0) return _allOrders;
+    final String activeStatusLabel = _filters[_selectedFilterIndex];
+    return _allOrders.where((order) {
+      if (activeStatusLabel == 'Huỷ') {
+        return order.status == 'Huỷ';
+      }
+      return order.status == activeStatusLabel;
+    }).toList();
   }
-}
-
-class _SummaryItem extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color valueColor;
-
-  const _SummaryItem({
-    required this.label,
-    required this.value,
-    required this.valueColor,
-  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
-            color: valueColor,
+        // Title Screen
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 24, 20, 16),
+          child: Text(
+            'Đơn hàng',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: NavColors.textPrimary,
+              height: 1.3,
+            ),
           ),
         ),
-        const SizedBox(height: _AppSpacing.xs),
-        const Text(
-          '',
-          style: TextStyle(fontSize: 0),
-        ),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 12,
-            height: 1.4,
-            color: _AppColors.textOnDarkMuted,
+
+        // Filter Tabs Ngang
+        SizedBox(
+          height: 38,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: _filters.length,
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
+            itemBuilder: (context, i) {
+              final active = _selectedFilterIndex == i;
+              return GestureDetector(
+                onTap: () => setState(() => _selectedFilterIndex = i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: active ? NavColors.accent : Colors.transparent,
+                    borderRadius: BorderRadius.circular(999), // pill / badge radius
+                    border: active
+                        ? null
+                        : Border.all(color: NavColors.borderLight, width: 1),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _filters[i],
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                        color: active ? Colors.white : NavColors.textMuted,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ),
-      ],
-    );
-  }
-}
+        const SizedBox(height: 16),
 
-class _SummaryDivider extends StatelessWidget {
-  const _SummaryDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 42,
-      color: Colors.white.withValues(alpha: 0.14),
-    );
-  }
-}
-
-class _OrderFilterRow extends StatelessWidget {
-  const _OrderFilterRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Wrap(
-      spacing: _AppSpacing.sm,
-      runSpacing: _AppSpacing.sm,
-      children: [
-        _FilterChip(label: 'Tất cả', selected: true),
-        _FilterChip(label: 'Đang giao'),
-        _FilterChip(label: 'Hoàn thành'),
-        _FilterChip(label: 'Đã hủy'),
-      ],
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-
-  const _FilterChip({
-    required this.label,
-    this.selected = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: _AppSpacing.md,
-        vertical: _AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: selected ? _AppColors.primary : _AppColors.bgCard,
-        borderRadius: BorderRadius.circular(999),
-        border: selected ? null : Border.all(color: _AppColors.border),
-        boxShadow: selected ? _AppShadow.subtle : null,
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: selected ? _AppColors.textOnDark : _AppColors.textSecondary,
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  final String actionLabel;
-  final VoidCallback onTap;
-
-  const _SectionTitle({
-    required this.title,
-    required this.actionLabel,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
+        // List đơn hàng
         Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              height: 1.35,
-              fontWeight: FontWeight.w600,
-              color: _AppColors.textPrimary,
-            ),
-          ),
-        ),
-        GestureDetector(
-          onTap: onTap,
-          child: Text(
-            actionLabel,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: _AppColors.primary,
-            ),
-          ),
+          child: _filteredOrders.isEmpty
+              ? const _EmptyState()
+              : ListView.separated(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                  itemCount: _filteredOrders.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  itemBuilder: (context, i) {
+                    return _OrderCard(order: _filteredOrders[i]);
+                  },
+                ),
         ),
       ],
     );
   }
 }
 
+// ── Order Card ───────────────────────────────────────────────────────────────
 class _OrderCard extends StatelessWidget {
-  final _OrderVm order;
-  final String actionLabel;
-  final VoidCallback onTap;
+  final _OrderCardData order;
 
-  const _OrderCard({
-    required this.order,
-    required this.actionLabel,
-    required this.onTap,
-  });
+  const _OrderCard({required this.order});
 
   @override
   Widget build(BuildContext context) {
-    final badgeColor = _statusColor(order.status);
-
     return Container(
-      padding: const EdgeInsets.all(_AppSpacing.lg),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _AppColors.bgCard,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: _AppShadow.card,
+        color: NavColors.surface,
+        borderRadius: BorderRadius.circular(16), // card radius 16px
+        border: Border.all(color: NavColors.borderLight, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Mã đơn & Badge trạng thái
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Text(
-                  order.orderCode,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: _AppColors.textSecondary,
-                    letterSpacing: 0.2,
-                  ),
+              Text(
+                order.id,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: NavColors.textPrimary,
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: _AppSpacing.sm,
-                  vertical: 6,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: badgeColor.withValues(alpha: 0.15),
+                  color: order.statusColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
@@ -321,139 +197,65 @@ class _OrderCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: badgeColor,
+                    color: order.statusColor,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: _AppSpacing.md),
+          const SizedBox(height: 12),
+
+          // Tên người nhận
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: _AppSpacing.sm,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: _AppColors.accentLight,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  order.packageType,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: _AppColors.accent,
-                  ),
-                ),
-              ),
-              const SizedBox(width: _AppSpacing.sm),
+              const Icon(Icons.person_outline_rounded, size: 16, color: NavColors.textMuted),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  order.priceText,
-                  textAlign: TextAlign.end,
+                  order.recipient,
                   style: const TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: _AppColors.primary,
+                    fontWeight: FontWeight.w500,
+                    color: NavColors.textPrimary,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: _AppSpacing.md),
+          const SizedBox(height: 6),
+
+          // Địa chỉ giao
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Column(
-                children: [
-                  Icon(
-                    Icons.radio_button_checked_rounded,
-                    size: 14,
-                    color: _AppColors.markerPickup,
-                  ),
-                  SizedBox(
-                    height: 30,
-                    child: VerticalDivider(
-                      width: 20,
-                      thickness: 1.2,
-                      color: _AppColors.border,
-                    ),
-                  ),
-                  Icon(
-                    Icons.location_on_rounded,
-                    size: 16,
-                    color: _AppColors.markerDrop,
-                  ),
-                ],
-              ),
-              const SizedBox(width: _AppSpacing.sm),
+              const Icon(Icons.location_on_outlined, size: 16, color: NavColors.textMuted),
+              const SizedBox(width: 8),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      order.pickupAddress,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.4,
-                        color: _AppColors.textPrimary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: _AppSpacing.md),
-                    Text(
-                      order.deliveryAddress,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.4,
-                        color: _AppColors.textPrimary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                child: Text(
+                  order.address,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: NavColors.textMuted,
+                    height: 1.4,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: _AppSpacing.md),
+          const SizedBox(height: 6),
+
+          // Thời gian
           Row(
             children: [
-              const Icon(
-                Icons.access_time_rounded,
-                size: 16,
-                color: _AppColors.textMuted,
-              ),
-              const SizedBox(width: _AppSpacing.xs),
-              Expanded(
-                child: Text(
-                  order.timeText,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: _AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: onTap,
-                style: TextButton.styleFrom(
-                  foregroundColor: _AppColors.primary,
-                  minimumSize: const Size(0, 34),
-                  padding: const EdgeInsets.symmetric(horizontal: _AppSpacing.sm),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  actionLabel,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
+              const Icon(Icons.access_time_rounded, size: 16, color: NavColors.textMuted),
+              const SizedBox(width: 8),
+              Text(
+                order.time,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: NavColors.textMuted,
                 ),
               ),
             ],
@@ -462,117 +264,53 @@ class _OrderCard extends StatelessWidget {
       ),
     );
   }
+}
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'Đang lấy hàng':
-        return _AppColors.accent;
-      case 'Đang giao':
-        return _AppColors.info;
-      case 'Hoàn thành':
-        return _AppColors.success;
-      case 'Đã hủy':
-        return _AppColors.error;
-      default:
-        return _AppColors.warning;
-    }
+// ── Empty State ──────────────────────────────────────────────────────────────
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          Icon(
+            Icons.receipt_long_outlined,
+            size: 48,
+            color: NavColors.textMuted,
+          ),
+          SizedBox(height: 12),
+          Text(
+            'Không tìm thấy đơn hàng nào',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: NavColors.textMuted,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
-class _OrderVm {
-  final String orderCode;
+// ── Order Card Data Class ─────────────────────────────────────────────────────
+class _OrderCardData {
+  final String id;
+  final String recipient;
+  final String address;
+  final String time;
   final String status;
-  final String pickupAddress;
-  final String deliveryAddress;
-  final String timeText;
-  final String packageType;
-  final String priceText;
+  final Color statusColor;
 
-  const _OrderVm({
-    required this.orderCode,
+  const _OrderCardData({
+    required this.id,
+    required this.recipient,
+    required this.address,
+    required this.time,
     required this.status,
-    required this.pickupAddress,
-    required this.deliveryAddress,
-    required this.timeText,
-    required this.packageType,
-    required this.priceText,
+    required this.statusColor,
   });
-}
-
-const _allOrders = [
-  _OrderVm(
-    orderCode: '#GH-29041',
-    status: 'Đang lấy hàng',
-    pickupAddress: '12 Nguyễn Huệ, Quận 1, TP. HCM',
-    deliveryAddress: '89 Cộng Hòa, Tân Bình, TP. HCM',
-    timeText: 'Cập nhật 2 phút trước',
-    packageType: 'Hỏa tốc',
-    priceText: '45.000đ',
-  ),
-  _OrderVm(
-    orderCode: '#GH-29039',
-    status: 'Đang giao',
-    pickupAddress: '21 Lê Lợi, Quận 1, TP. HCM',
-    deliveryAddress: '37 Trường Chinh, Tân Phú, TP. HCM',
-    timeText: 'Cập nhật 7 phút trước',
-    packageType: 'Tiêu chuẩn',
-    priceText: '32.000đ',
-  ),
-  _OrderVm(
-    orderCode: '#GH-29022',
-    status: 'Đã hủy',
-    pickupAddress: '8 Pasteur, Quận 3, TP. HCM',
-    deliveryAddress: '222 Lũy Bán Bích, Tân Phú, TP. HCM',
-    timeText: 'Hôm qua, 18:40',
-    packageType: 'Hàng dễ vỡ',
-    priceText: '61.000đ',
-  ),
-  _OrderVm(
-    orderCode: '#GH-29010',
-    status: 'Hoàn thành',
-    pickupAddress: '145 Điện Biên Phủ, Bình Thạnh, TP. HCM',
-    deliveryAddress: '9 Hoàng Văn Thụ, Phú Nhuận, TP. HCM',
-    timeText: 'Hôm nay, 08:12',
-    packageType: 'Tài liệu',
-    priceText: '25.000đ',
-  ),
-];
-
-class _AppColors {
-  static const primary = Color(0xFF0F1B2D);
-  static const accent = Color(0xFFFF6B35);
-  static const accentLight = Color(0xFFFFEDE6);
-  static const success = Color(0xFF10B981);
-  static const warning = Color(0xFFF59E0B);
-  static const error = Color(0xFFEF4444);
-  static const info = Color(0xFF3B82F6);
-  static const bgCard = Color(0xFFFFFFFF);
-  static const textPrimary = Color(0xFF0F172A);
-  static const textSecondary = Color(0xFF475569);
-  static const textMuted = Color(0xFF94A3B8);
-  static const textOnDark = Color(0xFFF1F5F9);
-  static const textOnDarkMuted = Color(0xFFCBD5E1);
-  static const border = Color(0xFFE2E8F0);
-  static const markerPickup = Color(0xFF3B82F6);
-  static const markerDrop = Color(0xFFFF6B35);
-}
-
-class _AppSpacing {
-  static const xs = 4.0;
-  static const sm = 8.0;
-  static const md = 12.0;
-  static const lg = 16.0;
-  static const xl = 20.0;
-  static const xl3 = 32.0;
-  static const screenH = 20.0;
-}
-
-class _AppShadow {
-  static const subtle = [
-    BoxShadow(color: Color(0x0F000000), blurRadius: 8, offset: Offset(0, 2)),
-  ];
-
-  static const card = [
-    BoxShadow(color: Color(0x14000000), blurRadius: 16, offset: Offset(0, 4)),
-  ];
 }

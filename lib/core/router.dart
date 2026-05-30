@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../features/admin/screens/home/home_screen.dart';
 import '../features/auth/screens/login/login_screen.dart';
+import '../features/customer/screens/create_order/create_order_screen.dart';
 import '../features/customer/screens/home/home_screen.dart';
 import '../features/driver/screens/home/home_screen.dart';
 import '../features/onboarding/screens/onboarding/onboarding_screen.dart';
@@ -82,6 +83,10 @@ GoRouter createRouter({required String initialLocation}) {
       GoRoute(
         path: '/customer-home',
         builder: (_, _) => const CustomerHomeScreen(),
+      ),
+      GoRoute(
+        path: '/customer/create-order',
+        builder: (_, _) => const CreateOrderScreen(),
       ),
       GoRoute(
         path: '/driver-home',

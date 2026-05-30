@@ -1,15 +1,27 @@
 # DATN — Hệ thống Giao Hàng Thông Minh
 
+## Architecture Decision
+
+Project này là **một Flutter app duy nhất** cho 3 role: customer, driver, admin.
+Không tách repo thành `customer_app/`, `driver_app/`, `admin_web/`, hoặc `shared/` trong giai đoạn hiện tại.
+Nếu có ví dụ tài liệu cũ nhắc đến cấu trúc nhiều app, hiểu đó là lịch sử/ý tưởng cũ và không dùng cho cleanup hiện tại.
+
 ## Mô tả Project
 Ứng dụng giao hàng gồm 3 giao diện: khách hàng đặt đơn, tài xế nhận & giao hàng, admin quản lý hệ thống. Tích hợp bản đồ thực tế và thuật toán tối ưu route giao hàng.
 
 ## Kiến trúc Hệ thống
 ```
-DATN/
-├── customer_app/     # Flutter mobile - Khách hàng đặt hàng
-├── driver_app/       # Flutter mobile - Tài xế nhận & giao đơn
-├── admin_web/        # Flutter web - Quản trị hệ thống
-└── shared/           # Shared models, constants, utils dùng chung
+GiaoHang/
+├── lib/
+│   ├── main.dart
+│   ├── core/              # router, constants, models, services, providers dùng chung
+│   └── features/          # admin, auth, customer, driver, onboarding
+├── test/
+├── android/ ios/ web/ ... # Flutter platform folders
+├── AGENTS.md
+├── DESIGN.md
+├── README.md
+└── ROADMAP.md
 ```
 
 ## Tech Stack
@@ -18,7 +30,7 @@ DATN/
 - **Bản đồ**: flutter_map + OpenStreetMap (tiles)
 - **Routing API**: OSRM (Open Source Routing Machine) — miễn phí
 - **Thuật toán**: VRP (Vehicle Routing Problem) / Nearest Neighbor + 2-opt
-- **State Management**: Riverpod hoặc Bloc
+- **State Management**: Riverpod preferred. Không thêm Bloc nếu chưa có lý do rõ ràng.
 - **Realtime**: Supabase Realtime (WebSocket) cho tracking tài xế
 
 ## Commands
@@ -89,6 +101,8 @@ Project đã kết nối Supabase MCP — có thể dùng AI để:
 - Query data kiểm tra
 - Tạo Edge Functions nếu cần
 
+Quan trọng: không thay đổi Supabase schema, RLS policies, migrations, Edge Functions, hoặc database fields nếu chưa được hỏi và chấp thuận riêng.
+
 ## Conventions
 - Đặt tên file: `snake_case.dart`
 - Đặt tên class: `PascalCase`
@@ -103,6 +117,8 @@ Project đã kết nối Supabase MCP — có thể dùng AI để:
 - Supabase URL và anon key lưu trong `.env` — không commit lên Git
 - RLS phải bật cho tất cả bảng trước khi deploy
 
+Current runtime note: project hiện vẫn đọc Supabase URL/anon key từ `lib/core/constants/supabase_constants.dart`. Việc chuyển sang `.env` là cleanup riêng trong tương lai; không đổi runtime config trong Phase 1.
+
 
 ## UI Design Rules
 - Luôn đọc DESIGN.md trước khi tạo hoặc sửa bất kỳ UI nào
@@ -110,3 +126,8 @@ Project đã kết nối Supabase MCP — có thể dùng AI để:
 - Không dùng Material default widget thuần túy
 - Áp dụng màu sắc, typography, spacing từ DESIGN.md
 - Target: premium mobile app aesthetic
+
+## Design Token Direction
+- Preferred design system: `AppColors`, `AppTextStyles`, `AppSpacing`, `AppRadius` trong `lib/core/constants/app_theme.dart`.
+- `NavColors` và `OrderColors` đang tồn tại để hỗ trợ UI hiện có; không xóa hoặc migrate hàng loạt trong Phase 1.
+- Khi tạo UI mới, ưu tiên token trong `app_theme.dart`.

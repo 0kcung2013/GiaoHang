@@ -8,6 +8,8 @@
 
 Hiện tại project đang ở giai đoạn nền tảng, đã có onboarding, Google OAuth với Supabase, routing theo role, và các màn hình home placeholder cho từng role.
 
+> Architecture decision: project này là **một Flutter app duy nhất** cho 3 role. Không tách repo thành `customer_app/`, `driver_app/`, `admin_web/`, hoặc `shared/`.
+
 ---
 
 ## 1. Tech stack thực tế
@@ -46,25 +48,30 @@ Hiện tại project đang ở giai đoạn nền tảng, đã có onboarding, G
 │   ├── core/
 │   │   ├── router.dart
 │   │   ├── constants/
-│   │   │   └── supabase_constants.dart
+│   │   ├── models/
+│   │   ├── providers/
 │   │   └── services/
-│   │       └── auth_service.dart
 │   └── features/
 │       ├── admin/
 │       │   └── screens/
-│       │       └── admin_home_screen.dart
+│       │       └── home/home_screen.dart
 │       ├── auth/
 │       │   └── screens/
-│       │       └── login_screen.dart
+│       │       └── login/login_screen.dart
 │       ├── customer/
 │       │   └── screens/
-│       │       └── customer_home_screen.dart
+│       │       ├── home/home_screen.dart
+│       │       ├── dashboard/dashboard_screen.dart
+│       │       ├── order/order_screen.dart
+│       │       ├── tracking/tracking_screen.dart
+│       │       ├── account/account_screen.dart
+│       │       └── create_order/create_order_screen.dart
 │       ├── driver/
 │       │   └── screens/
-│       │       └── driver_home_screen.dart
+│       │       └── home/home_screen.dart
 │       └── onboarding/
 │           └── screens/
-│               └── onboarding_screen.dart
+│               └── onboarding/onboarding_screen.dart
 ├── test/
 │   └── widget_test.dart
 ├── web/
@@ -96,24 +103,27 @@ Project hiện tại đang theo hướng **feature-first cơ bản**:
 - `lib/core/` chứa phần dùng chung:
   - `router.dart`
   - `constants/`
+  - `models/`
+  - `providers/`
   - `services/`
 
 Tuy nhiên kiến trúc vẫn còn ở mức khởi tạo:
-- Chưa có `models/`
-- Chưa có `widgets/` riêng cho từng feature
+- Đã có `models/`, `services/`, và một số Riverpod providers trong `core`
+- Một số `widgets/` folder đang trống hoặc chưa dùng
 - Chưa có tầng data/domain/presentation rõ ràng
-- Nhiều màn hình vẫn là placeholder
+- Một số màn hình vẫn là placeholder hoặc mock data
 
 ---
 
 ## 4. State management, navigation, backend
 
 ### State management
-- Package đang khai báo: `riverpod`
-- Thực tế code hiện tại: **chưa dùng Riverpod**
+- Package đang khai báo: `riverpod` / `flutter_riverpod`
+- Thực tế code hiện tại: **đã dùng Riverpod một phần**
 - State đang quản lý chủ yếu bằng:
   - `StatefulWidget`
   - `setState`
+  - `FutureProvider.family` cho một số dữ liệu customer
 
 ### Navigation
 - Dùng `go_router`
@@ -161,19 +171,23 @@ Tuy nhiên kiến trúc vẫn còn ở mức khởi tạo:
 - `main.dart`
 - `core/router.dart`
 - `core/constants/supabase_constants.dart`
-- `core/services/auth_service.dart`
-- `features/onboarding/screens/onboarding_screen.dart`
-- `features/auth/screens/login_screen.dart`
-- `features/customer/screens/customer_home_screen.dart`
-- `features/driver/screens/driver_home_screen.dart`
-- `features/admin/screens/admin_home_screen.dart`
+- `core/constants/app_theme.dart`
+- `core/constants/colors.dart`
+- `core/models/`
+- `core/providers/customer_providers.dart`
+- `core/services/`
+- `features/onboarding/screens/onboarding/onboarding_screen.dart`
+- `features/auth/screens/login/login_screen.dart`
+- `features/customer/screens/`
+- `features/driver/screens/home/home_screen.dart`
+- `features/admin/screens/home/home_screen.dart`
 
 ### Chưa có hoặc còn thiếu
-- `lib/core/models/`
-- `lib/features/*/widgets/`
+- Tầng data/domain/presentation rõ ràng theo feature
+- Shared widgets ổn định cho UI lặp lại
 - Các màn hình nghiệp vụ thực tế:
-  - đặt đơn
-  - theo dõi đơn
+  - đặt đơn có chọn tọa độ/bản đồ thật
+  - theo dõi đơn bằng dữ liệu realtime thật
   - danh sách đơn cho tài xế
   - dashboard admin
 - Tests ngoài `widget_test.dart`
@@ -208,10 +222,12 @@ flutter build web
 ## 9. Những điểm cần chú ý ngay
 
 1. `supabase_constants.dart` đang hardcode Supabase URL và anon key
-2. `riverpod` đã khai báo nhưng chưa được dùng thực tế
+2. `riverpod` đã được dùng một phần, nhưng chưa nhất quán toàn app
 3. `google_sign_in` đã cài nhưng flow login đang phụ thuộc vào Supabase OAuth
-4. Các màn hình `customer_home`, `driver_home`, `admin_home` vẫn chỉ là placeholder
-5. `README.md` trước đó gần như trống, đã được cập nhật lại để phản ánh đúng hiện trạng project
+4. Nhiều màn hình customer vẫn còn mock data/hardcoded UI
+5. `driver_home` và `admin_home` vẫn chỉ là placeholder
+6. Design token đang bị chia giữa `AppColors`, `NavColors`, và `OrderColors`
+7. Trước khi ghi dữ liệu, cần kiểm tra schema compatibility trong `docs/CLEANUP_PLAN.md`
 
 ---
 
@@ -226,6 +242,12 @@ flutter build web
 4. Hoàn thiện luồng Google OAuth ổn định cho web/mobile
 5. Tạo model + service cho `users`, `orders`, `drivers`
 6. Chuẩn hóa state management bằng Riverpod
+
+### Cleanup notes
+- Preferred design tokens: `AppColors`, `AppTextStyles`, `AppSpacing`, `AppRadius` từ `lib/core/constants/app_theme.dart`
+- Không xóa `NavColors` hoặc `OrderColors` trong Phase 1
+- Supabase URL/anon key nên chuyển sang `.env` trong cleanup riêng sau này; hiện chưa đổi runtime config
+- Xem thêm: `docs/CLEANUP_PLAN.md`
 
 ---
 

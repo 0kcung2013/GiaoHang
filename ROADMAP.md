@@ -1,5 +1,9 @@
 # ROADMAP — DATN Hệ thống Giao Hàng Thông Minh
 
+> Architecture decision: giữ project là **một Flutter app duy nhất** cho 3 role customer, driver, admin. Không split repo thành nhiều app trong roadmap hiện tại.
+
+> Safety rule: không thay đổi Supabase schema, RLS, migrations, Edge Functions, hoặc database fields nếu chưa có approval riêng.
+
 ## ✅ Đã hoàn thành
 - [x] Cấu trúc project (1 project, 3 role)
 - [x] Supabase database schema (6 bảng + RLS)
@@ -8,6 +12,33 @@
 - [x] Google OAuth login
 - [x] Routing theo role (customer / driver / admin)
 - [x] Placeholder home screen cho 3 role
+- [x] Phase 1 cleanup documentation: single-app alignment, cleanup checklist, schema compatibility checklist
+
+---
+
+## 🧹 Cleanup Track
+
+### Phase 1 — Safe cleanup
+- [x] Align `AGENTS.md`, `README.md`, `ROADMAP.md`, and `DESIGN.md` around single-app architecture
+- [x] Add `docs/CLEANUP_PLAN.md`
+- [x] Mark empty folders and likely unused widget files without deleting
+- [x] Document design token consolidation direction
+- [x] Document Supabase schema compatibility checklist
+- [x] Note future `.env` migration for Supabase URL/anon key without changing runtime config
+
+### Phase 2 — UI/widget refactor
+- [ ] Migrate one customer screen at a time toward `AppColors`, `AppTextStyles`, `AppSpacing`, `AppRadius`
+- [ ] Extract repeated UI widgets only after checking current screen behavior
+- [ ] Keep `NavColors` and `OrderColors` until each dependent screen is migrated and verified
+
+### Phase 3 — State/data layer cleanup
+- [ ] Verify live Supabase schema before changing service payloads
+- [ ] Move customer-specific providers/services toward feature-owned data folders if needed
+- [ ] Add focused tests for model parsing and order payload generation
+
+### Phase 4 — Future feature readiness
+- [ ] Add role-guarded feature routes carefully
+- [ ] Prepare map/routing/realtime modules after UI/data cleanup
 
 ---
 
@@ -123,15 +154,16 @@
 **Bước tiếp theo được đề xuất:**
 
 ```
-1. Thiết kế Customer Home Screen
-2. Tích hợp flutter_map cơ bản
-3. Màn hình đặt đơn hàng
+1. Phase 2 UI cleanup: chọn 1 màn hình customer để migrate token an toàn
+2. Sau đó mới tích hợp flutter_map cơ bản
+3. Sau đó hoàn thiện màn hình đặt đơn hàng với tọa độ thật
 ```
 
 Prompt gợi ý cho bước tiếp:
 ```
-Đọc AGENTS.md và DESIGN.md, tạo Customer Home Screen 
-tại lib/features/customer/screens/customer_home_screen.dart
+Đọc AGENTS.md, DESIGN.md, và docs/CLEANUP_PLAN.md.
+Refactor UI một màn hình customer sang AppColors/AppTextStyles/AppSpacing/AppRadius.
+Không thay đổi runtime behavior hoặc Supabase schema.
 ```
 
 ---
@@ -143,6 +175,7 @@ tại lib/features/customer/screens/customer_home_screen.dart
 | `AGENTS.md` | Context project cho AI |
 | `DESIGN.md` | Design system UI |
 | `ROADMAP.md` | File này — theo dõi tiến độ |
+| `docs/CLEANUP_PLAN.md` | Checklist cleanup và schema compatibility |
 | `lib/core/router.dart` | Routing theo role |
 | `lib/core/services/auth_service.dart` | Google OAuth |
 

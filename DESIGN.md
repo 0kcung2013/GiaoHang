@@ -1,5 +1,13 @@
 # DATN — Hệ thống Giao Hàng Thông Minh
 
+## Phase 1 Documentation Note
+
+- Project hiện là **một Flutter app duy nhất** cho 3 role: customer, driver, admin.
+- Không split repo thành `customer_app/`, `driver_app/`, `admin_web/`, hoặc `shared/`.
+- Preferred design tokens cho UI mới/refactor: `AppColors`, `AppTextStyles`, `AppSpacing`, `AppRadius` trong `lib/core/constants/app_theme.dart`.
+- `NavColors` và `OrderColors` đang hỗ trợ UI hiện có. Không xóa hoặc migrate hàng loạt trong Phase 1.
+- Phase 1 chỉ align tài liệu và checklist; không đổi runtime UI.
+
 ## Mô tả Project
 Ứng dụng giao hàng 1 Flutter project duy nhất, hỗ trợ 3 loại người dùng: khách hàng đặt đơn, tài xế nhận & giao hàng, admin quản lý hệ thống. Sau khi đăng nhập, app tự động điều hướng đến giao diện đúng theo role.
 
