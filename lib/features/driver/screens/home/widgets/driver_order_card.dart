@@ -11,11 +11,7 @@ class DriverOrderCard extends ConsumerStatefulWidget {
   final OrderModel order;
   final String? acceptDriverId;
 
-  const DriverOrderCard({
-    super.key,
-    required this.order,
-    this.acceptDriverId,
-  });
+  const DriverOrderCard({super.key, required this.order, this.acceptDriverId});
 
   @override
   ConsumerState<DriverOrderCard> createState() => _DriverOrderCardState();
@@ -23,6 +19,7 @@ class DriverOrderCard extends ConsumerStatefulWidget {
 
 class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
   bool _isAccepting = false;
+  bool _isUpdatingStatus = false;
 
   Future<void> _acceptOrder() async {
     final driverId = widget.acceptDriverId;
@@ -45,6 +42,38 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
     }
   }
 
+  Future<void> _updateOrderStatus() async {
+    final driverId = widget.order.driverId;
+    if (_isUpdatingStatus || driverId == null || driverId.isEmpty) return;
+
+    setState(() => _isUpdatingStatus = true);
+    try {
+      final nextStatus = await ref
+          .read(customerOrderServiceProvider)
+          .updateDriverOrderStatus(
+            orderId: widget.order.id,
+            driverId: driverId,
+            currentStatus: widget.order.status,
+          );
+      ref.invalidate(availableOrdersProvider);
+      ref.invalidate(driverOrdersProvider(driverId));
+      ref.invalidate(orderByIdProvider(widget.order.id));
+      if (!mounted) return;
+      final message = nextStatus == 'delivered'
+          ? 'Đã hoàn tất giao hàng.'
+          : 'Đã cập nhật trạng thái đơn hàng.';
+      _showSnackBar(message);
+    } catch (_) {
+      if (!mounted) return;
+      _showSnackBar(
+        'Không thể cập nhật trạng thái. Vui lòng thử lại.',
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _isUpdatingStatus = false);
+    }
+  }
+
   void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -60,6 +89,10 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
     final order = widget.order;
     final color = statusColor(order.status);
     final canAccept = widget.acceptDriverId != null && isAvailableOrder(order);
+    final statusActionLabel = driverOrderStatusActionLabel(order.status);
+    final canUpdateStatus =
+        !canAccept && statusActionLabel != null && order.driverId != null;
+    final hasAction = canAccept || canUpdateStatus;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -74,7 +107,7 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
           // Status accent bar
           Container(
             width: 3,
-            height: canAccept ? 138 : 110,
+            height: hasAction ? 138 : 110,
             decoration: BoxDecoration(
               color: color,
               borderRadius: AppRadius.full,
@@ -137,6 +170,10 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                       icon: Icons.local_shipping_rounded,
                       text: serviceTypeLabel(order.serviceType),
                     ),
+                    _MetaPill(
+                      icon: Icons.access_time_rounded,
+                      text: createdTimeText(order),
+                    ),
                   ],
                 ),
                 if (canAccept) ...[
@@ -144,6 +181,14 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                   _AcceptOrderButton(
                     isLoading: _isAccepting,
                     onTap: _isAccepting ? null : _acceptOrder,
+                  ),
+                ],
+                if (canUpdateStatus) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  _UpdateOrderStatusButton(
+                    label: statusActionLabel,
+                    isLoading: _isUpdatingStatus,
+                    onTap: _isUpdatingStatus ? null : _updateOrderStatus,
                   ),
                 ],
               ],
@@ -201,6 +246,70 @@ class _AcceptOrderButton extends StatelessWidget {
                 const SizedBox(width: AppSpacing.xs),
                 Text(
                   isLoading ? 'Đang nhận...' : 'Nhận đơn',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.textOnAccent,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UpdateOrderStatusButton extends StatelessWidget {
+  final String label;
+  final bool isLoading;
+  final VoidCallback? onTap;
+
+  const _UpdateOrderStatusButton({
+    required this.label,
+    required this.isLoading,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Material(
+        color: onTap == null
+            ? AppColors.textMuted.withValues(alpha: 0.24)
+            : AppColors.accent,
+        borderRadius: AppRadius.full,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: AppRadius.full,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.sm,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isLoading)
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.textOnAccent,
+                    ),
+                  )
+                else
+                  const Icon(
+                    Icons.local_shipping_rounded,
+                    color: AppColors.textOnAccent,
+                    size: 17,
+                  ),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  isLoading ? 'Đang cập nhật...' : label,
                   style: AppTextStyles.labelSmall.copyWith(
                     color: AppColors.textOnAccent,
                     fontWeight: FontWeight.w700,

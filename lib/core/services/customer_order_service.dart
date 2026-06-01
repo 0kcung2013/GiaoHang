@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/order_item_model.dart';
@@ -115,6 +116,10 @@ class CustomerOrderService {
 
   Future<List<OrderModel>> getAvailableOrders() async {
     try {
+      _debugLogOrderQuery(
+        'available:start authUser=${_supabase.auth.currentUser?.id ?? 'none'} '
+        'statuses=$_statusPending,$_statusConfirmed driver_id=null',
+      );
       final response = await _supabase
           .from(_ordersTable)
           .select()
@@ -122,17 +127,25 @@ class CustomerOrderService {
           .order('created_at', ascending: false)
           .limit(20);
 
-      return response
+      final orders = response
           .map(OrderModel.fromJson)
           .where((order) => order.driverId == null || order.driverId!.isEmpty)
           .toList();
+      _debugLogOrders('available:result', orders);
+      return orders;
     } catch (error) {
+      _debugLogOrderQuery('available:error $error');
       throw Exception('Failed to load available driver orders: $error');
     }
   }
 
   Future<List<OrderModel>> getDriverOrders(String driverId) async {
     try {
+      _debugLogOrderQuery(
+        'driver:start authUser=${_supabase.auth.currentUser?.id ?? 'none'} '
+        'driverId=$driverId statuses='
+        '$_statusAssigned,$_statusPickingUp,$_statusDelivering,$_statusDelivered',
+      );
       final response = await _supabase
           .from(_ordersTable)
           .select()
@@ -145,8 +158,11 @@ class CustomerOrderService {
           ])
           .order('created_at', ascending: false);
 
-      return response.map(OrderModel.fromJson).toList();
+      final orders = response.map(OrderModel.fromJson).toList();
+      _debugLogOrders('driver:result', orders);
+      return orders;
     } catch (error) {
+      _debugLogOrderQuery('driver:error $error');
       throw Exception('Failed to load driver orders: $error');
     }
   }
@@ -183,6 +199,58 @@ class CustomerOrderService {
       );
     } catch (error) {
       throw Exception('Failed to accept driver order: $error');
+    }
+  }
+
+  Future<String> updateDriverOrderStatus({
+    required String orderId,
+    required String driverId,
+    required String currentStatus,
+  }) async {
+    final normalizedOrderId = orderId.trim();
+    final normalizedDriverId = driverId.trim();
+    final normalizedCurrentStatus = currentStatus.trim();
+    final nextStatus = _nextDriverOrderStatus(normalizedCurrentStatus);
+
+    if (normalizedOrderId.isEmpty || normalizedDriverId.isEmpty) {
+      throw Exception('Order id and driver id are required.');
+    }
+    if (nextStatus == null) {
+      throw Exception('This order status cannot be updated by the driver.');
+    }
+    if (_supabase.auth.currentUser?.id != normalizedDriverId) {
+      throw Exception(
+        'Only the assigned authenticated driver can update this order.',
+      );
+    }
+
+    try {
+      final updatedAt = DateTime.now().toIso8601String();
+      final response = await _supabase
+          .from(_ordersTable)
+          .update({'status': nextStatus, 'updated_at': updatedAt})
+          .eq('id', normalizedOrderId)
+          .eq('driver_id', normalizedDriverId)
+          .eq('status', normalizedCurrentStatus)
+          .select('id')
+          .maybeSingle();
+
+      if (response == null) {
+        throw Exception(
+          'Order status has changed or the order is not assigned to this driver.',
+        );
+      }
+
+      await _createOrderStatusLog(
+        orderId: normalizedOrderId,
+        status: nextStatus,
+        title: _driverStatusLogTitle(nextStatus),
+        description: _driverStatusLogDescription(nextStatus),
+      );
+
+      return nextStatus;
+    } catch (error) {
+      throw Exception('Failed to update driver order status: $error');
     }
   }
 
@@ -371,6 +439,46 @@ class CustomerOrderService {
   void _removeEmptyGeneratedId(Map<String, dynamic> json) {
     if ((json['id'] as String?)?.isEmpty ?? true) {
       json.remove('id');
+    }
+  }
+
+  String? _nextDriverOrderStatus(String status) {
+    return switch (status) {
+      _statusAssigned => _statusPickingUp,
+      _statusPickingUp => _statusDelivering,
+      _statusDelivering => _statusDelivered,
+      _ => null,
+    };
+  }
+
+  String _driverStatusLogTitle(String status) {
+    return switch (status) {
+      _statusPickingUp => 'Tài xế bắt đầu lấy hàng',
+      _statusDelivering => 'Tài xế đã lấy hàng',
+      _statusDelivered => 'Đơn hàng đã giao thành công',
+      _ => 'Trạng thái đơn hàng đã cập nhật',
+    };
+  }
+
+  String _driverStatusLogDescription(String status) {
+    return switch (status) {
+      _statusPickingUp => 'Tài xế đang di chuyển đến điểm lấy hàng.',
+      _statusDelivering => 'Tài xế đã nhận hàng và bắt đầu giao.',
+      _statusDelivered => 'Tài xế đã hoàn tất giao hàng.',
+      _ => 'Trạng thái đơn hàng đã được cập nhật.',
+    };
+  }
+
+  void _debugLogOrders(String label, List<OrderModel> orders) {
+    _debugLogOrderQuery(
+      '$label count=${orders.length} '
+      'orders=${orders.map((order) => '${order.id}:${order.status}:${order.driverId ?? 'null'}').join(',')}',
+    );
+  }
+
+  void _debugLogOrderQuery(String message) {
+    if (kDebugMode) {
+      debugPrint('[DriverOrders] $message');
     }
   }
 }

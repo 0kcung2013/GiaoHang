@@ -52,6 +52,15 @@ bool isActiveDriverOrder(OrderModel order) {
       order.status == 'delivering';
 }
 
+String? driverOrderStatusActionLabel(String status) {
+  return switch (status) {
+    'assigned' => 'Bắt đầu lấy hàng',
+    'picking_up' => 'Đã lấy hàng',
+    'delivering' => 'Hoàn tất giao hàng',
+    _ => null,
+  };
+}
+
 bool isAvailableOrder(OrderModel order) {
   return (order.driverId == null || order.driverId!.isEmpty) &&
       (order.status == 'pending' || order.status == 'confirmed');
@@ -67,6 +76,18 @@ String priceText(OrderModel order) {
   final amount = order.totalPrice ?? order.deliveryFee;
   if (amount <= 0) return 'Chưa tính phí';
   return '${amount.toStringAsFixed(0)}đ';
+}
+
+String createdTimeText(OrderModel order) {
+  final createdAt = order.createdAt;
+  if (createdAt.millisecondsSinceEpoch == 0) return 'Chưa có thời gian';
+
+  final local = createdAt.toLocal();
+  final day = local.day.toString().padLeft(2, '0');
+  final month = local.month.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$day/$month $hour:$minute';
 }
 
 String serviceTypeLabel(String value) {

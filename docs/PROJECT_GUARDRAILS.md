@@ -68,6 +68,44 @@ Permanent source of truth for future Codex sessions. This file contains only non
 - Do not split the app or repository without explicit approval.
 - Do not change runtime configuration or secret-loading strategy without explicit approval.
 
+## File Size Rules
+
+- Do not create God files.
+- One screen file should mainly own `Scaffold`, top-level layout, navigation entry points, and provider wiring.
+- Do not put all UI, state handling, dialogs, cards, formatters, filters, and actions into one screen file.
+- Extract reusable UI into `widgets/` folders.
+- Extract formatting/date/currency/status helpers into `utils/` folders.
+- Extract dialogs into `dialogs/` folders or separate widget files.
+- Extract filter/tab state helpers when they grow beyond trivial local state.
+- Prefer files under 300-400 lines.
+- Any file over 500 lines must be treated as a refactor candidate.
+- Any file over 800 lines must not receive new features until it is split.
+- Do not add new features into `lib/features/customer/screens/tracking/tracking_screen.dart` or `lib/features/customer/screens/order/order_screen.dart` until they are refactored.
+- When implementing features, report if any touched file exceeds 400 lines.
+- Before modifying a large file, propose a split plan first.
+
+Recommended customer order structure:
+
+```text
+lib/features/customer/screens/order/
+├── order_screen.dart
+├── widgets/
+├── dialogs/
+├── utils/
+└── models/
+```
+
+Recommended customer tracking structure:
+
+```text
+lib/features/customer/screens/tracking/
+├── tracking_screen.dart
+├── widgets/
+├── dialogs/
+├── utils/
+└── models/
+```
+
 ## Session Rules
 
 Before any task, identify:

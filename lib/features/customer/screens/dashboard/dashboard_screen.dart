@@ -900,10 +900,10 @@ String _statusLabel(String status) {
   return switch (status) {
     'pending' => 'Chờ xác nhận',
     'confirmed' => 'Đã xác nhận',
-    'assigned' => 'Đã phân công',
-    'picking_up' => 'Đang lấy',
-    'delivering' => 'Đang giao',
-    'delivered' => 'Hoàn thành',
+    'assigned' => 'Tài xế đã nhận đơn',
+    'picking_up' => 'Tài xế đang đến lấy hàng',
+    'delivering' => 'Đang giao hàng',
+    'delivered' => 'Giao hàng thành công',
     'cancelled' => 'Huỷ',
     _ => 'Không rõ',
   };
