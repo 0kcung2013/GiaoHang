@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_theme.dart';
+import '../../../../core/services/auth_service.dart';
 
-class AccountScreen extends StatelessWidget {
+class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
 
+  @override
+  State<AccountScreen> createState() => _AccountScreenState();
+}
+
+class _AccountScreenState extends State<AccountScreen> {
   static const List<_MenuItemData> _menuItems = [
     _MenuItemData(
       icon: Icons.person_outline_rounded,
@@ -14,6 +21,52 @@ class AccountScreen extends StatelessWidget {
     _MenuItemData(icon: Icons.history_rounded, label: 'Lịch sử đơn hàng'),
     _MenuItemData(icon: Icons.settings_outlined, label: 'Cài đặt'),
   ];
+
+  bool _isSigningOut = false;
+
+  Future<void> _confirmAndSignOut() async {
+    if (_isSigningOut) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Đăng xuất?'),
+          content: const Text(
+            'Bạn có chắc muốn đăng xuất khỏi tài khoản này không?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Hủy'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Đăng xuất'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isSigningOut = true);
+    try {
+      await AuthService().signOut();
+      if (!mounted) return;
+      context.go('/login');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isSigningOut = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể đăng xuất. Vui lòng thử lại.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +102,10 @@ class AccountScreen extends StatelessWidget {
                   SizedBox(height: layout.profileGap),
                   _MenuSection(items: _menuItems),
                   const SizedBox(height: AppSpacing.md),
-                  const _LogoutRow(),
+                  _LogoutRow(
+                    isSigningOut: _isSigningOut,
+                    onTap: _isSigningOut ? null : _confirmAndSignOut,
+                  ),
                 ],
               ),
             ),
@@ -246,7 +302,8 @@ class _MenuItem extends StatelessWidget {
   final bool showChevron;
   final Color foregroundColor;
   final Color splashColor;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final Widget? trailing;
 
   const _MenuItem({
     required this.data,
@@ -255,6 +312,7 @@ class _MenuItem extends StatelessWidget {
     this.showChevron = true,
     this.foregroundColor = AppColors.textPrimary,
     this.splashColor = AppColors.accentLight,
+    this.trailing,
   });
 
   @override
@@ -285,7 +343,9 @@ class _MenuItem extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (showChevron)
+                  if (trailing != null)
+                    trailing!
+                  else if (showChevron)
                     const Icon(
                       Icons.chevron_right_rounded,
                       color: AppColors.textMuted,
@@ -304,7 +364,10 @@ class _MenuItem extends StatelessWidget {
 }
 
 class _LogoutRow extends StatelessWidget {
-  const _LogoutRow();
+  final bool isSigningOut;
+  final VoidCallback? onTap;
+
+  const _LogoutRow({required this.isSigningOut, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -318,9 +381,14 @@ class _LogoutRow extends StatelessWidget {
         showChevron: false,
         foregroundColor: AppColors.error,
         splashColor: AppColors.error.withValues(alpha: 0.08),
-        onTap: () {
-          // TODO: xử lý đăng xuất
-        },
+        trailing: isSigningOut
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : null,
+        onTap: onTap,
       ),
     );
   }

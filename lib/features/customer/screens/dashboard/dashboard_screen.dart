@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_theme.dart';
+import '../../../../core/models/order_model.dart';
+import '../../../../core/providers/customer_providers.dart';
 
-// ── DashboardScreen ──────────────────────────────────────────────────────────
-//
-// Điểm đáng chú ý:
-//  • Header có Greeting, Subtitle và Avatar tròn hiển thị chữ viết tắt của tên.
-//  • Ô tóm tắt được xếp theo grid 2 cột sử dụng GridView với tỷ lệ thích hợp.
-//  • Card tóm tắt bo góc 12px, viền màu nhạt, sử dụng phông số lớn w600 màu cam ấm.
-//  • Khu vực đơn gần đây hiển thị danh sách dạng Card bo góc 12px, có badge trạng thái tròn màu đặc trưng.
-
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentUser = Supabase.instance.client.auth.currentUser;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final layout = _DashboardLayout.fromWidth(constraints.maxWidth);
@@ -31,25 +30,83 @@ class DashboardScreen extends StatelessWidget {
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: layout.maxContentWidth),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header
-                  _HeaderSection(name: 'Minh Tuấn', deliveringCount: 3),
-                  SizedBox(height: layout.sectionGap),
-
-                  // Summary Cards
-                  const _SummaryGrid(),
-                  SizedBox(height: layout.sectionGap),
-
-                  // Đơn gần đây (List)
-                  const _RecentOrdersSection(),
-                ],
-              ),
+              child: currentUser == null
+                  ? const _DashboardMessageState(
+                      icon: Icons.lock_outline_rounded,
+                      title: 'Cần đăng nhập',
+                      message: 'Vui lòng đăng nhập để xem tổng quan đơn hàng.',
+                    )
+                  : _DashboardDataBody(user: currentUser, layout: layout),
             ),
           ),
         );
       },
+    );
+  }
+}
+
+class _DashboardDataBody extends ConsumerWidget {
+  final User user;
+  final _DashboardLayout layout;
+
+  const _DashboardDataBody({required this.user, required this.layout});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profileAsync = ref.watch(customerProfileProvider(user.id));
+    final ordersAsync = ref.watch(customerOrdersProvider(user.id));
+    final recentOrdersAsync = ref.watch(recentOrdersProvider(user.id));
+    final activeOrderAsync = ref.watch(activeOrderProvider(user.id));
+    final unreadCountAsync = ref.watch(
+      unreadNotificationCountProvider(user.id),
+    );
+    final asyncValues = [
+      profileAsync,
+      ordersAsync,
+      recentOrdersAsync,
+      activeOrderAsync,
+      unreadCountAsync,
+    ];
+
+    if (asyncValues.any((value) => value.isLoading)) {
+      return const _DashboardLoadingState();
+    }
+
+    final hasError = asyncValues.any((value) => value.hasError);
+    if (hasError) {
+      return _DashboardErrorState(
+        onRetry: () {
+          ref.invalidate(customerProfileProvider(user.id));
+          ref.invalidate(customerOrdersProvider(user.id));
+          ref.invalidate(recentOrdersProvider(user.id));
+          ref.invalidate(activeOrderProvider(user.id));
+          ref.invalidate(unreadNotificationCountProvider(user.id));
+        },
+      );
+    }
+
+    final profile = profileAsync.valueOrNull;
+    final allOrders = ordersAsync.valueOrNull ?? const <OrderModel>[];
+    final recentOrders = recentOrdersAsync.valueOrNull ?? const <OrderModel>[];
+    final activeOrder = activeOrderAsync.valueOrNull;
+    final unreadCount = unreadCountAsync.valueOrNull ?? 0;
+    final name = _displayName(user, profile?.fullName);
+    final stats = _DashboardStats.fromOrders(allOrders, unreadCount);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _HeaderSection(
+          name: name,
+          activeCount: stats.activeOrders,
+          activeOrder: activeOrder,
+          unreadNotificationCount: unreadCount,
+        ),
+        SizedBox(height: layout.sectionGap),
+        _SummaryGrid(stats: stats),
+        SizedBox(height: layout.sectionGap),
+        _RecentOrdersSection(orders: recentOrders),
+      ],
     );
   }
 }
@@ -102,15 +159,28 @@ class _DashboardLayout {
   }
 }
 
-// ── Header Section ───────────────────────────────────────────────────────────
 class _HeaderSection extends StatelessWidget {
   final String name;
-  final int deliveringCount;
+  final int activeCount;
+  final OrderModel? activeOrder;
+  final int unreadNotificationCount;
 
-  const _HeaderSection({required this.name, required this.deliveringCount});
+  const _HeaderSection({
+    required this.name,
+    required this.activeCount,
+    required this.activeOrder,
+    required this.unreadNotificationCount,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final activeText = activeCount == 0
+        ? 'Bạn chưa có đơn đang xử lý'
+        : 'Bạn có $activeCount đơn đang xử lý';
+    final chipText = activeOrder == null
+        ? 'Sẵn sàng tạo đơn mới'
+        : '${_displayOrderCode(activeOrder!)} cần theo dõi';
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -127,13 +197,17 @@ class _HeaderSection extends StatelessWidget {
               children: [
                 Text(
                   'Xin chào, $name!',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.headingLarge.copyWith(
                     color: AppColors.textOnDark,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  'Bạn có $deliveringCount đơn đang giao',
+                  unreadNotificationCount > 0
+                      ? '$activeText · $unreadNotificationCount thông báo mới'
+                      : activeText,
                   style: AppTextStyles.bodySmall.copyWith(
                     color: AppColors.textOnDark.withValues(alpha: 0.72),
                   ),
@@ -152,10 +226,56 @@ class _HeaderSection extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    '$deliveringCount đơn cần theo dõi',
+                    chipText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.labelSmall.copyWith(
                       color: AppColors.textOnDark,
                       letterSpacing: 0,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 220),
+                    child: Material(
+                      color: AppColors.accent,
+                      borderRadius: AppRadius.full,
+                      child: InkWell(
+                        onTap: () => context.push('/customer/create-order'),
+                        borderRadius: AppRadius.full,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg,
+                            vertical: AppSpacing.sm,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.add_rounded,
+                                color: AppColors.textOnAccent,
+                                size: 18,
+                              ),
+                              const SizedBox(width: AppSpacing.xs),
+                              Flexible(
+                                child: Text(
+                                  'Tạo đơn hàng mới',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTextStyles.labelSmall.copyWith(
+                                    color: AppColors.textOnAccent,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -163,7 +283,6 @@ class _HeaderSection extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSpacing.lg),
-          // Avatar tròn 40px chữ tắt tên
           Container(
             width: 48,
             height: 48,
@@ -189,18 +308,19 @@ class _HeaderSection extends StatelessWidget {
   }
 
   String _getInitials(String fullName) {
-    List<String> names = fullName.split(' ');
+    final names = fullName.trim().split(RegExp(r'\s+'));
     if (names.length >= 2) {
       return '${names[names.length - 2][0]}${names[names.length - 1][0]}'
           .toUpperCase();
     }
-    return fullName.isNotEmpty ? fullName.substring(0, 2).toUpperCase() : 'KH';
+    return fullName.isNotEmpty ? fullName.substring(0, 1).toUpperCase() : 'KH';
   }
 }
 
-// ── Summary Grid (2 cột) ──────────────────────────────────────────────────────
 class _SummaryGrid extends StatelessWidget {
-  const _SummaryGrid();
+  final _DashboardStats stats;
+
+  const _SummaryGrid({required this.stats});
 
   @override
   Widget build(BuildContext context) {
@@ -216,30 +336,30 @@ class _SummaryGrid extends StatelessWidget {
           childAspectRatio: crossAxisCount == 4 ? 1.24 : 1.28,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          children: const [
+          children: [
             _SummaryCard(
-              value: '3',
-              label: 'Đơn đang giao',
+              value: stats.totalOrders.toString(),
+              label: 'Tổng đơn',
+              icon: Icons.inventory_2_rounded,
+              color: AppColors.info,
+            ),
+            _SummaryCard(
+              value: stats.activeOrders.toString(),
+              label: 'Đơn đang xử lý',
               icon: Icons.local_shipping_rounded,
               color: AppColors.accent,
             ),
             _SummaryCard(
-              value: '12',
-              label: 'Đã giao hôm nay',
+              value: stats.completedOrders.toString(),
+              label: 'Đã hoàn thành',
               icon: Icons.check_circle_rounded,
               color: AppColors.success,
             ),
             _SummaryCard(
-              value: '5',
-              label: 'Chờ lấy hàng',
-              icon: Icons.access_time_rounded,
+              value: stats.unreadNotifications.toString(),
+              label: 'Thông báo mới',
+              icon: Icons.notifications_rounded,
               color: AppColors.warning,
-            ),
-            _SummaryCard(
-              value: '20',
-              label: 'Tổng hôm nay',
-              icon: Icons.inventory_2_rounded,
-              color: AppColors.info,
             ),
           ],
         );
@@ -310,33 +430,13 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-// ── Recent Orders Section ────────────────────────────────────────────────────
 class _RecentOrdersSection extends StatelessWidget {
-  const _RecentOrdersSection();
+  final List<OrderModel> orders;
+
+  const _RecentOrdersSection({required this.orders});
 
   @override
   Widget build(BuildContext context) {
-    final List<_RecentOrderData> orders = [
-      const _RecentOrderData(
-        id: '#DH-20241',
-        address: '123 Lê Lợi, Quận 1, TP. Hồ Chí Minh',
-        status: 'Đang giao',
-        statusColor: AppColors.accent,
-      ),
-      const _RecentOrderData(
-        id: '#DH-20240',
-        address: '45 Nguyễn Huệ, Quận 1, TP. Hồ Chí Minh',
-        status: 'Hoàn thành',
-        statusColor: AppColors.success,
-      ),
-      const _RecentOrderData(
-        id: '#DH-20239',
-        address: '789 Cách Mạng Tháng 8, Quận 3, TP. Hồ Chí Minh',
-        status: 'Huỷ đơn',
-        statusColor: AppColors.error,
-      ),
-    ];
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxWidth =
@@ -354,24 +454,27 @@ class _RecentOrdersSection extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Đơn gần đây',
-                          style: AppTextStyles.headingSmall.copyWith(
-                            color: AppColors.textPrimary,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Đơn gần đây',
+                            style: AppTextStyles.headingSmall.copyWith(
+                              color: AppColors.textPrimary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          'Cập nhật trạng thái mới nhất',
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.textMuted,
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            'Cập nhật trạng thái mới nhất',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.textMuted,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: AppSpacing.md),
                     Container(
                       decoration: BoxDecoration(
                         color: AppColors.accentLight,
@@ -402,88 +505,19 @@ class _RecentOrdersSection extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.md),
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: orders.length,
-                  separatorBuilder: (_, _) =>
-                      const SizedBox(height: AppSpacing.sm + 2),
-                  itemBuilder: (context, i) {
-                    final order = orders[i];
-                    return Container(
-                      padding: const EdgeInsets.all(AppSpacing.lg),
-                      decoration: BoxDecoration(
-                        color: AppColors.bgCard,
-                        borderRadius: AppRadius.lg,
-                        border: Border.all(color: AppColors.border, width: 1),
-                        boxShadow: AppShadow.card,
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 3,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: order.statusColor,
-                              borderRadius: AppRadius.full,
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.md),
-                          // Icon tròn chỉ trạng thái
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: order.statusColor.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.local_shipping_outlined,
-                              color: order.statusColor,
-                              size: 21,
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.md),
-
-                          // Thông tin mã đơn + địa chỉ
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        order.id,
-                                        style: AppTextStyles.labelMedium
-                                            .copyWith(
-                                              color: AppColors.textPrimary,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: AppSpacing.sm),
-                                    _StatusBadge(order: order),
-                                  ],
-                                ),
-                                const SizedBox(height: AppSpacing.sm),
-                                Text(
-                                  order.address,
-                                  style: AppTextStyles.bodySmall.copyWith(
-                                    color: AppColors.textSecondary,
-                                    height: 1.35,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                if (orders.isEmpty)
+                  const _RecentOrdersEmptyState()
+                else
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: orders.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(height: AppSpacing.sm + 2),
+                    itemBuilder: (context, i) {
+                      return _RecentOrderCard(order: orders[i]);
+                    },
+                  ),
               ],
             ),
           ),
@@ -493,26 +527,108 @@ class _RecentOrdersSection extends StatelessWidget {
   }
 }
 
-class _StatusBadge extends StatelessWidget {
-  final _RecentOrderData order;
+class _RecentOrderCard extends StatelessWidget {
+  final OrderModel order;
 
-  const _StatusBadge({required this.order});
+  const _RecentOrderCard({required this.order});
 
   @override
   Widget build(BuildContext context) {
+    final statusColor = _statusColor(order.status);
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: AppRadius.lg,
+        border: Border.all(color: AppColors.border, width: 1),
+        boxShadow: AppShadow.card,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 3,
+            height: 48,
+            decoration: BoxDecoration(
+              color: statusColor,
+              borderRadius: AppRadius.full,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              _statusIcon(order.status),
+              color: statusColor,
+              size: 21,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _displayOrderCode(order),
+                        style: AppTextStyles.labelMedium.copyWith(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    _StatusBadge(status: order.status),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  order.deliveryAddress,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                    height: 1.35,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final String status;
+
+  const _StatusBadge({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _statusColor(status);
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm + 2,
         vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: order.statusColor.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: AppRadius.full,
       ),
       child: Text(
-        order.status,
+        _statusLabel(status),
         style: AppTextStyles.labelSmall.copyWith(
-          color: order.statusColor,
+          color: color,
           fontWeight: FontWeight.w700,
           letterSpacing: 0,
         ),
@@ -521,16 +637,308 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-class _RecentOrderData {
-  final String id;
-  final String address;
-  final String status;
-  final Color statusColor;
+class _RecentOrdersEmptyState extends StatelessWidget {
+  const _RecentOrdersEmptyState();
 
-  const _RecentOrderData({
-    required this.id,
-    required this.address,
-    required this.status,
-    required this.statusColor,
-  });
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.xl2),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: AppRadius.lg,
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadow.card,
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppColors.accent.withValues(alpha: 0.1),
+              borderRadius: AppRadius.lg,
+            ),
+            child: const Icon(
+              Icons.inventory_2_outlined,
+              color: AppColors.accent,
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Chưa có đơn hàng',
+            style: AppTextStyles.labelLarge.copyWith(
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Các đơn bạn tạo sẽ xuất hiện tại đây.',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
+
+class _DashboardLoadingState extends StatelessWidget {
+  const _DashboardLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: const [
+        _LoadingBlock(height: 188),
+        SizedBox(height: AppSpacing.xl2),
+        _LoadingBlock(height: 260),
+        SizedBox(height: AppSpacing.xl2),
+        _LoadingBlock(height: 180),
+      ],
+    );
+  }
+}
+
+class _LoadingBlock extends StatelessWidget {
+  final double height;
+
+  const _LoadingBlock({required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: height,
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: AppRadius.xl,
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadow.subtle,
+      ),
+      child: Center(
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: AppColors.accent.withValues(alpha: 0.8),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardErrorState extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const _DashboardErrorState({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return _DashboardMessageState(
+      icon: Icons.error_outline_rounded,
+      title: 'Không tải được dashboard',
+      message: 'Vui lòng kiểm tra kết nối và thử lại.',
+      actionLabel: 'Thử lại',
+      onAction: onRetry,
+      color: AppColors.error,
+    );
+  }
+}
+
+class _DashboardMessageState extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  final Color color;
+
+  const _DashboardMessageState({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+    this.color = AppColors.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.xl2),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: AppRadius.xl,
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadow.card,
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: AppRadius.lg,
+            ),
+            child: Icon(icon, size: 28, color: color),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.labelLarge.copyWith(
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: AppSpacing.lg),
+            _StateActionButton(label: actionLabel!, onTap: onAction!),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StateActionButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _StateActionButton({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.accent,
+      borderRadius: AppRadius.full,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.full,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xl,
+            vertical: AppSpacing.sm,
+          ),
+          child: Text(
+            label,
+            style: AppTextStyles.labelMedium.copyWith(
+              color: AppColors.textOnAccent,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardStats {
+  final int totalOrders;
+  final int activeOrders;
+  final int completedOrders;
+  final int unreadNotifications;
+
+  const _DashboardStats({
+    required this.totalOrders,
+    required this.activeOrders,
+    required this.completedOrders,
+    required this.unreadNotifications,
+  });
+
+  factory _DashboardStats.fromOrders(
+    List<OrderModel> orders,
+    int unreadNotifications,
+  ) {
+    return _DashboardStats(
+      totalOrders: orders.length,
+      activeOrders: orders
+          .where((order) => _activeStatuses.contains(order.status))
+          .length,
+      completedOrders: orders
+          .where((order) => order.status == 'delivered')
+          .length,
+      unreadNotifications: unreadNotifications,
+    );
+  }
+}
+
+String _displayName(User user, String? profileName) {
+  final metadataName =
+      user.userMetadata?['full_name']?.toString() ??
+      user.userMetadata?['name']?.toString();
+  final name = (profileName?.trim().isNotEmpty ?? false)
+      ? profileName!.trim()
+      : metadataName?.trim();
+  if (name != null && name.isNotEmpty) return name;
+  if ((user.email ?? '').isNotEmpty) return user.email!.split('@').first;
+  return 'Khách hàng';
+}
+
+String _displayOrderCode(OrderModel order) {
+  if (order.trackingCode.isNotEmpty) return order.trackingCode;
+  final length = order.id.length >= 8 ? 8 : order.id.length;
+  return '#${order.id.substring(0, length)}';
+}
+
+String _statusLabel(String status) {
+  return switch (status) {
+    'pending' => 'Chờ xác nhận',
+    'confirmed' => 'Đã xác nhận',
+    'assigned' => 'Đã phân công',
+    'picking_up' => 'Đang lấy',
+    'delivering' => 'Đang giao',
+    'delivered' => 'Hoàn thành',
+    'cancelled' => 'Huỷ',
+    _ => 'Không rõ',
+  };
+}
+
+Color _statusColor(String status) {
+  return switch (status) {
+    'pending' => AppColors.warning,
+    'confirmed' => AppColors.info,
+    'assigned' => AppColors.info,
+    'picking_up' => AppColors.accent,
+    'delivering' => AppColors.accent,
+    'delivered' => AppColors.success,
+    'cancelled' => AppColors.error,
+    _ => AppColors.textMuted,
+  };
+}
+
+IconData _statusIcon(String status) {
+  return switch (status) {
+    'pending' => Icons.access_time_rounded,
+    'confirmed' => Icons.check_circle_outline_rounded,
+    'assigned' => Icons.local_shipping_rounded,
+    'picking_up' => Icons.inventory_2_rounded,
+    'delivering' => Icons.local_shipping_outlined,
+    'delivered' => Icons.check_circle_rounded,
+    'cancelled' => Icons.cancel_rounded,
+    _ => Icons.help_outline_rounded,
+  };
+}
+
+const Set<String> _activeStatuses = {
+  'pending',
+  'confirmed',
+  'assigned',
+  'picking_up',
+  'delivering',
+};

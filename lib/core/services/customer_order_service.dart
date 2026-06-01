@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/order_item_model.dart';
 import '../models/order_model.dart';
 import '../models/order_status_log_model.dart';
+import '../models/user_model.dart';
 
 class CustomerOrderService {
   CustomerOrderService({SupabaseClient? client})
@@ -13,12 +14,14 @@ class CustomerOrderService {
   static const String _ordersTable = 'orders';
   static const String _orderItemsTable = 'order_items';
   static const String _orderStatusLogsTable = 'order_status_logs';
+  static const String _usersTable = 'users';
 
   static const String _statusPending = 'pending';
   static const String _statusConfirmed = 'confirmed';
   static const String _statusAssigned = 'assigned';
   static const String _statusPickingUp = 'picking_up';
   static const String _statusDelivering = 'delivering';
+  static const String _statusDelivered = 'delivered';
   static const String _statusCancelled = 'cancelled';
   static const String _serviceStandard = 'standard';
   static const String _serviceExpress = 'express';
@@ -59,6 +62,21 @@ class CustomerOrderService {
     }
   }
 
+  Future<UserModel?> getCustomerProfile(String customerId) async {
+    try {
+      final response = await _supabase
+          .from(_usersTable)
+          .select()
+          .eq('id', customerId)
+          .maybeSingle();
+
+      if (response == null) return null;
+      return UserModel.fromJson(response);
+    } catch (error) {
+      throw Exception('Failed to load customer profile: $error');
+    }
+  }
+
   Future<List<OrderModel>> getRecentOrders(
     String customerId, {
     int limit = 5,
@@ -95,6 +113,79 @@ class CustomerOrderService {
     }
   }
 
+  Future<List<OrderModel>> getAvailableOrders() async {
+    try {
+      final response = await _supabase
+          .from(_ordersTable)
+          .select()
+          .inFilter('status', [_statusPending, _statusConfirmed])
+          .order('created_at', ascending: false)
+          .limit(20);
+
+      return response
+          .map(OrderModel.fromJson)
+          .where((order) => order.driverId == null || order.driverId!.isEmpty)
+          .toList();
+    } catch (error) {
+      throw Exception('Failed to load available driver orders: $error');
+    }
+  }
+
+  Future<List<OrderModel>> getDriverOrders(String driverId) async {
+    try {
+      final response = await _supabase
+          .from(_ordersTable)
+          .select()
+          .eq('driver_id', driverId)
+          .inFilter('status', [
+            _statusAssigned,
+            _statusPickingUp,
+            _statusDelivering,
+            _statusDelivered,
+          ])
+          .order('created_at', ascending: false);
+
+      return response.map(OrderModel.fromJson).toList();
+    } catch (error) {
+      throw Exception('Failed to load driver orders: $error');
+    }
+  }
+
+  Future<void> acceptOrder(String orderId, String driverId) async {
+    if (orderId.trim().isEmpty || driverId.trim().isEmpty) {
+      throw Exception('Order id and driver id are required.');
+    }
+
+    try {
+      final acceptedAt = DateTime.now().toIso8601String();
+      final response = await _supabase
+          .from(_ordersTable)
+          .update({
+            'driver_id': driverId,
+            'status': _statusAssigned,
+            'updated_at': acceptedAt,
+          })
+          .eq('id', orderId)
+          .inFilter('status', [_statusPending, _statusConfirmed])
+          .isFilter('driver_id', null)
+          .select('id')
+          .maybeSingle();
+
+      if (response == null) {
+        throw Exception('Order is no longer available.');
+      }
+
+      await _createOrderStatusLog(
+        orderId: orderId,
+        status: _statusAssigned,
+        title: 'Đã phân công tài xế',
+        description: 'Tài xế đã nhận đơn hàng.',
+      );
+    } catch (error) {
+      throw Exception('Failed to accept driver order: $error');
+    }
+  }
+
   Future<OrderModel?> getOrderById(String orderId) async {
     try {
       final response = await _supabase
@@ -107,6 +198,27 @@ class CustomerOrderService {
       return OrderModel.fromJson(response);
     } catch (error) {
       throw Exception('Failed to load order by id: $error');
+    }
+  }
+
+  Future<OrderModel?> getOrderByTrackingCode(String trackingCode) async {
+    final normalizedTrackingCode = trackingCode.trim().replaceFirst(
+      RegExp(r'^#'),
+      '',
+    );
+    if (normalizedTrackingCode.isEmpty) return null;
+
+    try {
+      final response = await _supabase
+          .from(_ordersTable)
+          .select()
+          .eq('tracking_code', normalizedTrackingCode)
+          .maybeSingle();
+
+      if (response == null) return null;
+      return OrderModel.fromJson(response);
+    } catch (error) {
+      throw Exception('Failed to load order by tracking code: $error');
     }
   }
 
@@ -176,6 +288,25 @@ class CustomerOrderService {
       return response.map(OrderStatusLogModel.fromJson).toList();
     } catch (error) {
       throw Exception('Failed to load order status logs: $error');
+    }
+  }
+
+  Future<void> _createOrderStatusLog({
+    required String orderId,
+    required String status,
+    required String title,
+    required String description,
+  }) async {
+    try {
+      await _supabase.from(_orderStatusLogsTable).insert({
+        'order_id': orderId,
+        'status': status,
+        'title': title,
+        'description': description,
+      });
+    } catch (_) {
+      // Status logs are useful for tracking, but accepting the order is the
+      // critical operation. Do not fail the assignment if logs are restricted.
     }
   }
 

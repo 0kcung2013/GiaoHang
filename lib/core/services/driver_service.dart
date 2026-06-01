@@ -4,7 +4,7 @@ import '../models/driver_model.dart';
 
 class DriverService {
   DriverService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -23,6 +23,21 @@ class DriverService {
       return DriverModel.fromJson(response);
     } catch (error) {
       throw Exception('Failed to load driver by id: $error');
+    }
+  }
+
+  Future<DriverModel?> getDriverByUserId(String userId) async {
+    try {
+      final response = await _supabase
+          .from(_driversTable)
+          .select()
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (response == null) return null;
+      return DriverModel.fromJson(response);
+    } catch (error) {
+      throw Exception('Failed to load driver by user id: $error');
     }
   }
 

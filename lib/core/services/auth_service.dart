@@ -8,6 +8,7 @@ class AuthService {
     await _supabase.auth.signInWithOAuth(
       OAuthProvider.google,
       redirectTo: kIsWeb ? Uri.base.origin : null,
+      queryParams: const {'prompt': 'select_account'},
     );
   }
 

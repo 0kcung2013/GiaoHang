@@ -6,6 +6,7 @@ import '../models/order_item_model.dart';
 import '../models/order_model.dart';
 import '../models/order_status_log_model.dart';
 import '../models/saved_address_model.dart';
+import '../models/user_model.dart';
 import '../services/customer_order_service.dart';
 import '../services/driver_service.dart';
 import '../services/notification_service.dart';
@@ -45,6 +46,14 @@ final customerOrdersProvider = FutureProvider.family<List<OrderModel>, String>((
   return service.getCustomerOrders(customerId);
 });
 
+final customerProfileProvider = FutureProvider.family<UserModel?, String>((
+  ref,
+  customerId,
+) async {
+  final service = ref.watch(customerOrderServiceProvider);
+  return service.getCustomerProfile(customerId);
+});
+
 final recentOrdersProvider = FutureProvider.family<List<OrderModel>, String>((
   ref,
   customerId,
@@ -61,12 +70,33 @@ final activeOrderProvider = FutureProvider.family<OrderModel?, String>((
   return service.getActiveOrder(customerId);
 });
 
+final availableOrdersProvider = FutureProvider<List<OrderModel>>((ref) async {
+  final service = ref.watch(customerOrderServiceProvider);
+  return service.getAvailableOrders();
+});
+
+final driverOrdersProvider = FutureProvider.family<List<OrderModel>, String>((
+  ref,
+  driverId,
+) async {
+  final service = ref.watch(customerOrderServiceProvider);
+  return service.getDriverOrders(driverId);
+});
+
 final orderByIdProvider = FutureProvider.family<OrderModel?, String>((
   ref,
   orderId,
 ) async {
   final service = ref.watch(customerOrderServiceProvider);
   return service.getOrderById(orderId);
+});
+
+final orderByTrackingCodeProvider = FutureProvider.family<OrderModel?, String>((
+  ref,
+  trackingCode,
+) async {
+  final service = ref.watch(customerOrderServiceProvider);
+  return service.getOrderByTrackingCode(trackingCode);
 });
 
 final orderItemsProvider = FutureProvider.family<List<OrderItemModel>, String>((
@@ -112,6 +142,14 @@ final assignedDriverProvider = FutureProvider.family<DriverModel?, String>((
 ) async {
   final service = ref.watch(driverServiceProvider);
   return service.getDriverForOrder(orderId);
+});
+
+final driverByUserIdProvider = FutureProvider.family<DriverModel?, String>((
+  ref,
+  userId,
+) async {
+  final service = ref.watch(driverServiceProvider);
+  return service.getDriverByUserId(userId);
 });
 
 /// Realtime subscription for notifications
