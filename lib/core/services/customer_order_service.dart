@@ -6,7 +6,7 @@ import '../models/order_status_log_model.dart';
 
 class CustomerOrderService {
   CustomerOrderService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -20,6 +20,17 @@ class CustomerOrderService {
   static const String _statusPickingUp = 'picking_up';
   static const String _statusDelivering = 'delivering';
   static const String _statusCancelled = 'cancelled';
+  static const String _serviceStandard = 'standard';
+  static const String _serviceExpress = 'express';
+  static const String _serviceFragile = 'fragile';
+  static const String _serviceDocument = 'document';
+
+  static const Set<String> _allowedServiceTypes = {
+    _serviceStandard,
+    _serviceExpress,
+    _serviceFragile,
+    _serviceDocument,
+  };
 
   static const List<String> _activeStatuses = [
     _statusPending,
@@ -213,8 +224,17 @@ class CustomerOrderService {
     if ((payload['tracking_code'] as String?)?.isEmpty ?? true) {
       payload.remove('tracking_code');
     }
+    payload['service_type'] = _normalizeServiceType(
+      payload['service_type']?.toString(),
+    );
 
     return payload;
+  }
+
+  String _normalizeServiceType(String? value) {
+    if (value == 'bulky') return _serviceFragile;
+    if (value != null && _allowedServiceTypes.contains(value)) return value;
+    return _serviceStandard;
   }
 
   void _removeEmptyGeneratedId(Map<String, dynamic> json) {

@@ -37,37 +37,54 @@ final realtimeServiceProvider = Provider<RealtimeService>((ref) {
   return RealtimeService();
 });
 
-final customerOrdersProvider =
-    FutureProvider.family<List<OrderModel>, String>((ref, customerId) async {
-      final service = ref.watch(customerOrderServiceProvider);
-      return service.getCustomerOrders(customerId);
-    });
+final customerOrdersProvider = FutureProvider.family<List<OrderModel>, String>((
+  ref,
+  customerId,
+) async {
+  final service = ref.watch(customerOrderServiceProvider);
+  return service.getCustomerOrders(customerId);
+});
 
-final recentOrdersProvider =
-    FutureProvider.family<List<OrderModel>, String>((ref, customerId) async {
-      final service = ref.watch(customerOrderServiceProvider);
-      return service.getRecentOrders(customerId);
-    });
+final recentOrdersProvider = FutureProvider.family<List<OrderModel>, String>((
+  ref,
+  customerId,
+) async {
+  final service = ref.watch(customerOrderServiceProvider);
+  return service.getRecentOrders(customerId);
+});
 
-final activeOrderProvider =
-    FutureProvider.family<OrderModel?, String>((ref, customerId) async {
-      final service = ref.watch(customerOrderServiceProvider);
-      return service.getActiveOrder(customerId);
-    });
+final activeOrderProvider = FutureProvider.family<OrderModel?, String>((
+  ref,
+  customerId,
+) async {
+  final service = ref.watch(customerOrderServiceProvider);
+  return service.getActiveOrder(customerId);
+});
 
-final orderItemsProvider =
-    FutureProvider.family<List<OrderItemModel>, String>((ref, orderId) async {
-      final service = ref.watch(customerOrderServiceProvider);
-      return service.getOrderItems(orderId);
-    });
-
-final orderStatusLogsProvider = FutureProvider.family<List<OrderStatusLogModel>, String>((
+final orderByIdProvider = FutureProvider.family<OrderModel?, String>((
   ref,
   orderId,
 ) async {
   final service = ref.watch(customerOrderServiceProvider);
-  return service.getOrderStatusLogs(orderId);
+  return service.getOrderById(orderId);
 });
+
+final orderItemsProvider = FutureProvider.family<List<OrderItemModel>, String>((
+  ref,
+  orderId,
+) async {
+  final service = ref.watch(customerOrderServiceProvider);
+  return service.getOrderItems(orderId);
+});
+
+final orderStatusLogsProvider =
+    FutureProvider.family<List<OrderStatusLogModel>, String>((
+      ref,
+      orderId,
+    ) async {
+      final service = ref.watch(customerOrderServiceProvider);
+      return service.getOrderStatusLogs(orderId);
+    });
 
 final savedAddressesProvider =
     FutureProvider.family<List<SavedAddressModel>, String>((ref, userId) async {
@@ -81,41 +98,49 @@ final notificationsProvider =
       return service.getNotifications(userId);
     });
 
-final unreadNotificationCountProvider =
-    FutureProvider.family<int, String>((ref, userId) async {
-      final service = ref.watch(notificationServiceProvider);
-      return service.getUnreadCount(userId);
-    });
+final unreadNotificationCountProvider = FutureProvider.family<int, String>((
+  ref,
+  userId,
+) async {
+  final service = ref.watch(notificationServiceProvider);
+  return service.getUnreadCount(userId);
+});
 
-final assignedDriverProvider =
-    FutureProvider.family<DriverModel?, String>((ref, orderId) async {
-      final service = ref.watch(driverServiceProvider);
-      return service.getDriverForOrder(orderId);
-    });
+final assignedDriverProvider = FutureProvider.family<DriverModel?, String>((
+  ref,
+  orderId,
+) async {
+  final service = ref.watch(driverServiceProvider);
+  return service.getDriverForOrder(orderId);
+});
 
 /// Realtime subscription for notifications
-final notificationsRealtimeProvider =
-    FutureProvider.family<void, String>((ref, userId) async {
-      final realtimeService = ref.watch(realtimeServiceProvider);
-      realtimeService.subscribeToNotifications(userId, () {
-        ref.invalidate(notificationsProvider(userId));
-        ref.invalidate(unreadNotificationCountProvider(userId));
-      });
-      ref.onDispose(() async {
-        await realtimeService.unsubscribe('notifications:$userId');
-      });
-    });
+final notificationsRealtimeProvider = FutureProvider.family<void, String>((
+  ref,
+  userId,
+) async {
+  final realtimeService = ref.watch(realtimeServiceProvider);
+  realtimeService.subscribeToNotifications(userId, () {
+    ref.invalidate(notificationsProvider(userId));
+    ref.invalidate(unreadNotificationCountProvider(userId));
+  });
+  ref.onDispose(() async {
+    await realtimeService.unsubscribe('notifications:$userId');
+  });
+});
 
 /// Realtime subscription for orders
-final ordersRealtimeProvider =
-    FutureProvider.family<void, String>((ref, customerId) async {
-      final realtimeService = ref.watch(realtimeServiceProvider);
-      realtimeService.subscribeToOrders(customerId, () {
-        ref.invalidate(customerOrdersProvider(customerId));
-        ref.invalidate(recentOrdersProvider(customerId));
-        ref.invalidate(activeOrderProvider(customerId));
-      });
-      ref.onDispose(() async {
-        await realtimeService.unsubscribe('orders:$customerId');
-      });
-    });
+final ordersRealtimeProvider = FutureProvider.family<void, String>((
+  ref,
+  customerId,
+) async {
+  final realtimeService = ref.watch(realtimeServiceProvider);
+  realtimeService.subscribeToOrders(customerId, () {
+    ref.invalidate(customerOrdersProvider(customerId));
+    ref.invalidate(recentOrdersProvider(customerId));
+    ref.invalidate(activeOrderProvider(customerId));
+  });
+  ref.onDispose(() async {
+    await realtimeService.unsubscribe('orders:$customerId');
+  });
+});

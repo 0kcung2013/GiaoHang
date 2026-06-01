@@ -17,31 +17,96 @@ class AccountScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        AppSpacing.xl2,
-        AppSpacing.screenH,
-        AppSpacing.xl2,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Tài khoản',
-            style: AppTextStyles.headingLarge.copyWith(
-              color: AppColors.textPrimary,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final layout = _AccountLayout.fromWidth(constraints.maxWidth);
+
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.fromLTRB(
+            layout.horizontalPadding,
+            layout.topPadding,
+            layout.horizontalPadding,
+            AppSpacing.xl2,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: layout.maxContentWidth),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Tài khoản',
+                    style: AppTextStyles.headingLarge.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  SizedBox(height: layout.titleGap),
+                  const _ProfileHeader(
+                    name: 'Nguyễn Minh Tuấn',
+                    phone: '0912 345 678',
+                  ),
+                  SizedBox(height: layout.profileGap),
+                  _MenuSection(items: _menuItems),
+                  const SizedBox(height: AppSpacing.md),
+                  const _LogoutRow(),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: AppSpacing.xl2),
-          const _ProfileHeader(name: 'Nguyễn Minh Tuấn', phone: '0912 345 678'),
-          const SizedBox(height: AppSpacing.xl2 + AppSpacing.xs),
-          _MenuSection(items: _menuItems),
-          const SizedBox(height: AppSpacing.md),
-          const _LogoutRow(),
-        ],
-      ),
+        );
+      },
+    );
+  }
+}
+
+class _AccountLayout {
+  static const tabletBreakpoint = 600.0;
+  static const desktopBreakpoint = 1024.0;
+  static const tabletContentMaxWidth = 640.0;
+  static const desktopContentMaxWidth = 680.0;
+
+  final double horizontalPadding;
+  final double topPadding;
+  final double titleGap;
+  final double profileGap;
+  final double maxContentWidth;
+
+  const _AccountLayout({
+    required this.horizontalPadding,
+    required this.topPadding,
+    required this.titleGap,
+    required this.profileGap,
+    required this.maxContentWidth,
+  });
+
+  factory _AccountLayout.fromWidth(double width) {
+    if (width > desktopBreakpoint) {
+      return const _AccountLayout(
+        horizontalPadding: AppSpacing.xl3,
+        topPadding: AppSpacing.xl3,
+        titleGap: AppSpacing.xl3,
+        profileGap: AppSpacing.xl3,
+        maxContentWidth: desktopContentMaxWidth,
+      );
+    }
+
+    if (width >= tabletBreakpoint) {
+      return const _AccountLayout(
+        horizontalPadding: AppSpacing.xl3,
+        topPadding: AppSpacing.xl3,
+        titleGap: AppSpacing.xl2,
+        profileGap: AppSpacing.xl2 + AppSpacing.xs,
+        maxContentWidth: tabletContentMaxWidth,
+      );
+    }
+
+    return const _AccountLayout(
+      horizontalPadding: AppSpacing.screenH,
+      topPadding: AppSpacing.xl2,
+      titleGap: AppSpacing.xl2,
+      profileGap: AppSpacing.xl2 + AppSpacing.xs,
+      maxContentWidth: double.infinity,
     );
   }
 }

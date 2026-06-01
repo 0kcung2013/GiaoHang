@@ -16,16 +16,16 @@ class CreateOrderScreen extends ConsumerStatefulWidget {
 
 class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   final _formKey = GlobalKey<FormState>();
-  
+
   final _pickupAddressController = TextEditingController();
   final _deliveryAddressController = TextEditingController();
   final _recipientNameController = TextEditingController();
   final _recipientPhoneController = TextEditingController();
   final _noteController = TextEditingController();
-  
+
   String _serviceType = 'standard';
   bool _isSubmitting = false;
-  
+
   @override
   void dispose() {
     _pickupAddressController.dispose();
@@ -35,20 +35,20 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
     _noteController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _submitOrder() async {
     if (_isSubmitting) return;
-    
+
     if (!_formKey.currentState!.validate()) return;
-    
+
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
       _showSnackBar('Vui lòng đăng nhập để tạo đơn hàng', isError: true);
       return;
     }
-    
+
     setState(() => _isSubmitting = true);
-    
+
     try {
       final order = OrderModel(
         id: '',
@@ -62,7 +62,9 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         deliveryLat: 0,
         deliveryLng: 0,
         totalPrice: null,
-        note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
+        note: _noteController.text.trim().isEmpty
+            ? null
+            : _noteController.text.trim(),
         createdAt: DateTime.now(),
         trackingCode: '',
         estimatedPickupAt: null,
@@ -78,14 +80,14 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         statusNote: null,
         updatedAt: DateTime.now(),
       );
-      
+
       final service = ref.read(customerOrderServiceProvider);
       await service.createOrder(order);
-      
+
       ref.invalidate(customerOrdersProvider);
       ref.invalidate(recentOrdersProvider);
       ref.invalidate(activeOrderProvider);
-      
+
       if (mounted) {
         _showSnackBar('Đơn hàng đã được tạo thành công!');
         context.pop();
@@ -100,13 +102,15 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       }
     }
   }
-  
+
   void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           message,
-          style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textOnAccent),
+          style: AppTextStyles.bodyMedium.copyWith(
+            color: AppColors.textOnAccent,
+          ),
         ),
         backgroundColor: isError ? AppColors.error : AppColors.success,
         behavior: SnackBarBehavior.floating,
@@ -115,7 +119,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       ),
     );
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -123,7 +127,9 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       appBar: AppBar(
         title: Text(
           'Tạo đơn hàng mới',
-          style: AppTextStyles.headingMedium.copyWith(color: AppColors.textPrimary),
+          style: AppTextStyles.headingMedium.copyWith(
+            color: AppColors.textPrimary,
+          ),
         ),
         backgroundColor: AppColors.bgCard,
         elevation: 0,
@@ -139,15 +145,19 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
               // Header section
               Text(
                 'Thông tin giao hàng',
-                style: AppTextStyles.headingSmall.copyWith(color: AppColors.textPrimary),
+                style: AppTextStyles.headingSmall.copyWith(
+                  color: AppColors.textPrimary,
+                ),
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
                 'Vui lòng điền đầy đủ thông tin để tạo đơn hàng',
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
               const SizedBox(height: AppSpacing.xl2),
-              
+
               // Pickup address card
               _buildSectionCard(
                 icon: Icons.add_location_alt_rounded,
@@ -155,7 +165,9 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                 title: 'Địa chỉ lấy hàng',
                 child: TextFormField(
                   controller: _pickupAddressController,
-                  style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
                   decoration: _buildInputDecoration(
                     hintText: 'Nhập địa chỉ lấy hàng',
                   ),
@@ -169,7 +181,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
-              
+
               // Delivery address card
               _buildSectionCard(
                 icon: Icons.local_shipping_rounded,
@@ -177,7 +189,9 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                 title: 'Địa chỉ giao hàng',
                 child: TextFormField(
                   controller: _deliveryAddressController,
-                  style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
                   decoration: _buildInputDecoration(
                     hintText: 'Nhập địa chỉ giao hàng',
                   ),
@@ -191,21 +205,25 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                 ),
               ),
               const SizedBox(height: AppSpacing.xl2),
-              
+
               // Recipient info section
               Text(
                 'Thông tin người nhận',
-                style: AppTextStyles.headingSmall.copyWith(color: AppColors.textPrimary),
+                style: AppTextStyles.headingSmall.copyWith(
+                  color: AppColors.textPrimary,
+                ),
               ),
               const SizedBox(height: AppSpacing.lg),
-              
+
               _buildSectionCard(
                 icon: Icons.person_rounded,
                 iconColor: AppColors.success,
                 title: 'Tên người nhận',
                 child: TextFormField(
                   controller: _recipientNameController,
-                  style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
                   decoration: _buildInputDecoration(
                     hintText: 'Nhập tên người nhận',
                   ),
@@ -219,14 +237,16 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
-              
+
               _buildSectionCard(
                 icon: Icons.phone_rounded,
                 iconColor: AppColors.success,
                 title: 'Số điện thoại',
                 child: TextFormField(
                   controller: _recipientPhoneController,
-                  style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
                   decoration: _buildInputDecoration(
                     hintText: 'Nhập số điện thoại',
                   ),
@@ -241,45 +261,53 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                 ),
               ),
               const SizedBox(height: AppSpacing.xl2),
-              
+
               // Service type section
               Text(
                 'Loại dịch vụ',
-                style: AppTextStyles.headingSmall.copyWith(color: AppColors.textPrimary),
+                style: AppTextStyles.headingSmall.copyWith(
+                  color: AppColors.textPrimary,
+                ),
               ),
               const SizedBox(height: AppSpacing.lg),
-              
+
               _buildServiceTypeSelector(),
               const SizedBox(height: AppSpacing.xl2),
-              
-               // Note section
-               Text(
-                 'Ghi chú (tùy chọn)',
-                 style: AppTextStyles.headingSmall.copyWith(color: AppColors.textPrimary),
-               ),
-               const SizedBox(height: AppSpacing.lg),
-               
-               _buildSectionCard(
-                 icon: Icons.description_rounded,
-                 iconColor: AppColors.info,
-                 title: 'Ghi chú (tùy chọn)',
-                 child: TextFormField(
-                   controller: _noteController,
-                   style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                   decoration: _buildInputDecoration(
-                     hintText: 'Thêm ghi chú cho đơn hàng',
-                   ),
-                   maxLines: 3,
-                   textInputAction: TextInputAction.done,
-                 ),
-               ),
-               const SizedBox(height: AppSpacing.xl3),
-              
+
+              // Note section
+              Text(
+                'Ghi chú (tùy chọn)',
+                style: AppTextStyles.headingSmall.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+
+              _buildSectionCard(
+                icon: Icons.description_rounded,
+                iconColor: AppColors.info,
+                title: 'Ghi chú (tùy chọn)',
+                child: TextFormField(
+                  controller: _noteController,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                  decoration: _buildInputDecoration(
+                    hintText: 'Thêm ghi chú cho đơn hàng',
+                  ),
+                  maxLines: 3,
+                  textInputAction: TextInputAction.done,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xl3),
+
               // Submit button
               Container(
                 height: 52,
                 decoration: BoxDecoration(
-                  color: _isSubmitting ? AppColors.accent.withValues(alpha: 0.6 * 255) : AppColors.accent,
+                  color: _isSubmitting
+                      ? AppColors.accent.withValues(alpha: 0.6)
+                      : AppColors.accent,
                   borderRadius: AppRadius.full,
                   boxShadow: _isSubmitting ? [] : AppShadow.accentGlow,
                 ),
@@ -315,7 +343,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       ),
     );
   }
-  
+
   Widget _buildSectionCard({
     required IconData icon,
     required Color iconColor,
@@ -338,14 +366,10 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.1 * 255),
+                  color: iconColor.withValues(alpha: 0.1),
                   borderRadius: AppRadius.sm,
                 ),
-                child: Icon(
-                  icon,
-                  size: 18,
-                  color: iconColor,
-                ),
+                child: Icon(icon, size: 18, color: iconColor),
               ),
               const SizedBox(width: AppSpacing.md),
               Text(
@@ -362,7 +386,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       ),
     );
   }
-  
+
   Widget _buildServiceTypeSelector() {
     return Container(
       decoration: BoxDecoration(
@@ -388,16 +412,16 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
           _buildServiceTypeOption(
-            value: 'bulky',
-            title: 'Cồng kềnh',
-            subtitle: 'Hàng hóa lớn, nặng',
+            value: 'fragile',
+            title: 'Dễ vỡ',
+            subtitle: 'Hàng hóa cần xử lý cẩn thận',
             icon: Icons.inventory_2_rounded,
           ),
         ],
       ),
     );
   }
-  
+
   Widget _buildServiceTypeOption({
     required String value,
     required String title,
@@ -405,7 +429,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
     required IconData icon,
   }) {
     final isSelected = _serviceType == value;
-    
+
     return InkWell(
       onTap: () => setState(() => _serviceType = value),
       borderRadius: AppRadius.md,
@@ -425,13 +449,17 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.accent : AppColors.textMuted.withValues(alpha: 0.1 * 255),
+                color: isSelected
+                    ? AppColors.accent
+                    : AppColors.textMuted.withValues(alpha: 0.1),
                 borderRadius: AppRadius.sm,
               ),
               child: Icon(
                 icon,
                 size: 20,
-                color: isSelected ? AppColors.textOnAccent : AppColors.textMuted,
+                color: isSelected
+                    ? AppColors.textOnAccent
+                    : AppColors.textMuted,
               ),
             ),
             const SizedBox(width: AppSpacing.md),
@@ -442,7 +470,9 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                   Text(
                     title,
                     style: AppTextStyles.labelMedium.copyWith(
-                      color: isSelected ? AppColors.accent : AppColors.textPrimary,
+                      color: isSelected
+                          ? AppColors.accent
+                          : AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -456,7 +486,9 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
               ),
             ),
             Icon(
-              isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+              isSelected
+                  ? Icons.radio_button_checked_rounded
+                  : Icons.radio_button_off_rounded,
               color: isSelected ? AppColors.accent : AppColors.textMuted,
               size: 20,
             ),
@@ -465,10 +497,8 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       ),
     );
   }
-  
-  InputDecoration _buildInputDecoration({
-    required String hintText,
-  }) {
+
+  InputDecoration _buildInputDecoration({required String hintText}) {
     return InputDecoration(
       hintText: hintText,
       hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textMuted),
