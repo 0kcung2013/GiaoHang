@@ -3,19 +3,18 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../features/admin/screens/home/home_screen.dart';
+import '../features/admin/screens/admin_shell_screen.dart';
 import '../features/auth/screens/login/login_screen.dart';
 import '../features/customer/screens/create_order/create_order_screen.dart';
 import '../features/customer/screens/home/home_screen.dart';
-import '../features/driver/screens/home/home_screen.dart';
+import '../features/driver/screens/driver_shell_screen.dart';
 import '../features/onboarding/screens/onboarding/onboarding_screen.dart';
 
 class _AuthStateNotifier extends ChangeNotifier {
   StreamSubscription? _subscription;
 
   void start() {
-    _subscription =
-        Supabase.instance.client.auth.onAuthStateChange.listen((_) {
+    _subscription = Supabase.instance.client.auth.onAuthStateChange.listen((_) {
       notifyListeners();
     });
   }
@@ -40,12 +39,15 @@ GoRouter createRouter({required String initialLocation}) {
       final loggedIn = user != null;
       final uri = state.uri.toString();
       final location = state.matchedLocation;
+      final publicRoute = location == '/login' || location == '/onboarding';
 
       // OAuth callback — để Supabase xử lý token trước
       if (uri.contains('code=') || uri.contains('access_token=')) return null;
 
       if (loggedIn) {
-        if (location == '/' || location == '/login' || location == '/onboarding') {
+        if (location == '/' ||
+            location == '/login' ||
+            location == '/onboarding') {
           final result = await supabase
               .from('users')
               .select('role')
@@ -64,22 +66,13 @@ GoRouter createRouter({required String initialLocation}) {
         return null;
       }
 
-      if (location == '/') return '/login';
+      if (location == '/' || !publicRoute) return '/login';
       return null;
     },
     routes: [
-      GoRoute(
-        path: '/',
-        builder: (_, _) => const SizedBox.shrink(),
-      ),
-      GoRoute(
-        path: '/onboarding',
-        builder: (_, _) => const OnboardingScreen(),
-      ),
-      GoRoute(
-        path: '/login',
-        builder: (_, _) => const LoginScreen(),
-      ),
+      GoRoute(path: '/', builder: (_, _) => const SizedBox.shrink()),
+      GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
+      GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(
         path: '/customer-home',
         builder: (_, _) => const CustomerHomeScreen(),
@@ -90,12 +83,9 @@ GoRouter createRouter({required String initialLocation}) {
       ),
       GoRoute(
         path: '/driver-home',
-        builder: (_, _) => const DriverHomeScreen(),
+        builder: (_, _) => const DriverShellScreen(),
       ),
-      GoRoute(
-        path: '/admin-home',
-        builder: (_, _) => const AdminHomeScreen(),
-      ),
+      GoRoute(path: '/admin-home', builder: (_, _) => const AdminShellScreen()),
     ],
   );
 }
