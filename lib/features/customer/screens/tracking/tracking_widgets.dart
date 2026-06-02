@@ -109,20 +109,30 @@ class _TrackingTimeline extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final logsAsync = ref.watch(orderStatusLogsProvider(order.id));
+    final currentLogs = logsAsync.valueOrNull;
 
     return _TrackingCard(
       title: 'Tiến trình giao hàng',
-      child: logsAsync.when(
-        loading: () => const _InlineLoading(label: 'Đang tải trạng thái...'),
-        error: (_, _) =>
-            _TimelineStepList(steps: _fallbackTimelineSteps(order)),
-        data: (logs) {
-          final steps = logs.isEmpty
-              ? _fallbackTimelineSteps(order)
-              : logs.map(_timelineStepFromLog).toList();
-          return _TimelineStepList(steps: steps);
-        },
-      ),
+      child: currentLogs != null
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _TimelineStepList(steps: _timelineSteps(order, currentLogs)),
+                if (logsAsync.isRefreshing || logsAsync.isReloading) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  const _InlineLoading(label: 'Đang cập nhật trạng thái...'),
+                ],
+              ],
+            )
+          : logsAsync.when(
+              loading: () =>
+                  const _InlineLoading(label: 'Đang tải trạng thái...'),
+              error: (_, _) =>
+                  _TimelineStepList(steps: _fallbackTimelineSteps(order)),
+              data: (logs) {
+                return _TimelineStepList(steps: _timelineSteps(order, logs));
+              },
+            ),
     );
   }
 }
@@ -246,6 +256,97 @@ class _TimelineStepList extends StatelessWidget {
   }
 }
 
+class _AssignedDriverInfoCard extends ConsumerWidget {
+  final OrderModel order;
+
+  const _AssignedDriverInfoCard({required this.order});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final driverAsync = ref.watch(assignedDriverProvider(order.id));
+    final currentDriver = driverAsync.valueOrNull;
+
+    if (currentDriver != null) {
+      return _AssignedDriverProfileCard(driver: currentDriver);
+    }
+
+    return driverAsync.when(
+      loading: _driverFallbackCard,
+      error: (_, _) => _driverFallbackCard(),
+      data: (driver) {
+        if (driver == null) return _driverFallbackCard();
+        return _AssignedDriverProfileCard(driver: driver);
+      },
+    );
+  }
+}
+
+class _AssignedDriverProfileCard extends ConsumerWidget {
+  final DriverModel driver;
+
+  const _AssignedDriverProfileCard({required this.driver});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profileAsync = ref.watch(customerProfileProvider(driver.userId));
+    final currentProfile = profileAsync.valueOrNull;
+
+    return _DriverInfoCard(driver: driver, profile: currentProfile);
+  }
+}
+
+Widget _driverFallbackCard() {
+  return _TrackingCard(
+    title: 'Tài xế phụ trách',
+    icon: Icons.local_shipping_rounded,
+    iconColor: AppColors.info,
+    child: Text(
+      'Tài xế đã nhận đơn. Thông tin tài xế đang được cập nhật.',
+      style: AppTextStyles.bodySmall.copyWith(
+        color: AppColors.textSecondary,
+        height: 1.45,
+      ),
+    ),
+  );
+}
+
+class _DriverInfoCard extends StatelessWidget {
+  final DriverModel driver;
+  final UserModel? profile;
+
+  const _DriverInfoCard({required this.driver, this.profile});
+
+  @override
+  Widget build(BuildContext context) {
+    final name = profile?.fullName.trim();
+    final phone = profile?.phone?.trim();
+    final plate = driver.licensePlate?.trim();
+    String fallbackText(String? value) =>
+        value == null || value.isEmpty ? 'Đang cập nhật' : value;
+    final rating = driver.rating == null
+        ? 'Chưa có đánh giá'
+        : '${driver.rating!.toStringAsFixed(1)} điểm';
+
+    return _TrackingCard(
+      title: 'Tài xế phụ trách',
+      icon: Icons.local_shipping_rounded,
+      iconColor: AppColors.info,
+      child: Column(
+        children: [
+          _InfoRow(label: 'Tài xế', value: fallbackText(name)),
+          _InfoRow(label: 'Điện thoại', value: fallbackText(phone)),
+          _InfoRow(label: 'Biển số', value: fallbackText(plate)),
+          _InfoRow(
+            label: 'Hiệu suất',
+            value: '$rating · ${driver.totalDeliveries} chuyến',
+            isLast: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PackageInfoCard extends StatelessWidget {
   final OrderModel order;
 
@@ -277,6 +378,12 @@ class _PackageInfoCard extends StatelessWidget {
           ),
           _InfoRow(label: 'Điểm lấy', value: order.pickupAddress),
           _InfoRow(label: 'Điểm giao', value: order.deliveryAddress),
+          OrderCargoInfoBlock(
+            order: order,
+            compact: true,
+            showEmptyState: true,
+          ),
+          const SizedBox(height: AppSpacing.md),
           _InfoRow(
             label: 'Dịch vụ',
             value: _serviceTypeLabel(order.serviceType),

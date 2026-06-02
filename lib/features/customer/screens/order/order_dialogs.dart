@@ -114,6 +114,13 @@ class _OrderDetailSheetState extends ConsumerState<_OrderDetailSheet> {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   _DetailSection(
+                    title: 'Hàng hoá',
+                    children: [
+                      OrderCargoInfoBlock(order: order, showEmptyState: true),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  _DetailSection(
                     title: 'Dịch vụ và thanh toán',
                     children: [
                       _DetailInfoTile(

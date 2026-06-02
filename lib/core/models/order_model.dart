@@ -21,6 +21,10 @@ class OrderModel {
     this.cancelledAt,
     this.recipientName,
     this.recipientPhone,
+    this.itemName,
+    this.itemCategory,
+    this.itemDescription,
+    this.itemImageUrl,
     required this.deliveryFee,
     required this.serviceType,
     required this.paymentMethod,
@@ -49,6 +53,10 @@ class OrderModel {
   final DateTime? cancelledAt;
   final String? recipientName;
   final String? recipientPhone;
+  final String? itemName;
+  final String? itemCategory;
+  final String? itemDescription;
+  final String? itemImageUrl;
   final double deliveryFee;
   final String serviceType;
   final String paymentMethod;
@@ -80,6 +88,10 @@ class OrderModel {
       cancelledAt: _parseDateTime(json['cancelled_at']),
       recipientName: json['recipient_name']?.toString(),
       recipientPhone: json['recipient_phone']?.toString(),
+      itemName: json['item_name']?.toString(),
+      itemCategory: json['item_category']?.toString(),
+      itemDescription: json['item_description']?.toString(),
+      itemImageUrl: json['item_image_url']?.toString(),
       deliveryFee: _parseDouble(json['delivery_fee']) ?? 0,
       serviceType: json['service_type']?.toString() ?? 'standard',
       paymentMethod: json['payment_method']?.toString() ?? 'cash',
@@ -113,6 +125,10 @@ class OrderModel {
       'cancelled_at': cancelledAt?.toIso8601String(),
       'recipient_name': recipientName,
       'recipient_phone': recipientPhone,
+      'item_name': itemName,
+      'item_category': itemCategory,
+      'item_description': itemDescription,
+      'item_image_url': itemImageUrl,
       'delivery_fee': deliveryFee,
       'service_type': serviceType,
       'payment_method': paymentMethod,

@@ -6,6 +6,7 @@ import '../../../../core/constants/app_theme.dart';
 import '../../../../core/models/order_item_model.dart';
 import '../../../../core/models/order_model.dart';
 import '../../../../core/providers/customer_providers.dart';
+import '../../../../core/widgets/order_cargo_info_block.dart';
 
 part 'order_widgets.dart';
 part 'order_dialogs.dart';
@@ -128,32 +129,59 @@ class _OrderListBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(ordersRealtimeProvider(customerId));
     final asyncOrders = ref.watch(customerOrdersProvider(customerId));
+    final currentOrders = asyncOrders.valueOrNull;
+
+    if (currentOrders != null) {
+      return _buildOrdersContent(
+        context: context,
+        ref: ref,
+        allOrders: currentOrders,
+        isRefreshing: asyncOrders.isRefreshing || asyncOrders.isReloading,
+      );
+    }
 
     return asyncOrders.when(
       loading: () => const _OrderLoadingState(),
       error: (error, _) => _OrderErrorState(
         onRetry: () => ref.invalidate(customerOrdersProvider(customerId)),
       ),
-      data: (allOrders) {
-        final visibleOrders = orders(allOrders);
-        if (allOrders.isEmpty) {
-          return const _OrderMessageState(
-            icon: Icons.receipt_long_outlined,
-            title: 'Chưa có đơn hàng nào',
-            message: 'Các đơn hàng bạn tạo sẽ xuất hiện tại đây.',
-          );
-        }
+      data: (allOrders) => _buildOrdersContent(
+        context: context,
+        ref: ref,
+        allOrders: allOrders,
+        isRefreshing: false,
+      ),
+    );
+  }
 
-        if (visibleOrders.isEmpty) {
-          return _OrderMessageState(
-            icon: Icons.filter_alt_off_rounded,
-            title: 'Không tìm thấy đơn hàng',
-            message: 'Không có đơn hàng nào trong mục "$selectedFilter".',
-          );
-        }
+  Widget _buildOrdersContent({
+    required BuildContext context,
+    required WidgetRef ref,
+    required List<OrderModel> allOrders,
+    required bool isRefreshing,
+  }) {
+    final visibleOrders = orders(allOrders);
+    if (allOrders.isEmpty) {
+      return const _OrderMessageState(
+        icon: Icons.receipt_long_outlined,
+        title: 'Chưa có đơn hàng nào',
+        message: 'Các đơn hàng bạn tạo sẽ xuất hiện tại đây.',
+      );
+    }
 
-        return RefreshIndicator(
+    if (visibleOrders.isEmpty) {
+      return _OrderMessageState(
+        icon: Icons.filter_alt_off_rounded,
+        title: 'Không tìm thấy đơn hàng',
+        message: 'Không có đơn hàng nào trong mục "$selectedFilter".',
+      );
+    }
+
+    return Stack(
+      children: [
+        RefreshIndicator(
           color: AppColors.accent,
           onRefresh: () async {
             ref.invalidate(customerOrdersProvider(customerId));
@@ -182,8 +210,19 @@ class _OrderListBody extends ConsumerWidget {
               );
             },
           ),
-        );
-      },
+        ),
+        if (isRefreshing)
+          Positioned(
+            top: 0,
+            left: layout.horizontalPadding,
+            right: layout.horizontalPadding,
+            child: LinearProgressIndicator(
+              minHeight: 2,
+              color: AppColors.accent.withValues(alpha: 0.72),
+              backgroundColor: Colors.transparent,
+            ),
+          ),
+      ],
     );
   }
 }

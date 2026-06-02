@@ -15,21 +15,32 @@ class _TimelineStep {
 }
 
 List<_TimelineStep> _fallbackTimelineSteps(OrderModel order) {
+  return _timelineSteps(order, const []);
+}
+
+List<_TimelineStep> _timelineSteps(
+  OrderModel order,
+  List<OrderStatusLogModel> logs,
+) {
+  final logsByStatus = _latestLogByStatus(logs);
   final statusIndex = _statusOrder.indexOf(order.status);
   if (order.status == 'cancelled') {
+    final cancelledLog = logsByStatus['cancelled'];
     return [
       _TimelineStep(
-        title: 'Đã tạo đơn',
+        title: _statusLabel('pending'),
         time: _formatOrderDateTime(order.createdAt),
-        description: 'Đơn hàng đã được ghi nhận trong hệ thống.',
+        description: _statusDescription('pending', true),
         done: true,
       ),
       _TimelineStep(
-        title: 'Đã huỷ',
-        time: _formatOrderDateTime(_bestStatusTime(order)),
-        description: order.statusNote?.trim().isNotEmpty ?? false
-            ? order.statusNote!.trim()
-            : 'Đơn hàng đã bị huỷ.',
+        title: _statusLabel('cancelled'),
+        time: _formatOrderDateTime(
+          cancelledLog?.createdAt ??
+              order.cancelledAt ??
+              _bestStatusTime(order),
+        ),
+        description: _cancelledDescription(order, cancelledLog),
         done: true,
       ),
     ];
@@ -38,27 +49,46 @@ List<_TimelineStep> _fallbackTimelineSteps(OrderModel order) {
   return List.generate(_statusOrder.length, (index) {
     final status = _statusOrder[index];
     final done = statusIndex >= index;
+    final log = logsByStatus[status];
     final time = done
-        ? _formatOrderDateTime(_timeForStatus(order, status))
+        ? _formatOrderDateTime(log?.createdAt ?? _timeForStatus(order, status))
         : 'Chưa cập nhật';
     return _TimelineStep(
       title: _statusLabel(status),
       time: time,
-      description: _statusDescription(status, done),
+      description: _stepDescription(status, done, log),
       done: done,
     );
   });
 }
 
-_TimelineStep _timelineStepFromLog(OrderStatusLogModel log) {
-  return _TimelineStep(
-    title: log.title.isEmpty ? _statusLabel(log.status) : log.title,
-    time: _formatOrderDateTime(log.createdAt),
-    description: log.description?.trim().isNotEmpty ?? false
-        ? log.description!.trim()
-        : _statusDescription(log.status, true),
-    done: true,
-  );
+Map<String, OrderStatusLogModel> _latestLogByStatus(
+  List<OrderStatusLogModel> logs,
+) {
+  final result = <String, OrderStatusLogModel>{};
+  for (final log in logs) {
+    result[log.status] = log;
+  }
+  return result;
+}
+
+String _stepDescription(String status, bool done, OrderStatusLogModel? log) {
+  if (!done) return _statusDescription(status, false);
+  final description = log?.description?.trim();
+  if (description != null && description.isNotEmpty) return description;
+  return _statusDescription(status, true);
+}
+
+String _cancelledDescription(OrderModel order, OrderStatusLogModel? log) {
+  final note = order.statusNote?.trim();
+  if (note != null && note.isNotEmpty) return note;
+
+  final logDescription = log?.description?.trim();
+  if (logDescription != null && logDescription.isNotEmpty) {
+    return logDescription;
+  }
+
+  return _statusDescription('cancelled', true);
 }
 
 DateTime _timeForStatus(OrderModel order, String status) {
@@ -112,6 +142,11 @@ String _statusDescription(String status, bool done) {
     'cancelled' => 'Đơn hàng đã bị huỷ.',
     _ => 'Trạng thái đơn hàng đã được cập nhật.',
   };
+}
+
+bool _shouldShowAssignedDriver(String status) {
+  return _statusOrder.contains(status) &&
+      _statusOrder.indexOf(status) >= _statusOrder.indexOf('assigned');
 }
 
 String _serviceTypeLabel(String value) {

@@ -47,11 +47,13 @@ class DriverStatsGrid extends StatelessWidget {
         final crossAxisCount =
             constraints.maxWidth >= DriverHomeLayout.wideStatsMinWidth ? 4 : 2;
 
-        return GridView.count(
-          crossAxisCount: crossAxisCount,
-          mainAxisSpacing: AppSpacing.md,
-          crossAxisSpacing: AppSpacing.md,
-          childAspectRatio: crossAxisCount == 4 ? 1.28 : 1.2,
+        return GridView(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: AppSpacing.sm,
+            crossAxisSpacing: AppSpacing.sm,
+            mainAxisExtent: 82,
+          ),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           children: [
@@ -101,45 +103,73 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: AppRadius.lg,
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppShadow.card,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: AppRadius.md,
+    return ClipRRect(
+      borderRadius: AppRadius.lg,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: AppRadius.lg,
+          border: Border.all(color: color.withValues(alpha: 0.18)),
+          boxShadow: AppShadow.subtle,
+        ),
+        child: Row(
+          children: [
+            Container(width: 4, color: color),
+            Expanded(
+              child: Container(
+                color: color.withValues(alpha: 0.035),
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.12),
+                              borderRadius: AppRadius.md,
+                            ),
+                            child: Icon(icon, color: color, size: 18),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              label,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.labelSmall.copyWith(
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w700,
+                                height: 1.2,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      value,
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.headingLarge.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w800,
+                        height: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            child: Icon(icon, color: color, size: 19),
-          ),
-          const Spacer(),
-          Text(
-            value,
-            style: AppTextStyles.displayMedium.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs / 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.textSecondary,
-              height: 1.3,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

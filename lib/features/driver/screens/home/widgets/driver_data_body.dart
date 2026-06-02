@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../core/constants/app_theme.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/providers/customer_providers.dart';
 import 'availability_status_card.dart';
@@ -40,16 +41,24 @@ class DriverDashboardBody extends ConsumerWidget {
           return const MissingDriverProfileState();
         }
 
-        final driverOrdersAsync =
-            ref.watch(driverOrdersProvider(driver.userId));
-        final isLoading =
+        ref.watch(driverHomeOrdersRealtimeProvider(driver.userId));
+        final driverOrdersAsync = ref.watch(
+          driverOrdersProvider(driver.userId),
+        );
+        final availableOrdersValue = availableOrdersAsync.valueOrNull;
+        final driverOrdersValue = driverOrdersAsync.valueOrNull;
+        final isInitialLoading =
+            (availableOrdersAsync.isLoading && availableOrdersValue == null) ||
+            (driverOrdersAsync.isLoading && driverOrdersValue == null);
+        final hasBlockingError =
+            (availableOrdersAsync.hasError && availableOrdersValue == null) ||
+            (driverOrdersAsync.hasError && driverOrdersValue == null);
+        final isRefreshing =
             availableOrdersAsync.isLoading || driverOrdersAsync.isLoading;
-        final hasError =
-            availableOrdersAsync.hasError || driverOrdersAsync.hasError;
 
-        if (isLoading) return const DriverLoadingState();
+        if (isInitialLoading) return const DriverLoadingState();
 
-        if (hasError) {
+        if (hasBlockingError) {
           return DriverErrorState(
             onRetry: () {
               ref.invalidate(availableOrdersProvider);
@@ -58,10 +67,8 @@ class DriverDashboardBody extends ConsumerWidget {
           );
         }
 
-        final availableOrders =
-            availableOrdersAsync.valueOrNull ?? const <OrderModel>[];
-        final driverOrders =
-            driverOrdersAsync.valueOrNull ?? const <OrderModel>[];
+        final availableOrders = availableOrdersValue ?? const <OrderModel>[];
+        final driverOrders = driverOrdersValue ?? const <OrderModel>[];
         final stats = DriverStats.fromOrders(
           driver: driver,
           availableOrders: availableOrders,
@@ -87,6 +94,10 @@ class DriverDashboardBody extends ConsumerWidget {
                 ref.invalidate(driverOrdersProvider(driver.userId));
               },
             ),
+            if (isRefreshing) ...[
+              const SizedBox(height: AppSpacing.md),
+              const _DriverInlineRefreshIndicator(),
+            ],
             SizedBox(height: layout.sectionGap),
             DriverOrdersSection(
               title: 'Đơn có thể nhận',
@@ -108,6 +119,34 @@ class DriverDashboardBody extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _DriverInlineRefreshIndicator extends StatelessWidget {
+  const _DriverInlineRefreshIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: AppColors.info,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Text(
+          'Đang cập nhật đơn hàng...',
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }

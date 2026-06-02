@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_theme.dart';
+import '../../../../core/models/driver_model.dart';
 import '../../../../core/models/order_model.dart';
 import '../../../../core/models/order_status_log_model.dart';
+import '../../../../core/models/user_model.dart';
 import '../../../../core/providers/customer_providers.dart';
+import '../../../../core/widgets/order_cargo_info_block.dart';
 
 part 'tracking_widgets.dart';
 part 'tracking_helpers.dart';
@@ -90,6 +93,15 @@ class _TrackingLookupResult extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncOrder = ref.watch(orderByTrackingCodeProvider(trackingCode));
+    final currentOrder = asyncOrder.valueOrNull;
+
+    if (currentOrder != null) {
+      return _buildTrackedOrder(
+        ref: ref,
+        order: currentOrder,
+        isRefreshing: asyncOrder.isRefreshing || asyncOrder.isReloading,
+      );
+    }
 
     return asyncOrder.when(
       loading: () => const _TrackingMessageCard(
@@ -116,26 +128,55 @@ class _TrackingLookupResult extends ConsumerWidget {
           );
         }
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: _StateActionButton(
-                label: 'Làm mới',
-                onTap: () {
-                  ref.invalidate(orderByTrackingCodeProvider(trackingCode));
-                  ref.invalidate(orderStatusLogsProvider(order.id));
-                },
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            _TrackingTimeline(order: order),
-            const SizedBox(height: AppSpacing.xl2 + AppSpacing.xs),
-            _PackageInfoCard(order: order),
-          ],
-        );
+        return _buildTrackedOrder(ref: ref, order: order, isRefreshing: false);
       },
+    );
+  }
+
+  Widget _buildTrackedOrder({
+    required WidgetRef ref,
+    required OrderModel order,
+    required bool isRefreshing,
+  }) {
+    debugPrint(
+      '[TrackingRealtime] tracking screen watching subscription '
+      'orderId=${order.id} trackingCode=$trackingCode',
+    );
+    ref.watch(
+      trackedOrderRealtimeProvider((
+        orderId: order.id,
+        trackingCode: trackingCode,
+      )),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            if (isRefreshing) ...[
+              const _InlineLoading(label: 'Đang cập nhật...'),
+              const SizedBox(width: AppSpacing.md),
+            ],
+            _StateActionButton(
+              label: 'Làm mới',
+              onTap: () {
+                ref.invalidate(orderByTrackingCodeProvider(trackingCode));
+                ref.invalidate(orderStatusLogsProvider(order.id));
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _TrackingTimeline(order: order),
+        if (_shouldShowAssignedDriver(order.status)) ...[
+          const SizedBox(height: AppSpacing.xl2 + AppSpacing.xs),
+          _AssignedDriverInfoCard(order: order),
+        ],
+        const SizedBox(height: AppSpacing.xl2 + AppSpacing.xs),
+        _PackageInfoCard(order: order),
+      ],
     );
   }
 }

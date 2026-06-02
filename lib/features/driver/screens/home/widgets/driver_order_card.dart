@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/constants/app_theme.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/providers/customer_providers.dart';
+import '../../../../../core/utils/order_cargo_utils.dart';
+import '../../../../../core/widgets/order_cargo_info_block.dart';
 import '../utils/driver_home_formatters.dart';
+import 'slide_status_action.dart';
 
 /// A single order row card used in both "available" and "assigned" sections.
 class DriverOrderCard extends ConsumerStatefulWidget {
@@ -157,6 +160,10 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                   icon: Icons.location_on_outlined,
                   text: order.deliveryAddress,
                 ),
+                if (hasCargoInfo(order)) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  OrderCargoInfoBlock(order: order, compact: true),
+                ],
                 const SizedBox(height: AppSpacing.xs),
                 Wrap(
                   spacing: AppSpacing.sm,
@@ -185,10 +192,10 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                 ],
                 if (canUpdateStatus) ...[
                   const SizedBox(height: AppSpacing.md),
-                  _UpdateOrderStatusButton(
+                  SlideStatusAction(
                     label: statusActionLabel,
                     isLoading: _isUpdatingStatus,
-                    onTap: _isUpdatingStatus ? null : _updateOrderStatus,
+                    onConfirmed: _isUpdatingStatus ? null : _updateOrderStatus,
                   ),
                 ],
               ],
@@ -246,70 +253,6 @@ class _AcceptOrderButton extends StatelessWidget {
                 const SizedBox(width: AppSpacing.xs),
                 Text(
                   isLoading ? 'Đang nhận...' : 'Nhận đơn',
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.textOnAccent,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _UpdateOrderStatusButton extends StatelessWidget {
-  final String label;
-  final bool isLoading;
-  final VoidCallback? onTap;
-
-  const _UpdateOrderStatusButton({
-    required this.label,
-    required this.isLoading,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Material(
-        color: onTap == null
-            ? AppColors.textMuted.withValues(alpha: 0.24)
-            : AppColors.accent,
-        borderRadius: AppRadius.full,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: AppRadius.full,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.sm,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isLoading)
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.textOnAccent,
-                    ),
-                  )
-                else
-                  const Icon(
-                    Icons.local_shipping_rounded,
-                    color: AppColors.textOnAccent,
-                    size: 17,
-                  ),
-                const SizedBox(width: AppSpacing.xs),
-                Text(
-                  isLoading ? 'Đang cập nhật...' : label,
                   style: AppTextStyles.labelSmall.copyWith(
                     color: AppColors.textOnAccent,
                     fontWeight: FontWeight.w700,

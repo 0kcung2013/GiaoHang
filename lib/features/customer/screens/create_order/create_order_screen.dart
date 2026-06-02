@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_theme.dart';
 import '../../../../core/models/order_model.dart';
 import '../../../../core/providers/customer_providers.dart';
+import '../../../../core/utils/order_cargo_utils.dart';
+import 'widgets/create_order_form_sections.dart';
+import 'widgets/create_order_header.dart';
+import 'widgets/create_order_summary.dart';
+import 'widgets/submit_order_button.dart';
 
 class CreateOrderScreen extends ConsumerStatefulWidget {
   const CreateOrderScreen({super.key});
@@ -20,13 +27,13 @@ class _CreateOrderLayout {
   static const tabletContentMaxWidth = 720.0;
   static const desktopContentMaxWidth = 760.0;
 
-  final double horizontalPadding;
-  final double maxContentWidth;
-
   const _CreateOrderLayout({
     required this.horizontalPadding,
     required this.maxContentWidth,
   });
+
+  final double horizontalPadding;
+  final double maxContentWidth;
 
   factory _CreateOrderLayout.fromWidth(double width) {
     if (width > desktopBreakpoint) {
@@ -51,41 +58,98 @@ class _CreateOrderLayout {
 }
 
 class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
-  final _formKey = GlobalKey<FormState>();
+  static const _debugTag = '[CargoImagePickerDebug]';
+  static const _defaultDeliveryFee = 30000.0;
+  static const _paymentMethod = 'cash';
 
+  final _formKey = GlobalKey<FormState>();
   final _pickupAddressController = TextEditingController();
   final _deliveryAddressController = TextEditingController();
   final _recipientNameController = TextEditingController();
   final _recipientPhoneController = TextEditingController();
   final _noteController = TextEditingController();
+  final _itemNameController = TextEditingController();
+  final _itemDescriptionController = TextEditingController();
 
   String _serviceType = 'standard';
+  String _itemCategory = cargoCategories.first;
+  XFile? _cargoImage;
   bool _isSubmitting = false;
 
   @override
+  void initState() {
+    super.initState();
+    for (final controller in [
+      _pickupAddressController,
+      _deliveryAddressController,
+      _recipientNameController,
+      _recipientPhoneController,
+      _noteController,
+      _itemNameController,
+      _itemDescriptionController,
+    ]) {
+      controller.addListener(_refreshSummary);
+    }
+  }
+
+  @override
   void dispose() {
-    _pickupAddressController.dispose();
-    _deliveryAddressController.dispose();
-    _recipientNameController.dispose();
-    _recipientPhoneController.dispose();
-    _noteController.dispose();
+    for (final controller in [
+      _pickupAddressController,
+      _deliveryAddressController,
+      _recipientNameController,
+      _recipientPhoneController,
+      _noteController,
+      _itemNameController,
+      _itemDescriptionController,
+    ]) {
+      controller.removeListener(_refreshSummary);
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  void _refreshSummary() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _submitOrder() async {
     if (_isSubmitting) return;
-
     if (!_formKey.currentState!.validate()) return;
 
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
-      _showSnackBar('Vui lòng đăng nhập để tạo đơn hàng', isError: true);
+      _showSnackBar('Vui lòng đăng nhập để tạo đơn hàng.', isError: true);
       return;
     }
 
     setState(() => _isSubmitting = true);
 
     try {
+      String? itemImageUrl;
+      final cargoImage = _cargoImage;
+      if (cargoImage != null) {
+        debugPrint(
+          '$_debugTag before upload name=${cargoImage.name} path=${cargoImage.path}',
+        );
+        try {
+          itemImageUrl = await ref
+              .read(cargoImageServiceProvider)
+              .uploadOrderCargoImage(userId: user.id, image: cargoImage);
+          debugPrint('$_debugTag upload success url=$itemImageUrl');
+        } catch (error) {
+          debugPrint('$_debugTag upload failure error=$error');
+          if (mounted) {
+            _showSnackBar(
+              'Không thể tải ảnh hàng hoá lên. Vui lòng chọn lại ảnh hoặc thử lại.',
+              isError: true,
+            );
+          }
+          rethrow;
+        }
+      }
+
+      final now = DateTime.now();
       final order = OrderModel(
         id: '',
         customerId: user.id,
@@ -101,7 +165,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         note: _noteController.text.trim().isEmpty
             ? null
             : _noteController.text.trim(),
-        createdAt: DateTime.now(),
+        createdAt: now,
         trackingCode: '',
         estimatedPickupAt: null,
         estimatedDeliveryAt: null,
@@ -110,11 +174,17 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         cancelledAt: null,
         recipientName: _recipientNameController.text.trim(),
         recipientPhone: _recipientPhoneController.text.trim(),
-        deliveryFee: 30000,
+        itemName: _itemNameController.text.trim(),
+        itemCategory: _itemCategory,
+        itemDescription: _itemDescriptionController.text.trim().isEmpty
+            ? null
+            : _itemDescriptionController.text.trim(),
+        itemImageUrl: itemImageUrl,
+        deliveryFee: _defaultDeliveryFee,
         serviceType: _serviceType,
-        paymentMethod: 'cash',
+        paymentMethod: _paymentMethod,
         statusNote: null,
-        updatedAt: DateTime.now(),
+        updatedAt: now,
       );
 
       final service = ref.read(customerOrderServiceProvider);
@@ -125,12 +195,12 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       ref.invalidate(activeOrderProvider);
 
       if (mounted) {
-        _showSnackBar('Đơn hàng đã được tạo thành công!');
+        _showSnackBar('Đơn hàng đã được tạo thành công.');
         context.pop();
       }
-    } catch (e) {
+    } catch (error) {
       if (mounted) {
-        _showSnackBar('Lỗi: ${e.toString()}', isError: true);
+        _showSnackBar('Không thể tạo đơn hàng: $error', isError: true);
       }
     } finally {
       if (mounted) {
@@ -156,6 +226,49 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
     );
   }
 
+  Future<void> _pickCargoImage() async {
+    debugPrint('$_debugTag before opening picker');
+    try {
+      final picker = ImagePicker();
+      final image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        imageQuality: 82,
+      );
+      debugPrint('$_debugTag picker returned image=${image != null}');
+
+      if (image == null) {
+        debugPrint('$_debugTag picker returned null; user likely cancelled');
+        return;
+      }
+
+      final size = await image.length();
+      debugPrint(
+        '$_debugTag picked file name=${image.name} path=${image.path} size=$size',
+      );
+      if (!mounted) return;
+      setState(() => _cargoImage = image);
+    } on PlatformException catch (error) {
+      debugPrint(
+        '$_debugTag picker platform failure code=${error.code} message=${error.message}',
+      );
+      if (!mounted) return;
+      _showSnackBar(
+        'Không thể mở thư viện ảnh. Vui lòng kiểm tra quyền truy cập ảnh.',
+        isError: true,
+      );
+    } catch (error) {
+      debugPrint('$_debugTag picker failure error=$error');
+      if (!mounted) return;
+      _showSnackBar('Không thể chọn ảnh. Vui lòng thử lại.', isError: true);
+    }
+  }
+
+  void _removeCargoImage() {
+    debugPrint('$_debugTag remove selected image');
+    setState(() => _cargoImage = null);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -165,7 +278,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         titleSpacing: 0,
         leadingWidth: 56,
         title: Text(
-          'Tạo đơn hàng mới',
+          'Tạo đơn giao hàng',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: AppTextStyles.headingMedium.copyWith(
@@ -175,6 +288,10 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         backgroundColor: AppColors.bgCard,
         elevation: 0,
         iconTheme: const IconThemeData(color: AppColors.textPrimary),
+      ),
+      bottomNavigationBar: SubmitOrderButton(
+        isSubmitting: _isSubmitting,
+        onPressed: _submitOrder,
       ),
       body: SafeArea(
         child: LayoutBuilder(
@@ -190,208 +307,66 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                   child: ListView(
                     padding: EdgeInsets.fromLTRB(
                       layout.horizontalPadding,
-                      AppSpacing.screenH,
+                      AppSpacing.lg,
                       layout.horizontalPadding,
-                      AppSpacing.screenH,
+                      AppSpacing.xl3,
                     ),
                     keyboardDismissBehavior:
                         ScrollViewKeyboardDismissBehavior.onDrag,
                     children: [
-                      // Header section
-                      Text(
-                        'Thông tin giao hàng',
-                        style: AppTextStyles.headingSmall.copyWith(
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        'Vui lòng điền đầy đủ thông tin để tạo đơn hàng',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xl2),
-
-                      // Pickup address card
-                      _buildSectionCard(
-                        icon: Icons.add_location_alt_rounded,
-                        iconColor: AppColors.info,
-                        title: 'Địa chỉ lấy hàng',
-                        child: TextFormField(
-                          controller: _pickupAddressController,
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: AppColors.textPrimary,
-                          ),
-                          decoration: _buildInputDecoration(
-                            hintText: 'Nhập địa chỉ lấy hàng',
-                          ),
-                          textInputAction: TextInputAction.next,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Vui lòng nhập địa chỉ lấy hàng';
-                            }
-                            return null;
-                          },
-                        ),
+                      const CreateOrderHeader(),
+                      const SizedBox(height: AppSpacing.lg),
+                      CreateOrderAddressSection(
+                        pickupAddressController: _pickupAddressController,
+                        deliveryAddressController: _deliveryAddressController,
+                        requiredAddress: _requiredAddress,
                       ),
                       const SizedBox(height: AppSpacing.lg),
-
-                      // Delivery address card
-                      _buildSectionCard(
-                        icon: Icons.local_shipping_rounded,
-                        iconColor: AppColors.accent,
-                        title: 'Địa chỉ giao hàng',
-                        child: TextFormField(
-                          controller: _deliveryAddressController,
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: AppColors.textPrimary,
-                          ),
-                          decoration: _buildInputDecoration(
-                            hintText: 'Nhập địa chỉ giao hàng',
-                          ),
-                          textInputAction: TextInputAction.next,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Vui lòng nhập địa chỉ giao hàng';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xl2),
-
-                      // Recipient info section
-                      Text(
-                        'Thông tin người nhận',
-                        style: AppTextStyles.headingSmall.copyWith(
-                          color: AppColors.textPrimary,
-                        ),
+                      CreateOrderRecipientSection(
+                        recipientNameController: _recipientNameController,
+                        recipientPhoneController: _recipientPhoneController,
+                        noteController: _noteController,
+                        requiredText: _requiredText,
+                        validatePhone: _validatePhone,
                       ),
                       const SizedBox(height: AppSpacing.lg),
-
-                      _buildSectionCard(
-                        icon: Icons.person_rounded,
-                        iconColor: AppColors.success,
-                        title: 'Tên người nhận',
-                        child: TextFormField(
-                          controller: _recipientNameController,
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: AppColors.textPrimary,
-                          ),
-                          decoration: _buildInputDecoration(
-                            hintText: 'Nhập tên người nhận',
-                          ),
-                          textInputAction: TextInputAction.next,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Vui lòng nhập tên người nhận';
-                            }
-                            return null;
-                          },
-                        ),
+                      CreateOrderCargoSection(
+                        itemNameController: _itemNameController,
+                        itemDescriptionController: _itemDescriptionController,
+                        itemCategory: _itemCategory,
+                        image: _cargoImage,
+                        requiredText: _requiredText,
+                        onCategoryChanged: (value) =>
+                            setState(() => _itemCategory = value),
+                        onPickImage: _pickCargoImage,
+                        onRemoveImage: _removeCargoImage,
                       ),
                       const SizedBox(height: AppSpacing.lg),
-
-                      _buildSectionCard(
-                        icon: Icons.phone_rounded,
-                        iconColor: AppColors.success,
-                        title: 'Số điện thoại',
-                        child: TextFormField(
-                          controller: _recipientPhoneController,
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: AppColors.textPrimary,
-                          ),
-                          decoration: _buildInputDecoration(
-                            hintText: 'Nhập số điện thoại',
-                          ),
-                          keyboardType: TextInputType.phone,
-                          textInputAction: TextInputAction.next,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Vui lòng nhập số điện thoại';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xl2),
-
-                      // Service type section
-                      Text(
-                        'Loại dịch vụ',
-                        style: AppTextStyles.headingSmall.copyWith(
-                          color: AppColors.textPrimary,
-                        ),
+                      CreateOrderServiceSection(
+                        serviceType: _serviceType,
+                        onChanged: (value) => setState(() {
+                          _serviceType = value;
+                        }),
                       ),
                       const SizedBox(height: AppSpacing.lg),
-
-                      _buildServiceTypeSelector(),
-                      const SizedBox(height: AppSpacing.xl2),
-
-                      // Note section
-                      Text(
-                        'Ghi chú (tùy chọn)',
-                        style: AppTextStyles.headingSmall.copyWith(
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
+                      const CreateOrderPaymentSection(),
                       const SizedBox(height: AppSpacing.lg),
-
-                      _buildSectionCard(
-                        icon: Icons.description_rounded,
-                        iconColor: AppColors.info,
-                        title: 'Ghi chú (tùy chọn)',
-                        child: TextFormField(
-                          controller: _noteController,
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: AppColors.textPrimary,
-                          ),
-                          decoration: _buildInputDecoration(
-                            hintText: 'Thêm ghi chú cho đơn hàng',
-                          ),
-                          maxLines: 3,
-                          textInputAction: TextInputAction.done,
-                        ),
+                      const FeeSummary(deliveryFee: _defaultDeliveryFee),
+                      const SizedBox(height: AppSpacing.lg),
+                      CreateOrderConfirmationSection(
+                        pickupAddress: _pickupAddressController.text,
+                        deliveryAddress: _deliveryAddressController.text,
+                        recipientName: _recipientNameController.text,
+                        recipientPhone: _recipientPhoneController.text,
+                        serviceType: _serviceType,
+                        paymentMethod: _paymentMethod,
+                        note: _noteController.text,
+                        itemName: _itemNameController.text,
+                        itemCategory: _itemCategory,
+                        itemDescription: _itemDescriptionController.text,
+                        itemImageName: _cargoImage?.name,
+                        deliveryFee: _defaultDeliveryFee,
                       ),
-                      const SizedBox(height: AppSpacing.xl3),
-
-                      // Submit button
-                      Container(
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: _isSubmitting
-                              ? AppColors.accent.withValues(alpha: 0.6)
-                              : AppColors.accent,
-                          borderRadius: AppRadius.full,
-                          boxShadow: _isSubmitting ? [] : AppShadow.accentGlow,
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: _isSubmitting ? null : _submitOrder,
-                            borderRadius: AppRadius.full,
-                            child: Center(
-                              child: _isSubmitting
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: AppColors.textOnAccent,
-                                      ),
-                                    )
-                                  : Text(
-                                      'Tạo đơn hàng',
-                                      style: AppTextStyles.labelLarge.copyWith(
-                                        color: AppColors.textOnAccent,
-                                      ),
-                                    ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xl),
                     ],
                   ),
                 ),
@@ -403,195 +378,27 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
     );
   }
 
-  Widget _buildSectionCard({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required Widget child,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: AppRadius.lg,
-        boxShadow: AppShadow.card,
-      ),
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.1),
-                  borderRadius: AppRadius.sm,
-                ),
-                child: Icon(icon, size: 18, color: iconColor),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.labelMedium.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          child,
-        ],
-      ),
-    );
+  String? Function(String?) _requiredAddress(String message) {
+    return (value) {
+      if (value == null || value.trim().isEmpty) return message;
+      if (value.trim().length < 6) {
+        return 'Địa chỉ cần rõ hơn để tài xế có thể tìm thấy.';
+      }
+      return null;
+    };
   }
 
-  Widget _buildServiceTypeSelector() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: AppRadius.lg,
-        boxShadow: AppShadow.card,
-      ),
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        children: [
-          _buildServiceTypeOption(
-            value: 'standard',
-            title: 'Tiêu chuẩn',
-            subtitle: 'Giao hàng trong 2-3 ngày',
-            icon: Icons.local_shipping_rounded,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _buildServiceTypeOption(
-            value: 'express',
-            title: 'Hỏa tốc',
-            subtitle: 'Giao hàng trong 24 giờ',
-            icon: Icons.bolt_rounded,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _buildServiceTypeOption(
-            value: 'fragile',
-            title: 'Dễ vỡ',
-            subtitle: 'Hàng hóa cần xử lý cẩn thận',
-            icon: Icons.inventory_2_rounded,
-          ),
-        ],
-      ),
-    );
+  String? Function(String?) _requiredText(String message) {
+    return (value) {
+      if (value == null || value.trim().isEmpty) return message;
+      return null;
+    };
   }
 
-  Widget _buildServiceTypeOption({
-    required String value,
-    required String title,
-    required String subtitle,
-    required IconData icon,
-  }) {
-    final isSelected = _serviceType == value;
-
-    return InkWell(
-      onTap: () => setState(() => _serviceType = value),
-      borderRadius: AppRadius.md,
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.accentLight : AppColors.bgLight,
-          borderRadius: AppRadius.md,
-          border: Border.all(
-            color: isSelected ? AppColors.accent : AppColors.border,
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.accent
-                    : AppColors.textMuted.withValues(alpha: 0.1),
-                borderRadius: AppRadius.sm,
-              ),
-              child: Icon(
-                icon,
-                size: 20,
-                color: isSelected
-                    ? AppColors.textOnAccent
-                    : AppColors.textMuted,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: AppTextStyles.labelMedium.copyWith(
-                      color: isSelected
-                          ? AppColors.accent
-                          : AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              isSelected
-                  ? Icons.radio_button_checked_rounded
-                  : Icons.radio_button_off_rounded,
-              color: isSelected ? AppColors.accent : AppColors.textMuted,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  InputDecoration _buildInputDecoration({required String hintText}) {
-    return InputDecoration(
-      hintText: hintText,
-      hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textMuted),
-      border: OutlineInputBorder(
-        borderRadius: AppRadius.md,
-        borderSide: const BorderSide(color: AppColors.border),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: AppRadius.md,
-        borderSide: const BorderSide(color: AppColors.border),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: AppRadius.md,
-        borderSide: const BorderSide(color: AppColors.borderFocus, width: 1.5),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: AppRadius.md,
-        borderSide: const BorderSide(color: AppColors.error),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: AppRadius.md,
-        borderSide: const BorderSide(color: AppColors.error, width: 1.5),
-      ),
-      filled: true,
-      fillColor: AppColors.bgLight,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      errorStyle: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
-    );
+  String? _validatePhone(String? value) {
+    final phone = value?.trim() ?? '';
+    if (phone.isEmpty) return 'Vui lòng nhập số điện thoại người nhận.';
+    if (phone.length < 9) return 'Số điện thoại chưa đủ chữ số.';
+    return null;
   }
 }

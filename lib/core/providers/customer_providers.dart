@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/driver_model.dart';
@@ -8,6 +9,7 @@ import '../models/order_status_log_model.dart';
 import '../models/saved_address_model.dart';
 import '../models/user_model.dart';
 import '../services/customer_order_service.dart';
+import '../services/cargo_image_service.dart';
 import '../services/driver_service.dart';
 import '../services/notification_service.dart';
 import '../services/realtime_service.dart';
@@ -16,6 +18,10 @@ import '../services/saved_address_service.dart';
 
 final customerOrderServiceProvider = Provider<CustomerOrderService>((ref) {
   return CustomerOrderService();
+});
+
+final cargoImageServiceProvider = Provider<CargoImageService>((ref) {
+  return CargoImageService();
 });
 
 final savedAddressServiceProvider = Provider<SavedAddressService>((ref) {
@@ -180,5 +186,88 @@ final ordersRealtimeProvider = FutureProvider.family<void, String>((
   });
   ref.onDispose(() async {
     await realtimeService.unsubscribe('orders:$customerId');
+  });
+});
+
+typedef TrackedOrderRealtimeRequest = ({String orderId, String trackingCode});
+
+/// Realtime subscription for the currently tracked order.
+final trackedOrderRealtimeProvider =
+    FutureProvider.family<void, TrackedOrderRealtimeRequest>((
+      ref,
+      request,
+    ) async {
+      final realtimeService = ref.watch(realtimeServiceProvider);
+      debugPrint(
+        '[TrackingRealtime] provider watched '
+        'orderId=${request.orderId} trackingCode=${request.trackingCode}',
+      );
+
+      realtimeService.subscribeToTrackedOrder(request.orderId, () {
+        debugPrint(
+          '[TrackingRealtime] invalidating after orders event '
+          'trackingCode=${request.trackingCode} orderId=${request.orderId}',
+        );
+        ref.invalidate(orderByTrackingCodeProvider(request.trackingCode));
+        ref.invalidate(orderStatusLogsProvider(request.orderId));
+        ref.invalidate(assignedDriverProvider(request.orderId));
+        debugPrint(
+          '[TrackingRealtime] providers invalidated after orders event',
+        );
+      });
+
+      realtimeService.subscribeToTrackedOrderStatusLogs(request.orderId, () {
+        debugPrint(
+          '[TrackingRealtime] invalidating after order_status_logs event '
+          'trackingCode=${request.trackingCode} orderId=${request.orderId}',
+        );
+        ref.invalidate(orderStatusLogsProvider(request.orderId));
+        ref.invalidate(orderByTrackingCodeProvider(request.trackingCode));
+        debugPrint(
+          '[TrackingRealtime] providers invalidated after order_status_logs event',
+        );
+      });
+
+      ref.onDispose(() async {
+        debugPrint(
+          '[TrackingRealtime] provider disposed '
+          'orderId=${request.orderId} trackingCode=${request.trackingCode}',
+        );
+        await realtimeService.unsubscribe('tracked_order:${request.orderId}');
+        await realtimeService.unsubscribe(
+          'tracked_order_status_logs:${request.orderId}',
+        );
+      });
+    });
+
+/// Realtime subscription for Driver Home order lists.
+final driverHomeOrdersRealtimeProvider = FutureProvider.family<void, String>((
+  ref,
+  driverId,
+) async {
+  final realtimeService = ref.watch(realtimeServiceProvider);
+
+  void invalidateDriverHomeOrders() {
+    ref.invalidate(availableOrdersProvider);
+    ref.invalidate(driverOrdersProvider(driverId));
+  }
+
+  realtimeService.subscribeToDriverAvailableOrders(
+    'pending',
+    invalidateDriverHomeOrders,
+  );
+  realtimeService.subscribeToDriverAvailableOrders(
+    'confirmed',
+    invalidateDriverHomeOrders,
+  );
+  realtimeService.subscribeToDriverAssignedOrders(
+    driverId,
+    invalidateDriverHomeOrders,
+  );
+
+  ref.onDispose(() async {
+    await realtimeService.unsubscribe('driver_available_orders:pending');
+    await realtimeService.unsubscribe('driver_available_orders:confirmed');
+    await realtimeService.unsubscribe('driver_assigned_orders:$driverId');
   });
 });
