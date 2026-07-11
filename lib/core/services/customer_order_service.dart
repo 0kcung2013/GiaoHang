@@ -47,6 +47,8 @@ class CustomerOrderService {
   static const List<String> _cancellableStatuses = [
     _statusPending,
     _statusConfirmed,
+    _statusAssigned,   // Cho phép hủy kèm cảnh báo (tài xế đang di chuyển đến)
+    _statusPickingUp,  // Cho phép hủy kèm cảnh báo mạnh (tài xế đang ở điểm lấy hàng)
   ];
 
   Future<List<OrderModel>> getCustomerOrders(String customerId) async {

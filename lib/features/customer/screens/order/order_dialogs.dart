@@ -15,7 +15,19 @@ class _OrderDetailSheetState extends ConsumerState<_OrderDetailSheet> {
   bool _showReasonInput = false;
   bool _isCancelling = false;
 
-  static const Set<String> _cancellableStatuses = {'pending', 'confirmed'};
+  // Các trạng thái cho phép hủy (có thể cần cảnh báo thêm)
+  static const Set<String> _cancellableStatuses = {
+    'pending',
+    'confirmed',
+    'assigned',
+    'picking_up',
+  };
+
+  // Trạng thái cần hiện cảnh báo xác nhận trước khi hủy
+  static const Set<String> _warnBeforeCancelStatuses = {
+    'assigned',
+    'picking_up',
+  };
 
   @override
   void dispose() {
@@ -30,21 +42,89 @@ class _OrderDetailSheetState extends ConsumerState<_OrderDetailSheet> {
       return;
     }
 
+    // Nếu tài xế đang trên đường / đang lấy hàng → hiện cảnh báo trước
+    if (_warnBeforeCancelStatuses.contains(widget.order.status)) {
+      final confirmed = await _showCancelWarningDialog();
+      // Bắt buộc kiểm tra mounted sau mỗi await
+      if (!mounted) return;
+      debugPrint('[CancelOrder] dialog result: confirmed=$confirmed');
+      if (confirmed != true) return;
+    }
+
+    if (!mounted) return;
     setState(() => _isCancelling = true);
     try {
+      debugPrint('[CancelOrder] calling cancelOrder id=${widget.order.id}');
       await ref
           .read(customerOrderServiceProvider)
           .cancelOrder(widget.order.id, widget.customerId, statusNote: reason);
+      debugPrint('[CancelOrder] cancelOrder success');
       ref.invalidate(customerOrdersProvider(widget.customerId));
       ref.invalidate(orderByIdProvider(widget.order.id));
       if (!mounted) return;
       Navigator.of(context).pop();
       _showSnackBar('Đã huỷ đơn hàng.');
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[CancelOrder] cancelOrder error: $e');
       if (!mounted) return;
       setState(() => _isCancelling = false);
-      _showSnackBar('Không thể huỷ đơn. Vui lòng thử lại.');
+      final msg = e.toString().contains('Không thể huỷ')
+          ? 'Không thể huỷ: tài xế đang lấy hoặc giao hàng.'
+          : 'Không thể huỷ đơn. Vui lòng thử lại.';
+      _showSnackBar(msg);
     }
+  }
+
+  Future<bool?> _showCancelWarningDialog() {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bgCard,
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.xl),
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 24),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              'Xác nhận huỷ đơn',
+              style: AppTextStyles.headingSmall.copyWith(
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          widget.order.status == 'picking_up'
+              ? 'Tài xế đang ở điểm lấy hàng. Huỷ lúc này có thể gây bất tiện và ảnh hưởng đến uy tín của bạn. Bạn có chắc chắn muốn huỷ không?'
+              : 'Tài xế đang trên đường đến lấy hàng. Bạn có chắc chắn muốn huỷ đơn không?',
+          style: AppTextStyles.bodyMedium.copyWith(
+            color: AppColors.textSecondary,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Không huỷ',
+              style: AppTextStyles.labelMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Vẫn huỷ đơn',
+              style: AppTextStyles.labelMedium.copyWith(
+                color: AppColors.error,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSnackBar(String message) {
@@ -156,6 +236,8 @@ class _OrderDetailSheetState extends ConsumerState<_OrderDetailSheet> {
                       controller: _reasonController,
                       showReasonInput: _showReasonInput,
                       isCancelling: _isCancelling,
+                      warnBeforeCancel:
+                          _warnBeforeCancelStatuses.contains(order.status),
                       onShowReasonInput: () {
                         setState(() => _showReasonInput = true);
                       },
@@ -604,6 +686,7 @@ class _CancelOrderSection extends StatelessWidget {
   final TextEditingController controller;
   final bool showReasonInput;
   final bool isCancelling;
+  final bool warnBeforeCancel;
   final VoidCallback onShowReasonInput;
   final VoidCallback onCancel;
 
@@ -611,23 +694,55 @@ class _CancelOrderSection extends StatelessWidget {
     required this.controller,
     required this.showReasonInput,
     required this.isCancelling,
+    required this.warnBeforeCancel,
     required this.onShowReasonInput,
     required this.onCancel,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isRisky = warnBeforeCancel;
     return _DetailSection(
       title: 'Huỷ đơn hàng',
       children: [
-        Text(
-          'Chỉ áp dụng cho đơn đang chờ xác nhận hoặc đã xác nhận.',
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.textSecondary,
-            height: 1.35,
+        if (isRisky)
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            margin: const EdgeInsets.only(bottom: AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.warning.withValues(alpha: 0.10),
+              borderRadius: AppRadius.md,
+              border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.warning_amber_rounded,
+                    color: AppColors.warning, size: 18),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Tài xế đang xử lý đơn. Huỷ lúc này có thể ảnh hưởng đến uy tín của bạn.',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.warning,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+            child: Text(
+              'Bạn có thể huỷ đơn khi chưa có tài xế nhận.',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+                height: 1.35,
+              ),
+            ),
           ),
-        ),
-        const SizedBox(height: AppSpacing.md),
         if (showReasonInput) ...[
           TextField(
             controller: controller,

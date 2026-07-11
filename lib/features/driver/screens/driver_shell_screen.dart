@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/app_theme.dart';
 import '../../../core/providers/customer_providers.dart';
@@ -37,12 +38,18 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
   @override
   Widget build(BuildContext context) {
     final cancelledId = ref.watch(latestCancelledOrderIdProvider);
+    final currentUser = Supabase.instance.client.auth.currentUser;
 
-    if (cancelledId != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(latestCancelledOrderIdProvider.notifier).state = null;
-        if (mounted) _showCancelledDialog(cancelledId);
-      });
+    if (currentUser != null) {
+      ref.watch(driverCancelledOrderRealtimeProvider(currentUser.id));
+      ref.watch(driverOrdersRealtimeProvider(currentUser.id));
+
+      if (cancelledId != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ref.read(latestCancelledOrderIdProvider.notifier).state = null;
+          if (mounted) _showCancelledDialog(cancelledId, currentUser.id);
+        });
+      }
     }
 
     return Scaffold(
@@ -75,7 +82,7 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
     );
   }
 
-  void _showCancelledDialog(String orderId) {
+  void _showCancelledDialog(String orderId, String currentUserId) {
     final shortId =
         orderId.length >= 8 ? orderId.substring(0, 8) : orderId;
     showDialog(
@@ -143,6 +150,12 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
           ],
         ),
       ),
-    );
+    ).then((_) {
+      debugPrint('[DriverShellScreen] Cancelled dialog dismissed. Refreshing order list providers.');
+      // ignore: unused_result
+      ref.refresh(availableOrdersProvider(currentUserId));
+      // ignore: unused_result
+      ref.refresh(driverOrdersProvider(currentUserId));
+    });
   }
 }

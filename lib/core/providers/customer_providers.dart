@@ -244,16 +244,19 @@ final trackedOrderRealtimeProvider =
     });
 
 /// Realtime subscription for cancelled-order dialog on Driver screen.
-/// Also invalidates order list providers so the driver sees the update.
+/// Also refreshes order list providers so the driver sees the update.
 final driverCancelledOrderRealtimeProvider =
     FutureProvider.family<void, String>((ref, driverId) async {
   final realtimeService = ref.watch(realtimeServiceProvider);
 
   realtimeService.subscribeToCancelledOrdersForDriver(
     driverId,
-    () {
-      ref.invalidate(availableOrdersProvider(driverId));
-      ref.invalidate(driverOrdersProvider(driverId));
+    () async {
+      await Future.delayed(const Duration(milliseconds: 800));
+      // ignore: unused_result
+      ref.refresh(availableOrdersProvider(driverId));
+      // ignore: unused_result
+      ref.refresh(driverOrdersProvider(driverId));
     },
     onOrderCancelled: (orderId) {
       ref.read(latestCancelledOrderIdProvider.notifier).state = orderId;
@@ -270,9 +273,22 @@ final driverOrdersRealtimeProvider =
     FutureProvider.family<void, String>((ref, driverId) async {
   final realtimeService = ref.watch(realtimeServiceProvider);
 
-  realtimeService.subscribeToAllOrdersChanges(() {
-    ref.invalidate(availableOrdersProvider(driverId));
-    ref.invalidate(driverOrdersProvider(driverId));
+  realtimeService.subscribeToAllOrdersChanges((payload) async {
+    final orderDriverId = payload.newRecord?['driver_id']?.toString();
+    final status = payload.newRecord?['status']?.toString();
+
+    // If order was cancelled and was assigned to this driver, skip immediate refresh
+    // so the alert dialog has time to pop up and stay visible.
+    if (orderDriverId == driverId && status == 'cancelled') {
+      debugPrint('[driverOrdersRealtimeProvider] Order cancelled belongs to current driver. Dismiss dialog will handle refresh. Skipping auto-refresh.');
+      return;
+    }
+
+    await Future.delayed(const Duration(milliseconds: 800));
+    // ignore: unused_result
+    ref.refresh(availableOrdersProvider(driverId));
+    // ignore: unused_result
+    ref.refresh(driverOrdersProvider(driverId));
   });
 
   ref.onDispose(() async {
