@@ -7,12 +7,14 @@ class DriverOrdersFilterBar extends StatelessWidget {
   final DriverOrderFilter selectedFilter;
   final ValueChanged<DriverOrderFilter> onChanged;
   final Map<DriverOrderFilter, int> counts;
+  final List<DriverOrderFilter> filters;
 
   const DriverOrdersFilterBar({
     super.key,
     required this.selectedFilter,
     required this.onChanged,
     required this.counts,
+    this.filters = DriverOrderFilter.values,
   });
 
   @override
@@ -26,7 +28,7 @@ class DriverOrdersFilterBar extends StatelessWidget {
         boxShadow: AppShadow.subtle,
       ),
       child: Row(
-        children: DriverOrderFilter.values.map((filter) {
+        children: filters.map((filter) {
           final isSelected = filter == selectedFilter;
           return Expanded(
             child: _FilterButton(

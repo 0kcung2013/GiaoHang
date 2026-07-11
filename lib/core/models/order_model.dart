@@ -30,6 +30,7 @@ class OrderModel {
     required this.paymentMethod,
     this.statusNote,
     required this.updatedAt,
+    this.rejectedBy = const [],
   });
 
   final String id;
@@ -62,6 +63,7 @@ class OrderModel {
   final String paymentMethod;
   final String? statusNote;
   final DateTime updatedAt;
+  final List<String> rejectedBy;
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     return OrderModel(
@@ -99,6 +101,10 @@ class OrderModel {
       updatedAt:
           _parseDateTime(json['updated_at']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
+      rejectedBy: (json['rejected_by'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
     );
   }
 
@@ -134,6 +140,7 @@ class OrderModel {
       'payment_method': paymentMethod,
       'status_note': statusNote,
       'updated_at': updatedAt.toIso8601String(),
+      'rejected_by': rejectedBy,
     };
   }
 

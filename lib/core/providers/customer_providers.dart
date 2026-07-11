@@ -76,17 +76,20 @@ final activeOrderProvider = FutureProvider.family<OrderModel?, String>((
   return service.getActiveOrder(customerId);
 });
 
-final availableOrdersProvider = FutureProvider<List<OrderModel>>((ref) async {
+final availableOrdersProvider = StreamProvider.family<List<OrderModel>, String>((
+  ref,
+  driverUserId,
+) {
   final service = ref.watch(customerOrderServiceProvider);
-  return service.getAvailableOrders();
+  return service.watchAvailableOrders(driverId: driverUserId);
 });
 
-final driverOrdersProvider = FutureProvider.family<List<OrderModel>, String>((
+final driverOrdersProvider = StreamProvider.family<List<OrderModel>, String>((
   ref,
   driverId,
-) async {
+) {
   final service = ref.watch(customerOrderServiceProvider);
-  return service.getDriverOrders(driverId);
+  return service.watchDriverOrders(driverId);
 });
 
 final orderByIdProvider = FutureProvider.family<OrderModel?, String>((
@@ -240,34 +243,42 @@ final trackedOrderRealtimeProvider =
       });
     });
 
-/// Realtime subscription for Driver Home order lists.
-final driverHomeOrdersRealtimeProvider = FutureProvider.family<void, String>((
-  ref,
-  driverId,
-) async {
+/// Realtime subscription for cancelled-order dialog on Driver screen.
+/// Also invalidates order list providers so the driver sees the update.
+final driverCancelledOrderRealtimeProvider =
+    FutureProvider.family<void, String>((ref, driverId) async {
   final realtimeService = ref.watch(realtimeServiceProvider);
 
-  void invalidateDriverHomeOrders() {
-    ref.invalidate(availableOrdersProvider);
-    ref.invalidate(driverOrdersProvider(driverId));
-  }
-
-  realtimeService.subscribeToDriverAvailableOrders(
-    'pending',
-    invalidateDriverHomeOrders,
-  );
-  realtimeService.subscribeToDriverAvailableOrders(
-    'confirmed',
-    invalidateDriverHomeOrders,
-  );
-  realtimeService.subscribeToDriverAssignedOrders(
+  realtimeService.subscribeToCancelledOrdersForDriver(
     driverId,
-    invalidateDriverHomeOrders,
+    () {
+      ref.invalidate(availableOrdersProvider(driverId));
+      ref.invalidate(driverOrdersProvider(driverId));
+    },
+    onOrderCancelled: (orderId) {
+      ref.read(latestCancelledOrderIdProvider.notifier).state = orderId;
+    },
   );
 
   ref.onDispose(() async {
-    await realtimeService.unsubscribe('driver_available_orders:pending');
-    await realtimeService.unsubscribe('driver_available_orders:confirmed');
-    await realtimeService.unsubscribe('driver_assigned_orders:$driverId');
+    await realtimeService.unsubscribe('driver_cancelled_orders:$driverId');
   });
 });
+
+/// Realtime subscription that refreshes driver order lists on any order change.
+final driverOrdersRealtimeProvider =
+    FutureProvider.family<void, String>((ref, driverId) async {
+  final realtimeService = ref.watch(realtimeServiceProvider);
+
+  realtimeService.subscribeToAllOrdersChanges(() {
+    ref.invalidate(availableOrdersProvider(driverId));
+    ref.invalidate(driverOrdersProvider(driverId));
+  });
+
+  ref.onDispose(() async {
+    await realtimeService.unsubscribe('driver_all_orders_watch');
+  });
+});
+
+/// Tracks the latest cancelled order ID — reset after dialog is shown.
+final latestCancelledOrderIdProvider = StateProvider<String?>((ref) => null);

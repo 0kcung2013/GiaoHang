@@ -71,18 +71,11 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
               child: Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: layout.maxContentWidth),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const _OrderHeader(),
-                      SizedBox(height: layout.headerGap),
-                      _OrderFilterBar(
-                        filters: _filters,
-                        selectedIndex: _selectedFilterIndex,
-                        onSelected: (i) =>
-                            setState(() => _selectedFilterIndex = i),
-                      ),
-                    ],
+                  child: _OrderFilterBar(
+                    filters: _filters,
+                    selectedIndex: _selectedFilterIndex,
+                    onSelected: (i) =>
+                        setState(() => _selectedFilterIndex = i),
                   ),
                 ),
               ),

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/constants/app_theme.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/providers/customer_providers.dart';
+import '../../home/utils/driver_home_formatters.dart';
 import '../../home/widgets/driver_state_widgets.dart';
 import '../utils/driver_order_filter.dart';
 import 'driver_orders_filter_bar.dart';
@@ -26,20 +27,23 @@ class _DriverOrdersBodyState extends ConsumerState<DriverOrdersBody> {
   Widget build(BuildContext context) {
     _debugLog('authUser=${widget.userId} selectedFilter=$_selectedFilter');
     final driverAsync = ref.watch(driverByUserIdProvider(widget.userId));
-    final availableOrdersAsync = ref.watch(availableOrdersProvider);
+    final availableOrdersAsync = ref.watch(
+      availableOrdersProvider(widget.userId),
+    );
 
     return driverAsync.when(
       loading: () => const DriverLoadingState(),
       error: (_, _) => DriverErrorState(
         onRetry: () {
           ref.invalidate(driverByUserIdProvider(widget.userId));
-          ref.invalidate(availableOrdersProvider);
+          ref.invalidate(availableOrdersProvider(widget.userId));
         },
       ),
       data: (driver) {
         if (driver == null) return const MissingDriverProfileState();
         _debugLog('driverProfile id=${driver.id} userId=${driver.userId}');
 
+        ref.watch(driverOrdersRealtimeProvider(driver.userId));
         final driverOrdersAsync = ref.watch(
           driverOrdersProvider(driver.userId),
         );
@@ -57,18 +61,36 @@ class _DriverOrdersBodyState extends ConsumerState<DriverOrdersBody> {
           );
           return DriverErrorState(
             onRetry: () {
-              ref.invalidate(availableOrdersProvider);
+              ref.invalidate(availableOrdersProvider(widget.userId));
               ref.invalidate(driverOrdersProvider(driver.userId));
             },
           );
         }
 
-        final availableOrders =
+        final rawAvailableOrders =
             availableOrdersAsync.valueOrNull ?? const <OrderModel>[];
         final driverOrders =
             driverOrdersAsync.valueOrNull ?? const <OrderModel>[];
+        final hasActiveOrder =
+            driverOrders.any(isActiveDriverOrder);
+        final availableOrders =
+            driver.isAvailable && !hasActiveOrder
+                ? rawAvailableOrders
+                : const <OrderModel>[];
+
+        final showAvailableTab = driver.isAvailable && !hasActiveOrder;
+        final visibleFilters = showAvailableTab
+            ? DriverOrderFilter.values
+            : DriverOrderFilter.values
+                .where((f) => f != DriverOrderFilter.available)
+                .toList();
+
+        if (!visibleFilters.contains(_selectedFilter)) {
+          _selectedFilter = visibleFilters.first;
+        }
+
         final counts = {
-          for (final filter in DriverOrderFilter.values)
+          for (final filter in visibleFilters)
             filter: filter
                 .filter(
                   availableOrders: availableOrders,
@@ -90,6 +112,7 @@ class _DriverOrdersBodyState extends ConsumerState<DriverOrdersBody> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             DriverOrdersFilterBar(
+              filters: visibleFilters,
               selectedFilter: _selectedFilter,
               counts: counts,
               onChanged: (filter) => setState(() => _selectedFilter = filter),

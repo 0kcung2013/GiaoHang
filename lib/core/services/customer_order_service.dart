@@ -114,7 +114,7 @@ class CustomerOrderService {
     }
   }
 
-  Future<List<OrderModel>> getAvailableOrders() async {
+  Future<List<OrderModel>> getAvailableOrders({String? driverId}) async {
     try {
       _debugLogOrderQuery(
         'available:start authUser=${_supabase.auth.currentUser?.id ?? 'none'} '
@@ -130,12 +130,52 @@ class CustomerOrderService {
       final orders = response
           .map(OrderModel.fromJson)
           .where((order) => order.driverId == null || order.driverId!.isEmpty)
-          .toList();
+          .where((order) {
+        if (driverId == null || driverId.isEmpty) return true;
+        return !order.rejectedBy.contains(driverId);
+      }).toList();
       _debugLogOrders('available:result', orders);
       return orders;
     } catch (error) {
       _debugLogOrderQuery('available:error $error');
       throw Exception('Failed to load available driver orders: $error');
+    }
+  }
+
+  /// Realtime stream of available orders for a driver.
+  Stream<List<OrderModel>> watchAvailableOrders({String? driverId}) {
+    return _supabase
+        .from(_ordersTable)
+        .stream(primaryKey: ['id'])
+        .order('created_at', ascending: false)
+        .limit(50)
+        .map((rows) {
+          final orders = rows.map(OrderModel.fromJson).toList();
+          _debugLogOrders('watch:available', orders);
+          return orders
+              .where((order) =>
+                  (order.status == _statusPending ||
+                      order.status == _statusConfirmed) &&
+                  (order.driverId == null || order.driverId!.isEmpty))
+              .where((order) {
+            if (driverId == null || driverId.isEmpty) return true;
+            return !order.rejectedBy.contains(driverId);
+          }).toList();
+        });
+  }
+
+  Future<void> rejectOrder(String orderId, String driverUserId) async {
+    if (orderId.trim().isEmpty || driverUserId.trim().isEmpty) {
+      throw Exception('Order id and driver id are required.');
+    }
+
+    try {
+      await _supabase.rpc('reject_order', params: {
+        'p_order_id': orderId,
+        'p_driver_user_id': driverUserId,
+      });
+    } catch (error) {
+      throw Exception('Failed to reject order: $error');
     }
   }
 
@@ -167,12 +207,59 @@ class CustomerOrderService {
     }
   }
 
+  /// Realtime stream of orders assigned to a specific driver.
+  Stream<List<OrderModel>> watchDriverOrders(String driverId) {
+    return _supabase
+        .from(_ordersTable)
+        .stream(primaryKey: ['id'])
+        .eq('driver_id', driverId)
+        .order('created_at', ascending: false)
+        .map((rows) {
+          final orders = rows
+              .map(OrderModel.fromJson)
+              .where((order) => order.status != _statusCancelled)
+              .toList();
+          _debugLogOrders('watch:driver', orders);
+          return orders;
+        });
+  }
+
   Future<void> acceptOrder(String orderId, String driverId) async {
     if (orderId.trim().isEmpty || driverId.trim().isEmpty) {
       throw Exception('Order id and driver id are required.');
     }
 
     try {
+      final driverRow = await _supabase
+          .from('drivers')
+          .select('is_available')
+          .eq('user_id', driverId)
+          .maybeSingle();
+
+      if (driverRow == null) {
+        throw Exception('Không tìm thấy hồ sơ tài xế.');
+      }
+
+      final isAvailable = driverRow['is_available'] as bool? ?? false;
+      if (!isAvailable) {
+        throw Exception(
+          'Bạn đang offline. Bật trạng thái sẵn sàng để nhận đơn.',
+        );
+      }
+
+      final activeResponse = await _supabase
+          .from(_ordersTable)
+          .select('id')
+          .eq('driver_id', driverId)
+          .inFilter('status', [_statusAssigned, _statusPickingUp, _statusDelivering])
+          .maybeSingle();
+
+      if (activeResponse != null) {
+        throw Exception(
+          'Bạn đang có đơn chưa hoàn thành. Vui lòng giao xong trước khi nhận đơn mới.',
+        );
+      }
+
       final acceptedAt = DateTime.now().toIso8601String();
       final response = await _supabase
           .from(_ordersTable)
@@ -188,7 +275,7 @@ class CustomerOrderService {
           .maybeSingle();
 
       if (response == null) {
-        throw Exception('Order is no longer available.');
+        throw Exception('Đơn hàng không còn khả dụng.');
       }
 
       await _createOrderStatusLog(
@@ -198,6 +285,11 @@ class CustomerOrderService {
         description: 'Tài xế đã nhận đơn hàng.',
       );
     } catch (error) {
+      final msg = error.toString().replaceAll('Exception: ', '');
+      if (msg.contains('offline') ||
+          msg.contains('đơn chưa hoàn thành')) {
+        throw Exception(msg);
+      }
       throw Exception('Failed to accept driver order: $error');
     }
   }

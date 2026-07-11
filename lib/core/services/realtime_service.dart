@@ -189,6 +189,41 @@ class RealtimeService {
     return channel;
   }
 
+  /// Subscribe to cancelled orders for a driver — emits order ID.
+  RealtimeChannel subscribeToCancelledOrdersForDriver(
+    String driverId,
+    void Function() onRefresh, {
+    void Function(String orderId)? onOrderCancelled,
+  }) {
+    final channelName = 'driver_cancelled_orders:$driverId';
+
+    _removeChannel(channelName);
+
+    final channel = _supabase
+        .channel(channelName)
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'orders',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'status',
+            value: 'cancelled',
+          ),
+          callback: (payload) {
+            final orderId = payload.newRecord['id']?.toString();
+            if (orderId != null && orderId.isNotEmpty) {
+              onOrderCancelled?.call(orderId);
+            }
+            onRefresh();
+          },
+        )
+        .subscribe();
+
+    _channels[channelName] = channel;
+    return channel;
+  }
+
   /// Subscribe to orders assigned to a specific driver user id.
   RealtimeChannel subscribeToDriverAssignedOrders(
     String driverId,
@@ -211,6 +246,30 @@ class RealtimeService {
           ),
           callback: (payload) {
             onDriverOrderChange();
+          },
+        )
+        .subscribe();
+
+    _channels[channelName] = channel;
+    return channel;
+  }
+
+  /// Subscribe to ALL orders table changes — catch-all for status transitions.
+  RealtimeChannel subscribeToAllOrdersChanges(
+    void Function() onAnyChange,
+  ) {
+    const channelName = 'driver_all_orders_watch';
+
+    _removeChannel(channelName);
+
+    final channel = _supabase
+        .channel(channelName)
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'orders',
+          callback: (payload) {
+            onAnyChange();
           },
         )
         .subscribe();

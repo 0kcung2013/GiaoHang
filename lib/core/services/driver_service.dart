@@ -41,6 +41,20 @@ class DriverService {
     }
   }
 
+  Future<void> updateAvailability(String driverId, bool isAvailable) async {
+    try {
+      await _supabase
+          .from(_driversTable)
+          .update({
+            'is_available': isAvailable,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', driverId);
+    } catch (error) {
+      throw Exception('Failed to update availability: $error');
+    }
+  }
+
   Future<DriverModel?> getDriverForOrder(String orderId) async {
     try {
       final order = await _supabase

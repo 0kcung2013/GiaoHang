@@ -1,59 +1,5 @@
 part of 'order_screen.dart';
 
-class _OrderHeader extends StatelessWidget {
-  const _OrderHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: AppRadius.xl,
-        boxShadow: AppShadow.elevated,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.18),
-              borderRadius: AppRadius.lg,
-            ),
-            child: const Icon(
-              Icons.receipt_long_rounded,
-              color: AppColors.textOnDark,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Đơn hàng',
-                  style: AppTextStyles.headingLarge.copyWith(
-                    color: AppColors.textOnDark,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  'Theo dõi và lọc trạng thái đơn của bạn',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textOnDark.withValues(alpha: 0.72),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _OrderFilterBar extends StatelessWidget {
   final List<String> filters;
   final int selectedIndex;
