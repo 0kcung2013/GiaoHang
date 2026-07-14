@@ -6,6 +6,7 @@ import '../../../../../core/models/order_model.dart';
 import '../../../../../core/providers/customer_providers.dart';
 import '../../../../../core/utils/order_cargo_utils.dart';
 import '../../../../../core/widgets/order_cargo_info_block.dart';
+import '../../navigation/driver_navigation_screen.dart';
 import '../utils/driver_home_formatters.dart';
 import 'slide_status_action.dart';
 
@@ -109,6 +110,14 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
     );
   }
 
+  void _openNavigation() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DriverNavigationScreen(order: widget.order),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
@@ -118,8 +127,11 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
     final canUpdateStatus =
         !canAccept && statusActionLabel != null && order.driverId != null;
     final hasAction = canAccept || canUpdateStatus;
+    final isActive = isActiveDriverOrder(order);
 
-    return Container(
+    return GestureDetector(
+      onTap: isActive ? _openNavigation : null,
+      child: Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.bgLight,
@@ -237,6 +249,7 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

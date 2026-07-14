@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../core/constants/app_theme.dart';
 import '../../../../core/models/driver_model.dart';
@@ -7,10 +9,14 @@ import '../../../../core/models/order_model.dart';
 import '../../../../core/models/order_status_log_model.dart';
 import '../../../../core/models/user_model.dart';
 import '../../../../core/providers/customer_providers.dart';
+import '../../../../core/providers/location_providers.dart';
+import '../../../../core/services/osrm_service.dart';
 import '../../../../core/widgets/order_cargo_info_block.dart';
 
 part 'tracking_widgets.dart';
 part 'tracking_helpers.dart';
+part 'widgets/tracking_map.dart';
+part 'widgets/marker_icon.dart';
 
 class TrackingScreen extends ConsumerStatefulWidget {
   const TrackingScreen({super.key});
@@ -169,6 +175,10 @@ class _TrackingLookupResult extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.md),
+        if (_shouldShowOrderMap(order)) ...[
+          _TrackingMap(order: order),
+          const SizedBox(height: AppSpacing.md),
+        ],
         _TrackingTimeline(order: order),
         if (_shouldShowAssignedDriver(order.status)) ...[
           const SizedBox(height: AppSpacing.xl2 + AppSpacing.xs),

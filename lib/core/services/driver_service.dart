@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/driver_location_model.dart';
 import '../models/driver_model.dart';
 
 class DriverService {
@@ -10,6 +11,7 @@ class DriverService {
 
   static const String _driversTable = 'drivers';
   static const String _ordersTable = 'orders';
+  static const String _locationsTable = 'driver_locations';
 
   Future<DriverModel?> getDriverById(String driverId) async {
     try {
@@ -52,6 +54,66 @@ class DriverService {
           .eq('id', driverId);
     } catch (error) {
       throw Exception('Failed to update availability: $error');
+    }
+  }
+
+  Future<void> updateLocation({
+    required String driverId,
+    required double lat,
+    required double lng,
+    double? heading,
+  }) async {
+    try {
+      await _supabase
+          .from(_driversTable)
+          .update({
+            'current_lat': lat,
+            'current_lng': lng,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', driverId);
+    } catch (error) {
+      throw Exception('Failed to update location: $error');
+    }
+  }
+
+  Future<void> insertHistoryPoint({
+    required String driverId,
+    required double lat,
+    required double lng,
+    double? heading,
+    double? speed,
+    bool isActive = true,
+  }) async {
+    try {
+      await _supabase.from(_locationsTable).insert({
+        'driver_id': driverId,
+        'lat': lat,
+        'lng': lng,
+        'heading': heading,
+        'speed': speed,
+        'is_active': isActive,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+    } catch (error) {
+      throw Exception('Failed to insert location history: $error');
+    }
+  }
+
+  Future<DriverLocationModel?> getLastLocation(String driverId) async {
+    try {
+      final response = await _supabase
+          .from(_locationsTable)
+          .select()
+          .eq('driver_id', driverId)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (response == null) return null;
+      return DriverLocationModel.fromJson(response);
+    } catch (error) {
+      throw Exception('Failed to get last location: $error');
     }
   }
 

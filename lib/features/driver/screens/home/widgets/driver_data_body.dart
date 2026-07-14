@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/providers/customer_providers.dart';
+import '../../../../../core/providers/location_providers.dart';
 import '../utils/driver_home_formatters.dart';
 import 'availability_toggle_card.dart';
 import 'driver_home_layout.dart';
+import 'driver_home_map.dart';
 import 'driver_priority_orders.dart';
 import 'driver_quick_stats.dart';
 import 'driver_state_widgets.dart';
@@ -72,12 +74,24 @@ class DriverDashboardBody extends ConsumerWidget {
             driver.isAvailable && !hasActiveOrder
                 ? rawAvailableOrders
                 : const <OrderModel>[];
+        final activeOrders =
+            driverOrders.where(isActiveDriverOrder).toList();
+        final showMap = visibleAvailable.isNotEmpty || activeOrders.isNotEmpty;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (hasActiveOrder)
+              _GpsTracker(driverId: driver.id),
             AvailabilityToggleCard(driver: driver),
             SizedBox(height: layout.sectionGap),
+            if (showMap)
+              DriverHomeMap(
+                availableOrders: visibleAvailable,
+                activeOrders: activeOrders,
+              ),
+            if (showMap)
+              SizedBox(height: layout.sectionGap),
             DriverQuickStats(
               activeCount: activeCount,
               availableCount: visibleAvailable.length,
@@ -92,5 +106,17 @@ class DriverDashboardBody extends ConsumerWidget {
         );
       },
     );
+  }
+}
+
+class _GpsTracker extends ConsumerWidget {
+  final String driverId;
+
+  const _GpsTracker({required this.driverId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(driverLocationStreamProvider(driverId));
+    return const SizedBox.shrink();
   }
 }

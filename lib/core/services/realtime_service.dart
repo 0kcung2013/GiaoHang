@@ -295,6 +295,44 @@ class RealtimeService {
     return channel;
   }
 
+  /// Subscribe to driver location updates via drivers table UPDATE.
+  RealtimeChannel subscribeToDriverLocation(
+    String driverId,
+    void Function() onLocationChange,
+  ) {
+    final channelName = 'driver_location:$driverId';
+
+    _removeChannel(channelName);
+    debugPrint('[RealtimeService] Subscribing to $channelName');
+
+    final channel = _supabase
+        .channel(channelName)
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'drivers',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: driverId,
+          ),
+          callback: (payload) {
+            debugPrint(
+              '[RealtimeService] DRIVER_LOCATION event received on $channelName',
+            );
+            onLocationChange();
+          },
+        )
+        .subscribe((status, error) {
+          debugPrint(
+            '[RealtimeService] Channel $channelName status=$status, error=$error',
+          );
+        });
+
+    _channels[channelName] = channel;
+    return channel;
+  }
+
   /// Unsubscribe from a specific channel
   Future<void> unsubscribe(String channelName) async {
     await _removeChannel(channelName);

@@ -1,3 +1,5 @@
+import 'package:device_preview/device_preview.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,6 +9,18 @@ import 'core/router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (kIsWeb) {
+    FlutterError.onError = (details) {
+      if (details.exceptionAsString().contains('window.dart')) return;
+      FlutterError.presentError(details);
+    };
+    PlatformDispatcher.instance.onError = (exception, stack) {
+      if (exception.toString().contains('window.dart')) return true;
+      return false;
+    };
+  }
+
   await Supabase.initialize(
     url: SupabaseConstants.supabaseUrl,
     anonKey: SupabaseConstants.supabaseAnonKey,
@@ -27,7 +41,10 @@ void main() async {
 
   runApp(
     ProviderScope(
-      child: CustomerApp(initialLocation: initialLocation),
+      child: DevicePreview(
+        enabled: !kReleaseMode,
+        builder: (context) => CustomerApp(initialLocation: initialLocation),
+      ),
     ),
   );
 }
@@ -42,6 +59,8 @@ class CustomerApp extends StatelessWidget {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'DATN - Khách hàng',
+      locale: DevicePreview.locale(context),
+      builder: DevicePreview.appBuilder,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,

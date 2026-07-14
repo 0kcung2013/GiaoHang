@@ -14,7 +14,7 @@ void main() {
     );
 
     expect(find.text('Đặt hàng dễ dàng'), findsOneWidget);
-    expect(find.text('Bỏ qua'), findsNWidgets(2));
+    expect(find.text('Bỏ qua'), findsOneWidget);
     expect(find.text('Tiếp theo'), findsOneWidget);
   });
 }

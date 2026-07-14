@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_theme.dart';
 import '../../../../core/services/auth_service.dart';
@@ -28,8 +27,6 @@ class _DriverAccountScreenState extends State<DriverAccountScreen> {
     setState(() => _isSigningOut = true);
     try {
       await AuthService().signOut();
-      if (!mounted) return;
-      context.go('/login');
     } catch (_) {
       if (!mounted) return;
       setState(() => _isSigningOut = false);

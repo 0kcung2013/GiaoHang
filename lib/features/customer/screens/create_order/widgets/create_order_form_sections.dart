@@ -13,11 +13,15 @@ class CreateOrderAddressSection extends StatelessWidget {
     required this.pickupAddressController,
     required this.deliveryAddressController,
     required this.requiredAddress,
+    required this.onPickPickup,
+    required this.onPickDelivery,
   });
 
   final TextEditingController pickupAddressController;
   final TextEditingController deliveryAddressController;
   final String? Function(String?) Function(String message) requiredAddress;
+  final VoidCallback onPickPickup;
+  final VoidCallback onPickDelivery;
 
   @override
   Widget build(BuildContext context) {
@@ -26,22 +30,60 @@ class CreateOrderAddressSection extends StatelessWidget {
       iconColor: AppColors.info,
       title: 'Thông tin địa chỉ',
       children: [
-        CreateOrderTextField(
-          controller: pickupAddressController,
-          label: 'Địa chỉ lấy hàng',
-          hint: 'Nhập địa chỉ lấy hàng',
-          icon: Icons.my_location_rounded,
-          textInputAction: TextInputAction.next,
-          validator: requiredAddress('Vui lòng nhập địa chỉ lấy hàng.'),
+        Row(
+          children: [
+            Expanded(
+              child: CreateOrderTextField(
+                controller: pickupAddressController,
+                label: 'Địa chỉ lấy hàng',
+                hint: 'Nhập địa chỉ hoặc chọn trên bản đồ',
+                icon: Icons.my_location_rounded,
+                textInputAction: TextInputAction.next,
+                validator: requiredAddress('Vui lòng nhập địa chỉ lấy hàng.'),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Material(
+              color: AppColors.accent.withValues(alpha: 0.1),
+              borderRadius: AppRadius.sm,
+              child: InkWell(
+                borderRadius: AppRadius.sm,
+                onTap: onPickPickup,
+                child: const Padding(
+                  padding: EdgeInsets.all(AppSpacing.md),
+                  child: Icon(Icons.map_rounded, color: AppColors.accent, size: 20),
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: AppSpacing.md),
-        CreateOrderTextField(
-          controller: deliveryAddressController,
-          label: 'Địa chỉ giao hàng',
-          hint: 'Nhập địa chỉ giao hàng',
-          icon: Icons.location_on_rounded,
-          textInputAction: TextInputAction.next,
-          validator: requiredAddress('Vui lòng nhập địa chỉ giao hàng.'),
+        Row(
+          children: [
+            Expanded(
+              child: CreateOrderTextField(
+                controller: deliveryAddressController,
+                label: 'Địa chỉ giao hàng',
+                hint: 'Nhập địa chỉ hoặc chọn trên bản đồ',
+                icon: Icons.location_on_rounded,
+                textInputAction: TextInputAction.next,
+                validator: requiredAddress('Vui lòng nhập địa chỉ giao hàng.'),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Material(
+              color: AppColors.markerDrop.withValues(alpha: 0.1),
+              borderRadius: AppRadius.sm,
+              child: InkWell(
+                borderRadius: AppRadius.sm,
+                onTap: onPickDelivery,
+                child: const Padding(
+                  padding: EdgeInsets.all(AppSpacing.md),
+                  child: Icon(Icons.map_rounded, color: AppColors.markerDrop, size: 20),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

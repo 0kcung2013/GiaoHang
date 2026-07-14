@@ -10,6 +10,10 @@ class DriverModel {
     required this.updatedAt,
     this.rating,
     required this.totalDeliveries,
+    this.approvalStatus = 'approved',
+    this.fullName,
+    this.email,
+    this.phone,
   });
 
   final String id;
@@ -22,10 +26,48 @@ class DriverModel {
   final DateTime updatedAt;
   final double? rating;
   final int totalDeliveries;
+  final String approvalStatus;
+  final String? fullName;
+  final String? email;
+  final String? phone;
+
+  DriverModel copyWith({
+    String? id,
+    String? userId,
+    String? vehicleType,
+    String? licensePlate,
+    bool? isAvailable,
+    double? currentLat,
+    double? currentLng,
+    DateTime? updatedAt,
+    double? rating,
+    int? totalDeliveries,
+    String? approvalStatus,
+    String? fullName,
+    String? email,
+    String? phone,
+  }) {
+    return DriverModel(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      vehicleType: vehicleType ?? this.vehicleType,
+      licensePlate: licensePlate ?? this.licensePlate,
+      isAvailable: isAvailable ?? this.isAvailable,
+      currentLat: currentLat ?? this.currentLat,
+      currentLng: currentLng ?? this.currentLng,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rating: rating ?? this.rating,
+      totalDeliveries: totalDeliveries ?? this.totalDeliveries,
+      approvalStatus: approvalStatus ?? this.approvalStatus,
+      fullName: fullName ?? this.fullName,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+    );
+  }
 
   factory DriverModel.fromJson(Map<String, dynamic> json) {
     return DriverModel(
-      id: json['id']?.toString() ?? '',
+      id: (json['id'] ?? json['driver_id'])?.toString() ?? '',
       userId: json['user_id']?.toString() ?? '',
       vehicleType: json['vehicle_type']?.toString(),
       licensePlate: json['license_plate']?.toString(),
@@ -37,6 +79,10 @@ class DriverModel {
           DateTime.fromMillisecondsSinceEpoch(0),
       rating: _parseDouble(json['rating']),
       totalDeliveries: _parseInt(json['total_deliveries']) ?? 0,
+      approvalStatus: json['approval_status']?.toString() ?? 'approved',
+      fullName: json['full_name']?.toString(),
+      email: json['email']?.toString(),
+      phone: json['phone']?.toString(),
     );
   }
 
@@ -52,6 +98,10 @@ class DriverModel {
       'updated_at': updatedAt.toIso8601String(),
       'rating': rating,
       'total_deliveries': totalDeliveries,
+      'approval_status': approvalStatus,
+      'full_name': fullName,
+      'email': email,
+      'phone': phone,
     };
   }
 

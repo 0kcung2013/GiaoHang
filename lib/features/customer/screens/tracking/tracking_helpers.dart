@@ -187,3 +187,10 @@ const List<String> _statusOrder = [
   'delivering',
   'delivered',
 ];
+
+bool _shouldShowOrderMap(OrderModel order) {
+  if (!_shouldShowAssignedDriver(order.status)) return false;
+  if (order.pickupLat == 0 && order.pickupLng == 0) return false;
+  if (order.deliveryLat == 0 && order.deliveryLng == 0) return false;
+  return true;
+}

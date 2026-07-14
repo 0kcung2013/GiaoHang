@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_theme.dart';
 import '../../../../core/services/auth_service.dart';
@@ -112,9 +111,8 @@ class DriverDrawer extends StatelessWidget {
                   backgroundColor: Colors.transparent,
                   builder: (context) => const _LogoutSheet(),
                 );
-                if (confirmed == true && context.mounted) {
+                if (confirmed == true) {
                   await AuthService().signOut();
-                  if (context.mounted) context.go('/login');
                 }
               },
             ),

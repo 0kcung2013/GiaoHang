@@ -3,15 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_theme.dart';
 import '../../../../core/models/order_model.dart';
 import '../../../../core/providers/customer_providers.dart';
+import '../../../../core/providers/location_providers.dart';
 import '../../../../core/utils/order_cargo_utils.dart';
 import 'widgets/create_order_form_sections.dart';
 import 'widgets/create_order_header.dart';
 import 'widgets/create_order_summary.dart';
+import 'widgets/map_picker_sheet.dart';
 import 'widgets/submit_order_button.dart';
 
 class CreateOrderScreen extends ConsumerStatefulWidget {
@@ -76,6 +79,11 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   XFile? _cargoImage;
   bool _isSubmitting = false;
 
+  double _pickupLat = 0;
+  double _pickupLng = 0;
+  double _deliveryLat = 0;
+  double _deliveryLng = 0;
+
   @override
   void initState() {
     super.initState();
@@ -109,8 +117,78 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
     super.dispose();
   }
 
+  Future<void> _assignNearestDriver(String orderId) async {
+    try {
+      final data = await Supabase.instance.client.rpc(
+        'find_nearest_drivers',
+        params: {
+          'pickup_lat': _pickupLat,
+          'pickup_lng': _pickupLng,
+          'radius_meters': 5000,
+          'max_results': 1,
+        },
+      );
+
+      final list = data as List<dynamic>;
+      if (list.isEmpty) return;
+      final driver = list.first as Map<String, dynamic>;
+      final driverUserId = driver['user_id']?.toString();
+      if (driverUserId == null) return;
+
+      await Supabase.instance.client
+          .from('orders')
+          .update({
+            'driver_id': driverUserId,
+            'status': 'assigned',
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', orderId);
+
+      debugPrint('[AssignDriver] order=$orderId assigned to driver=$driverUserId');
+    } catch (e) {
+      debugPrint('[AssignDriver] failed for order=$orderId: $e');
+    }
+  }
+
   void _refreshSummary() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _openMapPicker(String type) async {
+    LatLng initialPos;
+    if (type == 'pickup' && _pickupLat != 0) {
+      initialPos = LatLng(_pickupLat, _pickupLng);
+    } else if (type == 'delivery' && _deliveryLat != 0) {
+      initialPos = LatLng(_deliveryLat, _deliveryLng);
+    } else {
+      final pos = await ref.read(locationServiceProvider).getCurrentPosition();
+      initialPos = (pos != null)
+          ? LatLng(pos.latitude, pos.longitude)
+          : const LatLng(10.762622, 106.660172);
+    }
+
+    final result = await showModalBottomSheet<LatLng>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => MapPickerSheet(initialPosition: initialPos),
+    );
+
+    if (result == null || !mounted) return;
+
+    setState(() {
+      if (type == 'pickup') {
+        _pickupLat = result.latitude;
+        _pickupLng = result.longitude;
+        _pickupAddressController.text =
+            '${result.latitude.toStringAsFixed(6)}, ${result.longitude.toStringAsFixed(6)}';
+      } else {
+        _deliveryLat = result.latitude;
+        _deliveryLng = result.longitude;
+        _deliveryAddressController.text =
+            '${result.latitude.toStringAsFixed(6)}, ${result.longitude.toStringAsFixed(6)}';
+      }
+    });
   }
 
   Future<void> _submitOrder() async {
@@ -156,11 +234,11 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         driverId: null,
         status: 'pending',
         pickupAddress: _pickupAddressController.text.trim(),
-        pickupLat: 0,
-        pickupLng: 0,
-        deliveryAddress: _deliveryAddressController.text.trim(),
-        deliveryLat: 0,
-        deliveryLng: 0,
+          pickupLat: _pickupLat,
+          pickupLng: _pickupLng,
+          deliveryAddress: _deliveryAddressController.text.trim(),
+          deliveryLat: _deliveryLat,
+          deliveryLng: _deliveryLng,
         totalPrice: null,
         note: _noteController.text.trim().isEmpty
             ? null
@@ -188,7 +266,11 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       );
 
       final service = ref.read(customerOrderServiceProvider);
-      await service.createOrder(order);
+      final orderId = await service.createOrder(order);
+
+      if (_pickupLat != 0 && _pickupLng != 0) {
+        _assignNearestDriver(orderId);
+      }
 
       ref.invalidate(customerOrdersProvider);
       ref.invalidate(recentOrdersProvider);
@@ -320,6 +402,8 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                         pickupAddressController: _pickupAddressController,
                         deliveryAddressController: _deliveryAddressController,
                         requiredAddress: _requiredAddress,
+                        onPickPickup: () => _openMapPicker('pickup'),
+                        onPickDelivery: () => _openMapPicker('delivery'),
                       ),
                       const SizedBox(height: AppSpacing.lg),
                       CreateOrderRecipientSection(

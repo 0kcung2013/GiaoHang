@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../../../core/constants/app_theme.dart';
 import 'dashboard/admin_dashboard_screen.dart';
 import 'drivers/admin_drivers_screen.dart';
@@ -22,12 +21,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
     AdminSettingsScreen(),
   ];
 
-  static const _titles = [
-    'Admin Dashboard',
-    'Quan ly don hang',
-    'Quan ly tai xe',
-    'Cai dat',
-  ];
+  static const _titles = ['Tổng quan', 'Đơn hàng', 'Tài xế', 'Cài đặt'];
 
   int _currentIndex = 0;
 
@@ -36,25 +30,15 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
     return Scaffold(
       backgroundColor: AppColors.bgLight,
       appBar: AppBar(
-        title: Text(
-          _titles[_currentIndex],
-          style: AppTextStyles.headingMedium.copyWith(
-            color: AppColors.textPrimary,
-          ),
-        ),
+        title: Text(_titles[_currentIndex], style: AppTextStyles.headingMedium.copyWith(color: AppColors.textPrimary)),
         backgroundColor: AppColors.bgCard,
         surfaceTintColor: AppColors.bgCard,
         elevation: 0,
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        scrolledUnderElevation: 1,
+        shadowColor: AppColors.border,
       ),
-      body: SafeArea(
-        bottom: false,
-        child: IndexedStack(index: _currentIndex, children: _tabs),
-      ),
-      bottomNavigationBar: AdminBottomNav(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-      ),
+      body: SafeArea(bottom: false, child: IndexedStack(index: _currentIndex, children: _tabs)),
+      bottomNavigationBar: AdminBottomNav(currentIndex: _currentIndex, onTap: (index) => setState(() => _currentIndex = index)),
     );
   }
 }
