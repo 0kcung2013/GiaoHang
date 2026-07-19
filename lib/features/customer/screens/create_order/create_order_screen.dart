@@ -5,16 +5,13 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_theme.dart';
-import '../../../../core/models/order_model.dart';
-import '../../../../core/providers/customer_providers.dart';
 import '../../../../core/providers/location_providers.dart';
 import '../../../../core/utils/order_cargo_utils.dart';
+import 'utils/order_form_data.dart';
 import 'widgets/create_order_form_sections.dart';
 import 'widgets/create_order_header.dart';
-import 'widgets/create_order_summary.dart';
 import 'widgets/map_picker_sheet.dart';
 import 'widgets/submit_order_button.dart';
 
@@ -62,10 +59,6 @@ class _CreateOrderLayout {
 }
 
 class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
-  static const _debugTag = '[CargoImagePickerDebug]';
-  static const _defaultDeliveryFee = 30000.0;
-  static const _paymentMethod = 'cash';
-
   final _formKey = GlobalKey<FormState>();
   final _pickupAddressController = TextEditingController();
   final _deliveryAddressController = TextEditingController();
@@ -78,27 +71,19 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   String _serviceType = 'standard';
   String _itemCategory = cargoCategories.first;
   XFile? _cargoImage;
-  bool _isSubmitting = false;
 
   double _pickupLat = 0;
   double _pickupLng = 0;
   double _deliveryLat = 0;
   double _deliveryLng = 0;
 
+  Position? _currentPosition;
+  bool _isLoadingPosition = false;
+
   @override
   void initState() {
     super.initState();
-    for (final controller in [
-      _pickupAddressController,
-      _deliveryAddressController,
-      _recipientNameController,
-      _recipientPhoneController,
-      _noteController,
-      _itemNameController,
-      _itemDescriptionController,
-    ]) {
-      controller.addListener(_refreshSummary);
-    }
+    _preloadCurrentPosition();
   }
 
   @override
@@ -112,47 +97,23 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       _itemNameController,
       _itemDescriptionController,
     ]) {
-      controller.removeListener(_refreshSummary);
       controller.dispose();
     }
     super.dispose();
   }
 
-  Future<void> _assignNearestDriver(String orderId) async {
+  Future<void> _preloadCurrentPosition() async {
+    if (_isLoadingPosition) return;
+    _isLoadingPosition = true;
     try {
-      final data = await Supabase.instance.client.rpc(
-        'find_nearest_drivers',
-        params: {
-          'pickup_lat': _pickupLat,
-          'pickup_lng': _pickupLng,
-          'radius_meters': 5000,
-          'max_results': 1,
-        },
-      );
-
-      final list = data as List<dynamic>;
-      if (list.isEmpty) return;
-      final driver = list.first as Map<String, dynamic>;
-      final driverUserId = driver['user_id']?.toString();
-      if (driverUserId == null) return;
-
-      await Supabase.instance.client
-          .from('orders')
-          .update({
-            'driver_id': driverUserId,
-            'status': 'assigned',
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', orderId);
-
-      debugPrint('[AssignDriver] order=$orderId assigned to driver=$driverUserId');
-    } catch (e) {
-      debugPrint('[AssignDriver] failed for order=$orderId: $e');
+      _currentPosition = await Geolocator.getLastKnownPosition();
+      _currentPosition ??=
+          await ref.read(locationServiceProvider).getCurrentPosition();
+    } catch (_) {
+      _currentPosition = null;
+    } finally {
+      _isLoadingPosition = false;
     }
-  }
-
-  void _refreshSummary() {
-    if (mounted) setState(() {});
   }
 
   Future<void> _openMapPicker(String type) async {
@@ -162,15 +123,11 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
     } else if (type == 'delivery' && _deliveryLat != 0) {
       initialPos = LatLng(_deliveryLat, _deliveryLng);
     } else {
-      Position? pos;
-      try {
-        pos = await Geolocator.getLastKnownPosition();
-      } catch (_) {
-        pos = null;
-      }
+      Position? pos = _currentPosition;
       pos ??= await ref.read(locationServiceProvider).getCurrentPosition();
       if (pos != null) {
         initialPos = LatLng(pos.latitude, pos.longitude);
+        _currentPosition = pos;
       } else {
         _showSnackBar(
           'Không thể định vị vị trí hiện tại. Vui lòng chọn vị trí trên bản đồ.',
@@ -180,7 +137,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       }
     }
 
-    final result = await showModalBottomSheet<LatLng>(
+    final result = await showModalBottomSheet<MapPickerResult>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -189,119 +146,46 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
 
     if (result == null || !mounted) return;
 
+    final address = result.address;
+    final lat = result.position.latitude;
+    final lng = result.position.longitude;
+
     setState(() {
       if (type == 'pickup') {
-        _pickupLat = result.latitude;
-        _pickupLng = result.longitude;
-        _pickupAddressController.text =
-            '${result.latitude.toStringAsFixed(6)}, ${result.longitude.toStringAsFixed(6)}';
+        _pickupLat = lat;
+        _pickupLng = lng;
+        _pickupAddressController.text = address;
       } else {
-        _deliveryLat = result.latitude;
-        _deliveryLng = result.longitude;
-        _deliveryAddressController.text =
-            '${result.latitude.toStringAsFixed(6)}, ${result.longitude.toStringAsFixed(6)}';
+        _deliveryLat = lat;
+        _deliveryLng = lng;
+        _deliveryAddressController.text = address;
       }
     });
   }
 
-  Future<void> _submitOrder() async {
-    if (_isSubmitting) return;
+  void _goToConfirmation() {
     if (!_formKey.currentState!.validate()) return;
 
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) {
-      _showSnackBar('Vui lòng đăng nhập để tạo đơn hàng.', isError: true);
-      return;
-    }
+    final formData = OrderFormData(
+      pickupAddress: _pickupAddressController.text.trim(),
+      pickupLat: _pickupLat,
+      pickupLng: _pickupLng,
+      deliveryAddress: _deliveryAddressController.text.trim(),
+      deliveryLat: _deliveryLat,
+      deliveryLng: _deliveryLng,
+      recipientName: _recipientNameController.text.trim(),
+      recipientPhone: _recipientPhoneController.text.trim(),
+      note: _noteController.text.trim(),
+      itemName: _itemNameController.text.trim(),
+      itemCategory: _itemCategory,
+      itemDescription: _itemDescriptionController.text.trim(),
+      cargoImage: _cargoImage,
+      serviceType: _serviceType,
+      paymentMethod: 'cash',
+      deliveryFee: 30000.0,
+    );
 
-    setState(() => _isSubmitting = true);
-
-    try {
-      String? itemImageUrl;
-      final cargoImage = _cargoImage;
-      if (cargoImage != null) {
-        debugPrint(
-          '$_debugTag before upload name=${cargoImage.name} path=${cargoImage.path}',
-        );
-        try {
-          itemImageUrl = await ref
-              .read(cargoImageServiceProvider)
-              .uploadOrderCargoImage(userId: user.id, image: cargoImage);
-          debugPrint('$_debugTag upload success url=$itemImageUrl');
-        } catch (error) {
-          debugPrint('$_debugTag upload failure error=$error');
-          if (mounted) {
-            _showSnackBar(
-              'Không thể tải ảnh hàng hoá lên. Vui lòng chọn lại ảnh hoặc thử lại.',
-              isError: true,
-            );
-          }
-          rethrow;
-        }
-      }
-
-      final now = DateTime.now();
-      final order = OrderModel(
-        id: '',
-        customerId: user.id,
-        driverId: null,
-        status: 'pending',
-        pickupAddress: _pickupAddressController.text.trim(),
-          pickupLat: _pickupLat,
-          pickupLng: _pickupLng,
-          deliveryAddress: _deliveryAddressController.text.trim(),
-          deliveryLat: _deliveryLat,
-          deliveryLng: _deliveryLng,
-        totalPrice: null,
-        note: _noteController.text.trim().isEmpty
-            ? null
-            : _noteController.text.trim(),
-        createdAt: now,
-        trackingCode: '',
-        estimatedPickupAt: null,
-        estimatedDeliveryAt: null,
-        actualPickedUpAt: null,
-        actualDeliveredAt: null,
-        cancelledAt: null,
-        recipientName: _recipientNameController.text.trim(),
-        recipientPhone: _recipientPhoneController.text.trim(),
-        itemName: _itemNameController.text.trim(),
-        itemCategory: _itemCategory,
-        itemDescription: _itemDescriptionController.text.trim().isEmpty
-            ? null
-            : _itemDescriptionController.text.trim(),
-        itemImageUrl: itemImageUrl,
-        deliveryFee: _defaultDeliveryFee,
-        serviceType: _serviceType,
-        paymentMethod: _paymentMethod,
-        statusNote: null,
-        updatedAt: now,
-      );
-
-      final service = ref.read(customerOrderServiceProvider);
-      final orderId = await service.createOrder(order);
-
-      if (_pickupLat != 0 && _pickupLng != 0) {
-        _assignNearestDriver(orderId);
-      }
-
-      ref.invalidate(customerOrdersProvider);
-      ref.invalidate(recentOrdersProvider);
-      ref.invalidate(activeOrderProvider);
-
-      if (mounted) {
-        _showSnackBar('Đơn hàng đã được tạo thành công.');
-        context.pop();
-      }
-    } catch (error) {
-      if (mounted) {
-        _showSnackBar('Không thể tạo đơn hàng: $error', isError: true);
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
-    }
+    context.push('/customer/create-order/confirm', extra: formData);
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
@@ -322,7 +206,6 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   }
 
   Future<void> _pickCargoImage() async {
-    debugPrint('$_debugTag before opening picker');
     try {
       final picker = ImagePicker();
       final image = await picker.pickImage(
@@ -330,37 +213,24 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         maxWidth: 1600,
         imageQuality: 82,
       );
-      debugPrint('$_debugTag picker returned image=${image != null}');
 
-      if (image == null) {
-        debugPrint('$_debugTag picker returned null; user likely cancelled');
-        return;
-      }
+      if (image == null) return;
 
-      final size = await image.length();
-      debugPrint(
-        '$_debugTag picked file name=${image.name} path=${image.path} size=$size',
-      );
       if (!mounted) return;
       setState(() => _cargoImage = image);
-    } on PlatformException catch (error) {
-      debugPrint(
-        '$_debugTag picker platform failure code=${error.code} message=${error.message}',
-      );
+    } on PlatformException catch (_) {
       if (!mounted) return;
       _showSnackBar(
         'Không thể mở thư viện ảnh. Vui lòng kiểm tra quyền truy cập ảnh.',
         isError: true,
       );
-    } catch (error) {
-      debugPrint('$_debugTag picker failure error=$error');
+    } catch (_) {
       if (!mounted) return;
       _showSnackBar('Không thể chọn ảnh. Vui lòng thử lại.', isError: true);
     }
   }
 
   void _removeCargoImage() {
-    debugPrint('$_debugTag remove selected image');
     setState(() => _cargoImage = null);
   }
 
@@ -373,7 +243,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         titleSpacing: 0,
         leadingWidth: 56,
         title: Text(
-          'Tạo đơn giao hàng',
+          'Đơn hàng mới',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: AppTextStyles.headingMedium.copyWith(
@@ -382,11 +252,12 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         ),
         backgroundColor: AppColors.bgCard,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
         iconTheme: const IconThemeData(color: AppColors.textPrimary),
       ),
       bottomNavigationBar: SubmitOrderButton(
-        isSubmitting: _isSubmitting,
-        onPressed: _submitOrder,
+        label: 'Tiếp tục',
+        onPressed: _goToConfirmation,
       ),
       body: SafeArea(
         child: LayoutBuilder(
@@ -418,7 +289,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                         onPickPickup: () => _openMapPicker('pickup'),
                         onPickDelivery: () => _openMapPicker('delivery'),
                       ),
-                      const SizedBox(height: AppSpacing.lg),
+                      const SizedBox(height: AppSpacing.md),
                       CreateOrderRecipientSection(
                         recipientNameController: _recipientNameController,
                         recipientPhoneController: _recipientPhoneController,
@@ -426,7 +297,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                         requiredText: _requiredText,
                         validatePhone: _validatePhone,
                       ),
-                      const SizedBox(height: AppSpacing.lg),
+                      const SizedBox(height: AppSpacing.md),
                       CreateOrderCargoSection(
                         itemNameController: _itemNameController,
                         itemDescriptionController: _itemDescriptionController,
@@ -438,32 +309,15 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                         onPickImage: _pickCargoImage,
                         onRemoveImage: _removeCargoImage,
                       ),
-                      const SizedBox(height: AppSpacing.lg),
+                      const SizedBox(height: AppSpacing.md),
                       CreateOrderServiceSection(
                         serviceType: _serviceType,
                         onChanged: (value) => setState(() {
                           _serviceType = value;
                         }),
                       ),
-                      const SizedBox(height: AppSpacing.lg),
+                      const SizedBox(height: AppSpacing.md),
                       const CreateOrderPaymentSection(),
-                      const SizedBox(height: AppSpacing.lg),
-                      const FeeSummary(deliveryFee: _defaultDeliveryFee),
-                      const SizedBox(height: AppSpacing.lg),
-                      CreateOrderConfirmationSection(
-                        pickupAddress: _pickupAddressController.text,
-                        deliveryAddress: _deliveryAddressController.text,
-                        recipientName: _recipientNameController.text,
-                        recipientPhone: _recipientPhoneController.text,
-                        serviceType: _serviceType,
-                        paymentMethod: _paymentMethod,
-                        note: _noteController.text,
-                        itemName: _itemNameController.text,
-                        itemCategory: _itemCategory,
-                        itemDescription: _itemDescriptionController.text,
-                        itemImageName: _cargoImage?.name,
-                        deliveryFee: _defaultDeliveryFee,
-                      ),
                     ],
                   ),
                 ),

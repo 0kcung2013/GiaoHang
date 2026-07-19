@@ -11,7 +11,12 @@ class _TrackingMap extends ConsumerStatefulWidget {
 
 class _TrackingMapState extends ConsumerState<_TrackingMap> {
   List<LatLng>? _routePoints;
-  int _routeKey = 0; // Tăng mỗi lần gọi _loadRoute để hủy request cũ
+  int _routeKey = 0;
+  String _lastRouteHash = '';
+  DateTime _lastOsrmCall = DateTime(2000);
+  String _lastDriverPosKey = '';
+
+  static const _osrmMinInterval = Duration(seconds: 8);
 
   @override
   void initState() {
@@ -22,15 +27,14 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
   @override
   void didUpdateWidget(covariant _TrackingMap oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _loadRoute();
+    if (oldWidget.order.status != widget.order.status ||
+        oldWidget.order.driverId != widget.order.driverId) {
+      _loadRoute();
+    }
   }
 
   Future<void> _loadRoute() async {
-    // Tăng key để hủy mọi request đang chạy trước đó
     final myKey = ++_routeKey;
-
-    // Xoá route cũ ngay lập tức để tránh hiển thị 2 polyline cùng lúc
-    if (mounted) setState(() => _routePoints = null);
 
     final driver =
         ref.read(assignedDriverProvider(widget.order.id)).valueOrNull;
@@ -54,22 +58,33 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
         waypoints = [pickupPos, deliveryPos];
       } else if (widget.order.status == 'delivering' ||
           widget.order.status == 'delivered') {
-        // 2 waypoints: driver → delivery
         waypoints = [driverPos, deliveryPos];
       } else {
-        // 2 waypoints: driver → pickup.
-        // KHÔNG dùng 3 waypoints [driver, pickup, delivery] vì OSRM snap
-        // điểm giữa vào road segment khác, gây đường thẳng ngang lỗi.
         waypoints = [driverPos, pickupPos];
       }
+    }
+
+    final statusKey =
+        '${widget.order.status}_${waypoints.map((w) => '${w.latitude.toStringAsFixed(4)}_${w.longitude.toStringAsFixed(4)}').join('_')}';
+    if (statusKey == _lastRouteHash) {
+      debugPrint('[OSRM_DEBUG] route unchanged, skipping');
+      return;
+    }
+    _lastRouteHash = statusKey;
+
+    final now = DateTime.now();
+    if (now.difference(_lastOsrmCall) < _osrmMinInterval &&
+        _routePoints != null) {
+      debugPrint('[OSRM_DEBUG] rate limited, skipping OSRM call');
+      return;
     }
 
     debugPrint('[OSRM_DEBUG] loading route for order status: ${widget.order.status}');
     debugPrint('[OSRM_DEBUG] waypoints: ${waypoints.map((w) => '${w.latitude},${w.longitude}').toList()}');
 
     final result = await OsrmService().getRouteWithWaypoints(waypoints: waypoints);
+    _lastOsrmCall = DateTime.now();
 
-    // Chỉ cập nhật nếu request này vẫn là request mới nhất (chưa bị hủy)
     if (!mounted || myKey != _routeKey) return;
 
     if (result == null) {
@@ -97,8 +112,15 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
     ref.listen<AsyncValue<DriverModel?>>(
       assignedDriverProvider(order.id),
       (previous, next) {
-        if (next.hasValue && next.value != null) {
-          _loadRoute();
+        final driver = next.valueOrNull;
+        if (driver?.currentLat != null && driver?.currentLng != null &&
+            driver!.currentLat != 0.0 && driver.currentLng != 0.0) {
+          final posKey =
+              '${driver.currentLat!.toStringAsFixed(4)}_${driver.currentLng!.toStringAsFixed(4)}';
+          if (posKey != _lastDriverPosKey) {
+            _lastDriverPosKey = posKey;
+            _loadRoute();
+          }
         }
       },
     );

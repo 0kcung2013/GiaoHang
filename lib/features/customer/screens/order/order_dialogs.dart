@@ -1,4 +1,28 @@
-part of 'order_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/constants/app_theme.dart';
+import '../../../../core/models/order_item_model.dart';
+import '../../../../core/models/order_model.dart';
+import '../../../../core/providers/customer_providers.dart';
+import '../../../../core/widgets/order_cargo_info_block.dart';
+import 'order_helpers.dart';
+
+void showOrderDetailSheet({
+  required BuildContext context,
+  required String customerId,
+  required OrderModel order,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) {
+      return _OrderDetailSheet(customerId: customerId, order: order);
+    },
+  );
+}
 
 class _OrderDetailSheet extends ConsumerStatefulWidget {
   final String customerId;
@@ -15,7 +39,6 @@ class _OrderDetailSheetState extends ConsumerState<_OrderDetailSheet> {
   bool _showReasonInput = false;
   bool _isCancelling = false;
 
-  // Các trạng thái cho phép hủy (có thể cần cảnh báo thêm)
   static const Set<String> _cancellableStatuses = {
     'pending',
     'confirmed',
@@ -23,7 +46,6 @@ class _OrderDetailSheetState extends ConsumerState<_OrderDetailSheet> {
     'picking_up',
   };
 
-  // Trạng thái cần hiện cảnh báo xác nhận trước khi hủy
   static const Set<String> _warnBeforeCancelStatuses = {
     'assigned',
     'picking_up',
@@ -42,30 +64,24 @@ class _OrderDetailSheetState extends ConsumerState<_OrderDetailSheet> {
       return;
     }
 
-    // Nếu tài xế đang trên đường / đang lấy hàng → hiện cảnh báo trước
     if (_warnBeforeCancelStatuses.contains(widget.order.status)) {
       final confirmed = await _showCancelWarningDialog();
-      // Bắt buộc kiểm tra mounted sau mỗi await
       if (!mounted) return;
-      debugPrint('[CancelOrder] dialog result: confirmed=$confirmed');
       if (confirmed != true) return;
     }
 
     if (!mounted) return;
     setState(() => _isCancelling = true);
     try {
-      debugPrint('[CancelOrder] calling cancelOrder id=${widget.order.id}');
       await ref
           .read(customerOrderServiceProvider)
           .cancelOrder(widget.order.id, widget.customerId, statusNote: reason);
-      debugPrint('[CancelOrder] cancelOrder success');
       ref.invalidate(customerOrdersProvider(widget.customerId));
       ref.invalidate(orderByIdProvider(widget.order.id));
       if (!mounted) return;
       Navigator.of(context).pop();
       _showSnackBar('Đã huỷ đơn hàng.');
     } catch (e) {
-      debugPrint('[CancelOrder] cancelOrder error: $e');
       if (!mounted) return;
       setState(() => _isCancelling = false);
       final msg = e.toString().contains('Không thể huỷ')
@@ -136,7 +152,7 @@ class _OrderDetailSheetState extends ConsumerState<_OrderDetailSheet> {
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
-    final status = _OrderStatusView.fromStatus(order.status);
+    final status = OrderStatusView.fromStatus(order.status);
     final canCancel = _cancellableStatuses.contains(order.status);
 
     return DraggableScrollableSheet(
@@ -301,7 +317,7 @@ class _SheetHandle extends StatelessWidget {
 
 class _DetailHeader extends StatelessWidget {
   final OrderModel order;
-  final _OrderStatusView status;
+  final OrderStatusView status;
 
   const _DetailHeader({required this.order, required this.status});
 
@@ -346,7 +362,7 @@ class _DetailHeader extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      _formatOrderDateTime(order.createdAt),
+                      formatOrderDateTime(order.createdAt),
                       style: AppTextStyles.bodySmall.copyWith(
                         color: AppColors.textOnDark.withValues(alpha: 0.72),
                       ),
@@ -367,6 +383,34 @@ class _DetailHeader extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final OrderStatusView status;
+
+  const _StatusBadge({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm + 2,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: status.color.withValues(alpha: 0.1),
+        borderRadius: AppRadius.full,
+      ),
+      child: Text(
+        status.label,
+        style: AppTextStyles.labelSmall.copyWith(
+          color: status.color,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
+        ),
       ),
     );
   }
@@ -565,10 +609,10 @@ class _OrderTimelineSection extends ConsumerWidget {
                 for (var i = 0; i < logs.length; i++)
                   _TimelineRow(
                     title: logs[i].title.isEmpty
-                        ? _OrderStatusView.fromStatus(logs[i].status).label
+                        ? OrderStatusView.fromStatus(logs[i].status).label
                         : logs[i].title,
                     description: logs[i].description,
-                    time: _formatOrderDateTime(logs[i].createdAt),
+                    time: formatOrderDateTime(logs[i].createdAt),
                     status: logs[i].status,
                     isLast: i == logs.length - 1,
                   ),
@@ -588,7 +632,7 @@ class _FallbackTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final steps = _fallbackTimelineSteps(order);
+    final steps = fallbackTimelineSteps(order);
     return Column(
       children: [
         for (var i = 0; i < steps.length; i++)
@@ -621,7 +665,7 @@ class _TimelineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusView = _OrderStatusView.fromStatus(status);
+    final statusView = OrderStatusView.fromStatus(status);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -712,7 +756,8 @@ class _CancelOrderSection extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.warning.withValues(alpha: 0.10),
               borderRadius: AppRadius.md,
-              border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+              border: Border.all(
+                  color: AppColors.warning.withValues(alpha: 0.4)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,

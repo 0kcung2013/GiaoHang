@@ -5,11 +5,11 @@ import '../../../../../core/constants/app_theme.dart';
 class SubmitOrderButton extends StatelessWidget {
   const SubmitOrderButton({
     super.key,
-    required this.isSubmitting,
+    required this.label,
     required this.onPressed,
   });
 
-  final bool isSubmitting;
+  final String label;
   final VoidCallback onPressed;
 
   @override
@@ -32,15 +32,13 @@ class SubmitOrderButton extends StatelessWidget {
           height: 52,
           decoration: BoxDecoration(
             borderRadius: AppRadius.full,
-            boxShadow: isSubmitting ? null : AppShadow.accentGlow,
+            boxShadow: AppShadow.accentGlow,
           ),
           child: Material(
-            color: isSubmitting
-                ? AppColors.accent.withValues(alpha: 0.62)
-                : AppColors.accent,
+            color: AppColors.accent,
             borderRadius: AppRadius.full,
             child: InkWell(
-              onTap: isSubmitting ? null : onPressed,
+              onTap: onPressed,
               borderRadius: AppRadius.full,
               child: Center(
                 child: Row(
@@ -48,15 +46,13 @@ class SubmitOrderButton extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      isSubmitting
-                          ? Icons.hourglass_empty_rounded
-                          : Icons.check_circle_rounded,
+                      Icons.arrow_forward_rounded,
                       color: AppColors.textOnAccent,
                       size: 20,
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Text(
-                      isSubmitting ? 'Đang tạo đơn...' : 'Tạo đơn hàng',
+                      label,
                       style: AppTextStyles.labelLarge.copyWith(
                         color: AppColors.textOnAccent,
                       ),

@@ -1,12 +1,15 @@
-part of 'order_screen.dart';
+import 'package:flutter/material.dart';
 
-class _TimelineStep {
+import '../../../../core/constants/app_theme.dart';
+import '../../../../core/models/order_model.dart';
+
+class TimelineStep {
   final String title;
   final String? description;
   final String time;
   final String status;
 
-  const _TimelineStep({
+  const TimelineStep({
     required this.title,
     required this.description,
     required this.time,
@@ -14,16 +17,16 @@ class _TimelineStep {
   });
 }
 
-List<_TimelineStep> _fallbackTimelineSteps(OrderModel order) {
-  final statusView = _OrderStatusView.fromStatus(order.status);
-  final createdTime = _formatOrderDateTime(order.createdAt);
+List<TimelineStep> fallbackTimelineSteps(OrderModel order) {
+  final statusView = OrderStatusView.fromStatus(order.status);
+  final createdTime = formatOrderDateTime(order.createdAt);
   final updatedTime = order.updatedAt.millisecondsSinceEpoch > 0
-      ? _formatOrderDateTime(order.updatedAt)
+      ? formatOrderDateTime(order.updatedAt)
       : createdTime;
 
   if (order.status == 'pending') {
     return [
-      _TimelineStep(
+      TimelineStep(
         title: statusView.label,
         description: 'Đơn hàng đã được tạo và đang chờ xác nhận.',
         time: createdTime,
@@ -33,26 +36,26 @@ List<_TimelineStep> _fallbackTimelineSteps(OrderModel order) {
   }
 
   return [
-    _TimelineStep(
+    TimelineStep(
       title: 'Đã tạo đơn',
       description: 'Đơn hàng đã được ghi nhận trong hệ thống.',
       time: createdTime,
       status: 'pending',
     ),
-    _TimelineStep(
+    TimelineStep(
       title: statusView.label,
       description: order.status == 'cancelled'
           ? (order.statusNote?.trim().isNotEmpty ?? false
                 ? order.statusNote!.trim()
                 : 'Đơn hàng đã bị huỷ.')
-          : _statusProgressDescription(order.status),
+          : statusProgressDescription(order.status),
       time: updatedTime,
       status: order.status,
     ),
   ];
 }
 
-String _statusProgressDescription(String status) {
+String statusProgressDescription(String status) {
   return switch (status) {
     'confirmed' => 'Đơn hàng đã được xác nhận.',
     'assigned' => 'Tài xế đã nhận đơn và chuẩn bị đến điểm lấy hàng.',
@@ -63,7 +66,7 @@ String _statusProgressDescription(String status) {
   };
 }
 
-String _formatOrderDateTime(DateTime value) {
+String formatOrderDateTime(DateTime value) {
   String twoDigits(int number) => number.toString().padLeft(2, '0');
   final hour = twoDigits(value.hour);
   final minute = twoDigits(value.minute);
@@ -72,55 +75,55 @@ String _formatOrderDateTime(DateTime value) {
   return '$hour:$minute · $day/$month/${value.year}';
 }
 
-class _OrderStatusView {
+class OrderStatusView {
   final String label;
   final Color color;
   final IconData icon;
 
-  const _OrderStatusView({
+  const OrderStatusView({
     required this.label,
     required this.color,
     required this.icon,
   });
 
-  factory _OrderStatusView.fromStatus(String status) {
+  factory OrderStatusView.fromStatus(String status) {
     return switch (status) {
-      'pending' => const _OrderStatusView(
+      'pending' => const OrderStatusView(
         label: 'Chờ xác nhận',
         color: AppColors.warning,
         icon: Icons.access_time_rounded,
       ),
-      'confirmed' => const _OrderStatusView(
+      'confirmed' => const OrderStatusView(
         label: 'Đã xác nhận',
         color: AppColors.info,
         icon: Icons.check_circle_rounded,
       ),
-      'assigned' => const _OrderStatusView(
-        label: 'Tài xế đã nhận đơn',
+      'assigned' => const OrderStatusView(
+        label: 'Đã có tài xế',
         color: AppColors.info,
         icon: Icons.local_shipping_rounded,
       ),
-      'picking_up' => const _OrderStatusView(
-        label: 'Tài xế đang đến lấy hàng',
+      'picking_up' => const OrderStatusView(
+        label: 'Đang lấy hàng',
         color: AppColors.accent,
         icon: Icons.inventory_2_rounded,
       ),
-      'delivering' => const _OrderStatusView(
-        label: 'Đang giao hàng',
+      'delivering' => const OrderStatusView(
+        label: 'Đang giao',
         color: AppColors.accent,
         icon: Icons.local_shipping_rounded,
       ),
-      'delivered' => const _OrderStatusView(
-        label: 'Giao hàng thành công',
+      'delivered' => const OrderStatusView(
+        label: 'Hoàn thành',
         color: AppColors.success,
         icon: Icons.check_circle_rounded,
       ),
-      'cancelled' => const _OrderStatusView(
-        label: 'Huỷ',
+      'cancelled' => const OrderStatusView(
+        label: 'Đã huỷ',
         color: AppColors.error,
         icon: Icons.cancel_rounded,
       ),
-      _ => const _OrderStatusView(
+      _ => const OrderStatusView(
         label: 'Không rõ',
         color: AppColors.textMuted,
         icon: Icons.help_outline_rounded,

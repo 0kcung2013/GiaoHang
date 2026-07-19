@@ -6,17 +6,6 @@ import '../dashboard/dashboard_screen.dart';
 import '../order/order_screen.dart';
 import '../tracking/tracking_screen.dart';
 
-// ── Customer App Shell — 4-tab Bottom Navigation ────────────────────────────
-//
-// Điểm đáng chú ý:
-//  • Dùng IndexedStack để giữ nguyên trạng thái từng tab khi chuyển qua lại.
-//  • Nav bar height = 72px + MediaQuery.padding.bottom để tránh bị che bởi
-//    thanh cử chỉ / home indicator trên các thiết bị không nút vật lý.
-//  • SafeArea(bottom: false) — safe area phía dưới được xử lý bởi nav bar.
-//  • Pill indicator dùng AnimatedContainer width 0→28 khi active.
-//  • Background tint (accent 8% opacity, radius 8px) xuất hiện sau icon active.
-//  • InkWell splashColor = accent 10% opacity, highlightColor transparent.
-
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({super.key});
 
@@ -27,22 +16,22 @@ class CustomerHomeScreen extends StatefulWidget {
 class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   int _currentTab = 0;
 
+  static const _pages = [
+    DashboardScreen(),
+    OrderScreen(),
+    TrackingScreen(),
+    AccountScreen(),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    const pages = [
-      DashboardScreen(),
-      OrderScreen(),
-      TrackingScreen(),
-      AccountScreen(),
-    ];
-
     return Scaffold(
       backgroundColor: NavColors.bgWarm,
       body: SafeArea(
         bottom: false,
         child: IndexedStack(
           index: _currentTab,
-          children: pages,
+          children: _pages,
         ),
       ),
       bottomNavigationBar: _BottomNav(
@@ -53,7 +42,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 }
 
-// ── Custom Bottom Nav ────────────────────────────────────────────────────────
 class _BottomNav extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -67,10 +55,7 @@ class _BottomNav extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: NavColors.surface,
-        border: Border(
-          top: BorderSide(color: NavColors.borderLight, width: 1),
-        ),
-        // Không dùng shadow — chỉ dùng border top theo spec
+        boxShadow: NavColors.navShadow,
       ),
       child: SizedBox(
         height: 72 + bottomPadding,
@@ -114,8 +99,7 @@ class _BottomNav extends StatelessWidget {
   }
 }
 
-// ── Nav Item ─────────────────────────────────────────────────────────────────
-class _NavItem extends StatelessWidget {
+class _NavItem extends StatefulWidget {
   final IconData icon;
   final IconData activeIcon;
   final String label;
@@ -127,16 +111,56 @@ class _NavItem extends StatelessWidget {
     required this.activeIcon,
     required this.label,
     required this.onTap,
-    this.active = false,
+    required this.active,
   });
 
   @override
+  State<_NavItem> createState() => _NavItemState();
+}
+
+class _NavItemState extends State<_NavItem>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _scaleController;
+  late final Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.0).animate(
+      CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut),
+    );
+    if (widget.active) {
+      _scaleController.forward();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _NavItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !oldWidget.active) {
+      _scaleController.forward(from: 0.0);
+    } else if (!widget.active && oldWidget.active) {
+      _scaleController.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scaleController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final color = active ? NavColors.accent : NavColors.textMuted;
+    final color = widget.active ? NavColors.accent : NavColors.textMuted;
 
     return Expanded(
       child: InkWell(
-        onTap: onTap,
+        onTap: widget.onTap,
         splashColor: NavColors.accentSplash,
         highlightColor: Colors.transparent,
         child: SizedBox(
@@ -144,47 +168,49 @@ class _NavItem extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // ① Animated pill indicator — 0→28px khi active
               AnimatedContainer(
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOut,
-                width: active ? 28 : 0,
+                width: widget.active ? 24 : 0,
                 height: 3,
                 margin: const EdgeInsets.only(bottom: 5),
                 decoration: BoxDecoration(
-                  color: active ? NavColors.accent : Colors.transparent,
+                  color:
+                      widget.active ? NavColors.accent : Colors.transparent,
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
-
-              // ② Icon trong vòng tint khi active
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOut,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: active
-                      ? NavColors.accentTint8
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  active ? activeIcon : icon,
-                  color: color,
-                  size: 22,
+              ScaleTransition(
+                scale: _scaleAnimation,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOut,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: widget.active
+                        ? NavColors.accentTint8
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    widget.active ? widget.activeIcon : widget.icon,
+                    color: color,
+                    size: 26,
+                  ),
                 ),
               ),
-
               const SizedBox(height: 3),
-
-              // ③ Label
               Text(
-                label,
+                widget.label,
                 style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                  fontSize: 12,
+                  fontWeight:
+                      widget.active ? FontWeight.w600 : FontWeight.w500,
                   color: color,
-                  letterSpacing: active ? 0.1 : 0,
+                  letterSpacing: widget.active ? 0.1 : 0,
                 ),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,

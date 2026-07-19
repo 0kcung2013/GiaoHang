@@ -23,7 +23,7 @@ class DriverOrderCard extends ConsumerStatefulWidget {
 
 class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
   bool _isAccepting = false;
-  bool _isRejecting = false;
+  bool _isTransferring = false;
   bool _isUpdatingStatus = false;
 
   Future<void> _acceptOrder() async {
@@ -32,9 +32,12 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
 
     setState(() => _isAccepting = true);
     try {
-      await ref
-          .read(customerOrderServiceProvider)
-          .acceptOrder(widget.order.id, driverId);
+      await ref.read(customerOrderServiceProvider).acceptOrder(
+            widget.order.id,
+            driverId,
+            customerIdHint: widget.order.customerId,
+            orderCodeHint: displayOrderCode(widget.order),
+          );
       ref.invalidate(availableOrdersProvider(driverId));
       ref.invalidate(driverOrdersProvider(driverId));
       if (!mounted) return;
@@ -48,25 +51,73 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
     }
   }
 
-  Future<void> _rejectOrder() async {
+  Future<void> _transferOrder() async {
     final driverId = widget.acceptDriverId;
-    if (_isRejecting || driverId == null || driverId.isEmpty) return;
+    if (_isTransferring || driverId == null || driverId.isEmpty) return;
 
-    setState(() => _isRejecting = true);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bgCard,
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.xl),
+        title: Text(
+          'Chuyển đơn cho tài xế khác?',
+          style: AppTextStyles.headingSmall.copyWith(
+            color: AppColors.textPrimary,
+          ),
+        ),
+        content: Text(
+          'Đơn sẽ được chuyển cho tài xế gần điểm lấy hàng nhất trong số còn lại. Bạn sẽ không còn thấy đơn này.',
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Huỷ',
+              style: AppTextStyles.labelMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Chuyển đơn',
+              style: AppTextStyles.labelMedium.copyWith(
+                color: AppColors.warning,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isTransferring = true);
     try {
-      await ref
+      final nextDriverId = await ref
           .read(customerOrderServiceProvider)
-          .rejectOrder(widget.order.id, driverId);
+          .transferOrder(widget.order.id, driverId);
       ref.invalidate(availableOrdersProvider(driverId));
       ref.invalidate(driverOrdersProvider(driverId));
       if (!mounted) return;
-      _showSnackBar('Đã từ chối đơn hàng.');
+      if (nextDriverId != null && nextDriverId.isNotEmpty) {
+        _showSnackBar('Đã chuyển đơn cho tài xế gần hơn.');
+      } else {
+        _showSnackBar(
+          'Đã chuyển đơn. Hiện chưa có tài xế khác gần điểm lấy hàng.',
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       final msg = e.toString().replaceAll('Exception: ', '');
       _showSnackBar(msg, isError: true);
     } finally {
-      if (mounted) setState(() => _isRejecting = false);
+      if (mounted) setState(() => _isTransferring = false);
     }
   }
 
@@ -229,9 +280,9 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
-                        child: _RejectOrderButton(
-                          isLoading: _isRejecting,
-                          onTap: _isRejecting ? null : _rejectOrder,
+                        child: _TransferOrderButton(
+                          isLoading: _isTransferring,
+                          onTap: _isTransferring ? null : _transferOrder,
                         ),
                       ),
                     ],
@@ -314,25 +365,26 @@ class _AcceptOrderButton extends StatelessWidget {
   }
 }
 
-class _RejectOrderButton extends StatelessWidget {
+class _TransferOrderButton extends StatelessWidget {
   final bool isLoading;
   final VoidCallback? onTap;
 
-  const _RejectOrderButton({required this.isLoading, required this.onTap});
+  const _TransferOrderButton({required this.isLoading, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final color = AppColors.warning;
     return Material(
       color: onTap == null
           ? AppColors.textMuted.withValues(alpha: 0.24)
-          : AppColors.error.withValues(alpha: 0.08),
+          : color.withValues(alpha: 0.12),
       borderRadius: AppRadius.full,
       child: InkWell(
         onTap: onTap,
         borderRadius: AppRadius.full,
         child: Padding(
           padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.lg,
+            horizontal: AppSpacing.md,
             vertical: AppSpacing.sm,
           ),
           child: Row(
@@ -340,27 +392,31 @@ class _RejectOrderButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (isLoading)
-                const SizedBox(
+                SizedBox(
                   width: 16,
                   height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: AppColors.error,
+                    color: color,
                   ),
                 )
               else
-                const Icon(
-                  Icons.cancel_rounded,
-                  color: AppColors.error,
+                Icon(
+                  Icons.swap_horiz_rounded,
+                  color: color,
                   size: 17,
                 ),
               const SizedBox(width: AppSpacing.xs),
-              Text(
-                isLoading ? 'Đang từ chối...' : 'Từ chối',
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.error,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
+              Flexible(
+                child: Text(
+                  isLoading ? 'Đang chuyển...' : 'Chuyển đơn',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
                 ),
               ),
             ],

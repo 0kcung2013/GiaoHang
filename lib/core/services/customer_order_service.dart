@@ -5,12 +5,25 @@ import '../models/order_item_model.dart';
 import '../models/order_model.dart';
 import '../models/order_status_log_model.dart';
 import '../models/user_model.dart';
+import '../utils/geo_utils.dart';
+import '../utils/order_display_utils.dart';
+import 'nearest_driver_service.dart';
+import 'notification_service.dart';
 
 class CustomerOrderService {
-  CustomerOrderService({SupabaseClient? client})
-    : _supabase = client ?? Supabase.instance.client;
+  CustomerOrderService({
+    SupabaseClient? client,
+    NearestDriverService? nearestDriverService,
+    NotificationService? notificationService,
+  })  : _supabase = client ?? Supabase.instance.client,
+        _nearestDriverService =
+            nearestDriverService ?? NearestDriverService(client: client),
+        _notificationService =
+            notificationService ?? NotificationService(client: client);
 
   final SupabaseClient _supabase;
+  final NearestDriverService _nearestDriverService;
+  final NotificationService _notificationService;
 
   static const String _ordersTable = 'orders';
   static const String _orderItemsTable = 'order_items';
@@ -129,13 +142,21 @@ class CustomerOrderService {
           .order('created_at', ascending: false)
           .limit(20);
 
-      final orders = response
+      var orders = response
           .map(OrderModel.fromJson)
           .where((order) => order.driverId == null || order.driverId!.isEmpty)
           .where((order) {
         if (driverId == null || driverId.isEmpty) return true;
         return !order.rejectedBy.contains(driverId);
       }).toList();
+
+      if (driverId != null && driverId.isNotEmpty) {
+        orders = await _nearestDriverService.filterOrdersForNearestDriver(
+          orders,
+          driverId,
+        );
+      }
+
       _debugLogOrders('available:result', orders);
       return orders;
     } catch (error) {
@@ -145,28 +166,107 @@ class CustomerOrderService {
   }
 
   /// Realtime stream of available orders for a driver.
+  /// Chỉ trả về đơn mà [driverId] là tài xế gần điểm lấy hàng nhất.
   Stream<List<OrderModel>> watchAvailableOrders({String? driverId}) {
     return _supabase
         .from(_ordersTable)
         .stream(primaryKey: ['id'])
         .order('created_at', ascending: false)
         .limit(50)
-        .map((rows) {
-          final orders = rows.map(OrderModel.fromJson).toList();
-          _debugLogOrders('watch:available', orders);
-          return orders
-              .where((order) =>
-                  (order.status == _statusPending ||
-                      order.status == _statusConfirmed) &&
-                  (order.driverId == null || order.driverId!.isEmpty))
+        .asyncMap((rows) async {
+          var orders = rows
+              .map(OrderModel.fromJson)
+              .where(
+                (order) =>
+                    (order.status == _statusPending ||
+                        order.status == _statusConfirmed) &&
+                    (order.driverId == null || order.driverId!.isEmpty),
+              )
               .where((order) {
-            if (driverId == null || driverId.isEmpty) return true;
-            return !order.rejectedBy.contains(driverId);
-          }).toList();
+                if (driverId == null || driverId.isEmpty) return true;
+                return !order.rejectedBy.contains(driverId);
+              })
+              .toList();
+
+          if (driverId != null && driverId.isNotEmpty) {
+            orders = await _nearestDriverService.filterOrdersForNearestDriver(
+              orders,
+              driverId,
+            );
+          }
+
+          _debugLogOrders('watch:available', orders);
+          return orders;
         });
   }
 
-  Future<void> rejectOrder(String orderId, String driverUserId) async {
+  /// Gán đơn cho tài xế gần điểm lấy hàng nhất.
+  Future<String?> assignNearestDriver({
+    required String orderId,
+    required double pickupLat,
+    required double pickupLng,
+    double radiusMeters = NearestDriverService.radiusMeters,
+  }) {
+    return _nearestDriverService.assignNearestDriver(
+      orderId: orderId,
+      pickupLat: pickupLat,
+      pickupLng: pickupLng,
+      radiusMeters: radiusMeters,
+    );
+  }
+
+  /// Sau khi tạo đơn: thông báo cho khách + tài xế gần nhất (không auto-assign).
+  Future<void> notifyAfterOrderCreated(OrderModel order) async {
+    final code = formatOrderCode(order);
+    await _notificationService.notifyCustomerOrderCreated(
+      customerId: order.customerId,
+      orderId: order.id,
+      orderCode: code,
+    );
+
+    if (order.pickupLat == 0 && order.pickupLng == 0) return;
+
+    final candidates = await _nearestDriverService.loadAssignableDrivers();
+    if (candidates.isEmpty) return;
+
+    candidates.sort((a, b) {
+      final da = GeoUtils.distanceMeters(
+        fromLat: a.lat,
+        fromLng: a.lng,
+        toLat: order.pickupLat,
+        toLng: order.pickupLng,
+      );
+      final db = GeoUtils.distanceMeters(
+        fromLat: b.lat,
+        fromLng: b.lng,
+        toLat: order.pickupLat,
+        toLng: order.pickupLng,
+      );
+      return da.compareTo(db);
+    });
+
+    final nearest = candidates.first;
+    final dist = GeoUtils.distanceMeters(
+      fromLat: nearest.lat,
+      fromLng: nearest.lng,
+      toLat: order.pickupLat,
+      toLng: order.pickupLng,
+    );
+    if (dist > NearestDriverService.radiusMeters) return;
+
+    await _notificationService.notifyDriverNewOrder(
+      driverUserId: nearest.userId,
+      orderId: order.id,
+      orderCode: code,
+      pickupAddress: shortAddress(order.pickupAddress),
+    );
+  }
+
+  /// Chuyển đơn cho tài xế khác: thêm [driverUserId] vào rejected_by
+  /// để filter nearest bỏ qua tài xế này và hiện đơn cho người gần tiếp theo.
+  ///
+  /// Trả về user_id tài xế kế tiếp (nếu có trong bán kính), hoặc null.
+  Future<String?> transferOrder(String orderId, String driverUserId) async {
     if (orderId.trim().isEmpty || driverUserId.trim().isEmpty) {
       throw Exception('Order id and driver id are required.');
     }
@@ -176,9 +276,34 @@ class CustomerOrderService {
         'p_order_id': orderId,
         'p_driver_user_id': driverUserId,
       });
+
+      final order = await getOrderById(orderId);
+      if (order == null) return null;
+
+      final nextDriverId =
+          await _nearestDriverService.findNextNearestDriverUserId(
+        order: order,
+        excludingUserId: driverUserId,
+      );
+
+      if (nextDriverId != null && nextDriverId.isNotEmpty) {
+        await _notificationService.notifyDriverOrderTransferred(
+          driverUserId: nextDriverId,
+          orderId: order.id,
+          orderCode: formatOrderCode(order),
+          pickupAddress: shortAddress(order.pickupAddress),
+        );
+      }
+
+      return nextDriverId;
     } catch (error) {
-      throw Exception('Failed to reject order: $error');
+      throw Exception('Failed to transfer order: $error');
     }
+  }
+
+  /// Giữ tương thích tên cũ — hành vi giống [transferOrder] (không trả next driver).
+  Future<void> rejectOrder(String orderId, String driverUserId) async {
+    await transferOrder(orderId, driverUserId);
   }
 
   Future<List<OrderModel>> getDriverOrders(String driverId) async {
@@ -226,7 +351,13 @@ class CustomerOrderService {
         });
   }
 
-  Future<void> acceptOrder(String orderId, String driverId) async {
+  /// [customerIdHint] / [orderCodeHint]: lấy từ card đơn (ưu tiên, tránh phụ thuộc re-fetch).
+  Future<void> acceptOrder(
+    String orderId,
+    String driverId, {
+    String? customerIdHint,
+    String? orderCodeHint,
+  }) async {
     if (orderId.trim().isEmpty || driverId.trim().isEmpty) {
       throw Exception('Order id and driver id are required.');
     }
@@ -273,7 +404,7 @@ class CustomerOrderService {
           .eq('id', orderId)
           .inFilter('status', [_statusPending, _statusConfirmed])
           .isFilter('driver_id', null)
-          .select('id')
+          .select('id, customer_id, tracking_code')
           .maybeSingle();
 
       if (response == null) {
@@ -286,10 +417,45 @@ class CustomerOrderService {
         title: 'Đã phân công tài xế',
         description: 'Tài xế đã nhận đơn hàng.',
       );
+
+      // Notify khách — không để lỗi noti làm fail accept.
+      final customerId = (customerIdHint != null && customerIdHint.isNotEmpty)
+          ? customerIdHint
+          : (response['customer_id']?.toString() ?? '');
+      final tracking = response['tracking_code']?.toString() ?? '';
+      final orderCode =
+          (orderCodeHint != null && orderCodeHint.trim().isNotEmpty)
+              ? orderCodeHint.trim()
+              : (tracking.isNotEmpty
+                  ? (tracking.startsWith('GH-') ? tracking : 'GH-$tracking')
+                  : 'GH-${orderId.length >= 8 ? orderId.substring(0, 8).toUpperCase() : orderId}');
+
+      if (customerId.isNotEmpty) {
+        try {
+          await _notificationService.notifyCustomerOrderAccepted(
+            customerId: customerId,
+            orderId: orderId,
+            orderCode: orderCode,
+          );
+          if (kDebugMode) {
+            debugPrint(
+              '[AcceptOrder] notified customer=$customerId order=$orderId code=$orderCode',
+            );
+          }
+        } catch (notifyError) {
+          if (kDebugMode) {
+            debugPrint('[AcceptOrder] notify customer failed: $notifyError');
+          }
+        }
+      } else if (kDebugMode) {
+        debugPrint('[AcceptOrder] missing customer_id on order=$orderId');
+      }
     } catch (error) {
       final msg = error.toString().replaceAll('Exception: ', '');
       if (msg.contains('offline') ||
-          msg.contains('đơn chưa hoàn thành')) {
+          msg.contains('đơn chưa hoàn thành') ||
+          msg.contains('không còn khả dụng') ||
+          msg.contains('Không tìm thấy')) {
         throw Exception(msg);
       }
       throw Exception('Failed to accept driver order: $error');
@@ -326,7 +492,7 @@ class CustomerOrderService {
           .eq('id', normalizedOrderId)
           .eq('driver_id', normalizedDriverId)
           .eq('status', normalizedCurrentStatus)
-          .select('id')
+          .select('id, customer_id, tracking_code')
           .maybeSingle();
 
       if (response == null) {
@@ -341,6 +507,27 @@ class CustomerOrderService {
         title: _driverStatusLogTitle(nextStatus),
         description: _driverStatusLogDescription(nextStatus),
       );
+
+      final customerId = response['customer_id']?.toString() ?? '';
+      final tracking = response['tracking_code']?.toString() ?? '';
+      final orderCode = tracking.isNotEmpty
+          ? (tracking.startsWith('GH-') ? tracking : 'GH-$tracking')
+          : 'GH-${normalizedOrderId.length >= 8 ? normalizedOrderId.substring(0, 8).toUpperCase() : normalizedOrderId}';
+
+      if (customerId.isNotEmpty) {
+        try {
+          await _notificationService.notifyCustomerOrderStatus(
+            customerId: customerId,
+            orderId: normalizedOrderId,
+            orderCode: orderCode,
+            status: nextStatus,
+          );
+        } catch (notifyError) {
+          if (kDebugMode) {
+            debugPrint('[UpdateStatus] notify customer failed: $notifyError');
+          }
+        }
+      }
 
       return nextStatus;
     } catch (error) {
@@ -480,7 +667,7 @@ class CustomerOrderService {
     try {
       final order = await _supabase
           .from(_ordersTable)
-          .select('id,status')
+          .select('id,status,driver_id,tracking_code')
           .eq('id', orderId)
           .eq('customer_id', customerId)
           .maybeSingle();
@@ -494,6 +681,12 @@ class CustomerOrderService {
         throw Exception('Only pending or confirmed orders can be cancelled.');
       }
 
+      final driverId = order['driver_id']?.toString();
+      final tracking = order['tracking_code']?.toString() ?? '';
+      final code = tracking.isNotEmpty
+          ? (tracking.startsWith('GH-') ? tracking : 'GH-$tracking')
+          : 'GH-${orderId.length >= 8 ? orderId.substring(0, 8).toUpperCase() : orderId}';
+
       await _supabase
           .from(_ordersTable)
           .update({
@@ -505,6 +698,14 @@ class CustomerOrderService {
           .eq('id', orderId)
           .eq('customer_id', customerId)
           .inFilter('status', _cancellableStatuses);
+
+      if (driverId != null && driverId.isNotEmpty) {
+        await _notificationService.notifyDriverOrderCancelled(
+          driverUserId: driverId,
+          orderId: orderId,
+          orderCode: code,
+        );
+      }
     } catch (error) {
       throw Exception('Failed to cancel customer order: $error');
     }

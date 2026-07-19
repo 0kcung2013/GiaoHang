@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/driver_location_model.dart';
 import '../models/driver_model.dart';
+import '../utils/geo_utils.dart';
 
 class DriverService {
   DriverService({SupabaseClient? client})
@@ -64,11 +65,18 @@ class DriverService {
     double? heading,
   }) async {
     try {
+      final email = _supabase.auth.currentUser?.email;
+      final adjusted = GeoUtils.applyTestDriverOffset(
+        email: email,
+        lat: lat,
+        lng: lng,
+      );
+
       await _supabase
           .from(_driversTable)
           .update({
-            'current_lat': lat,
-            'current_lng': lng,
+            'current_lat': adjusted.latitude,
+            'current_lng': adjusted.longitude,
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', driverId);

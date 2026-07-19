@@ -1,5 +1,6 @@
 plugins {
     id("com.android.application")
+    id("org.jetbrains.kotlin.android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -7,7 +8,8 @@ plugins {
 android {
     namespace = "com.example.project_app"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Align with plugins (app_links, geolocator, google_sign_in, ...). Highest NDK is backward compatible.
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -23,6 +25,18 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // Debug trên máy thật (arm64). Tránh strip fail khi thiếu libflutter.so multi-ABI.
+        ndk {
+            abiFilters.clear()
+            abiFilters.add("arm64-v8a")
+        }
+    }
+
+    packaging {
+        jniLibs {
+            // Windows + NDK 28: tránh crash stripDebugDebugSymbols khi so bị thiếu path.
+            keepDebugSymbols.add("**/*.so")
+        }
     }
 
     buildTypes {
@@ -36,7 +50,7 @@ android {
 
 kotlin {
     compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 

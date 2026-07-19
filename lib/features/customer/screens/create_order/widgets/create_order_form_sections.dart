@@ -5,7 +5,6 @@ import '../../../../../core/constants/app_theme.dart';
 import 'cargo_image_picker.dart';
 import 'create_order_inputs.dart';
 import 'create_order_options.dart';
-import 'create_order_summary.dart';
 
 class CreateOrderAddressSection extends StatelessWidget {
   const CreateOrderAddressSection({
@@ -242,58 +241,3 @@ class CreateOrderPaymentSection extends StatelessWidget {
   }
 }
 
-class CreateOrderConfirmationSection extends StatelessWidget {
-  const CreateOrderConfirmationSection({
-    super.key,
-    required this.pickupAddress,
-    required this.deliveryAddress,
-    required this.recipientName,
-    required this.recipientPhone,
-    required this.serviceType,
-    required this.paymentMethod,
-    required this.note,
-    required this.itemName,
-    required this.itemCategory,
-    required this.itemDescription,
-    required this.itemImageName,
-    required this.deliveryFee,
-  });
-
-  final String pickupAddress;
-  final String deliveryAddress;
-  final String recipientName;
-  final String recipientPhone;
-  final String serviceType;
-  final String paymentMethod;
-  final String note;
-  final String itemName;
-  final String itemCategory;
-  final String itemDescription;
-  final String? itemImageName;
-  final double deliveryFee;
-
-  @override
-  Widget build(BuildContext context) {
-    return CreateOrderSection(
-      icon: Icons.fact_check_rounded,
-      iconColor: AppColors.primary,
-      title: 'Xác nhận đơn hàng',
-      children: [
-        OrderConfirmationSummary(
-          pickupAddress: pickupAddress,
-          deliveryAddress: deliveryAddress,
-          recipientName: recipientName,
-          recipientPhone: recipientPhone,
-          serviceType: serviceType,
-          paymentMethod: paymentMethod,
-          note: note,
-          itemName: itemName,
-          itemCategory: itemCategory,
-          itemDescription: itemDescription,
-          itemImageName: itemImageName,
-          deliveryFee: deliveryFee,
-        ),
-      ],
-    );
-  }
-}

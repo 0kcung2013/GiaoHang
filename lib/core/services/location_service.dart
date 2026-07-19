@@ -32,18 +32,13 @@ class LocationService {
     }
 
     try {
-      return await Geolocator.getCurrentPosition(
+      final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium,
-          timeLimit: Duration(seconds: 8),
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
         ),
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          debugPrint('[GPS] getCurrentPosition timed out (web browser may have blocked location)');
-          return Future.error('GPS timeout');
-        },
       );
+      return position;
     } catch (e) {
       debugPrint('[GPS] getCurrentPosition error: $e');
       return null;

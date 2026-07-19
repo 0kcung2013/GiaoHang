@@ -3,14 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_theme.dart';
-import '../../../../core/models/order_item_model.dart';
 import '../../../../core/models/order_model.dart';
 import '../../../../core/providers/customer_providers.dart';
-import '../../../../core/widgets/order_cargo_info_block.dart';
+import 'order_widgets.dart' as widgets;
+import 'order_dialogs.dart' as dialogs;
 
-part 'order_widgets.dart';
-part 'order_dialogs.dart';
-part 'order_helpers.dart';
+export 'order_helpers.dart' show fallbackTimelineSteps, OrderStatusView, formatOrderDateTime;
+export 'order_widgets.dart'
+    show
+        OrderFilterBar,
+        OrderCard,
+        OrderShimmer,
+        OrderEmptyState,
+        OrderErrorState,
+        OrderLoginRequired;
+export 'order_dialogs.dart' show showOrderDetailSheet;
 
 class OrderScreen extends ConsumerStatefulWidget {
   const OrderScreen({super.key});
@@ -21,26 +28,15 @@ class OrderScreen extends ConsumerStatefulWidget {
 
 class _OrderScreenState extends ConsumerState<OrderScreen> {
   int _selectedFilterIndex = 0;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
-  static const List<String> _filters = [
-    'Tất cả',
-    'Đang giao',
-    'Hoàn thành',
-    'Huỷ',
+  static const List<_FilterOption> _filters = [
+    _FilterOption('Tất cả', null),
+    _FilterOption('Đang xử lý', _activeStatuses),
+    _FilterOption('Hoàn thành', {'delivered'}),
+    _FilterOption('Đã huỷ', {'cancelled'}),
   ];
-
-  List<OrderModel> _filterOrders(List<OrderModel> orders) {
-    final activeFilter = _filters[_selectedFilterIndex];
-
-    return orders.where((order) {
-      return switch (activeFilter) {
-        'Đang giao' => _activeStatuses.contains(order.status),
-        'Hoàn thành' => order.status == 'delivered',
-        'Huỷ' => order.status == 'cancelled',
-        _ => true,
-      };
-    }).toList();
-  }
 
   static const Set<String> _activeStatuses = {
     'pending',
@@ -51,6 +47,36 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   };
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<OrderModel> _applyFilters(
+    List<OrderModel> orders,
+    Set<String>? statuses,
+    String query,
+  ) {
+    var filtered = orders;
+    if (statuses != null) {
+      filtered = filtered.where((o) => statuses.contains(o.status)).toList();
+    }
+    if (query.isNotEmpty) {
+      final q = query.toLowerCase();
+      filtered = filtered.where((o) {
+        final code = o.trackingCode.isNotEmpty
+            ? o.trackingCode
+            : '#${o.id.substring(0, o.id.length >= 8 ? 8 : o.id.length)}';
+        return code.toLowerCase().contains(q) ||
+            o.deliveryAddress.toLowerCase().contains(q) ||
+            o.pickupAddress.toLowerCase().contains(q) ||
+            (o.recipientName?.toLowerCase().contains(q) ?? false);
+      }).toList();
+    }
+    return filtered;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final currentUser = Supabase.instance.client.auth.currentUser;
 
@@ -59,23 +85,32 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         final layout = _OrderLayout.fromWidth(constraints.maxWidth);
 
         return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
               padding: EdgeInsets.fromLTRB(
-                layout.horizontalPadding,
+                layout.hPadding,
                 layout.topPadding,
-                layout.horizontalPadding,
-                AppSpacing.lg,
+                layout.hPadding,
+                AppSpacing.md,
               ),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: layout.maxContentWidth),
-                  child: _OrderFilterBar(
-                    filters: _filters,
-                    selectedIndex: _selectedFilterIndex,
-                    onSelected: (i) =>
-                        setState(() => _selectedFilterIndex = i),
+                  constraints: BoxConstraints(maxWidth: layout.maxWidth),
+                  child: Column(
+                    children: [
+                      widgets.OrderSearchBar(
+                        controller: _searchController,
+                        onChanged: (v) =>
+                            setState(() => _searchQuery = v.trim()),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      widgets.OrderFilterBar(
+                        filters: _filters.map((f) => f.label).toList(),
+                        selectedIndex: _selectedFilterIndex,
+                        onSelected: (i) =>
+                            setState(() => _selectedFilterIndex = i),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -83,19 +118,15 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
             Expanded(
               child: Center(
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: layout.maxContentWidth),
+                  constraints: BoxConstraints(maxWidth: layout.maxWidth),
                   child: currentUser == null
-                      ? const _OrderMessageState(
-                          icon: Icons.lock_outline_rounded,
-                          title: 'Cần đăng nhập để xem đơn hàng',
-                          message:
-                              'Vui lòng đăng nhập để tải danh sách đơn hàng của bạn.',
-                        )
+                      ? const widgets.OrderLoginRequired()
                       : _OrderListBody(
                           customerId: currentUser.id,
                           layout: layout,
-                          orders: _filterOrders,
                           selectedFilter: _filters[_selectedFilterIndex],
+                          searchQuery: _searchQuery,
+                          applyFilters: _applyFilters,
                         ),
                 ),
               ),
@@ -110,14 +141,17 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
 class _OrderListBody extends ConsumerWidget {
   final String customerId;
   final _OrderLayout layout;
-  final List<OrderModel> Function(List<OrderModel> orders) orders;
-  final String selectedFilter;
+  final _FilterOption selectedFilter;
+  final String searchQuery;
+  final List<OrderModel> Function(List<OrderModel>, Set<String>?, String)
+      applyFilters;
 
   const _OrderListBody({
     required this.customerId,
     required this.layout,
-    required this.orders,
     required this.selectedFilter,
+    required this.searchQuery,
+    required this.applyFilters,
   });
 
   @override
@@ -127,7 +161,7 @@ class _OrderListBody extends ConsumerWidget {
     final currentOrders = asyncOrders.valueOrNull;
 
     if (currentOrders != null) {
-      return _buildOrdersContent(
+      return _buildContent(
         context: context,
         ref: ref,
         allOrders: currentOrders,
@@ -136,11 +170,11 @@ class _OrderListBody extends ConsumerWidget {
     }
 
     return asyncOrders.when(
-      loading: () => const _OrderLoadingState(),
-      error: (error, _) => _OrderErrorState(
+      loading: () => const widgets.OrderShimmer(),
+      error: (error, _) => widgets.OrderErrorState(
         onRetry: () => ref.invalidate(customerOrdersProvider(customerId)),
       ),
-      data: (allOrders) => _buildOrdersContent(
+      data: (allOrders) => _buildContent(
         context: context,
         ref: ref,
         allOrders: allOrders,
@@ -149,15 +183,17 @@ class _OrderListBody extends ConsumerWidget {
     );
   }
 
-  Widget _buildOrdersContent({
+  Widget _buildContent({
     required BuildContext context,
     required WidgetRef ref,
     required List<OrderModel> allOrders,
     required bool isRefreshing,
   }) {
-    final visibleOrders = orders(allOrders);
+    final visibleOrders =
+        applyFilters(allOrders, selectedFilter.statuses, searchQuery);
+
     if (allOrders.isEmpty) {
-      return const _OrderMessageState(
+      return const widgets.OrderEmptyState(
         icon: Icons.receipt_long_outlined,
         title: 'Chưa có đơn hàng nào',
         message: 'Các đơn hàng bạn tạo sẽ xuất hiện tại đây.',
@@ -165,10 +201,11 @@ class _OrderListBody extends ConsumerWidget {
     }
 
     if (visibleOrders.isEmpty) {
-      return _OrderMessageState(
-        icon: Icons.filter_alt_off_rounded,
+      return widgets.OrderEmptyState(
+        icon: Icons.search_off_rounded,
         title: 'Không tìm thấy đơn hàng',
-        message: 'Không có đơn hàng nào trong mục "$selectedFilter".',
+        message:
+            searchQuery.isNotEmpty ? 'Không có đơn nào khớp với "$searchQuery".' : 'Không có đơn hàng nào trong mục "${selectedFilter.label}".',
       );
     }
 
@@ -180,25 +217,40 @@ class _OrderListBody extends ConsumerWidget {
             ref.invalidate(customerOrdersProvider(customerId));
             await ref.read(customerOrdersProvider(customerId).future);
           },
-          child: ListView.separated(
+          child: ListView.builder(
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),
             padding: EdgeInsets.fromLTRB(
-              layout.horizontalPadding,
+              layout.hPadding,
               0,
-              layout.horizontalPadding,
+              layout.hPadding,
               AppSpacing.xl2,
             ),
-            itemCount: visibleOrders.length,
-            separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
+            itemCount: visibleOrders.length + 1,
             itemBuilder: (context, i) {
-              return _OrderCard(
-                order: visibleOrders[i],
-                onTap: () => _showOrderDetailSheet(
-                  context: context,
-                  customerId: customerId,
+              if (i == visibleOrders.length) {
+                return Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.md),
+                  child: Text(
+                    '${visibleOrders.length} đơn hàng',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: AppColors.textMuted,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: widgets.OrderCard(
                   order: visibleOrders[i],
+                  onTap: () => dialogs.showOrderDetailSheet(
+                    context: context,
+                    customerId: customerId,
+                    order: visibleOrders[i],
+                  ),
                 ),
               );
             },
@@ -207,8 +259,8 @@ class _OrderListBody extends ConsumerWidget {
         if (isRefreshing)
           Positioned(
             top: 0,
-            left: layout.horizontalPadding,
-            right: layout.horizontalPadding,
+            left: layout.hPadding,
+            right: layout.hPadding,
             child: LinearProgressIndicator(
               minHeight: 2,
               color: AppColors.accent.withValues(alpha: 0.72),
@@ -220,64 +272,46 @@ class _OrderListBody extends ConsumerWidget {
   }
 }
 
-void _showOrderDetailSheet({
-  required BuildContext context,
-  required String customerId,
-  required OrderModel order,
-}) {
-  showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    builder: (sheetContext) {
-      return _OrderDetailSheet(customerId: customerId, order: order);
-    },
-  );
-}
-
 class _OrderLayout {
   static const tabletBreakpoint = 600.0;
   static const desktopBreakpoint = 1024.0;
-  static const tabletContentMaxWidth = 760.0;
-  static const desktopContentMaxWidth = 820.0;
 
-  final double horizontalPadding;
+  final double hPadding;
   final double topPadding;
-  final double headerGap;
-  final double maxContentWidth;
+  final double maxWidth;
 
   const _OrderLayout({
-    required this.horizontalPadding,
+    required this.hPadding,
     required this.topPadding,
-    required this.headerGap,
-    required this.maxContentWidth,
+    required this.maxWidth,
   });
 
   factory _OrderLayout.fromWidth(double width) {
-    if (width > desktopBreakpoint) {
+    if (width >= desktopBreakpoint) {
       return const _OrderLayout(
-        horizontalPadding: AppSpacing.xl3,
+        hPadding: AppSpacing.xl3,
         topPadding: AppSpacing.xl3,
-        headerGap: AppSpacing.xl,
-        maxContentWidth: desktopContentMaxWidth,
+        maxWidth: 820,
       );
     }
-
     if (width >= tabletBreakpoint) {
       return const _OrderLayout(
-        horizontalPadding: AppSpacing.xl3,
+        hPadding: AppSpacing.xl3,
         topPadding: AppSpacing.xl3,
-        headerGap: AppSpacing.xl,
-        maxContentWidth: tabletContentMaxWidth,
+        maxWidth: 760,
       );
     }
-
     return const _OrderLayout(
-      horizontalPadding: AppSpacing.screenH,
+      hPadding: AppSpacing.screenH,
       topPadding: AppSpacing.xl2,
-      headerGap: AppSpacing.lg,
-      maxContentWidth: double.infinity,
+      maxWidth: double.infinity,
     );
   }
+}
+
+class _FilterOption {
+  final String label;
+  final Set<String>? statuses;
+
+  const _FilterOption(this.label, this.statuses);
 }

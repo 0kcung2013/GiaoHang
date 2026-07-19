@@ -24,6 +24,7 @@ class CreateOrderSection extends StatelessWidget {
         color: AppColors.bgCard,
         borderRadius: AppRadius.lg,
         boxShadow: AppShadow.card,
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -31,23 +32,21 @@ class CreateOrderSection extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 36,
-                height: 36,
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.12),
+                  color: iconColor.withValues(alpha: 0.1),
                   borderRadius: AppRadius.sm,
                 ),
-                child: Icon(icon, color: iconColor, size: 20),
+                child: Icon(icon, color: iconColor, size: 18),
               ),
               const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.headingSmall.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.labelLarge.copyWith(
+                  color: AppColors.textPrimary,
                 ),
               ),
             ],
@@ -86,7 +85,10 @@ class CreateOrderTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
-      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+      style: AppTextStyles.bodyMedium.copyWith(
+        color: AppColors.textPrimary,
+        height: 1.5,
+      ),
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       maxLines: maxLines,
@@ -95,7 +97,7 @@ class CreateOrderTextField extends StatelessWidget {
         labelText: label,
         hintText: hint,
         prefixIcon: Icon(icon, color: AppColors.textMuted, size: 20),
-        labelStyle: AppTextStyles.labelMedium.copyWith(
+        labelStyle: AppTextStyles.bodySmall.copyWith(
           color: AppColors.textSecondary,
         ),
         hintStyle: AppTextStyles.bodyMedium.copyWith(

@@ -6,24 +6,24 @@ import 'package:flutter/material.dart';
 /// Dùng các token này thay vì hardcode hex trong widget.
 class NavColors {
   // === Backgrounds ===
-  /// Nền ấm chính toàn app (#FAF9F7)
-  static const bgWarm = Color(0xFFFAF9F7);
+  /// Nền ấm chính toàn app (#FAFAFA)
+  static const bgWarm = Color(0xFFFAFAFA);
 
   /// Nền card, nav bar (#FFFFFF)
   static const surface = Color(0xFFFFFFFF);
 
   // === Brand ===
-  /// Màu chủ — cam ấm (#CF7B40)
-  static const accent = Color(0xFFCF7B40);
+  /// Màu chủ — cam #FF6B35
+  static const accent = Color(0xFFFF6B35);
 
-  /// Accent 10% opacity, dùng cho bg tint (#F5E6D8)
-  static const accentLight = Color(0xFFF5E6D8);
+  /// Accent 10% opacity, dùng cho bg tint
+  static const accentLight = Color(0xFFFFEDE6);
 
   /// Accent 8% opacity, dùng cho background tint hình tròn nav
-  static const accentTint8 = Color(0x14CF7B40);
+  static const accentTint8 = Color(0x14FF6B35);
 
   /// Accent 10% opacity, dùng cho InkWell splash
-  static const accentSplash = Color(0x1ACF7B40);
+  static const accentSplash = Color(0x1AFF6B35);
 
   // === Text ===
   /// Text chính (#1C1C1E)
@@ -41,7 +41,7 @@ class NavColors {
 
   // === Status badge ===
   /// Đang giao — cam
-  static const statusDelivering = Color(0xFFCF7B40);
+  static const statusDelivering = Color(0xFFFF6B35);
 
   /// Hoàn thành — xanh lá
   static const statusDone = Color(0xFF10B981);

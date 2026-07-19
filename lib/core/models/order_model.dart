@@ -101,11 +101,30 @@ class OrderModel {
       updatedAt:
           _parseDateTime(json['updated_at']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
-      rejectedBy: (json['rejected_by'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          const [],
+      rejectedBy: _parseStringList(json['rejected_by']),
     );
+  }
+
+  static List<String> _parseStringList(dynamic value) {
+    if (value == null) return const [];
+    if (value is List) {
+      return value.map((e) => e.toString()).toList();
+    }
+    // jsonb đôi khi về string "[]" / JSON encoded
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty || trimmed == '[]') return const [];
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        final inner = trimmed.substring(1, trimmed.length - 1).trim();
+        if (inner.isEmpty) return const [];
+        return inner
+            .split(',')
+            .map((e) => e.trim().replaceAll('"', '').replaceAll("'", ''))
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }
+    }
+    return const [];
   }
 
   Map<String, dynamic> toJson() {

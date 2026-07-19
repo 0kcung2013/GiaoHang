@@ -1,6 +1,26 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/notification_model.dart';
+
+/// Các type notification dùng trong app.
+///
+/// Phải khớp CHECK constraint `notifications_type_check` trên Supabase:
+/// chỉ cho phép: `order_update`, `system`, `promotion`.
+class NotificationTypes {
+  NotificationTypes._();
+
+  static const orderUpdate = 'order_update';
+  static const system = 'system';
+  static const promotion = 'promotion';
+
+  // Alias semantic — cùng map về order_update (DB constraint).
+  static const orderNew = orderUpdate;
+  static const orderAccepted = orderUpdate;
+  static const orderTransferred = orderUpdate;
+  static const orderStatus = orderUpdate;
+  static const orderCancelled = orderUpdate;
+}
 
 class NotificationService {
   NotificationService({SupabaseClient? client})
@@ -64,5 +84,183 @@ class NotificationService {
     } catch (error) {
       throw Exception('Failed to mark all notifications as read: $error');
     }
+  }
+
+  /// Tạo notification cho [userId].
+  /// Throw nếu cả RPC và insert đều fail — caller quyết định nuốt lỗi.
+  Future<void> createNotification({
+    required String userId,
+    required String title,
+    required String body,
+    required String type,
+    String? orderId,
+  }) async {
+    final uid = userId.trim();
+    final t = title.trim();
+    final b = body.trim();
+    final ty = type.trim();
+    if (uid.isEmpty || t.isEmpty || b.isEmpty || ty.isEmpty) {
+      throw Exception('Notification payload invalid.');
+    }
+
+    final normalizedOrderId =
+        (orderId != null && orderId.trim().isNotEmpty) ? orderId.trim() : null;
+
+    Object? lastError;
+
+    try {
+      final params = <String, dynamic>{
+        'p_user_id': uid,
+        'p_title': t,
+        'p_body': b,
+        'p_type': ty,
+      };
+      // Chỉ gửi order_id khi có — tránh cast lỗi uuid rỗng.
+      if (normalizedOrderId != null) {
+        params['p_order_id'] = normalizedOrderId;
+      }
+
+      final id = await _supabase.rpc('create_notification', params: params);
+      debugPrint(
+        '[Notification] RPC ok id=$id user=$uid type=$ty order=$normalizedOrderId',
+      );
+      return;
+    } catch (rpcError) {
+      lastError = rpcError;
+      debugPrint('[Notification] RPC failed: $rpcError');
+    }
+
+    try {
+      await _supabase.from(_table).insert({
+        'user_id': uid,
+        'title': t,
+        'body': b,
+        'type': ty,
+        'is_read': false,
+        if (normalizedOrderId != null) 'order_id': normalizedOrderId,
+      });
+      debugPrint(
+        '[Notification] direct insert ok user=$uid type=$ty order=$normalizedOrderId',
+      );
+      return;
+    } catch (error) {
+      lastError = error;
+      debugPrint('[Notification] direct insert failed: $error');
+    }
+
+    throw Exception('Failed to create notification: $lastError');
+  }
+
+  Future<void> notifyDriverNewOrder({
+    required String driverUserId,
+    required String orderId,
+    required String orderCode,
+    required String pickupAddress,
+  }) {
+    return createNotification(
+      userId: driverUserId,
+      title: 'Đơn hàng mới gần bạn',
+      body:
+          'Đơn $orderCode cần lấy tại $pickupAddress. Mở app để nhận hoặc chuyển đơn.',
+      // Hardcode — bắt buộc khớp notifications_type_check
+      type: 'order_update',
+      orderId: orderId,
+    );
+  }
+
+  Future<void> notifyCustomerOrderAccepted({
+    required String customerId,
+    required String orderId,
+    required String orderCode,
+  }) {
+    return createNotification(
+      userId: customerId,
+      title: 'Tài xế đã nhận đơn',
+      body: 'Đơn $orderCode đã có tài xế nhận. Theo dõi tiến trình trên app.',
+      type: 'order_update',
+      orderId: orderId,
+    );
+  }
+
+  Future<void> notifyDriverOrderTransferred({
+    required String driverUserId,
+    required String orderId,
+    required String orderCode,
+    required String pickupAddress,
+  }) {
+    return createNotification(
+      userId: driverUserId,
+      title: 'Đơn được chuyển đến bạn',
+      body:
+          'Đơn $orderCode (lấy tại $pickupAddress) vừa được chuyển. Hãy nhận đơn nếu bạn sẵn sàng.',
+      type: 'order_update',
+      orderId: orderId,
+    );
+  }
+
+  Future<void> notifyCustomerOrderStatus({
+    required String customerId,
+    required String orderId,
+    required String orderCode,
+    required String status,
+  }) {
+    final (title, body) = _customerStatusCopy(orderCode, status);
+    return createNotification(
+      userId: customerId,
+      title: title,
+      body: body,
+      type: 'order_update',
+      orderId: orderId,
+    );
+  }
+
+  Future<void> notifyDriverOrderCancelled({
+    required String driverUserId,
+    required String orderId,
+    required String orderCode,
+  }) {
+    return createNotification(
+      userId: driverUserId,
+      title: 'Đơn hàng đã bị huỷ',
+      body: 'Khách hàng đã huỷ đơn $orderCode.',
+      type: 'order_update',
+      orderId: orderId,
+    );
+  }
+
+  Future<void> notifyCustomerOrderCreated({
+    required String customerId,
+    required String orderId,
+    required String orderCode,
+  }) {
+    return createNotification(
+      userId: customerId,
+      title: 'Đặt đơn thành công',
+      body:
+          'Đơn $orderCode đang chờ tài xế gần nhất nhận. Bạn sẽ được thông báo khi có cập nhật.',
+      type: 'order_update',
+      orderId: orderId,
+    );
+  }
+
+  (String, String) _customerStatusCopy(String orderCode, String status) {
+    return switch (status) {
+      'picking_up' => (
+          'Tài xế đang đến lấy hàng',
+          'Đơn $orderCode: tài xế đang di chuyển đến điểm lấy hàng.',
+        ),
+      'delivering' => (
+          'Đang giao hàng',
+          'Đơn $orderCode: tài xế đã lấy hàng và đang giao đến bạn.',
+        ),
+      'delivered' => (
+          'Giao hàng thành công',
+          'Đơn $orderCode đã được giao. Cảm ơn bạn đã sử dụng dịch vụ!',
+        ),
+      _ => (
+          'Cập nhật đơn hàng',
+          'Đơn $orderCode đã chuyển sang trạng thái $status.',
+        ),
+    };
   }
 }

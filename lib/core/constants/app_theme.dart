@@ -9,26 +9,26 @@ class AppColors {
   static const accentLight = Color(0xFFFFEDE6); // Orange tint — backgrounds
 
   // === Semantic ===
-  static const success = Color(0xFF10B981); // Emerald
-  static const warning = Color(0xFFF59E0B); // Amber
-  static const error = Color(0xFFEF4444); // Rose
+  static const success = Color(0xFF22C55E); // Green — completed
+  static const warning = Color(0xFFF59E0B); // Amber — pending
+  static const error = Color(0xFFEF4444); // Rose — cancelled
   static const info = Color(0xFF3B82F6); // Blue — map, links
 
   // === Backgrounds ===
-  static const bgLight = Color(0xFFF8FAFC); // Screen background (light)
+  static const bgLight = Color(0xFFFAFAFA); // Screen background (light)
   static const bgCard = Color(0xFFFFFFFF); // Card surface
   static const bgDark = Color(0xFF1E293B); // Dark surface (driver night mode)
   static const bgDarkCard = Color(0xFF243447); // Dark card
 
   // === Text ===
-  static const textPrimary = Color(0xFF0F172A); // Headings, body
-  static const textSecondary = Color(0xFF475569); // Subtitles, labels
-  static const textMuted = Color(0xFF94A3B8); // Placeholder, hint
+  static const textPrimary = Color(0xFF111827); // Headings, body
+  static const textSecondary = Color(0xFF6B7280); // Subtitles, labels
+  static const textMuted = Color(0xFF9CA3AF); // Placeholder, hint
   static const textOnDark = Color(0xFFF1F5F9); // Text trên nền tối
   static const textOnAccent = Color(0xFFFFFFFF); // Text trên nút orange
 
   // === Border ===
-  static const border = Color(0xFFE2E8F0); // Divider, input border
+  static const border = Color(0xFFE5E7EB); // Divider, input border
   static const borderFocus = Color(0xFF0F1B2D); // Input focused
 
   // === Map Markers ===

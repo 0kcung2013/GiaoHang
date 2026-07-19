@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_theme.dart';
 import '../../../core/providers/customer_providers.dart';
 import '../../../core/providers/location_providers.dart';
+import '../../../core/utils/geo_utils.dart';
+import '../../notifications/widgets/notification_bell_button.dart';
 import 'account/driver_account_screen.dart';
 import 'earnings/driver_earnings_screen.dart';
 import 'home/home_screen.dart';
@@ -71,6 +73,10 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
         surfaceTintColor: AppColors.bgCard,
         elevation: 0,
         iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        actions: const [
+          NotificationBellButton(),
+          SizedBox(width: AppSpacing.xs),
+        ],
       ),
       drawer: DriverDrawer(
         currentIndex: _currentIndex,
@@ -255,6 +261,32 @@ class _GpsDebugDialogState extends ConsumerState<_GpsDebugDialog> {
       setState(() => _status = 'Chưa có vị trí, hãy lấy vị trí trước');
       return;
     }
+    await _uploadPosition(_lat!, _lng!);
+  }
+
+  /// Gán vị trí demo từ GPS: taixe giữ thật, taixe2 tự lệch ~3km (1 lần offset).
+  Future<void> _seedDemoPositionFromGps() async {
+    setState(() => _status = 'Đang lấy GPS để seed vị trí demo...');
+    final service = ref.read(locationServiceProvider);
+    final pos = await service.getCurrentPosition();
+    if (pos == null) {
+      setState(() => _status = 'Lỗi: Không lấy được vị trí GPS');
+      return;
+    }
+
+    final email = Supabase.instance.client.auth.currentUser?.email;
+    final offsetNote = (email?.toLowerCase() == 'taixe2@gmail.com')
+        ? ' (đã lệch ~3km cho taixe2)'
+        : ' (vị trí thật cho taixe)';
+    // Truyền GPS thô — DriverService.updateLocation tự áp offset theo email.
+    await _uploadPosition(pos.latitude, pos.longitude, note: offsetNote);
+  }
+
+  Future<void> _uploadPosition(
+    double lat,
+    double lng, {
+    String note = '',
+  }) async {
     final currentUser = Supabase.instance.client.auth.currentUser;
     if (currentUser == null) {
       setState(() => _status = 'Chưa đăng nhập driver');
@@ -270,19 +302,32 @@ class _GpsDebugDialogState extends ConsumerState<_GpsDebugDialog> {
         return;
       }
 
+      // updateLocation áp offset test (taixe2) đúng 1 lần.
       await driverService.updateLocation(
         driverId: driver.id,
-        lat: _lat!,
-        lng: _lng!,
+        lat: lat,
+        lng: lng,
+      );
+
+      final stored = GeoUtils.applyTestDriverOffset(
+        email: currentUser.email,
+        lat: lat,
+        lng: lng,
       );
 
       await driverService.insertHistoryPoint(
         driverId: driver.id,
-        lat: _lat!,
-        lng: _lng!,
+        lat: stored.latitude,
+        lng: stored.longitude,
       );
 
-      setState(() => _status = 'OK: Đã update drivers + insert history');
+      setState(() {
+        _lat = stored.latitude;
+        _lng = stored.longitude;
+        _status =
+            'OK: Đã lưu (${stored.latitude.toStringAsFixed(5)}, '
+            '${stored.longitude.toStringAsFixed(5)})$note';
+      });
     } catch (e) {
       setState(() => _status = 'Lỗi Supabase: $e');
     }
@@ -347,6 +392,11 @@ class _GpsDebugDialogState extends ConsumerState<_GpsDebugDialog> {
             ),
             _buildButton('4. Dừng tracking', Icons.stop_rounded, _testStopTracking),
             _buildButton('5. Update lên Supabase', Icons.cloud_upload_rounded, _testUpdateSupabase),
+            _buildButton(
+              '6. Seed vị trí demo (taixe gần / taixe2 xa)',
+              Icons.science_rounded,
+              _seedDemoPositionFromGps,
+            ),
           ],
         ),
       ),
