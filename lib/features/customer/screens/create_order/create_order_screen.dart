@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -161,10 +162,22 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
     } else if (type == 'delivery' && _deliveryLat != 0) {
       initialPos = LatLng(_deliveryLat, _deliveryLng);
     } else {
-      final pos = await ref.read(locationServiceProvider).getCurrentPosition();
-      initialPos = (pos != null)
-          ? LatLng(pos.latitude, pos.longitude)
-          : const LatLng(10.762622, 106.660172);
+      Position? pos;
+      try {
+        pos = await Geolocator.getLastKnownPosition();
+      } catch (_) {
+        pos = null;
+      }
+      pos ??= await ref.read(locationServiceProvider).getCurrentPosition();
+      if (pos != null) {
+        initialPos = LatLng(pos.latitude, pos.longitude);
+      } else {
+        _showSnackBar(
+          'Không thể định vị vị trí hiện tại. Vui lòng chọn vị trí trên bản đồ.',
+          isError: true,
+        );
+        initialPos = const LatLng(10.762622, 106.660172);
+      }
     }
 
     final result = await showModalBottomSheet<LatLng>(

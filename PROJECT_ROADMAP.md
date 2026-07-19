@@ -116,7 +116,7 @@ OSRM (Routing API)
     ☑ TrackingScreen map (FlutterMap + markers + polyline + realtime)
     ☑ Refactor: tách map code riêng (tracking_map.dart, marker_icon.dart)
     ☑ CreateOrder map picker (MapPickerSheet + Nominatim reverse geocoding)
-    ☐ DriverHomeScreen map
+    ☑ DriverHomeScreen map
 - Files:
     - `lib/core/services/osrm_service.dart`
     - `lib/core/utils/polyline_decoder.dart`
@@ -124,11 +124,11 @@ OSRM (Routing API)
     - `lib/features/customer/screens/tracking/widgets/marker_icon.dart` [MỚI]
 
 ### Realtime
-- Trạng thái: 🔄 Đang làm
+- Trạng thái: ☑ Hoàn thành
 - Checklist:
     ☑ Driver location Realtime channel (Postgres Changes: drivers UPDATE)
-    ☐ Tích hợp channel vào TrackingScreen (customer)
-    ☐ Tích hợp channel vào DriverHomeScreen
+    ☑ Tích hợp channel vào TrackingScreen (customer)
+    ☑ Tích hợp channel vào DriverHomeScreen
 - Ghi chú: RealtimeService đã có subscribeToDriverLocation method.
 
 ### Routing (OSRM)
@@ -166,7 +166,7 @@ OSRM (Routing API)
 - [x] Realtime: driver location subscription
 - [x] TrackingScreen: FlutterMap + marker driver/pickup/delivery + polyline route
 - [x] CreateOrder map picker
-- [ ] DriverHomeScreen map
+- [x] DriverHomeScreen map
 - [x] Gọi find_nearest_drivers trong flow create order
 
 ### Phase 3 — Optimization (Sau này)
