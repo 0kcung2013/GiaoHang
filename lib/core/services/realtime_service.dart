@@ -296,9 +296,11 @@ class RealtimeService {
   }
 
   /// Subscribe to driver location updates via drivers table UPDATE.
+  /// [onLocationChange] nhận `newRecord` (lat/lng mới) để UI cập nhật ngay,
+  /// không phụ thuộc re-fetch có thể stale / loading.
   RealtimeChannel subscribeToDriverLocation(
     String driverId,
-    void Function() onLocationChange,
+    void Function(Map<String, dynamic>? newRecord) onLocationChange,
   ) {
     final channelName = 'driver_location:$driverId';
 
@@ -320,7 +322,12 @@ class RealtimeService {
             debugPrint(
               '[RealtimeService] DRIVER_LOCATION event received on $channelName',
             );
-            onLocationChange();
+            final raw = payload.newRecord;
+            Map<String, dynamic>? map;
+            if (raw.isNotEmpty) {
+              map = Map<String, dynamic>.from(raw);
+            }
+            onLocationChange(map);
           },
         )
         .subscribe((status, error) {
@@ -331,6 +338,74 @@ class RealtimeService {
 
     _channels[channelName] = channel;
     return channel;
+  }
+
+  /// Broadcast vị trí TX theo order — khách nhận ngay (không chờ PG).
+  Future<void> broadcastDriverLocation({
+    required String orderId,
+    required double lat,
+    required double lng,
+  }) async {
+    final channelName = 'order_driver_loc:$orderId';
+    var channel = _channels[channelName];
+    if (channel == null) {
+      channel = _supabase.channel(channelName);
+      channel.subscribe();
+      _channels[channelName] = channel;
+    }
+    try {
+      await channel.sendBroadcastMessage(
+        event: 'driver_loc',
+        payload: {
+          'lat': lat,
+          'lng': lng,
+          'ts': DateTime.now().toIso8601String(),
+        },
+      );
+    } catch (e) {
+      debugPrint('[RealtimeService] broadcastDriverLocation failed: $e');
+    }
+  }
+
+  /// Khách subscribe broadcast vị trí TX của đơn.
+  RealtimeChannel subscribeToOrderDriverBroadcast(
+    String orderId,
+    void Function(double lat, double lng) onLocation,
+  ) {
+    final channelName = 'order_driver_loc:$orderId';
+    _removeChannel(channelName);
+    debugPrint('[RealtimeService] Subscribing broadcast $channelName');
+
+    final channel = _supabase
+        .channel(channelName)
+        .onBroadcast(
+          event: 'driver_loc',
+          callback: (payload) {
+            // payload có thể bọc { event, payload: { lat, lng } } tùy version
+            final data = payload['payload'] is Map
+                ? Map<String, dynamic>.from(payload['payload'] as Map)
+                : payload;
+            final lat = _asDouble(data['lat']);
+            final lng = _asDouble(data['lng']);
+            if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
+              onLocation(lat, lng);
+            }
+          },
+        )
+        .subscribe((status, error) {
+          debugPrint(
+            '[RealtimeService] Broadcast $channelName status=$status err=$error',
+          );
+        });
+
+    _channels[channelName] = channel;
+    return channel;
+  }
+
+  double? _asDouble(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString());
   }
 
   /// Unsubscribe from a specific channel

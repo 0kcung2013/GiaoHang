@@ -47,7 +47,7 @@ flutter build web                    # Build web (admin)
 
 ### Bảng chính
 - **users** — id, email, full_name, phone, role (customer/driver/admin), avatar_url, created_at
-- **drivers** — id, user_id, vehicle_type, license_plate, is_available, current_lat, current_lng, updated_at
+- **drivers** — id, user_id, vehicle_type, license_plate, vehicle_brand_model, vehicle_color, is_available, current_lat, current_lng, rating, total_deliveries, approval_status, verified_at, submitted_at, rejection_reason, KYC fields (id_card_*, driver_license_*, vehicle_photo_url), updated_at
 - **orders** — id, customer_id, driver_id, status, pickup_address, pickup_lat, pickup_lng, delivery_address, delivery_lat, delivery_lng, total_price, note, created_at
 - **order_items** — id, order_id, name, quantity, price
 - **routes** — id, driver_id, date, optimized_path (JSONB), total_distance, total_duration, status

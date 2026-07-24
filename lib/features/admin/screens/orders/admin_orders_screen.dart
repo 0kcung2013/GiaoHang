@@ -178,7 +178,12 @@ class _OrderCard extends StatelessWidget {
               children: [
                 const Icon(Icons.person_outline, size: 14, color: AppColors.textMuted),
                 const SizedBox(width: 4),
-                Text('TX: ${order['driver_name']}', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
+                Text(
+                  'Tài xế: ${order['driver_name']}',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ],
             ),
           ],

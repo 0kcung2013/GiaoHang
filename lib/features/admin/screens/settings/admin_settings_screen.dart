@@ -35,7 +35,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       setState(() => _isSigningOut = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Khong the dang xuat. Vui long thu lai.'),
+          content: Text('Không thể đăng xuất. Vui lòng thử lại.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -48,9 +48,9 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.screenH,
-        AppSpacing.xl2,
+        AppSpacing.lg,
         AppSpacing.screenH,
-        AppSpacing.xl2,
+        AppSpacing.xl4,
       ),
       child: Center(
         child: ConstrainedBox(
@@ -59,9 +59,16 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Cai dat quan tri',
+                'Cài đặt quản trị',
                 style: AppTextStyles.headingLarge.copyWith(
                   color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'Quản lý tài khoản và cấu hình hệ thống',
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
                 ),
               ),
               const SizedBox(height: AppSpacing.xl2),
@@ -70,14 +77,20 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                   children: const [
                     _SettingsRow(
                       icon: Icons.admin_panel_settings_outlined,
-                      title: 'Vai tro quan tri',
-                      subtitle: 'Quan ly quyen va cau hinh he thong',
+                      title: 'Vai trò quản trị',
+                      subtitle: 'Quản lý quyền và cấu hình hệ thống',
                     ),
                     Divider(height: 1, color: AppColors.border),
                     _SettingsRow(
                       icon: Icons.notifications_none_rounded,
-                      title: 'Thong bao',
-                      subtitle: 'Cau hinh canh bao van hanh',
+                      title: 'Thông báo',
+                      subtitle: 'Cấu hình cảnh báo vận hành',
+                    ),
+                    Divider(height: 1, color: AppColors.border),
+                    _SettingsRow(
+                      icon: Icons.language_rounded,
+                      title: 'Ngôn ngữ',
+                      subtitle: 'Tiếng Việt',
                     ),
                   ],
                 ),
@@ -128,10 +141,21 @@ class _SettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
       child: Row(
         children: [
-          Icon(icon, color: AppColors.primary, size: 24),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: AppRadius.sm,
+            ),
+            child: Icon(icon, color: AppColors.primary, size: 20),
+          ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
@@ -139,14 +163,14 @@ class _SettingsRow extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: AppTextStyles.labelLarge.copyWith(
+                  style: AppTextStyles.bodyMedium.copyWith(
                     color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: AppSpacing.xs),
                 Text(
                   subtitle,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.bodySmall.copyWith(
                     color: AppColors.textSecondary,
@@ -185,21 +209,36 @@ class _LogoutRow extends StatelessWidget {
             padding: const EdgeInsets.all(AppSpacing.lg),
             child: Row(
               children: [
-                const Icon(Icons.logout_rounded, color: AppColors.error),
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.1),
+                    borderRadius: AppRadius.sm,
+                  ),
+                  child: const Icon(
+                    Icons.logout_rounded,
+                    color: AppColors.error,
+                    size: 20,
+                  ),
+                ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Text(
-                    'Dang xuat',
+                    'Đăng xuất',
                     style: AppTextStyles.labelLarge.copyWith(
                       color: AppColors.error,
                     ),
                   ),
                 ),
                 if (isSigningOut)
-                  const Icon(
-                    Icons.sync_rounded,
-                    color: AppColors.error,
-                    size: 18,
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.error,
+                    ),
                   ),
               ],
             ),
@@ -229,14 +268,14 @@ class _AdminLogoutSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Dang xuat?',
+              'Đăng xuất?',
               style: AppTextStyles.headingMedium.copyWith(
                 color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Ban co chac muon dang xuat khoi tai khoan admin nay khong?',
+              'Bạn có chắc muốn đăng xuất khỏi tài khoản quản trị này không?',
               style: AppTextStyles.bodyMedium.copyWith(
                 color: AppColors.textSecondary,
               ),
@@ -246,7 +285,7 @@ class _AdminLogoutSheet extends StatelessWidget {
               children: [
                 Expanded(
                   child: _SheetActionButton(
-                    label: 'Huy',
+                    label: 'Hủy',
                     foregroundColor: AppColors.textPrimary,
                     backgroundColor: AppColors.bgLight,
                     onTap: () => Navigator.of(context).pop(false),
@@ -255,7 +294,7 @@ class _AdminLogoutSheet extends StatelessWidget {
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: _SheetActionButton(
-                    label: 'Dang xuat',
+                    label: 'Đăng xuất',
                     foregroundColor: AppColors.textOnAccent,
                     backgroundColor: AppColors.error,
                     onTap: () => Navigator.of(context).pop(true),

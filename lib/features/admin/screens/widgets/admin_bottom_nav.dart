@@ -12,49 +12,55 @@ class AdminBottomNav extends StatelessWidget {
     required this.onTap,
   });
 
+  static const _items = [
+    (
+      icon: Icons.dashboard_outlined,
+      activeIcon: Icons.dashboard_rounded,
+      label: 'Tổng quan',
+    ),
+    (
+      icon: Icons.inventory_2_outlined,
+      activeIcon: Icons.inventory_2_rounded,
+      label: 'Đơn hàng',
+    ),
+    (
+      icon: Icons.people_alt_outlined,
+      activeIcon: Icons.people_alt_rounded,
+      label: 'Tài xế',
+    ),
+    (
+      icon: Icons.settings_outlined,
+      activeIcon: Icons.settings_rounded,
+      label: 'Cài đặt',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.bgCard,
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
-      child: SizedBox(
-        height: AppSpacing.bottomNavHeight + bottomPadding,
-        child: Padding(
-          padding: EdgeInsets.only(bottom: bottomPadding),
+    return Material(
+      color: AppColors.bgCard,
+      elevation: 8,
+      shadowColor: Colors.black.withValues(alpha: 0.06),
+      child: Container(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
+        // Chỉ cộng safe-area; chiều cao nội dung cố định gọn để tránh overflow.
+        padding: EdgeInsets.only(bottom: bottomPadding),
+        child: SizedBox(
+          height: 64,
           child: Row(
             children: [
-              _AdminNavItem(
-                icon: Icons.dashboard_outlined,
-                activeIcon: Icons.dashboard_rounded,
-                label: 'Tong quan',
-                active: currentIndex == 0,
-                onTap: () => onTap(0),
-              ),
-              _AdminNavItem(
-                icon: Icons.inventory_2_outlined,
-                activeIcon: Icons.inventory_2_rounded,
-                label: 'Don hang',
-                active: currentIndex == 1,
-                onTap: () => onTap(1),
-              ),
-              _AdminNavItem(
-                icon: Icons.people_alt_outlined,
-                activeIcon: Icons.people_alt_rounded,
-                label: 'Tai xe',
-                active: currentIndex == 2,
-                onTap: () => onTap(2),
-              ),
-              _AdminNavItem(
-                icon: Icons.settings_outlined,
-                activeIcon: Icons.settings_rounded,
-                label: 'Cai dat',
-                active: currentIndex == 3,
-                onTap: () => onTap(3),
-              ),
+              for (var i = 0; i < _items.length; i++)
+                _AdminNavItem(
+                  icon: _items[i].icon,
+                  activeIcon: _items[i].activeIcon,
+                  label: _items[i].label,
+                  active: currentIndex == i,
+                  onTap: () => onTap(i),
+                ),
             ],
           ),
         ),
@@ -87,50 +93,41 @@ class _AdminNavItem extends StatelessWidget {
         onTap: onTap,
         splashColor: AppColors.primary.withValues(alpha: 0.08),
         highlightColor: Colors.transparent,
-        child: SizedBox(
-          height: AppSpacing.bottomNavHeight,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedContainer(
-                duration: AppDuration.fast,
-                curve: AppCurve.decelerate,
-                width: active ? 28 : 0,
-                height: 3,
-                margin: const EdgeInsets.only(bottom: AppSpacing.xs),
-                decoration: BoxDecoration(
-                  color: active ? AppColors.primary : Colors.transparent,
-                  borderRadius: AppRadius.full,
-                ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            // Indicator gọn (2px) — không chiếm quá nhiều chiều cao
+            AnimatedContainer(
+              duration: AppDuration.fast,
+              height: 2,
+              width: active ? 20 : 0,
+              margin: const EdgeInsets.only(bottom: 4),
+              decoration: BoxDecoration(
+                color: active ? AppColors.primary : Colors.transparent,
+                borderRadius: AppRadius.full,
               ),
-              AnimatedContainer(
-                duration: AppDuration.fast,
-                curve: AppCurve.decelerate,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.xs,
-                ),
-                decoration: BoxDecoration(
-                  color: active
-                      ? AppColors.primary.withValues(alpha: 0.08)
-                      : Colors.transparent,
-                  borderRadius: AppRadius.sm,
-                ),
-                child: Icon(active ? activeIcon : icon, color: color, size: 22),
+            ),
+            Icon(
+              active ? activeIcon : icon,
+              color: color,
+              size: 22,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.labelSmall.copyWith(
+                color: color,
+                fontSize: 10,
+                height: 1.1,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                letterSpacing: 0,
               ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: color,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                  letterSpacing: 0,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

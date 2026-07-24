@@ -22,6 +22,12 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
   ];
 
   static const _titles = ['Tổng quan', 'Đơn hàng', 'Tài xế', 'Cài đặt'];
+  static const _subtitles = [
+    'Theo dõi vận hành hệ thống',
+    'Quản lý và lọc đơn giao hàng',
+    'Duyệt hồ sơ và KYC tài xế',
+    'Tài khoản và cấu hình',
+  ];
 
   int _currentIndex = 0;
 
@@ -30,15 +36,39 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
     return Scaffold(
       backgroundColor: AppColors.bgLight,
       appBar: AppBar(
-        title: Text(_titles[_currentIndex], style: AppTextStyles.headingMedium.copyWith(color: AppColors.textPrimary)),
         backgroundColor: AppColors.bgCard,
         surfaceTintColor: AppColors.bgCard,
         elevation: 0,
-        scrolledUnderElevation: 1,
+        scrolledUnderElevation: 0.5,
         shadowColor: AppColors.border,
+        titleSpacing: AppSpacing.screenH,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _titles[_currentIndex],
+              style: AppTextStyles.headingMedium.copyWith(
+                color: AppColors.textPrimary,
+              ),
+            ),
+            Text(
+              _subtitles[_currentIndex],
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ),
-      body: SafeArea(bottom: false, child: IndexedStack(index: _currentIndex, children: _tabs)),
-      bottomNavigationBar: AdminBottomNav(currentIndex: _currentIndex, onTap: (index) => setState(() => _currentIndex = index)),
+      body: SafeArea(
+        bottom: false,
+        child: IndexedStack(index: _currentIndex, children: _tabs),
+      ),
+      bottomNavigationBar: AdminBottomNav(
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+      ),
     );
   }
 }

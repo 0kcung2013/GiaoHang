@@ -226,7 +226,10 @@ class CustomerOrderService {
 
     if (order.pickupLat == 0 && order.pickupLng == 0) return;
 
-    final candidates = await _nearestDriverService.loadAssignableDrivers();
+    final candidates = await _nearestDriverService.loadAssignableDrivers(
+      nearLat: order.pickupLat,
+      nearLng: order.pickupLng,
+    );
     if (candidates.isEmpty) return;
 
     candidates.sort((a, b) {
@@ -486,9 +489,20 @@ class CustomerOrderService {
 
     try {
       final updatedAt = DateTime.now().toIso8601String();
+      final updatePayload = <String, dynamic>{
+        'status': nextStatus,
+        'updated_at': updatedAt,
+      };
+      if (nextStatus == _statusDelivered) {
+        updatePayload['actual_delivered_at'] = updatedAt;
+      } else if (nextStatus == _statusDelivering) {
+        // đã lấy hàng xong → đang giao
+        updatePayload['actual_picked_up_at'] = updatedAt;
+      }
+
       final response = await _supabase
           .from(_ordersTable)
-          .update({'status': nextStatus, 'updated_at': updatedAt})
+          .update(updatePayload)
           .eq('id', normalizedOrderId)
           .eq('driver_id', normalizedDriverId)
           .eq('status', normalizedCurrentStatus)
@@ -500,6 +514,9 @@ class CustomerOrderService {
           'Order status has changed or the order is not assigned to this driver.',
         );
       }
+
+      // total_deliveries: trigger DB `trg_orders_increment_driver_deliveries`
+      // (migration 202607220005) tăng khi status → delivered.
 
       await _createOrderStatusLog(
         orderId: normalizedOrderId,
@@ -572,21 +589,53 @@ class CustomerOrderService {
   }
 
   Future<String> createOrder(OrderModel order) async {
+    final created = await createOrderWithTracking(order);
+    return created.orderId;
+  }
+
+  /// Tạo đơn + log pending + 1 order_item; trả tracking_code DB (nếu có).
+  Future<({String orderId, String trackingCode})> createOrderWithTracking(
+    OrderModel order,
+  ) async {
     try {
       final payload = _createOrderPayload(order);
-
       final response = await _supabase
           .from(_ordersTable)
           .insert(payload)
-          .select('id')
+          .select('id, tracking_code')
           .single();
 
       final orderId = response['id']?.toString();
       if (orderId == null || orderId.isEmpty) {
         throw Exception('Created order did not return an id.');
       }
+      final tracking = response['tracking_code']?.toString() ?? '';
 
-      return orderId;
+      await _createOrderStatusLog(
+        orderId: orderId,
+        status: _statusPending,
+        title: 'Đã tạo đơn',
+        description: 'Đơn hàng đã được ghi nhận và đang chờ tài xế nhận.',
+      );
+
+      final itemName = order.itemName?.trim();
+      if (itemName != null && itemName.isNotEmpty) {
+        try {
+          await createOrderItems(orderId, [
+            OrderItemModel(
+              id: '',
+              orderId: orderId,
+              name: itemName,
+              quantity: 1,
+              price: order.deliveryFee,
+            ),
+          ]);
+        } catch (_) {
+          // Không chặn tạo đơn nếu order_items fail
+        }
+      }
+
+      return (orderId: orderId, trackingCode: tracking);
     } catch (error) {
       throw Exception('Failed to create customer order: $error');
     }

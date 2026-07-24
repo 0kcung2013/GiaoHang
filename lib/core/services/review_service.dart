@@ -10,39 +10,90 @@ class ReviewService {
 
   static const String _table = 'reviews';
 
-  Future<void> createReview(ReviewModel review) async {
+  /// Khách → tài xế
+  Future<Map<String, dynamic>> submitCustomerDriverReview({
+    required String orderId,
+    required int rating,
+    String? comment,
+    List<String> tags = const [],
+  }) async {
     try {
-      final payload = Map<String, dynamic>.from(review.toJson());
-      _removeEmptyGeneratedId(payload);
-
-      await _supabase.from(_table).insert(payload);
+      final result = await _supabase.rpc(
+        'submit_customer_driver_review',
+        params: {
+          'p_order_id': orderId,
+          'p_rating': rating,
+          'p_comment': comment,
+          'p_tags': tags,
+        },
+      );
+      if (result is Map) return Map<String, dynamic>.from(result);
+      return {'ok': true};
     } catch (error) {
-      throw Exception('Failed to create review: $error');
+      throw Exception('Không gửi được đánh giá: $error');
+    }
+  }
+
+  /// Tài xế → khách
+  Future<Map<String, dynamic>> submitDriverCustomerReview({
+    required String orderId,
+    required int rating,
+    String? comment,
+    List<String> tags = const [],
+  }) async {
+    try {
+      final result = await _supabase.rpc(
+        'submit_driver_customer_review',
+        params: {
+          'p_order_id': orderId,
+          'p_rating': rating,
+          'p_comment': comment,
+          'p_tags': tags,
+        },
+      );
+      if (result is Map) return Map<String, dynamic>.from(result);
+      return {'ok': true};
+    } catch (error) {
+      throw Exception('Không gửi được đánh giá khách: $error');
     }
   }
 
   Future<ReviewModel?> getReviewByOrderId(
-    String orderId,
-    String reviewerId,
-  ) async {
+    String orderId, {
+    String direction = ReviewDirection.customerToDriver,
+  }) async {
     try {
-      final response = await _supabase
+      var query = _supabase
           .from(_table)
           .select()
           .eq('order_id', orderId)
-          .eq('reviewer_id', reviewerId)
-          .maybeSingle();
+          .eq('direction', direction);
 
+      final response = await query.maybeSingle();
       if (response == null) return null;
       return ReviewModel.fromJson(response);
     } catch (error) {
-      throw Exception('Failed to load review by order id: $error');
+      // Fallback schema cũ (chưa có cột direction)
+      try {
+        final response = await _supabase
+            .from(_table)
+            .select()
+            .eq('order_id', orderId)
+            .maybeSingle();
+        if (response == null) return null;
+        return ReviewModel.fromJson(response);
+      } catch (_) {
+        throw Exception('Failed to load review by order id: $error');
+      }
     }
   }
 
-  void _removeEmptyGeneratedId(Map<String, dynamic> json) {
-    if ((json['id'] as String?)?.isEmpty ?? true) {
-      json.remove('id');
-    }
+  Future<void> createReview(ReviewModel review) async {
+    await submitCustomerDriverReview(
+      orderId: review.orderId,
+      rating: review.rating,
+      comment: review.comment,
+      tags: review.tags,
+    );
   }
 }

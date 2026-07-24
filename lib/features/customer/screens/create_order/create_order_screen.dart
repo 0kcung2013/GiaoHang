@@ -7,12 +7,16 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../../core/constants/app_theme.dart';
+import '../../../../core/models/saved_address_model.dart';
 import '../../../../core/providers/location_providers.dart';
+import '../../../../core/utils/delivery_fee_calculator.dart';
+import '../../../../core/utils/geo_utils.dart';
 import '../../../../core/utils/order_cargo_utils.dart';
 import 'utils/order_form_data.dart';
 import 'widgets/create_order_form_sections.dart';
 import 'widgets/create_order_header.dart';
 import 'widgets/map_picker_sheet.dart';
+import 'widgets/saved_address_shortcuts.dart';
 import 'widgets/submit_order_button.dart';
 
 class CreateOrderScreen extends ConsumerStatefulWidget {
@@ -137,6 +141,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       }
     }
 
+    if (!mounted) return;
     final result = await showModalBottomSheet<MapPickerResult>(
       context: context,
       isScrollControlled: true,
@@ -144,7 +149,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       builder: (_) => MapPickerSheet(initialPosition: initialPos),
     );
 
-    if (result == null || !mounted) return;
+    if (!mounted || result == null) return;
 
     final address = result.address;
     final lat = result.position.latitude;
@@ -163,29 +168,111 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
     });
   }
 
-  void _goToConfirmation() {
+  bool get _hasPickupPin => _pickupLat != 0 && _pickupLng != 0;
+  bool get _hasDeliveryPin => _deliveryLat != 0 && _deliveryLng != 0;
+
+  Future<void> _goToConfirmation() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final formData = OrderFormData(
-      pickupAddress: _pickupAddressController.text.trim(),
-      pickupLat: _pickupLat,
-      pickupLng: _pickupLng,
-      deliveryAddress: _deliveryAddressController.text.trim(),
-      deliveryLat: _deliveryLat,
-      deliveryLng: _deliveryLng,
-      recipientName: _recipientNameController.text.trim(),
-      recipientPhone: _recipientPhoneController.text.trim(),
-      note: _noteController.text.trim(),
-      itemName: _itemNameController.text.trim(),
-      itemCategory: _itemCategory,
-      itemDescription: _itemDescriptionController.text.trim(),
-      cargoImage: _cargoImage,
-      serviceType: _serviceType,
-      paymentMethod: 'cash',
-      deliveryFee: 30000.0,
+    if (!_hasPickupPin) {
+      _showSnackBar(
+        'Vui lòng chọn điểm lấy hàng trên bản đồ (nút map).',
+        isError: true,
+      );
+      return;
+    }
+    if (!_hasDeliveryPin) {
+      _showSnackBar(
+        'Vui lòng chọn điểm giao hàng trên bản đồ (nút map).',
+        isError: true,
+      );
+      return;
+    }
+
+    final distM = GeoUtils.distanceMeters(
+      fromLat: _pickupLat,
+      fromLng: _pickupLng,
+      toLat: _deliveryLat,
+      toLng: _deliveryLng,
+    );
+    if (distM < 50) {
+      _showSnackBar(
+        'Điểm lấy và điểm giao quá gần nhau. Vui lòng kiểm tra lại.',
+        isError: true,
+      );
+      return;
+    }
+
+    // Loading nhẹ khi tính phí / OSRM
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
-    context.push('/customer/create-order/confirm', extra: formData);
+    try {
+      final estimate = await DeliveryFeeCalculator.estimate(
+        pickupLat: _pickupLat,
+        pickupLng: _pickupLng,
+        deliveryLat: _deliveryLat,
+        deliveryLng: _deliveryLng,
+        serviceType: _serviceType,
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // đóng loading
+
+      final formData = OrderFormData(
+        pickupAddress: _pickupAddressController.text.trim(),
+        pickupLat: _pickupLat,
+        pickupLng: _pickupLng,
+        deliveryAddress: _deliveryAddressController.text.trim(),
+        deliveryLat: _deliveryLat,
+        deliveryLng: _deliveryLng,
+        recipientName: _recipientNameController.text.trim(),
+        recipientPhone: _recipientPhoneController.text.trim(),
+        note: _noteController.text.trim(),
+        itemName: _itemNameController.text.trim(),
+        itemCategory: _itemCategory,
+        itemDescription: _itemDescriptionController.text.trim(),
+        cargoImage: _cargoImage,
+        serviceType: _serviceType,
+        paymentMethod: 'cash',
+        deliveryFee: estimate.deliveryFee,
+        totalPrice: estimate.totalPrice,
+        distanceMeters: estimate.distanceMeters,
+        durationSeconds: estimate.durationSeconds,
+        distanceSource: estimate.source,
+      );
+
+      if (!mounted) return;
+      context.push('/customer/create-order/confirm', extra: formData);
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop();
+        _showSnackBar('Không tính được phí giao hàng: $e', isError: true);
+      }
+    }
+  }
+
+  void _applySavedAddress(SavedAddressModel address, {required bool pickup}) {
+    setState(() {
+      if (pickup) {
+        _pickupAddressController.text = address.addressLine;
+        _pickupLat = address.lat;
+        _pickupLng = address.lng;
+      } else {
+        _deliveryAddressController.text = address.addressLine;
+        _deliveryLat = address.lat;
+        _deliveryLng = address.lng;
+        if ((address.contactName ?? '').trim().isNotEmpty) {
+          _recipientNameController.text = address.contactName!.trim();
+        }
+        if ((address.contactPhone ?? '').trim().isNotEmpty) {
+          _recipientPhoneController.text = address.contactPhone!.trim();
+        }
+      }
+    });
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
@@ -282,12 +369,20 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                     children: [
                       const CreateOrderHeader(),
                       const SizedBox(height: AppSpacing.lg),
+                      SavedAddressShortcuts(
+                        onApplyPickup: (a) =>
+                            _applySavedAddress(a, pickup: true),
+                        onApplyDelivery: (a) =>
+                            _applySavedAddress(a, pickup: false),
+                      ),
                       CreateOrderAddressSection(
                         pickupAddressController: _pickupAddressController,
                         deliveryAddressController: _deliveryAddressController,
                         requiredAddress: _requiredAddress,
                         onPickPickup: () => _openMapPicker('pickup'),
                         onPickDelivery: () => _openMapPicker('delivery'),
+                        hasPickupPin: _hasPickupPin,
+                        hasDeliveryPin: _hasDeliveryPin,
                       ),
                       const SizedBox(height: AppSpacing.md),
                       CreateOrderRecipientSection(

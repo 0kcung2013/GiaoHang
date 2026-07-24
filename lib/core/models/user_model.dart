@@ -10,6 +10,8 @@ class UserModel {
     required this.preferredPaymentMethod,
     required this.notificationOrderUpdates,
     required this.notificationPromotions,
+    this.customerRating,
+    this.customerRatingCount = 0,
   });
 
   final String id;
@@ -22,6 +24,8 @@ class UserModel {
   final String preferredPaymentMethod;
   final bool notificationOrderUpdates;
   final bool notificationPromotions;
+  final double? customerRating;
+  final int customerRatingCount;
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
@@ -38,6 +42,8 @@ class UserModel {
           json['preferred_payment_method']?.toString() ?? 'cash',
       notificationOrderUpdates: json['notification_order_updates'] as bool? ?? true,
       notificationPromotions: json['notification_promotions'] as bool? ?? false,
+      customerRating: _parseDouble(json['customer_rating']),
+      customerRatingCount: _parseInt(json['customer_rating_count']) ?? 0,
     );
   }
 
@@ -53,6 +59,8 @@ class UserModel {
       'preferred_payment_method': preferredPaymentMethod,
       'notification_order_updates': notificationOrderUpdates,
       'notification_promotions': notificationPromotions,
+      'customer_rating': customerRating,
+      'customer_rating_count': customerRatingCount,
     };
   }
 
@@ -64,5 +72,18 @@ class UserModel {
       return value;
     }
     return DateTime.tryParse(value.toString());
+  }
+
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
+  }
+
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
   }
 }

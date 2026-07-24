@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../location/location_ingest_config.dart';
 import '../models/driver_location_model.dart';
 import '../services/location_service.dart';
 import 'customer_providers.dart';
@@ -22,21 +23,30 @@ final currentPositionProvider = FutureProvider<Position?>((ref) async {
   return service.getCurrentPosition();
 });
 
+/// Stream GPS tài xế + ingest tối ưu (không ghi PG mỗi tick).
+///
+/// [driverId] = `drivers.id` (profile).
 final driverLocationStreamProvider =
     StreamProvider.family<Position, String>((ref, driverId) {
   final locationService = ref.watch(locationServiceProvider);
-  final driverService = ref.watch(driverServiceProvider);
+  final ingest = ref.watch(locationIngestServiceProvider);
 
   final controller = StreamController<Position>();
 
   locationService.startTracking(
+    // distanceFilter phía OS: lọc sớm trước throttle app.
+    distanceFilterMeters:
+        LocationIngestConfig.minDistanceMeters.round().clamp(10, 100),
     onPosition: (position) {
       controller.add(position);
-      driverService.updateLocation(
-        driverId: driverId,
-        lat: position.latitude,
-        lng: position.longitude,
-        heading: position.heading,
+      unawaited(
+        ingest.ingest(
+          driverProfileId: driverId,
+          lat: position.latitude,
+          lng: position.longitude,
+          heading: position.heading,
+          speed: position.speed,
+        ),
       );
     },
     onError: (error) {
@@ -54,6 +64,12 @@ final driverLocationStreamProvider =
 
 typedef LocationRealtimeRequest = ({String driverId, String orderId});
 
+/// Vị trí tài xế live từ Realtime payload (tránh nhảy về tọa độ cũ khi re-fetch).
+final liveDriverLatLngProvider =
+    StateProvider.family<({double lat, double lng})?, String>(
+  (ref, orderId) => null,
+);
+
 final driverLocationRealtimeProvider =
     FutureProvider.family<void, LocationRealtimeRequest>((
       ref,
@@ -61,24 +77,53 @@ final driverLocationRealtimeProvider =
     ) async {
       final realtimeService = ref.watch(realtimeServiceProvider);
       debugPrint(
-        '[LocationRealtime] subscribing for driverId=${request.driverId}',
+        '[LocationRealtime] subscribing driver=${request.driverId} '
+        'order=${request.orderId}',
       );
 
-      realtimeService.subscribeToDriverLocation(request.driverId, () {
+      // A) Broadcast tức thì từ map tài xế
+      realtimeService.subscribeToOrderDriverBroadcast(request.orderId, (
+        lat,
+        lng,
+      ) {
         debugPrint(
-          '[LocationRealtime] location changed invalidating '
-          'driverId=${request.driverId}',
+          '[LocationRealtime] broadcast loc order=${request.orderId} '
+          '$lat,$lng',
         );
+        ref.read(liveDriverLatLngProvider(request.orderId).notifier).state = (
+          lat: lat,
+          lng: lng,
+        );
+      });
+
+      // B) Postgres drivers UPDATE (backup)
+      realtimeService.subscribeToDriverLocation(request.driverId, (newRecord) {
+        final lat = _parseCoord(newRecord?['current_lat']);
+        final lng = _parseCoord(newRecord?['current_lng']);
+        if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
+          ref.read(liveDriverLatLngProvider(request.orderId).notifier).state = (
+            lat: lat,
+            lng: lng,
+          );
+        }
         ref.invalidate(assignedDriverProvider(request.orderId));
       });
 
       ref.onDispose(() async {
-        debugPrint(
-          '[LocationRealtime] unsubscribing driverId=${request.driverId}',
+        await realtimeService.unsubscribe(
+          'order_driver_loc:${request.orderId}',
         );
-        await realtimeService.unsubscribe('driver_location:${request.driverId}');
+        await realtimeService.unsubscribe(
+          'driver_location:${request.driverId}',
+        );
       });
     });
+
+double? _parseCoord(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  return double.tryParse(value.toString());
+}
 
 final lastDriverLocationProvider =
     FutureProvider.family<DriverLocationModel?, String>((

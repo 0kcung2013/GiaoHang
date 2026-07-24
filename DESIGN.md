@@ -99,7 +99,7 @@ dependencies:
 
 ### Bảng chính
 - **users** — id (UUID), email (UNIQUE), full_name, phone, role (user_role), avatar_url, created_at
-- **drivers** — id, user_id → users, vehicle_type, license_plate, is_available, current_lat, current_lng, updated_at
+- **drivers** — id, user_id → users, vehicle_type, license_plate, vehicle_brand_model, vehicle_color, is_available, current_lat, current_lng, rating, total_deliveries, approval_status, verified_at, Phase B KYC columns, updated_at
 - **orders** — id, customer_id → users, driver_id → users, status (order_status), pickup_address, pickup_lat, pickup_lng, delivery_address, delivery_lat, delivery_lng, total_price, note, created_at
 - **order_items** — id, order_id → orders (CASCADE), name, quantity, price
 - **routes** — id, driver_id → drivers (CASCADE), date, optimized_path (JSONB), total_distance, total_duration, status

@@ -14,6 +14,8 @@ class CreateOrderAddressSection extends StatelessWidget {
     required this.requiredAddress,
     required this.onPickPickup,
     required this.onPickDelivery,
+    this.hasPickupPin = false,
+    this.hasDeliveryPin = false,
   });
 
   final TextEditingController pickupAddressController;
@@ -21,6 +23,8 @@ class CreateOrderAddressSection extends StatelessWidget {
   final String? Function(String?) Function(String message) requiredAddress;
   final VoidCallback onPickPickup;
   final VoidCallback onPickDelivery;
+  final bool hasPickupPin;
+  final bool hasDeliveryPin;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +33,14 @@ class CreateOrderAddressSection extends StatelessWidget {
       iconColor: AppColors.info,
       title: 'Thông tin địa chỉ',
       children: [
+        Text(
+          'Bắt buộc ghim điểm trên bản đồ (nút map) để tính phí & tìm tài xế.',
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.textSecondary,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
         Row(
           children: [
             Expanded(
@@ -42,20 +54,21 @@ class CreateOrderAddressSection extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
-            Material(
-              color: AppColors.accent.withValues(alpha: 0.1),
-              borderRadius: AppRadius.sm,
-              child: InkWell(
-                borderRadius: AppRadius.sm,
-                onTap: onPickPickup,
-                child: const Padding(
-                  padding: EdgeInsets.all(AppSpacing.md),
-                  child: Icon(Icons.map_rounded, color: AppColors.accent, size: 20),
-                ),
-              ),
+            _MapPinButton(
+              onTap: onPickPickup,
+              color: AppColors.accent,
+              pinned: hasPickupPin,
             ),
           ],
         ),
+        if (hasPickupPin)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, left: 4),
+            child: Text(
+              'Đã ghim điểm lấy trên bản đồ',
+              style: AppTextStyles.labelSmall.copyWith(color: AppColors.success),
+            ),
+          ),
         const SizedBox(height: AppSpacing.md),
         Row(
           children: [
@@ -70,21 +83,54 @@ class CreateOrderAddressSection extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
-            Material(
-              color: AppColors.markerDrop.withValues(alpha: 0.1),
-              borderRadius: AppRadius.sm,
-              child: InkWell(
-                borderRadius: AppRadius.sm,
-                onTap: onPickDelivery,
-                child: const Padding(
-                  padding: EdgeInsets.all(AppSpacing.md),
-                  child: Icon(Icons.map_rounded, color: AppColors.markerDrop, size: 20),
-                ),
-              ),
+            _MapPinButton(
+              onTap: onPickDelivery,
+              color: AppColors.markerDrop,
+              pinned: hasDeliveryPin,
             ),
           ],
         ),
+        if (hasDeliveryPin)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, left: 4),
+            child: Text(
+              'Đã ghim điểm giao trên bản đồ',
+              style: AppTextStyles.labelSmall.copyWith(color: AppColors.success),
+            ),
+          ),
       ],
+    );
+  }
+}
+
+class _MapPinButton extends StatelessWidget {
+  const _MapPinButton({
+    required this.onTap,
+    required this.color,
+    required this.pinned,
+  });
+
+  final VoidCallback onTap;
+  final Color color;
+  final bool pinned;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: AppRadius.sm,
+      child: InkWell(
+        borderRadius: AppRadius.sm,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Icon(
+            pinned ? Icons.check_circle_rounded : Icons.map_rounded,
+            color: color,
+            size: 20,
+          ),
+        ),
+      ),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../location/location_ingest_config.dart';
 import '../models/order_model.dart';
 import '../utils/geo_utils.dart';
 
@@ -66,6 +67,8 @@ class NearestDriverService {
   ) async {
     if (orders.isEmpty) return orders;
 
+    // Pool nhiều đơn / nhiều pickup → đọc PG (latest đã throttle).
+    // Redis GEO dùng khi biết 1 tâm (tạo đơn / assign).
     final candidates = await loadAssignableDrivers();
     if (candidates.isEmpty) {
       _log('nearest-filter: no drivers with location; hide all pool orders');
@@ -129,7 +132,10 @@ class NearestDriverService {
     required OrderModel order,
     required String excludingUserId,
   }) async {
-    final candidates = await loadAssignableDrivers();
+    final candidates = await loadAssignableDrivers(
+      nearLat: order.pickupLat,
+      nearLng: order.pickupLng,
+    );
     final eligible = candidates
         .where((d) => d.userId != excludingUserId)
         .where((d) => !order.rejectedBy.contains(d.userId))
@@ -163,7 +169,25 @@ class NearestDriverService {
     return next.userId;
   }
 
-  Future<List<AssignableDriverPoint>> loadAssignableDrivers() async {
+  /// Ứng viên assignable. Nếu có [nearLat]/[nearLng] → thử Redis GEO trước.
+  Future<List<AssignableDriverPoint>> loadAssignableDrivers({
+    double? nearLat,
+    double? nearLng,
+  }) async {
+    if (nearLat != null && nearLng != null) {
+      final fromRedis = await _loadAssignableDriversFromRedis(
+        aroundLat: nearLat,
+        aroundLng: nearLng,
+      );
+      if (fromRedis != null) {
+        return fromRedis;
+      }
+    }
+
+    return _loadAssignableDriversFromPostgres();
+  }
+
+  Future<List<AssignableDriverPoint>> _loadAssignableDriversFromPostgres() async {
     try {
       final response = await _supabase
           .from(_driversTable)
@@ -190,6 +214,49 @@ class NearestDriverService {
     }
   }
 
+  /// null = Redis/Edge không dùng được.
+  Future<List<AssignableDriverPoint>?> _loadAssignableDriversFromRedis({
+    required double aroundLat,
+    required double aroundLng,
+  }) async {
+    if (!LocationIngestConfig.useEdgeIngest) return null;
+    try {
+      final res = await _supabase.functions.invoke(
+        LocationIngestConfig.nearestFunctionName,
+        body: {
+          'pickup_lat': aroundLat,
+          'pickup_lng': aroundLng,
+          'radius_meters': LocationIngestConfig.geoRadiusMeters,
+          'max_results': 50,
+        },
+      );
+      if (res.status < 200 || res.status >= 300) return null;
+      final data = res.data;
+      final list = data is Map && data['drivers'] is List
+          ? data['drivers'] as List
+          : (data is List ? data : null);
+      if (list == null) return null;
+
+      final drivers = <AssignableDriverPoint>[];
+      for (final raw in list) {
+        if (raw is! Map) continue;
+        final map = Map<String, dynamic>.from(raw);
+        final userId = map['user_id']?.toString();
+        final lat = _parseDouble(map['lat'] ?? map['current_lat']);
+        final lng = _parseDouble(map['lng'] ?? map['current_lng']);
+        if (userId == null || userId.isEmpty || lat == null || lng == null) {
+          continue;
+        }
+        drivers.add(AssignableDriverPoint(userId: userId, lat: lat, lng: lng));
+      }
+      _log('load-drivers:redis count=${drivers.length}');
+      return drivers;
+    } catch (e) {
+      _log('load-drivers:redis skip $e');
+      return null;
+    }
+  }
+
   Future<String?> _assignNearestDriverClient({
     required String orderId,
     required double pickupLat,
@@ -213,7 +280,10 @@ class NearestDriverService {
           nearestUserId = (list.first as Map)['user_id']?.toString();
         }
       } catch (_) {
-        final candidates = await loadAssignableDrivers();
+        final candidates = await loadAssignableDrivers(
+          nearLat: pickupLat,
+          nearLng: pickupLng,
+        );
         if (candidates.isEmpty) return null;
         candidates.sort((a, b) {
           final da = GeoUtils.distanceMeters(

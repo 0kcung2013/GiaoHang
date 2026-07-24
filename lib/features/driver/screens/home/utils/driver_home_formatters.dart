@@ -54,9 +54,10 @@ bool isActiveDriverOrder(OrderModel order) {
 
 String? driverOrderStatusActionLabel(String status) {
   return switch (status) {
-    'assigned' => 'Gạt để đến điểm lấy hàng',
-    'picking_up' => 'Gạt để bắt đầu giao hàng',
-    'delivering' => 'Gạt để hoàn tất giao hàng',
+    // Luồng gạt (map DB): assigned → picking_up → delivering → delivered
+    'assigned' => 'Gạt: đang đến điểm lấy hàng',
+    'picking_up' => 'Gạt: đã lấy hàng — bắt đầu giao',
+    'delivering' => 'Gạt: hoàn tất giao hàng',
     _ => null,
   };
 }

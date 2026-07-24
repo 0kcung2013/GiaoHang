@@ -6,6 +6,8 @@ import '../../../../core/models/order_item_model.dart';
 import '../../../../core/models/order_model.dart';
 import '../../../../core/providers/customer_providers.dart';
 import '../../../../core/widgets/order_cargo_info_block.dart';
+import '../../../reviews/widgets/order_review_section.dart';
+import '../tracking/widgets/assigned_driver_card.dart';
 import 'order_helpers.dart';
 
 void showOrderDetailSheet({
@@ -246,6 +248,14 @@ class _OrderDetailSheetState extends ConsumerState<_OrderDetailSheet> {
                   _OrderItemsSection(orderId: order.id),
                   const SizedBox(height: AppSpacing.md),
                   _OrderTimelineSection(order: order),
+                  if (shouldShowAssignedDriverForOrder(order)) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    AssignedDriverCard(orderId: order.id),
+                  ],
+                  if (order.status == 'delivered') ...[
+                    const SizedBox(height: AppSpacing.md),
+                    OrderReviewSection(order: order),
+                  ],
                   if (canCancel) ...[
                     const SizedBox(height: AppSpacing.md),
                     _CancelOrderSection(

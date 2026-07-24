@@ -3,9 +3,13 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'widgets/driver_login_form.dart';
 import 'widgets/driver_register_form.dart';
+import 'wizard/driver_register_prefill.dart';
 
 class DriverAuthScreen extends StatefulWidget {
-  const DriverAuthScreen({super.key});
+  const DriverAuthScreen({super.key, this.extra});
+
+  /// Có thể là [DriverRegisterPrefill] từ màn Đăng ký chung.
+  final Object? extra;
 
   @override
   State<DriverAuthScreen> createState() => _DriverAuthScreenState();
@@ -15,10 +19,16 @@ class _DriverAuthScreenState extends State<DriverAuthScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
+  DriverRegisterPrefill? get _prefill {
+    final e = widget.extra;
+    return e is DriverRegisterPrefill ? e : null;
+  }
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    // Có prefill từ form trước → mở tab Đăng ký (index 0)
+    _tabController = TabController(length: 2, vsync: this, initialIndex: 0);
   }
 
   @override
@@ -232,12 +242,13 @@ class _DriverAuthScreenState extends State<DriverAuthScreen>
                                       ),
                                     ),
                                     SizedBox(
-                                      height: 420,
+                                      // Wizard 5 bước cần cao hơn form login cũ
+                                      height: 520,
                                       child: TabBarView(
                                         controller: _tabController,
-                                        children: const [
-                                          DriverRegisterForm(),
-                                          DriverLoginForm(),
+                                        children: [
+                                          DriverRegisterForm(prefill: _prefill),
+                                          const DriverLoginForm(),
                                         ],
                                       ),
                                     ),

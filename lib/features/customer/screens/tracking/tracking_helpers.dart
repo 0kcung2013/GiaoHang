@@ -119,8 +119,8 @@ String _statusLabel(String status) {
     'pending' => 'Đơn hàng đã đặt',
     'confirmed' => 'Đã xác nhận',
     'assigned' => 'Tài xế đã nhận đơn',
-    'picking_up' => 'Tài xế đang đến lấy hàng',
-    'delivering' => 'Đang giao hàng',
+    'picking_up' => 'Tài xế đang lấy hàng',
+    'delivering' => 'Đang giao đến bạn',
     'delivered' => 'Giao hàng thành công',
     'cancelled' => 'Đã huỷ',
     _ => 'Không rõ',
@@ -133,11 +133,11 @@ String _statusDescription(String status, bool done) {
   }
 
   return switch (status) {
-    'pending' => 'Đơn hàng đã được tạo và đang chờ xác nhận.',
+    'pending' => 'Đơn hàng đã được tạo và đang chờ xử lý.',
     'confirmed' => 'Đơn hàng đã được xác nhận.',
-    'assigned' => 'Tài xế đã nhận đơn và chuẩn bị đến điểm lấy hàng.',
-    'picking_up' => 'Tài xế đang đến điểm lấy hàng.',
-    'delivering' => 'Đơn hàng đang trên đường giao đến bạn.',
+    'assigned' => 'Tài xế đã nhận đơn và đang đến điểm lấy hàng.',
+    'picking_up' => 'Tài xế đang lấy hàng từ điểm gửi.',
+    'delivering' => 'Tài xế đang mang hàng đến địa chỉ giao.',
     'delivered' => 'Đơn hàng đã được giao thành công.',
     'cancelled' => 'Đơn hàng đã bị huỷ.',
     _ => 'Trạng thái đơn hàng đã được cập nhật.',

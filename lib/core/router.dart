@@ -10,6 +10,7 @@ import '../features/auth/screens/login/login_screen.dart';
 import '../features/auth/screens/register/register_screen.dart';
 import '../features/customer/screens/create_order/create_order_screen.dart';
 import '../features/customer/screens/create_order/order_confirmation_screen.dart';
+import '../features/customer/screens/create_order/order_success_screen.dart';
 import '../features/customer/screens/home/home_screen.dart';
 import '../features/driver/screens/driver_shell_screen.dart';
 import '../features/onboarding/screens/onboarding/onboarding_screen.dart';
@@ -115,7 +116,7 @@ GoRouter createRouter({required String initialLocation}) {
       GoRoute(path: '/register', builder: (_, _) => const RegisterScreen()),
       GoRoute(
         path: '/driver-auth',
-        builder: (_, _) => const DriverAuthScreen(),
+        builder: (_, state) => DriverAuthScreen(extra: state.extra),
       ),
       GoRoute(
         path: '/driver-pending',
@@ -123,7 +124,20 @@ GoRouter createRouter({required String initialLocation}) {
       ),
       GoRoute(
         path: '/customer-home',
-        builder: (_, _) => const CustomerHomeScreen(),
+        builder: (_, state) {
+          final tab = state.uri.queryParameters['tab'];
+          final code = state.uri.queryParameters['code'];
+          final initialTab = switch (tab) {
+            'orders' => 1,
+            'tracking' => 2,
+            'account' => 3,
+            _ => 0,
+          };
+          return CustomerHomeScreen(
+            initialTab: initialTab,
+            initialTrackingCode: code,
+          );
+        },
       ),
       GoRoute(
         path: '/customer/create-order',
@@ -134,6 +148,21 @@ GoRouter createRouter({required String initialLocation}) {
             builder: (_, state) {
               final formData = state.extra as dynamic;
               return OrderConfirmationScreen(formData: formData as dynamic);
+            },
+          ),
+          GoRoute(
+            path: 'success',
+            builder: (_, state) {
+              final extra = state.extra;
+              final map = extra is Map
+                  ? Map<String, dynamic>.from(extra)
+                  : <String, dynamic>{};
+              return OrderSuccessScreen(
+                orderId: map['orderId']?.toString() ?? '',
+                trackingCode: map['trackingCode']?.toString() ?? '',
+                deliveryFee: (map['deliveryFee'] as num?)?.toDouble() ?? 0,
+                distanceKm: (map['distanceKm'] as num?)?.toDouble(),
+              );
             },
           ),
         ],

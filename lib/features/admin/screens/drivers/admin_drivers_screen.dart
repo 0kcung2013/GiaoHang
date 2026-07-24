@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/constants/app_theme.dart';
 import '../../../../core/models/driver_model.dart';
+import 'widgets/admin_driver_kyc_sheet.dart';
 
 class AdminDriversScreen extends StatefulWidget {
   const AdminDriversScreen({super.key});
@@ -87,30 +88,12 @@ class _AdminDriversScreenState extends State<AdminDriversScreen>
     }
   }
 
-  Future<void> _approve(String driverId) async {
-    try {
-      await _supabase.rpc('approve_driver', params: {'p_driver_id': driverId});
-      _fetchDrivers();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Lỗi khi duyệt tài xế')));
-      }
-    }
-  }
-
-  Future<void> _reject(String driverId) async {
-    try {
-      await _supabase.rpc('reject_driver', params: {'p_driver_id': driverId});
-      _fetchDrivers();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Lỗi khi từ chối tài xế')));
-      }
-    }
+  void _openKyc(DriverModel driver) {
+    showAdminDriverKycSheet(
+      context: context,
+      driver: driver,
+      onChanged: _fetchDrivers,
+    );
   }
 
   Color _statusColor(String status) {
@@ -184,16 +167,9 @@ class _AdminDriversScreenState extends State<AdminDriversScreen>
                       final driver = _drivers[index];
                       return _DriverCard(
                         driver: driver,
-                        onApprove:
-                            driver.approvalStatus == 'pending'
-                                ? () => _approve(driver.id)
-                                : null,
-                        onReject:
-                            driver.approvalStatus == 'pending'
-                                ? () => _reject(driver.id)
-                                : null,
                         statusColor: _statusColor(driver.approvalStatus),
                         statusLabel: _statusLabel(driver.approvalStatus),
+                        onTap: () => _openKyc(driver),
                       );
                     },
                   ),
@@ -205,139 +181,124 @@ class _AdminDriversScreenState extends State<AdminDriversScreen>
 
 class _DriverCard extends StatelessWidget {
   final DriverModel driver;
-  final VoidCallback? onApprove;
-  final VoidCallback? onReject;
   final Color statusColor;
   final String statusLabel;
+  final VoidCallback onTap;
 
   const _DriverCard({
     required this.driver,
-    required this.onApprove,
-    required this.onReject,
     required this.statusColor,
     required this.statusLabel,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
+    final vehicleLine = [
+      driver.vehicleType,
+      driver.vehicleBrandModel,
+      driver.vehicleColor,
+      driver.licensePlate,
+    ].where((e) => e != null && e.trim().isNotEmpty).join(' · ');
+
+    return Material(
+      color: AppColors.bgCard,
+      borderRadius: AppRadius.md,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: AppRadius.md,
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppShadow.subtle,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        child: Container(
+          margin: const EdgeInsets.only(bottom: AppSpacing.md),
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.md,
+            border: Border.all(color: AppColors.border),
+            boxShadow: AppShadow.subtle,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.08),
-                  borderRadius: AppRadius.sm,
-                ),
-                child: Icon(
-                  Icons.person_rounded,
-                  color: AppColors.primary,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      driver.fullName ?? 'Chưa có tên',
-                      style: AppTextStyles.headingSmall.copyWith(
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      driver.email ?? '',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xs,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.1),
-                  borderRadius: AppRadius.full,
-                  border: Border.all(color: statusColor.withValues(alpha: 0.3)),
-                ),
-                child: Text(
-                  statusLabel,
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: statusColor,
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.08),
+                    backgroundImage:
+                        (driver.avatarUrl != null &&
+                            driver.avatarUrl!.trim().isNotEmpty)
+                        ? NetworkImage(driver.avatarUrl!)
+                        : null,
+                    child:
+                        (driver.avatarUrl == null ||
+                            driver.avatarUrl!.trim().isEmpty)
+                        ? const Icon(
+                            Icons.person_rounded,
+                            color: AppColors.primary,
+                            size: 22,
+                          )
+                        : null,
                   ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          driver.fullName ?? 'Chưa có tên',
+                          style: AppTextStyles.headingSmall.copyWith(
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          driver.email ?? '',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: AppSpacing.xs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.1),
+                      borderRadius: AppRadius.full,
+                      border: Border.all(
+                        color: statusColor.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Text(
+                      statusLabel,
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: statusColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _InfoRow(
+                icon: Icons.phone_outlined,
+                label: driver.phone ?? 'Chưa có SĐT',
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              _InfoRow(
+                icon: Icons.directions_car_outlined,
+                label: vehicleLine.isEmpty ? 'Chưa có xe' : vehicleLine,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Chạm để xem giấy tờ KYC và duyệt',
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: AppColors.info,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
-          _InfoRow(
-            icon: Icons.phone_outlined,
-            label: driver.phone ?? 'Chưa có SĐT',
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          _InfoRow(
-            icon: Icons.directions_car_outlined,
-            label:
-                '${driver.vehicleType ?? ''}  ·  ${driver.licensePlate ?? ''}',
-          ),
-          if (onApprove != null || onReject != null) ...[
-            const SizedBox(height: AppSpacing.md),
-            Row(
-              children: [
-                if (onReject != null)
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: onReject,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.error,
-                        side: BorderSide(color: AppColors.error.withValues(
-                          alpha: 0.4,
-                        )),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: AppRadius.sm,
-                        ),
-                      ),
-                      child: const Text('Từ chối'),
-                    ),
-                  ),
-                if (onReject != null && onApprove != null)
-                  const SizedBox(width: AppSpacing.md),
-                if (onApprove != null)
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: onApprove,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.success,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: AppRadius.sm,
-                        ),
-                        elevation: 0,
-                      ),
-                      child: const Text('Duyệt'),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }

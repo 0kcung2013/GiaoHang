@@ -14,6 +14,7 @@ class _DriverApprovalScreenState extends State<DriverApprovalScreen> {
   final _supabase = Supabase.instance.client;
   bool _loading = true;
   String _approvalStatus = 'pending';
+  String? _rejectionReason;
 
   @override
   void initState() {
@@ -31,11 +32,12 @@ class _DriverApprovalScreenState extends State<DriverApprovalScreen> {
     try {
       final result = await _supabase
           .from('drivers')
-          .select('approval_status')
+          .select('approval_status, rejection_reason')
           .eq('user_id', user.id)
           .single();
 
       final status = result['approval_status'] as String? ?? 'pending';
+      final reason = result['rejection_reason']?.toString();
 
       if (mounted) {
         if (status == 'approved') {
@@ -43,6 +45,7 @@ class _DriverApprovalScreenState extends State<DriverApprovalScreen> {
         } else {
           setState(() {
             _approvalStatus = status;
+            _rejectionReason = reason;
             _loading = false;
           });
         }
@@ -118,14 +121,34 @@ class _DriverApprovalScreenState extends State<DriverApprovalScreen> {
                   const SizedBox(height: AppSpacing.md),
                   Text(
                     isPending
-                        ? 'Admin sẽ xem xét và duyệt hồ sơ của bạn trong thời gian sớm nhất. Vui lòng quay lại sau.'
-                        : 'Hồ sơ tài xế của bạn chưa được duyệt. Vui lòng liên hệ admin để biết thêm chi tiết.',
+                        ? 'Admin sẽ xem xét giấy tờ KYC và duyệt hồ sơ trong thời gian sớm nhất (thường 24–48h).'
+                        : 'Hồ sơ tài xế của bạn bị từ chối. Bạn có thể đăng ký lại sau khi chỉnh sửa thông tin.',
                     style: AppTextStyles.bodyMedium.copyWith(
                       color: AppColors.textSecondary,
                       height: 1.6,
                     ),
                     textAlign: TextAlign.center,
                   ),
+                  if (!isPending &&
+                      (_rejectionReason?.trim().isNotEmpty ?? false)) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.08),
+                        borderRadius: AppRadius.md,
+                      ),
+                      child: Text(
+                        'Lý do: ${_rejectionReason!.trim()}',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.error,
+                          height: 1.4,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: AppSpacing.xl3),
                   SizedBox(
                     width: double.infinity,

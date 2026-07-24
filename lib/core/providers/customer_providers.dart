@@ -6,8 +6,10 @@ import '../models/notification_model.dart';
 import '../models/order_item_model.dart';
 import '../models/order_model.dart';
 import '../models/order_status_log_model.dart';
+import '../models/review_model.dart';
 import '../models/saved_address_model.dart';
 import '../models/user_model.dart';
+import '../location/location_ingest_service.dart';
 import '../services/customer_order_service.dart';
 import '../services/cargo_image_service.dart';
 import '../services/driver_service.dart';
@@ -15,6 +17,15 @@ import '../services/notification_service.dart';
 import '../services/realtime_service.dart';
 import '../services/review_service.dart';
 import '../services/saved_address_service.dart';
+
+/// Pipeline GPS: throttle → Redis/edge (nếu có) → batch history → Postgres.
+final locationIngestServiceProvider = Provider<LocationIngestService>((ref) {
+  final service = LocationIngestService();
+  ref.onDispose(() {
+    service.dispose();
+  });
+  return service;
+});
 
 final customerOrderServiceProvider = Provider<CustomerOrderService>((ref) {
   return CustomerOrderService();
@@ -36,8 +47,30 @@ final reviewServiceProvider = Provider<ReviewService>((ref) {
   return ReviewService();
 });
 
+/// Review khách → tài xế theo orderId (null = chưa đánh giá).
+final orderReviewProvider =
+    FutureProvider.family<ReviewModel?, String>((ref, orderId) async {
+  final service = ref.watch(reviewServiceProvider);
+  return service.getReviewByOrderId(
+    orderId,
+    direction: ReviewDirection.customerToDriver,
+  );
+});
+
+/// Review tài xế → khách theo orderId.
+final driverCustomerReviewProvider =
+    FutureProvider.family<ReviewModel?, String>((ref, orderId) async {
+  final service = ref.watch(reviewServiceProvider);
+  return service.getReviewByOrderId(
+    orderId,
+    direction: ReviewDirection.driverToCustomer,
+  );
+});
+
 final driverServiceProvider = Provider<DriverService>((ref) {
-  return DriverService();
+  return DriverService(
+    locationIngest: ref.watch(locationIngestServiceProvider),
+  );
 });
 
 final realtimeServiceProvider = Provider<RealtimeService>((ref) {

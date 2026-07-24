@@ -22,7 +22,6 @@ class OrderConfirmationScreen extends ConsumerStatefulWidget {
 
 class _OrderConfirmationScreenState
     extends ConsumerState<OrderConfirmationScreen> {
-  static const _defaultDeliveryFee = 30000.0;
   bool _isSubmitting = false;
 
   @override
@@ -265,6 +264,14 @@ class _OrderConfirmationScreenState
   }
 
   Widget _buildFeeCard() {
+    final data = widget.formData;
+    final km = data.distanceKm;
+    final sourceLabel =
+        data.distanceSource == 'osrm' ? 'theo lộ trình' : 'theo đường chim bay';
+    final durationMin = data.durationSeconds != null
+        ? (data.durationSeconds! / 60).round()
+        : null;
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -272,50 +279,67 @@ class _OrderConfirmationScreenState
         borderRadius: AppRadius.lg,
         border: Border.all(color: AppColors.accent.withValues(alpha: 0.15)),
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.bgCard,
-              borderRadius: AppRadius.md,
-              boxShadow: AppShadow.subtle,
-            ),
-            child: const Icon(
-              Icons.receipt_long_rounded,
-              color: AppColors.accent,
-              size: 22,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Phí giao hàng tạm tính',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.bgCard,
+                  borderRadius: AppRadius.md,
+                  boxShadow: AppShadow.subtle,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'Phí sẽ được tính chính xác sau khi tài xế nhận đơn.',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                child: const Icon(
+                  Icons.receipt_long_rounded,
+                  color: AppColors.accent,
+                  size: 22,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Phí giao hàng',
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${km.toStringAsFixed(1)} km · $sourceLabel'
+                      '${durationMin != null ? ' · ~$durationMin phút' : ''}',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                formatDeliveryFee(data.deliveryFee),
+                style: AppTextStyles.headingSmall.copyWith(
+                  color: AppColors.accent,
+                ),
+              ),
+            ],
           ),
-          Text(
-            formatDeliveryFee(_defaultDeliveryFee),
-            style: AppTextStyles.headingSmall.copyWith(
-              color: AppColors.accent,
+          if (data.serviceType == 'express') ...[
+            const SizedBox(height: AppSpacing.sm),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Đã áp dụng phụ phí dịch vụ Nhanh',
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: AppColors.info,
+                ),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -365,7 +389,7 @@ class _OrderConfirmationScreenState
         deliveryAddress: data.deliveryAddress.trim(),
         deliveryLat: data.deliveryLat,
         deliveryLng: data.deliveryLng,
-        totalPrice: null,
+        totalPrice: data.totalPrice,
         note: data.note.trim().isEmpty ? null : data.note.trim(),
         createdAt: now,
         trackingCode: '',
@@ -381,7 +405,7 @@ class _OrderConfirmationScreenState
         itemDescription:
             data.itemDescription.trim().isEmpty ? null : data.itemDescription.trim(),
         itemImageUrl: itemImageUrl,
-        deliveryFee: _defaultDeliveryFee,
+        deliveryFee: data.deliveryFee,
         serviceType: data.serviceType,
         paymentMethod: data.paymentMethod,
         statusNote: null,
@@ -389,22 +413,31 @@ class _OrderConfirmationScreenState
       );
 
       final service = ref.read(customerOrderServiceProvider);
-      final orderId = await service.createOrder(order);
+      final created = await service.createOrderWithTracking(order);
 
-      // Không auto-assign: đơn giữ status pending.
-      // Thông báo in-app cho khách + tài xế gần nhất.
-      final created =
-          await service.getOrderById(orderId) ?? order.copyWith(id: orderId);
-      await service.notifyAfterOrderCreated(created);
+      final full = await service.getOrderById(created.orderId) ??
+          order.copyWith(
+            id: created.orderId,
+            trackingCode: created.trackingCode,
+          );
+      await service.notifyAfterOrderCreated(full);
 
       ref.invalidate(customerOrdersProvider);
       ref.invalidate(recentOrdersProvider);
       ref.invalidate(activeOrderProvider);
 
       if (mounted) {
-        _showSnackBar('Đơn hàng đã được tạo thành công.');
-        context.pop();
-        context.pop();
+        context.go(
+          '/customer/create-order/success',
+          extra: {
+            'orderId': created.orderId,
+            'trackingCode': created.trackingCode.isNotEmpty
+                ? created.trackingCode
+                : full.trackingCode,
+            'deliveryFee': data.deliveryFee,
+            'distanceKm': data.distanceKm,
+          },
+        );
       }
     } catch (error) {
       if (mounted) {

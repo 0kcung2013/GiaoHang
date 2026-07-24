@@ -6,15 +6,18 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-
 import '../../../../core/constants/app_theme.dart';
 import '../../../../core/models/order_model.dart';
 import '../../../../core/providers/customer_providers.dart';
+import '../../../../core/providers/driver_nav_session_provider.dart';
 import '../../../../core/providers/location_providers.dart';
-import '../../../../core/services/driver_location_service.dart';
 import '../../../../core/services/osrm_service.dart';
+import '../../../../core/utils/delivery_map_utils.dart';
+import '../../../../core/widgets/delivery_map_markers.dart';
+import '../../../reviews/widgets/driver_rate_customer_sheet.dart';
 import '../home/utils/driver_home_formatters.dart';
 import '../home/widgets/slide_status_action.dart';
+import 'widgets/arrival_bottom_sheet.dart';
 
 class DriverNavigationScreen extends ConsumerStatefulWidget {
   final OrderModel order;
@@ -56,19 +59,64 @@ class _DriverNavigationScreenState
   /// Khoảng cách (m) tới target để coi là "đến nơi"
   static const double _arrivalThresholdMeters = 60.0;
 
-  /// Tốc độ simulate trên web (số điểm/giây)
-  static const int _simPointsPerSecond = 3;
-
-  late final DriverLocationService _locationUploader;
+  /// Tốc độ simulate trên web (điểm/giây). Thấp + ingest throttle.
+  static const int _simPointsPerSecond = 1;
 
   @override
   void initState() {
     super.initState();
     _currentOrder = widget.order;
-    _locationUploader = DriverLocationService();
-    _loadRoute();
+    _restoreNavSession();
     _startMovement();
     _startRouteRefresh();
+    // Đảm bảo đường xanh hiện ngay cả status assigned (trước khi gạt).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_ensureInitialRoute());
+    });
+  }
+
+  /// Seed vị trí + load OSRM lần đầu (không đè session đã restore).
+  Future<void> _ensureInitialRoute() async {
+    // Đợi hydrate SharedPreferences (hot restart Shift+R).
+    await ref.read(driverNavSessionsProvider.notifier).ready;
+    if (!mounted) return;
+    _restoreNavSession();
+
+    if (_driverPos == null) {
+      final order = _currentOrder;
+      final driverId = order.driverId;
+      if (driverId != null && driverId.isNotEmpty) {
+        try {
+          final d = await ref.read(driverByUserIdProvider(driverId).future);
+          if (d?.currentLat != null &&
+              d?.currentLng != null &&
+              d!.currentLat != 0 &&
+              d.currentLng != 0) {
+            _driverPos = LatLng(d.currentLat!, d.currentLng!);
+          }
+        } catch (_) {}
+      }
+      // Chỉ fallback pickup nếu chưa có bất kỳ vị trí nào
+      _driverPos ??= LatLng(order.pickupLat, order.pickupLng);
+      if (mounted) setState(() {});
+    }
+
+    // Nếu đã tới pickup (session) — không start sim chạy lại từ đầu.
+    final pickup = LatLng(_currentOrder.pickupLat, _currentOrder.pickupLng);
+    if (_driverPos != null) {
+      final d = const Distance().as(LengthUnit.Meter, _driverPos!, pickup);
+      if (d <= _arrivalThresholdMeters &&
+          (_currentOrder.status == 'assigned' ||
+              _currentOrder.status == 'picking_up')) {
+        _arrivedAtTarget = true;
+        _driverPos = pickup;
+        _simTimer?.cancel();
+      }
+    }
+
+    _lastRouteStatus = null;
+    await _loadRoute();
   }
 
   @override
@@ -78,22 +126,68 @@ class _DriverNavigationScreenState
       _currentOrder = widget.order;
       _lastRouteStatus = null;
       _arrivedAtTarget = false; // Reset trạng thái đến nơi để kiểm tra cho chặng tiếp theo
+      _simRouteIndex = 0;
       _loadRoute();
     }
   }
 
   @override
   void dispose() {
+    _persistNavSession();
     _routeRefreshTimer?.cancel();
     _simTimer?.cancel();
     _posStream?.cancel();
     super.dispose();
   }
 
+  void _restoreNavSession() {
+    final sessions = ref.read(driverNavSessionsProvider);
+    final saved = sessions[_currentOrder.id];
+    if (saved == null) return;
+    // Cùng đơn: cho phép restore cả khi status khớp.
+    // Nếu đã delivering mà session còn picking_up → vẫn lấy vị trí (đã tới lấy).
+    if (saved.lat == 0 && saved.lng == 0) return;
+
+    _driverPos = LatLng(saved.lat, saved.lng);
+    // Chỉ giữ cờ arrived nếu cùng chặng (tránh kẹt banner chặng cũ).
+    if (saved.status == _currentOrder.status) {
+      _arrivedAtTarget = saved.arrivedAtTarget;
+      _simRouteIndex = saved.simRouteIndex;
+    } else {
+      _arrivedAtTarget = false;
+      _simRouteIndex = 0;
+    }
+    debugPrint(
+      '[NAV_SESSION] restore order=${_currentOrder.id} '
+      'pos=(${saved.lat},${saved.lng}) simIndex=$_simRouteIndex '
+      'arrived=$_arrivedAtTarget savedStatus=${saved.status} '
+      'orderStatus=${_currentOrder.status}',
+    );
+  }
+
+  void _persistNavSession() {
+    final pos = _driverPos;
+    if (pos == null) return;
+    final next = DriverNavSession(
+      orderId: _currentOrder.id,
+      status: _currentOrder.status,
+      lat: pos.latitude,
+      lng: pos.longitude,
+      arrivedAtTarget: _arrivedAtTarget,
+      simRouteIndex: _simRouteIndex,
+      updatedAt: DateTime.now(),
+    );
+    unawaited(ref.read(driverNavSessionsProvider.notifier).upsert(next));
+  }
+
   void _startRouteRefresh() {
     if (kIsWeb) return; // Không cần tự động refresh route định kỳ khi đang giả lập trên Web
-    _routeRefreshTimer =
-        Timer.periodic(const Duration(seconds: 15), (_) => _loadRoute());
+    _routeRefreshTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (!mounted || _driverPos == null) return;
+      // Cho phép refresh khoảng cách; _loadRoute tự skip nếu gần như đứng yên.
+      _lastRouteStatus = null;
+      unawaited(_loadRoute());
+    });
   }
 
   // ─── Movement: GPS thật (Android/iOS) hoặc Simulate (Web) ────────────────
@@ -108,8 +202,32 @@ class _DriverNavigationScreenState
     }
   }
 
-  /// Android/iOS: dùng GPS stream thật từ Geolocator.
-  void _startGpsStream() {
+  /// Android/iOS: seed vị trí gần nhất rồi mới subscribe GPS stream.
+  Future<void> _startGpsStream() async {
+    // Ưu tiên session đã restore trong initState.
+    if (_driverPos == null) {
+      try {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null && last.latitude != 0.0 && last.longitude != 0.0) {
+          await _onDriverMoved(LatLng(last.latitude, last.longitude));
+        } else {
+          final current = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.medium,
+            ),
+          );
+          await _onDriverMoved(
+            LatLng(current.latitude, current.longitude),
+          );
+        }
+      } catch (e) {
+        debugPrint('[GPS_STREAM] seed position failed: $e');
+      }
+    } else if (_routePoints == null) {
+      await _loadRoute();
+    }
+
+    _posStream?.cancel();
     _posStream = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.medium,
@@ -131,48 +249,92 @@ class _DriverNavigationScreenState
   Future<void> _initWebFallback() async {
     final order = _currentOrder;
     final driverId = order.driverId;
+
+    // Đã có session restore → chỉ load route / tiếp tục sim, không nhảy về pickup.
+    if (_driverPos != null) {
+      debugPrint(
+        '[GPS_WEB] Using restored session pos: '
+        '(${_driverPos!.latitude}, ${_driverPos!.longitude})',
+      );
+      await _loadRoute();
+      return;
+    }
+
     LatLng startPos = LatLng(order.pickupLat, order.pickupLng);
 
-    // 1. Thử lấy GPS thực tế của trình duyệt web (nếu người dùng cấp quyền và không bị timeout)
+    // 1. Thử lấy GPS thực tế của trình duyệt web
     final gpsPos = ref.read(currentPositionProvider).valueOrNull;
     if (gpsPos != null && gpsPos.latitude != 0.0 && gpsPos.longitude != 0.0) {
       startPos = LatLng(gpsPos.latitude, gpsPos.longitude);
-      debugPrint('[GPS_WEB] Initialized driver at browser GPS location: (${startPos.latitude}, ${startPos.longitude})');
+      debugPrint(
+        '[GPS_WEB] Initialized driver at browser GPS location: '
+        '(${startPos.latitude}, ${startPos.longitude})',
+      );
     }
-    // 2. Nếu không lấy được GPS trình duyệt, lấy vị trí đã lưu trong profile tài xế trên Supabase
+    // 2. Profile tài xế trên Supabase (vị trí đã upload trước đó)
     else if (driverId != null && driverId.isNotEmpty) {
       try {
-        final driverModel = await ref.read(driverByUserIdProvider(driverId).future);
+        final driverModel =
+            await ref.read(driverByUserIdProvider(driverId).future);
         if (driverModel != null &&
             driverModel.currentLat != null &&
             driverModel.currentLat != 0.0 &&
             driverModel.currentLng != null &&
             driverModel.currentLng != 0.0) {
           startPos = LatLng(driverModel.currentLat!, driverModel.currentLng!);
-          debugPrint('[GPS_WEB] Initialized driver at actual profile location: (${startPos.latitude}, ${startPos.longitude})');
+          debugPrint(
+            '[GPS_WEB] Initialized driver at profile location: '
+            '(${startPos.latitude}, ${startPos.longitude})',
+          );
         } else {
-          debugPrint('[GPS_WEB] Driver profile has no coordinates. Falling back to order pickup location.');
+          debugPrint(
+            '[GPS_WEB] Driver profile has no coordinates. '
+            'Falling back to order pickup location.',
+          );
         }
       } catch (e) {
-        debugPrint('[GPS_WEB] Failed to fetch driver profile: $e. Falling back to order pickup location.');
+        debugPrint(
+          '[GPS_WEB] Failed to fetch driver profile: $e. '
+          'Falling back to order pickup location.',
+        );
       }
     }
 
-    // Thiết lập vị trí khởi đầu của driver.
     await _onDriverMoved(startPos);
   }
 
   /// Simulate driver di chuyển theo từng điểm của _routePoints (chỉ dùng web).
-  void _startSimulation() {
+  void _startSimulation({bool resume = true}) {
     _simTimer?.cancel();
     final points = _routePoints;
     if (points == null || points.length < 2) {
-      debugPrint('[SIM] Cannot start simulation: _routePoints is null or too short');
+      debugPrint(
+        '[SIM] Cannot start simulation: _routePoints is null or too short',
+      );
       return;
     }
 
-    _simRouteIndex = 0;
-    debugPrint('[SIM] Starting simulation with ${points.length} route points');
+    // Tiếp tục từ điểm gần vị trí hiện tại / session — không reset index = 0.
+    if (resume && _driverPos != null) {
+      final nearest = _nearestRouteIndex(points, _driverPos!);
+      // Giữ index session nếu vẫn hợp lệ và không lùi quá xa so với nearest.
+      if (_simRouteIndex > 0 &&
+          _simRouteIndex < points.length &&
+          (_simRouteIndex - nearest).abs() <= 8) {
+        // giữ _simRouteIndex
+      } else {
+        _simRouteIndex = nearest;
+      }
+    } else if (!resume) {
+      _simRouteIndex = 0;
+    } else {
+      _simRouteIndex = _simRouteIndex.clamp(0, points.length - 1);
+    }
+
+    debugPrint(
+      '[SIM] Starting simulation points=${points.length} '
+      'fromIndex=$_simRouteIndex resume=$resume',
+    );
 
     _simTimer = Timer.periodic(
       Duration(milliseconds: (1000 / _simPointsPerSecond).round()),
@@ -181,14 +343,27 @@ class _DriverNavigationScreenState
           timer.cancel();
           return;
         }
+        // Chỉ sim khi đúng chặng lấy/giao; assigned không tự chạy.
+        final st = _currentOrder.status;
+        if (st != 'picking_up' && st != 'delivering') {
+          timer.cancel();
+          _persistNavSession();
+          return;
+        }
+        // Đã tới đích chặng → dừng (chờ user gạt).
+        if (_arrivedAtTarget) {
+          timer.cancel();
+          _persistNavSession();
+          return;
+        }
         final pts = _routePoints;
         if (pts == null) {
-          // Bỏ qua tick này nếu đang trong lúc load/recalculate route mới, không cancel timer
           return;
         }
         if (_simRouteIndex >= pts.length) {
           debugPrint('[SIM] Reached end of simulation route');
           timer.cancel();
+          _persistNavSession();
           return;
         }
         final pos = pts[_simRouteIndex];
@@ -198,34 +373,111 @@ class _DriverNavigationScreenState
     );
   }
 
+  int _nearestRouteIndex(List<LatLng> points, LatLng pos) {
+    var bestIdx = 0;
+    var bestDist = double.infinity;
+    final distance = const Distance();
+    for (var i = 0; i < points.length; i++) {
+      final d = distance.as(LengthUnit.Meter, pos, points[i]);
+      if (d < bestDist) {
+        bestDist = d;
+        bestIdx = i;
+      }
+    }
+    return bestIdx;
+  }
+
   /// Xử lý mỗi khi driver di chuyển (GPS thật hoặc simulate).
-  /// 1. Cập nhật marker trên map
-  /// 2. Upload vị trí lên Supabase
-  /// 3. Kiểm tra đã tới điểm đích chưa
   Future<void> _onDriverMoved(LatLng newPos) async {
     if (!mounted) return;
 
-    final isFirstPos = _driverPos == null;
-    setState(() => _driverPos = newPos);
-
-    // Upload vị trí lên Supabase (fire-and-forget)
-    final driverId = _currentOrder.driverId;
-    if (driverId != null && driverId.isNotEmpty) {
-      unawaited(_locationUploader.updateLocation(
-        driverId: driverId,
-        lat: newPos.latitude,
-        lng: newPos.longitude,
-      ));
+    // Snap lên polyline (nếu có) → marker không lệch vạch xanh / điểm L.
+    var published = LatLng(newPos.latitude, newPos.longitude);
+    if (_routePoints != null && _routePoints!.length >= 2) {
+      published = DeliveryMapUtils.snapToRoute(
+        fullRoute: _routePoints!,
+        current: published,
+      );
     }
 
-    // Lần đầu có vị trí → load route ngay
-    if (isFirstPos) {
+    final isFirstPos = _driverPos == null;
+    final needRoute = isFirstPos || _routePoints == null;
+    setState(() => _driverPos = published);
+    _persistNavSession();
+    _followDriverCamera(published);
+
+    final driverId = _currentOrder.driverId;
+    final orderId = _currentOrder.id;
+
+    // 1) Broadcast + 2) PG — cùng tọa độ đã snap (khách = tài xế)
+    unawaited(
+      ref.read(realtimeServiceProvider).broadcastDriverLocation(
+            orderId: orderId,
+            lat: published.latitude,
+            lng: published.longitude,
+          ),
+    );
+
+    if (driverId != null && driverId.isNotEmpty) {
+      final ingest = ref.read(locationIngestServiceProvider);
+      unawaited(
+        ingest.ingest(
+          driverUserId: driverId,
+          lat: published.latitude,
+          lng: published.longitude,
+          prioritySync: true,
+        ),
+      );
+    }
+
+    if (needRoute) {
       await _loadRoute();
       return;
     }
 
-    // Kiểm tra tới điểm đích
-    _checkArrival(newPos);
+    // Cập nhật km còn lại theo polyline đã cắt
+    if (_routePoints != null && _routePoints!.length >= 2) {
+      final remaining = DeliveryMapUtils.remainingRoute(
+        fullRoute: _routePoints!,
+        current: published,
+      );
+      final meters = DeliveryMapUtils.remainingMeters(remaining);
+      if (mounted && meters > 0) {
+        setState(() {
+          _totalDistance = meters;
+          // Ước ~22 km/h trung bình nội thành cho ETA hiển thị
+          _totalDuration = (meters / 6.1);
+        });
+      }
+    }
+
+    _checkArrival(published);
+  }
+
+  /// Camera bám TX + điểm đến chặng (dễ quan sát như app giao hàng).
+  void _followDriverCamera(LatLng driver) {
+    if (!mounted) return;
+    final order = _currentOrder;
+    final target = DeliveryMapUtils.nextTarget(
+      status: order.status,
+      pickupLat: order.pickupLat,
+      pickupLng: order.pickupLng,
+      deliveryLat: order.deliveryLat,
+      deliveryLng: order.deliveryLng,
+    );
+    try {
+      _mapController.fitCamera(
+        CameraFit.coordinates(
+          coordinates: [driver, target],
+          padding: const EdgeInsets.fromLTRB(48, 72, 48, 160),
+          maxZoom: 16.5,
+        ),
+      );
+    } catch (_) {
+      try {
+        _mapController.move(driver, 15.5);
+      } catch (_) {}
+    }
   }
 
   /// Tính khoảng cách tới target hiện tại và hiện banner nếu đã đến nơi.
@@ -245,37 +497,44 @@ class _DriverNavigationScreenState
 
     if (distM <= _arrivalThresholdMeters) {
       _arrivedAtTarget = true;
+      // Dừng sim — không tự chạy tiếp sang điểm giao.
+      _simTimer?.cancel();
+      _simTimer = null;
+      // Snap đúng điểm đích chặng hiện tại.
+      if (_currentOrder.status != 'delivering') {
+        setState(() {
+          _driverPos = LatLng(
+            _currentOrder.pickupLat,
+            _currentOrder.pickupLng,
+          );
+        });
+      } else {
+        setState(() {
+          _driverPos = LatLng(
+            _currentOrder.deliveryLat,
+            _currentOrder.deliveryLng,
+          );
+        });
+      }
+      _persistNavSession();
       _showArrivalBanner();
+      // Giữ route hiện tại; không chuyển chặng cho đến khi user gạt status.
     }
   }
 
   void _showArrivalBanner() {
     if (!mounted) return;
     final order = _currentOrder;
-    final isPickup = order.status == 'picking_up' || order.status == 'assigned';
-    final message = isPickup
-        ? '🏪 Bạn đã đến điểm lấy hàng!'
-        : '📦 Bạn đã đến điểm giao hàng!';
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.location_on_rounded, color: Colors.white, size: 20),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(
-                message,
-                style: AppTextStyles.labelMedium.copyWith(color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 5),
-        margin: const EdgeInsets.all(AppSpacing.lg),
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
+    final isPickup = order.status != 'delivering';
+    final address = isPickup ? order.pickupAddress : order.deliveryAddress;
+    unawaited(
+      showArrivalBottomSheet(
+        context: context,
+        isPickup: isPickup,
+        address: address,
+        nextActionHint: isPickup
+            ? 'Tiếp theo: gạt «Đã lấy hàng — bắt đầu giao»'
+            : 'Tiếp theo: gạt «Hoàn tất giao hàng»',
       ),
     );
   }
@@ -285,23 +544,28 @@ class _DriverNavigationScreenState
     final pickupLatLng = LatLng(order.pickupLat, order.pickupLng);
     final deliveryLatLng = LatLng(order.deliveryLat, order.deliveryLng);
 
-    final distanceToPickup = const Distance().as(LengthUnit.Meter, driverLatLng, pickupLatLng);
+    final distanceToPickup = const Distance().as(
+      LengthUnit.Meter,
+      driverLatLng,
+      pickupLatLng,
+    );
     final isDriverTooFar = distanceToPickup > 150000; // > 150km
 
     if (isDriverTooFar) {
-      // Driver ở quá xa (ví dụ: giả lập ở Mỹ) — chỉ hiện pickup→delivery
-      debugPrint('[OSRM_DEBUG_DRIVER] Driver too far ($distanceToPickup w). Routing [pickup→delivery].');
+      debugPrint(
+        '[OSRM_DEBUG_DRIVER] Driver too far '
+        '(${distanceToPickup.toStringAsFixed(0)}m). Routing [pickup→delivery].',
+      );
       return [pickupLatLng, deliveryLatLng];
     }
 
-    // Chỉ dùng 2 waypoints: driver → điểm tiếp theo.
-    // KHÔNG dùng 3 waypoints [driver, pickup, delivery] vì OSRM snap
-    // điểm giữa (pickup) vào road segment khác nhau cho mỗi leg,
-    // gây ra đoạn đường sai/đường thẳng ngang trên bản đồ.
+    // Chỉ khi ĐÃ gạt "bắt đầu giao" mới route tới điểm giao.
+    // (Trước đây: gần pickup tự route giao → sim tự chạy tới G — sai.)
     if (order.status == 'delivering') {
       return [driverLatLng, deliveryLatLng];
     }
-    // assigned / picking_up: chỉ điều hướng đến pickup
+
+    // assigned / picking_up: luôn chặng lấy hàng (kể cả đã đứng tại pickup).
     return [driverLatLng, pickupLatLng];
   }
 
@@ -314,50 +578,65 @@ class _DriverNavigationScreenState
         _driverPos!.latitude != 0.0 &&
         _driverPos!.longitude != 0.0;
 
+    // Luôn ưu tiên _driverPos (sim/GPS nav) — tránh browser GPS / stale
+    // làm route + sim nhảy về điểm đầu.
     final LatLng driverLatLng;
-    if (kIsWeb) {
-      driverLatLng = hasDriverPos
-          ? _driverPos!
-          : (hasPos
-              ? LatLng(pos.latitude, pos.longitude)
-              : LatLng(order.pickupLat, order.pickupLng));
+    if (hasDriverPos) {
+      driverLatLng = _driverPos!;
+    } else if (hasPos) {
+      driverLatLng = LatLng(pos.latitude, pos.longitude);
     } else {
-      driverLatLng = hasPos
-          ? LatLng(pos.latitude, pos.longitude)
-          : (hasDriverPos
-              ? _driverPos!
-              : LatLng(order.pickupLat, order.pickupLng));
+      driverLatLng = LatLng(order.pickupLat, order.pickupLng);
     }
 
-    final statusKey = '${order.status}_${driverLatLng.latitude.toStringAsFixed(4)}_${driverLatLng.longitude.toStringAsFixed(4)}';
-    if (statusKey == _lastRouteStatus) return;
+    // Hash theo status + vị trí thô — không reload OSRM mỗi vài mét.
+    final statusKey =
+        '${order.status}_${driverLatLng.latitude.toStringAsFixed(3)}_${driverLatLng.longitude.toStringAsFixed(3)}';
+    if (statusKey == _lastRouteStatus &&
+        _routePoints != null &&
+        _routePoints!.length >= 2) {
+      return;
+    }
     _lastRouteStatus = statusKey;
 
-    // Tăng key để hủy request cũ, xoá route cũ ngay lập tức nếu không phải Web
     final myKey = ++_routeKey;
-    if (mounted && !kIsWeb) {
-      setState(() {
-        _routePoints = null;
-        _totalDistance = null;
-        _totalDuration = null;
-      });
-    }
+    // Không xóa polyline cũ trước khi có route mới (tránh màn hình trống).
 
     final waypoints = _buildWaypoints(driverLatLng);
 
-    debugPrint('[OSRM_DEBUG_DRIVER] loading route for order status: ${order.status}');
-    debugPrint('[OSRM_DEBUG_DRIVER] waypoints: ${waypoints.map((w) => '${w.latitude},${w.longitude}').toList()}');
+    debugPrint(
+      '[OSRM_DEBUG_DRIVER] loading route status=${order.status} '
+      'from=${driverLatLng.latitude},${driverLatLng.longitude}',
+    );
 
     final result =
         await OsrmService().getRouteWithWaypoints(waypoints: waypoints);
 
-    // Chỉ cập nhật nếu request này vẫn là request mới nhất
     if (!mounted || myKey != _routeKey) return;
 
-    if (result == null) {
-      debugPrint('[OSRM_DEBUG_DRIVER] OSRM service returned null');
+    if (result == null || result.points.length < 2) {
+      debugPrint('[OSRM_DEBUG_DRIVER] OSRM null/short — keep previous route');
+      // Fallback đường thẳng để vẫn thấy "đường xanh"
+      if (_routePoints == null || _routePoints!.length < 2) {
+        final wp = _buildWaypoints(driverLatLng);
+        if (wp.length >= 2) {
+          setState(() {
+            _routePoints = wp;
+            _totalDistance = const Distance().as(
+              LengthUnit.Meter,
+              wp.first,
+              wp.last,
+            );
+            _totalDuration = null;
+          });
+          _fitMapBounds();
+        }
+      }
     } else {
-      debugPrint('[OSRM_DEBUG_DRIVER] result: ${result.points.length} points, ${result.distanceMeters}m');
+      debugPrint(
+        '[OSRM_DEBUG_DRIVER] result: ${result.points.length} pts, '
+        '${result.distanceMeters}m',
+      );
       setState(() {
         _routePoints = result.points;
         _totalDistance = result.distanceMeters;
@@ -365,52 +644,33 @@ class _DriverNavigationScreenState
       });
       _fitMapBounds();
 
-      // Chỉ tự động mô phỏng di chuyển khi tài xế đã xác nhận đi lấy hàng hoặc giao hàng
-      if (kIsWeb && (order.status == 'picking_up' || order.status == 'delivering')) {
-        _startSimulation();
+      // Web sim: chỉ picking_up / delivering, và chưa tới đích chặng.
+      if (kIsWeb &&
+          !_arrivedAtTarget &&
+          (order.status == 'picking_up' || order.status == 'delivering')) {
+        if (_simTimer == null || !_simTimer!.isActive) {
+          _startSimulation(resume: true);
+        }
       }
     }
   }
 
   void _fitMapBounds() {
-    final order = _currentOrder;
-    // Chỉ dùng pickup, delivery và driver để tính bounds.
-    // Không dùng _routePoints vì hàng trăm điểm polyline sẽ làm camera
-    // zoom ra quá rộng và gây ra lỗi hiển thị đường thẳng đứng.
-    final allPoints = <LatLng>[
-      LatLng(order.pickupLat, order.pickupLng),
-      LatLng(order.deliveryLat, order.deliveryLng),
-    ];
     if (_driverPos != null) {
-      final distanceToPickup = const Distance().as(
-        LengthUnit.Meter,
-        _driverPos!,
-        LatLng(order.pickupLat, order.pickupLng),
-      );
-      if (distanceToPickup <= 150000) {
-        allPoints.add(_driverPos!);
-      }
+      _followDriverCamera(_driverPos!);
+      return;
     }
-
-    final validPoints = allPoints.where(_isValidLatLng).toList();
-    if (validPoints.isEmpty) return;
-
-    final padding = MediaQuery.of(context).size.width * 0.12;
-    _mapController.fitCamera(
-      CameraFit.coordinates(
-        coordinates: validPoints,
-        padding: EdgeInsets.all(padding),
-      ),
+    final order = _currentOrder;
+    final target = DeliveryMapUtils.nextTarget(
+      status: order.status,
+      pickupLat: order.pickupLat,
+      pickupLng: order.pickupLng,
+      deliveryLat: order.deliveryLat,
+      deliveryLng: order.deliveryLng,
     );
-  }
-
-  bool _isValidLatLng(LatLng p) {
-    return p.latitude.isFinite &&
-        p.longitude.isFinite &&
-        p.latitude >= -90 &&
-        p.latitude <= 90 &&
-        p.longitude >= -180 &&
-        p.longitude <= 180;
+    try {
+      _mapController.move(target, 15);
+    } catch (_) {}
   }
 
   Future<void> _updateStatus() async {
@@ -430,20 +690,31 @@ class _DriverNavigationScreenState
       if (!mounted) return;
 
       if (nextStatus == 'delivered') {
-        // Đơn hoàn tất → hiện dialog thành công rồi pop
+        final deliveredOrder = _currentOrder.copyWith(status: nextStatus);
         await _showDeliveredDialog();
+        if (!mounted) return;
+        // Mời đánh giá khách (có thể bỏ qua)
+        await showDriverRateCustomerSheet(
+          context: context,
+          order: deliveredOrder,
+          customerName: null,
+        );
         if (mounted) Navigator.of(context).pop(true);
       } else {
-        // picking_up hoặc delivering → ở lại map, reset route để load lại
+        // picking_up hoặc delivering → chặng mới chỉ sau khi user gạt
+        _simTimer?.cancel();
+        _simTimer = null;
         setState(() {
           _currentOrder = _currentOrder.copyWith(status: nextStatus);
-          _lastRouteStatus = null; // Buộc reload route với status mới
+          _lastRouteStatus = null;
           _routePoints = null;
           _totalDistance = null;
           _totalDuration = null;
-          _arrivedAtTarget = false; // Reset trạng thái đến nơi để kiểm tra chặng tiếp theo
+          _arrivedAtTarget = false;
+          _simRouteIndex = 0;
         });
-        _loadRoute();
+        _persistNavSession();
+        await _loadRoute(); // load chặng mới + start sim nếu web
         _fitMapBounds();
       }
     } catch (e) {
@@ -532,27 +803,26 @@ class _DriverNavigationScreenState
   }
 
 
-  String _formatDistance(double meters) {
-    if (meters < 1000) return '${meters.toInt()}m';
-    return '${(meters / 1000).toStringAsFixed(1)}km';
-  }
-
-  String _formatDuration(double seconds) {
-    if (seconds < 60) return '${seconds.toInt()}s';
-    return '${(seconds / 60).toInt()} phút';
-  }
-
   @override
   Widget build(BuildContext context) {
     final order = _currentOrder;
     final pickupPoint = LatLng(order.pickupLat, order.pickupLng);
     final deliveryPoint = LatLng(order.deliveryLat, order.deliveryLng);
-
     final center = _driverPos ??
         LatLng(
           (order.pickupLat + order.deliveryLat) / 2,
           (order.pickupLng + order.deliveryLng) / 2,
         );
+
+    // Vạch xanh = phần CÒN LẠI (đã đi qua thì cắt — giống map khách / ShopeeFood)
+    final remaining = (_routePoints != null &&
+            _routePoints!.length >= 2 &&
+            _driverPos != null)
+        ? DeliveryMapUtils.remainingRoute(
+            fullRoute: _routePoints!,
+            current: _driverPos!,
+          )
+        : _routePoints;
 
     final statusLabel = driverOrderStatusActionLabel(order.status);
 
@@ -564,6 +834,10 @@ class _DriverNavigationScreenState
     } else {
       routeTitle = 'Lộ trình';
     }
+
+    final legHint = order.status == 'delivering'
+        ? 'Đích: điểm giao (G)'
+        : 'Đích: điểm lấy (L)';
 
     return Scaffold(
       backgroundColor: AppColors.bgLight,
@@ -580,57 +854,56 @@ class _DriverNavigationScreenState
           IconButton(
             icon: const Icon(Icons.my_location_rounded, size: 22),
             onPressed: _fitMapBounds,
-            tooltip: 'Vị trí hiện tại',
+            tooltip: 'Theo vị trí',
           ),
         ],
       ),
       body: Column(
         children: [
-          if (_routePoints != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.md,
-              ),
-              decoration: const BoxDecoration(
-                color: AppColors.bgCard,
-                border: Border(bottom: BorderSide(color: AppColors.border)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.route_rounded,
-                      color: AppColors.routeLine, size: 20),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    _totalDistance != null
-                        ? _formatDistance(_totalDistance!)
-                        : '',
-                    style: AppTextStyles.labelMedium
-                        .copyWith(color: AppColors.textPrimary),
-                  ),
-                  const SizedBox(width: AppSpacing.lg),
-                  const Icon(Icons.timer_rounded,
-                      color: AppColors.warning, size: 20),
-                  const SizedBox(width: AppSpacing.xs),
-                  Text(
-                    _totalDuration != null
-                        ? _formatDuration(_totalDuration!)
-                        : '',
-                    style: AppTextStyles.labelMedium
-                        .copyWith(color: AppColors.textPrimary),
-                  ),
-                  const Spacer(),
-                  _StatusBadge(status: order.status),
-                ],
-              ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
             ),
+            decoration: const BoxDecoration(
+              color: AppColors.bgCard,
+              border: Border(bottom: BorderSide(color: AppColors.border)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.route_rounded,
+                    color: AppColors.routeLine, size: 20),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  _totalDistance != null
+                      ? 'Còn ${DeliveryMapUtils.formatDistance(_totalDistance!)}'
+                      : 'Đang tải lộ trình…',
+                  style: AppTextStyles.labelMedium
+                      .copyWith(color: AppColors.textPrimary),
+                ),
+                const SizedBox(width: AppSpacing.lg),
+                const Icon(Icons.timer_rounded,
+                    color: AppColors.warning, size: 20),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  _totalDuration != null
+                      ? '≈ ${DeliveryMapUtils.formatDuration(_totalDuration!)}'
+                      : '',
+                  style: AppTextStyles.labelMedium
+                      .copyWith(color: AppColors.textPrimary),
+                ),
+                const Spacer(),
+                _StatusBadge(status: order.status),
+              ],
+            ),
+          ),
           Expanded(
             child: FlutterMap(
               mapController: _mapController,
               options: MapOptions(
                 initialCenter: center,
-                initialZoom: 14,
+                initialZoom: 15,
               ),
               children: [
                 TileLayer(
@@ -640,19 +913,62 @@ class _DriverNavigationScreenState
                   subdomains: const ['a', 'b', 'c'],
                   maxNativeZoom: 19,
                 ),
-                if (_routePoints != null)
+                // Vạch mờ: full chặng (ngữ cảnh)
+                if (_routePoints != null && _routePoints!.length >= 2)
                   PolylineLayer(
                     polylines: [
                       Polyline(
                         points: _routePoints!,
-                        color: AppColors.routeLine,
+                        color: AppColors.routeLine.withValues(alpha: 0.22),
                         strokeWidth: 5,
                       ),
                     ],
                   ),
+                // Vạch xanh đậm: còn lại
+                if (remaining != null && remaining.length >= 2)
+                  PolylineLayer(
+                    polylines: [
+                      Polyline(
+                        points: remaining,
+                        color: AppColors.routeLine,
+                        strokeWidth: 5.5,
+                      ),
+                    ],
+                  ),
                 MarkerLayer(
-                    markers: _buildMarkers(pickupPoint, deliveryPoint)),
+                  markers: [
+                    DeliveryMapMarkers.pickup(pickupPoint),
+                    DeliveryMapMarkers.dropoff(deliveryPoint),
+                    if (_driverPos != null)
+                      DeliveryMapMarkers.driver(
+                        DeliveryMapMarkers.offsetIfNear(
+                          DeliveryMapMarkers.offsetIfNear(
+                            _driverPos!,
+                            pickupPoint,
+                          ),
+                          deliveryPoint,
+                        ),
+                      ),
+                  ],
+                ),
               ],
+            ),
+          ),
+          // Chip đích chặng
+          Container(
+            width: double.infinity,
+            color: AppColors.bgCard,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.sm,
+              AppSpacing.lg,
+              0,
+            ),
+            child: Text(
+              legHint,
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
           ),
           SafeArea(
@@ -701,53 +1017,6 @@ class _DriverNavigationScreenState
     );
   }
 
-  List<Marker> _buildMarkers(LatLng pickup, LatLng delivery) {
-    final markers = <Marker>[
-      Marker(
-        point: pickup,
-        width: 36,
-        height: 36,
-        child: _NavMarker(
-            color: AppColors.markerPickup,
-            icon: Icons.storefront_rounded,
-            size: 36),
-      ),
-      Marker(
-        point: delivery,
-        width: 36,
-        height: 36,
-        child: _NavMarker(
-            color: AppColors.markerDrop,
-            icon: Icons.location_on_rounded,
-            size: 36),
-      ),
-    ];
-
-    if (_driverPos != null &&
-        _driverPos!.latitude != 0.0 &&
-        _driverPos!.longitude != 0.0) {
-      final distanceToPickup = const Distance().as(
-        LengthUnit.Meter,
-        _driverPos!,
-        pickup,
-      );
-      if (distanceToPickup <= 150000) {
-        markers.add(
-          Marker(
-            point: _driverPos!,
-            width: 40,
-            height: 40,
-            child: _NavMarker(
-                color: AppColors.markerDriver,
-                icon: Icons.directions_car_rounded,
-                size: 40),
-          ),
-        );
-      }
-    }
-
-    return markers;
-  }
 }
 
 class _StatusBadge extends StatelessWidget {
@@ -772,30 +1041,6 @@ class _StatusBadge extends StatelessWidget {
       child: Text(label,
           style:
               AppTextStyles.labelSmall.copyWith(color: AppColors.info)),
-    );
-  }
-}
-
-class _NavMarker extends StatelessWidget {
-  final Color color;
-  final IconData icon;
-  final double size;
-
-  const _NavMarker(
-      {required this.color, required this.icon, required this.size});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 3),
-        boxShadow: AppShadow.elevated,
-      ),
-      child: Icon(icon, color: Colors.white, size: size * 0.55),
     );
   }
 }

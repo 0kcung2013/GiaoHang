@@ -17,6 +17,10 @@ class OrderFormData {
   final String serviceType;
   final String paymentMethod;
   final double deliveryFee;
+  final double totalPrice;
+  final double distanceMeters;
+  final double? durationSeconds;
+  final String distanceSource;
 
   const OrderFormData({
     required this.pickupAddress,
@@ -35,5 +39,11 @@ class OrderFormData {
     required this.serviceType,
     required this.paymentMethod,
     required this.deliveryFee,
+    required this.totalPrice,
+    required this.distanceMeters,
+    this.durationSeconds,
+    this.distanceSource = 'haversine',
   });
+
+  double get distanceKm => distanceMeters / 1000;
 }

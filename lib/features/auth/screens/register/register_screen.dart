@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/services/auth_service.dart';
+import '../driver_auth/wizard/driver_register_prefill.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -20,14 +21,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordCtrl = TextEditingController();
   final _fullNameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  final _licensePlateCtrl = TextEditingController();
 
   String _role = 'customer';
-  String _vehicleType = 'Xe máy';
   bool _loading = false;
   String? _errorMessage;
-
-  static const _vehicleTypes = ['Xe máy', 'Ô tô con', 'Xe tải'];
 
   @override
   void dispose() {
@@ -35,12 +32,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _passwordCtrl.dispose();
     _fullNameCtrl.dispose();
     _phoneCtrl.dispose();
-    _licensePlateCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // Tài xế: mang email/SĐT đã nhập sang wizard, không nhập lại bước Tài khoản
+    if (_role == 'driver') {
+      if (!mounted) return;
+      context.go(
+        '/driver-auth',
+        extra: DriverRegisterPrefill(
+          email: _emailCtrl.text.trim(),
+          password: _passwordCtrl.text,
+          fullName: _fullNameCtrl.text.trim(),
+          phone: _phoneCtrl.text.trim(),
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _loading = true;
@@ -48,28 +59,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      if (_role == 'driver') {
-        await _authService.signUpDriver(
-          email: _emailCtrl.text.trim(),
-          password: _passwordCtrl.text,
-          fullName: _fullNameCtrl.text.trim(),
-          phone: _phoneCtrl.text.trim(),
-          vehicleType: _vehicleType,
-          licensePlate: _licensePlateCtrl.text.trim(),
-        );
-      } else {
-        await _authService.signUpCustomer(
-          email: _emailCtrl.text.trim(),
-          password: _passwordCtrl.text,
-          fullName: _fullNameCtrl.text.trim(),
-          phone: _phoneCtrl.text.trim(),
-        );
-      }
+      await _authService.signUpCustomer(
+        email: _emailCtrl.text.trim(),
+        password: _passwordCtrl.text,
+        fullName: _fullNameCtrl.text.trim(),
+        phone: _phoneCtrl.text.trim(),
+      );
 
       if (!mounted) return;
-
-      final route = _role == 'driver' ? '/driver-home' : '/customer-home';
-      context.go(route);
+      context.go('/customer-home');
     } on AuthException catch (e) {
       String msg;
       if (e.message.toLowerCase().contains('already')) {
@@ -453,9 +451,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       if (_role == 'driver') ...[
                                         const SizedBox(height: 12),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                          ),
+                                          padding: const EdgeInsets.all(12),
                                           decoration: BoxDecoration(
                                             color: Colors.white.withValues(
                                               alpha: 0.07,
@@ -463,72 +459,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                             borderRadius:
                                                 BorderRadius.circular(12),
                                           ),
-                                          child: DropdownButtonFormField<
-                                            String
-                                          >(
-                                            initialValue: _vehicleType,
-                                            dropdownColor: const Color(
-                                              0xFF1E1645,
-                                            ),
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 14,
-                                            ),
-                                            decoration: const InputDecoration(
-                                              border: InputBorder.none,
-                                              contentPadding: EdgeInsets.zero,
-                                              prefixIcon: Icon(
-                                                Icons
-                                                    .directions_car_outlined,
-                                                color: Colors.white38,
-                                                size: 20,
+                                          child: Text(
+                                            'Tiếp theo bạn sẽ hoàn tất hồ sơ tài xế '
+                                            '(xe, giấy tờ KYC) — không cần nhập lại email/mật khẩu.',
+                                            style: TextStyle(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.7,
                                               ),
+                                              fontSize: 12,
+                                              height: 1.4,
                                             ),
-                                            icon: const Icon(
-                                              Icons
-                                                  .keyboard_arrow_down_rounded,
-                                              color: Colors.white70,
-                                            ),
-                                            isExpanded: true,
-                                            items: _vehicleTypes
-                                                .map(
-                                                  (t) => DropdownMenuItem(
-                                                    value: t,
-                                                    child: Text(t),
-                                                  ),
-                                                )
-                                                .toList(),
-                                            onChanged: (v) {
-                                              if (v != null) {
-                                                setState(
-                                                  () => _vehicleType = v,
-                                                );
-                                              }
-                                            },
                                           ),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        TextFormField(
-                                          controller: _licensePlateCtrl,
-                                          textCapitalization:
-                                              TextCapitalization.characters,
-                                          textInputAction:
-                                              TextInputAction.done,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 14,
-                                          ),
-                                          decoration: _inputDecoration(
-                                            'Biển số xe',
-                                            Icons.pin_outlined,
-                                          ),
-                                          validator: (v) {
-                                            if (v == null ||
-                                                v.trim().isEmpty) {
-                                              return 'Vui lòng nhập biển số xe';
-                                            }
-                                            return null;
-                                          },
                                         ),
                                       ],
 
@@ -607,9 +548,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                                         color: Colors.white,
                                                       ),
                                                 )
-                                              : const Text(
-                                                  'Đăng ký',
-                                                  style: TextStyle(
+                                              : Text(
+                                                  _role == 'driver'
+                                                      ? 'Tiếp tục hồ sơ tài xế'
+                                                      : 'Đăng ký',
+                                                  style: const TextStyle(
                                                     fontSize: 16,
                                                     fontWeight:
                                                         FontWeight.w600,

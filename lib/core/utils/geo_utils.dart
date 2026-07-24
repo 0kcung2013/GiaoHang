@@ -20,18 +20,22 @@ class GeoUtils {
     );
   }
 
-  /// Offset cố định (độ) để test 2 tài xế trên cùng 1 thiết bị.
-  /// `taixe2@gmail.com` lệch ~3km về phía ĐN so với GPS thật.
+  /// Offset test 2 tài xế / 1 máy — **TẮT mặc định**.
+  /// Bật true chỉ khi demo nearest trên cùng thiết bị (sẽ lệch map L/G).
+  static const bool enableTestDriverOffsets = false;
+
+  /// `taixe2@gmail.com` lệch ~3km ĐN so với GPS thật (chỉ khi [enableTestDriverOffsets]).
   static const Map<String, LatLng> testDriverPositionOffsets = {
     'taixe2@gmail.com': LatLng(0.022, 0.018),
   };
 
-  /// Áp offset test theo email tài xế (nếu có).
+  /// Áp offset test theo email tài xế (nếu bật flag + có mapping).
   static LatLng applyTestDriverOffset({
     required String? email,
     required double lat,
     required double lng,
   }) {
+    if (!enableTestDriverOffsets) return LatLng(lat, lng);
     final key = email?.trim().toLowerCase();
     if (key == null || key.isEmpty) return LatLng(lat, lng);
     final offset = testDriverPositionOffsets[key];

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,11 +9,15 @@ import '../../../../core/constants/app_theme.dart';
 import '../../../../core/models/driver_model.dart';
 import '../../../../core/models/order_model.dart';
 import '../../../../core/models/order_status_log_model.dart';
-import '../../../../core/models/user_model.dart';
 import '../../../../core/providers/customer_providers.dart';
 import '../../../../core/providers/location_providers.dart';
 import '../../../../core/services/osrm_service.dart';
+import '../../../../core/utils/delivery_map_utils.dart';
+import '../../../../core/widgets/delivery_map_markers.dart';
 import '../../../../core/widgets/order_cargo_info_block.dart';
+import '../../../reviews/widgets/order_review_section.dart';
+import '../order/order_helpers.dart';
+import 'widgets/assigned_driver_card.dart';
 
 part 'tracking_widgets.dart';
 part 'tracking_helpers.dart';
@@ -19,7 +25,10 @@ part 'widgets/tracking_map.dart';
 part 'widgets/marker_icon.dart';
 
 class TrackingScreen extends ConsumerStatefulWidget {
-  const TrackingScreen({super.key});
+  const TrackingScreen({super.key, this.initialTrackingCode});
+
+  /// Mã đơn prefill (từ màn đặt thành công / deep link).
+  final String? initialTrackingCode;
 
   @override
   ConsumerState<TrackingScreen> createState() => _TrackingScreenState();
@@ -28,6 +37,16 @@ class TrackingScreen extends ConsumerStatefulWidget {
 class _TrackingScreenState extends ConsumerState<TrackingScreen> {
   final _searchController = TextEditingController();
   String? _trackingCode;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialTrackingCode?.trim();
+    if (initial != null && initial.isNotEmpty) {
+      _searchController.text = initial;
+      _trackingCode = initial;
+    }
+  }
 
   @override
   void dispose() {
@@ -170,6 +189,7 @@ class _TrackingLookupResult extends ConsumerWidget {
               onTap: () {
                 ref.invalidate(orderByTrackingCodeProvider(trackingCode));
                 ref.invalidate(orderStatusLogsProvider(order.id));
+                ref.invalidate(assignedDriverProvider(order.id));
               },
             ),
           ],
@@ -180,9 +200,13 @@ class _TrackingLookupResult extends ConsumerWidget {
           const SizedBox(height: AppSpacing.md),
         ],
         _TrackingTimeline(order: order),
-        if (_shouldShowAssignedDriver(order.status)) ...[
+        if (shouldShowAssignedDriverForOrder(order)) ...[
           const SizedBox(height: AppSpacing.xl2 + AppSpacing.xs),
-          _AssignedDriverInfoCard(order: order),
+          AssignedDriverCard(orderId: order.id),
+        ],
+        if (order.status == 'delivered') ...[
+          const SizedBox(height: AppSpacing.md),
+          OrderReviewSection(order: order),
         ],
         const SizedBox(height: AppSpacing.xl2 + AppSpacing.xs),
         _PackageInfoCard(order: order),

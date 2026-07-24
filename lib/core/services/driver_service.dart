@@ -1,14 +1,18 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../location/location_ingest_service.dart';
 import '../models/driver_location_model.dart';
 import '../models/driver_model.dart';
-import '../utils/geo_utils.dart';
 
 class DriverService {
-  DriverService({SupabaseClient? client})
-    : _supabase = client ?? Supabase.instance.client;
+  DriverService({
+    SupabaseClient? client,
+    LocationIngestService? locationIngest,
+  })  : _supabase = client ?? Supabase.instance.client,
+        _locationIngest = locationIngest ?? LocationIngestService();
 
   final SupabaseClient _supabase;
+  final LocationIngestService _locationIngest;
 
   static const String _driversTable = 'drivers';
   static const String _ordersTable = 'orders';
@@ -58,6 +62,8 @@ class DriverService {
     }
   }
 
+  /// Cập nhật vị trí qua pipeline tối ưu (throttle + hot/history tách).
+  /// [driverId] = `drivers.id` (profile).
   Future<void> updateLocation({
     required String driverId,
     required double lat,
@@ -65,21 +71,12 @@ class DriverService {
     double? heading,
   }) async {
     try {
-      final email = _supabase.auth.currentUser?.email;
-      final adjusted = GeoUtils.applyTestDriverOffset(
-        email: email,
+      await _locationIngest.ingest(
+        driverProfileId: driverId,
         lat: lat,
         lng: lng,
+        heading: heading,
       );
-
-      await _supabase
-          .from(_driversTable)
-          .update({
-            'current_lat': adjusted.latitude,
-            'current_lng': adjusted.longitude,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', driverId);
     } catch (error) {
       throw Exception('Failed to update location: $error');
     }
@@ -125,7 +122,31 @@ class DriverService {
     }
   }
 
+  /// Profile tài xế cho khách (tracking): ưu tiên RPC public, fallback join thủ công.
+  Future<DriverModel?> getPublicDriverForOrder(String orderId) async {
+    if (orderId.trim().isEmpty) return null;
+
+    try {
+      final rpcResult = await _supabase.rpc(
+        'get_public_driver_for_order',
+        params: {'p_order_id': orderId},
+      );
+      if (rpcResult != null) {
+        final map = Map<String, dynamic>.from(rpcResult as Map);
+        return DriverModel.fromPublicProfileJson(map);
+      }
+    } catch (_) {
+      // RPC chưa deploy hoặc auth/policy — fallback client join.
+    }
+
+    return _getDriverForOrderFallback(orderId);
+  }
+
   Future<DriverModel?> getDriverForOrder(String orderId) async {
+    return getPublicDriverForOrder(orderId);
+  }
+
+  Future<DriverModel?> _getDriverForOrderFallback(String orderId) async {
     try {
       final order = await _supabase
           .from(_ordersTable)
@@ -147,7 +168,26 @@ class DriverService {
           .maybeSingle();
 
       if (response == null) return null;
-      return DriverModel.fromJson(response);
+
+      final driverMap = Map<String, dynamic>.from(response as Map);
+      try {
+        final user = await _supabase
+            .from('users')
+            .select('full_name, phone, avatar_url, email, created_at')
+            .eq('id', driverUserId)
+            .maybeSingle();
+        if (user != null) {
+          driverMap['full_name'] = user['full_name'];
+          driverMap['phone'] = user['phone'];
+          driverMap['avatar_url'] = user['avatar_url'];
+          driverMap['email'] = user['email'];
+          driverMap['member_since'] = user['created_at'];
+        }
+      } catch (_) {
+        // RLS may block reading other users; card still shows vehicle fields.
+      }
+
+      return DriverModel.fromJson(driverMap);
     } catch (error) {
       throw Exception('Failed to load assigned driver for order: $error');
     }

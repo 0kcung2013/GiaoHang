@@ -6,6 +6,7 @@ import '../../../../../core/models/order_model.dart';
 import '../../../../../core/providers/customer_providers.dart';
 import '../../../../../core/utils/order_cargo_utils.dart';
 import '../../../../../core/widgets/order_cargo_info_block.dart';
+import '../../../../reviews/widgets/driver_rate_customer_sheet.dart';
 import '../../navigation/driver_navigation_screen.dart';
 import '../utils/driver_home_formatters.dart';
 import 'slide_status_action.dart';
@@ -138,10 +139,16 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
       ref.invalidate(driverOrdersProvider(driverId));
       ref.invalidate(orderByIdProvider(widget.order.id));
       if (!mounted) return;
-      final message = nextStatus == 'delivered'
-          ? 'Đã hoàn tất giao hàng.'
-          : 'Đã cập nhật trạng thái đơn hàng.';
-      _showSnackBar(message);
+      if (nextStatus == 'delivered') {
+        _showSnackBar('Đã hoàn tất giao hàng.');
+        final delivered = widget.order.copyWith(status: nextStatus);
+        await showDriverRateCustomerSheet(
+          context: context,
+          order: delivered,
+        );
+      } else {
+        _showSnackBar('Đã cập nhật trạng thái đơn hàng.');
+      }
     } catch (e) {
       if (!mounted) return;
       final msg = e.toString().replaceAll('Exception: ', '');
@@ -169,6 +176,45 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
     );
   }
 
+  Future<void> _openRateCustomer() async {
+    final order = widget.order;
+    if (order.status != 'delivered') return;
+
+    final existing = await ref.read(
+      driverCustomerReviewProvider(order.id).future,
+    );
+    if (!mounted) return;
+
+    if (existing != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Bạn đã đánh giá khách ${existing.rating}/5 cho đơn này.',
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.info,
+        ),
+      );
+      return;
+    }
+
+    await showDriverRateCustomerSheet(context: context, order: order);
+    if (mounted) {
+      ref.invalidate(driverCustomerReviewProvider(order.id));
+    }
+  }
+
+  void _onCardTap() {
+    final order = widget.order;
+    if (isActiveDriverOrder(order)) {
+      _openNavigation();
+      return;
+    }
+    if (order.status == 'delivered') {
+      _openRateCustomer();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
@@ -177,12 +223,22 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
     final statusActionLabel = driverOrderStatusActionLabel(order.status);
     final canUpdateStatus =
         !canAccept && statusActionLabel != null && order.driverId != null;
-    final hasAction = canAccept || canUpdateStatus;
+    final isDelivered = order.status == 'delivered';
+    final hasAction = canAccept || canUpdateStatus || isDelivered;
     final isActive = isActiveDriverOrder(order);
+    final canTap = isActive || isDelivered;
 
-    return GestureDetector(
-      onTap: isActive ? _openNavigation : null,
-      child: Container(
+    final reviewAsync =
+        isDelivered ? ref.watch(driverCustomerReviewProvider(order.id)) : null;
+    final alreadyRated = reviewAsync?.valueOrNull != null;
+    final reviewLoading = reviewAsync?.isLoading ?? false;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: canTap ? _onCardTap : null,
+        borderRadius: AppRadius.lg,
+        child: Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.bgLight,
@@ -195,7 +251,7 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
           // Status accent bar
           Container(
             width: 3,
-            height: hasAction ? 138 : 110,
+            height: hasAction ? 148 : 110,
             decoration: BoxDecoration(
               color: color,
               borderRadius: AppRadius.full,
@@ -296,11 +352,97 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                     onConfirmed: _isUpdatingStatus ? null : _updateOrderStatus,
                   ),
                 ],
+                if (isDelivered) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  _RateCustomerAction(
+                    alreadyRated: alreadyRated,
+                    isLoading: reviewLoading,
+                    onTap: reviewLoading ? null : _openRateCustomer,
+                  ),
+                ],
               ],
             ),
           ),
         ],
       ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RateCustomerAction extends StatelessWidget {
+  const _RateCustomerAction({
+    required this.alreadyRated,
+    required this.isLoading,
+    required this.onTap,
+  });
+
+  final bool alreadyRated;
+  final bool isLoading;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const SizedBox(
+        height: 40,
+        child: Center(
+          child: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    if (alreadyRated) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.success.withValues(alpha: 0.1),
+          borderRadius: AppRadius.md,
+          border: Border.all(color: AppColors.success.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.check_circle_rounded,
+              size: 18,
+              color: AppColors.success,
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                'Đã đánh giá khách hàng',
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: AppColors.success,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      height: 42,
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        icon: const Icon(Icons.star_outline_rounded, size: 18),
+        label: const Text('Đánh giá khách hàng'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          side: BorderSide(color: AppColors.primary.withValues(alpha: 0.35)),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
+        ),
       ),
     );
   }

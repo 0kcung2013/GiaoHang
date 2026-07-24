@@ -66,6 +66,17 @@ String statusProgressDescription(String status) {
   };
 }
 
+/// Hiện card tài xế khi đơn đã gán TX (tab Đơn hàng + tracking).
+bool shouldShowAssignedDriverForOrder(OrderModel order) {
+  final driverId = order.driverId?.trim();
+  if (driverId != null && driverId.isNotEmpty) return true;
+
+  return switch (order.status) {
+    'assigned' || 'picking_up' || 'delivering' || 'delivered' => true,
+    _ => false,
+  };
+}
+
 String formatOrderDateTime(DateTime value) {
   String twoDigits(int number) => number.toString().padLeft(2, '0');
   final hour = twoDigits(value.hour);

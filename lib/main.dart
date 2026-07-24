@@ -41,12 +41,23 @@ void main() async {
     initialLocation = '/onboarding';
   }
 
+  // DevicePreview trên điện thoại thật làm lệch/chặn touch → form login không bấm được.
+  // Chỉ bật khi debug trên web / desktop.
+  final useDevicePreview = !kReleaseMode &&
+      (kIsWeb ||
+          defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.linux);
+
   runApp(
     ProviderScope(
-      child: DevicePreview(
-        enabled: !kReleaseMode,
-        builder: (context) => CustomerApp(initialLocation: initialLocation),
-      ),
+      child: useDevicePreview
+          ? DevicePreview(
+              enabled: true,
+              builder: (context) =>
+                  CustomerApp(initialLocation: initialLocation),
+            )
+          : CustomerApp(initialLocation: initialLocation),
     ),
   );
 }
@@ -58,11 +69,17 @@ class CustomerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final useDevicePreview = !kReleaseMode &&
+        (kIsWeb ||
+            defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.linux);
+
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: 'DATN - Khách hàng',
-      locale: DevicePreview.locale(context),
-      builder: DevicePreview.appBuilder,
+      locale: useDevicePreview ? DevicePreview.locale(context) : null,
+      builder: useDevicePreview ? DevicePreview.appBuilder : null,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: AppColors.accent,

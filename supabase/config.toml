@@ -1,0 +1,12 @@
+# Supabase local/project config (một phần dùng cho deploy functions)
+
+[functions.flush-gps-history]
+# Tắt JWT verify ở gateway — cron-job.org hay bị 401 dù đã gửi header.
+# Auth tự kiểm tra trong code (apikey / Bearer / x-cron-secret).
+verify_jwt = false
+
+[functions.ingest-driver-location]
+verify_jwt = true
+
+[functions.find-nearest-drivers-redis]
+verify_jwt = true

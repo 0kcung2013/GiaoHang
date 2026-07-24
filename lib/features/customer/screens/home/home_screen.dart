@@ -7,31 +7,44 @@ import '../order/order_screen.dart';
 import '../tracking/tracking_screen.dart';
 
 class CustomerHomeScreen extends StatefulWidget {
-  const CustomerHomeScreen({super.key});
+  const CustomerHomeScreen({
+    super.key,
+    this.initialTab = 0,
+    this.initialTrackingCode,
+  });
+
+  final int initialTab;
+  final String? initialTrackingCode;
 
   @override
   State<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
 }
 
 class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
-  int _currentTab = 0;
+  late int _currentTab;
 
-  static const _pages = [
-    DashboardScreen(),
-    OrderScreen(),
-    TrackingScreen(),
-    AccountScreen(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _currentTab = widget.initialTab.clamp(0, 3);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final pages = [
+      const DashboardScreen(),
+      const OrderScreen(),
+      TrackingScreen(initialTrackingCode: widget.initialTrackingCode),
+      const AccountScreen(),
+    ];
+
     return Scaffold(
       backgroundColor: NavColors.bgWarm,
       body: SafeArea(
         bottom: false,
         child: IndexedStack(
           index: _currentTab,
-          children: _pages,
+          children: pages,
         ),
       ),
       bottomNavigationBar: _BottomNav(
