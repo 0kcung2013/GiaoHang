@@ -41,11 +41,21 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
   @override
   void initState() {
     super.initState();
-    final initial = widget.initialTrackingCode?.trim();
-    if (initial != null && initial.isNotEmpty) {
-      _searchController.text = initial;
-      _trackingCode = initial;
+    _applyInitialTrackingCode();
+  }
+
+  @override
+  void didUpdateWidget(covariant TrackingScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTrackingCode != oldWidget.initialTrackingCode) {
+      _applyInitialTrackingCode();
     }
+  }
+
+  void _applyInitialTrackingCode() {
+    final initial = widget.initialTrackingCode?.trim() ?? '';
+    _searchController.text = initial;
+    _trackingCode = initial.isEmpty ? null : initial;
   }
 
   @override

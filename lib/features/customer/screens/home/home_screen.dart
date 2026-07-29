@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/constants/colors.dart';
+import '../../../../core/constants/app_theme.dart';
 import '../account/account_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../order/order_screen.dart';
@@ -30,6 +30,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   @override
+  void didUpdateWidget(covariant CustomerHomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialTab != oldWidget.initialTab) {
+      _currentTab = widget.initialTab.clamp(0, 3);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final pages = [
       const DashboardScreen(),
@@ -39,13 +47,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     ];
 
     return Scaffold(
-      backgroundColor: NavColors.bgWarm,
+      backgroundColor: AppColors.bgLight,
       body: SafeArea(
         bottom: false,
-        child: IndexedStack(
-          index: _currentTab,
-          children: pages,
-        ),
+        child: IndexedStack(index: _currentTab, children: pages),
       ),
       bottomNavigationBar: _BottomNav(
         currentIndex: _currentTab,
@@ -67,8 +72,8 @@ class _BottomNav extends StatelessWidget {
 
     return Container(
       decoration: const BoxDecoration(
-        color: NavColors.surface,
-        boxShadow: NavColors.navShadow,
+        color: AppColors.bgCard,
+        border: Border(top: BorderSide(color: AppColors.border, width: 1)),
       ),
       child: SizedBox(
         height: 72 + bottomPadding,
@@ -131,104 +136,60 @@ class _NavItem extends StatefulWidget {
   State<_NavItem> createState() => _NavItemState();
 }
 
-class _NavItemState extends State<_NavItem>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _scaleController;
-  late final Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _scaleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.0).animate(
-      CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut),
-    );
-    if (widget.active) {
-      _scaleController.forward();
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant _NavItem oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.active && !oldWidget.active) {
-      _scaleController.forward(from: 0.0);
-    } else if (!widget.active && oldWidget.active) {
-      _scaleController.reverse();
-    }
-  }
-
-  @override
-  void dispose() {
-    _scaleController.dispose();
-    super.dispose();
-  }
-
+class _NavItemState extends State<_NavItem> {
   @override
   Widget build(BuildContext context) {
-    final color = widget.active ? NavColors.accent : NavColors.textMuted;
+    final color = widget.active
+        ? AppColors.textPrimary
+        : AppColors.textSecondary;
 
     return Expanded(
-      child: InkWell(
-        onTap: widget.onTap,
-        splashColor: NavColors.accentSplash,
-        highlightColor: Colors.transparent,
-        child: SizedBox(
-          height: 72,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOut,
-                width: widget.active ? 24 : 0,
-                height: 3,
-                margin: const EdgeInsets.only(bottom: 5),
-                decoration: BoxDecoration(
-                  color:
-                      widget.active ? NavColors.accent : Colors.transparent,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-              ScaleTransition(
-                scale: _scaleAnimation,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOut,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
+      child: Semantics(
+        selected: widget.active,
+        button: true,
+        label: widget.label,
+        child: InkWell(
+          onTap: widget.onTap,
+          splashColor: AppColors.accent.withValues(alpha: 0.08),
+          highlightColor: Colors.transparent,
+          child: SizedBox(
+            height: 72,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AnimatedContainer(
+                  duration: AppDuration.fast,
+                  curve: AppCurve.decelerate,
+                  width: 44,
+                  height: 32,
                   decoration: BoxDecoration(
                     color: widget.active
-                        ? NavColors.accentTint8
+                        ? AppColors.accentLight
                         : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppRadius.full,
                   ),
                   child: Icon(
                     widget.active ? widget.activeIcon : widget.icon,
-                    color: color,
-                    size: 26,
+                    color: widget.active ? AppColors.accent : color,
+                    size: 23,
                   ),
                 ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight:
-                      widget.active ? FontWeight.w600 : FontWeight.w500,
-                  color: color,
-                  letterSpacing: widget.active ? 0.1 : 0,
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  widget.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: color,
+                    fontWeight: widget.active
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    fontSize: 11,
+                    letterSpacing: 0,
+                  ),
                 ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

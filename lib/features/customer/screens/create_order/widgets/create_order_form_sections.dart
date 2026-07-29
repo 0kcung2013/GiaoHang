@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../../core/constants/app_theme.dart';
+import '../utils/vietnam_phone_input.dart';
 import 'cargo_image_picker.dart';
 import 'create_order_inputs.dart';
 import 'create_order_options.dart';
@@ -29,106 +30,123 @@ class CreateOrderAddressSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CreateOrderSection(
-      icon: Icons.add_location_alt_rounded,
-      iconColor: AppColors.info,
-      title: 'Thông tin địa chỉ',
+      icon: Icons.route_rounded,
+      title: 'Lộ trình giao hàng',
+      accentColor: AppColors.info,
+      subtitle: hasPickupPin && hasDeliveryPin
+          ? 'Đã sẵn sàng để xem phí giao hàng'
+          : 'Chọn điểm lấy và điểm giao trên bản đồ',
       children: [
-        Text(
-          'Bắt buộc ghim điểm trên bản đồ (nút map) để tính phí & tìm tài xế.',
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.textSecondary,
-            height: 1.35,
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.info.withValues(alpha: 0.035),
+            borderRadius: AppRadius.xl2,
+            border: Border.all(color: AppColors.border.withValues(alpha: 0.8)),
           ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Row(
-          children: [
-            Expanded(
-              child: CreateOrderTextField(
+          child: Column(
+            children: [
+              _RouteStop(
                 controller: pickupAddressController,
-                label: 'Địa chỉ lấy hàng',
-                hint: 'Nhập địa chỉ hoặc chọn trên bản đồ',
-                icon: Icons.my_location_rounded,
-                textInputAction: TextInputAction.next,
-                validator: requiredAddress('Vui lòng nhập địa chỉ lấy hàng.'),
+                label: 'Lấy hàng',
+                hint: 'Chọn điểm lấy hàng',
+                icon: Icons.radio_button_checked_rounded,
+                color: AppColors.markerPickup,
+                selected: hasPickupPin,
+                onTap: onPickPickup,
+                validator: requiredAddress('Vui lòng chọn điểm lấy hàng.'),
               ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            _MapPinButton(
-              onTap: onPickPickup,
-              color: AppColors.accent,
-              pinned: hasPickupPin,
-            ),
-          ],
-        ),
-        if (hasPickupPin)
-          Padding(
-            padding: const EdgeInsets.only(top: 4, left: 4),
-            child: Text(
-              'Đã ghim điểm lấy trên bản đồ',
-              style: AppTextStyles.labelSmall.copyWith(color: AppColors.success),
-            ),
-          ),
-        const SizedBox(height: AppSpacing.md),
-        Row(
-          children: [
-            Expanded(
-              child: CreateOrderTextField(
+              Padding(
+                padding: const EdgeInsets.only(left: 35),
+                child: Divider(height: 1, color: AppColors.border),
+              ),
+              _RouteStop(
                 controller: deliveryAddressController,
-                label: 'Địa chỉ giao hàng',
-                hint: 'Nhập địa chỉ hoặc chọn trên bản đồ',
+                label: 'Giao đến',
+                hint: 'Chọn điểm giao hàng',
                 icon: Icons.location_on_rounded,
-                textInputAction: TextInputAction.next,
-                validator: requiredAddress('Vui lòng nhập địa chỉ giao hàng.'),
+                color: AppColors.markerDrop,
+                selected: hasDeliveryPin,
+                onTap: onPickDelivery,
+                validator: requiredAddress('Vui lòng chọn điểm giao hàng.'),
               ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            _MapPinButton(
-              onTap: onPickDelivery,
-              color: AppColors.markerDrop,
-              pinned: hasDeliveryPin,
-            ),
-          ],
-        ),
-        if (hasDeliveryPin)
-          Padding(
-            padding: const EdgeInsets.only(top: 4, left: 4),
-            child: Text(
-              'Đã ghim điểm giao trên bản đồ',
-              style: AppTextStyles.labelSmall.copyWith(color: AppColors.success),
-            ),
+            ],
           ),
+        ),
       ],
     );
   }
 }
 
-class _MapPinButton extends StatelessWidget {
-  const _MapPinButton({
-    required this.onTap,
+class _RouteStop extends StatelessWidget {
+  const _RouteStop({
+    required this.controller,
+    required this.label,
+    required this.hint,
+    required this.icon,
     required this.color,
-    required this.pinned,
+    required this.selected,
+    required this.onTap,
+    required this.validator,
   });
 
-  final VoidCallback onTap;
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final IconData icon;
   final Color color;
-  final bool pinned;
+  final bool selected;
+  final VoidCallback onTap;
+  final String? Function(String?) validator;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: color.withValues(alpha: 0.12),
-      borderRadius: AppRadius.sm,
-      child: InkWell(
-        borderRadius: AppRadius.sm,
+    return Semantics(
+      button: true,
+      label: '$label, ${selected ? 'đã chọn' : 'chưa chọn'}',
+      child: TextFormField(
+        controller: controller,
+        readOnly: true,
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Icon(
-            pinned ? Icons.check_circle_rounded : Icons.map_rounded,
-            color: color,
-            size: 20,
+        validator: validator,
+        style: AppTextStyles.bodyMedium.copyWith(
+          color: AppColors.textPrimary,
+          fontWeight: FontWeight.w600,
+        ),
+        decoration: InputDecoration(
+          prefixIcon: Padding(
+            padding: const EdgeInsets.only(
+              left: AppSpacing.lg,
+              right: AppSpacing.md,
+            ),
+            child: Icon(icon, color: color, size: 22),
           ),
+          prefixIconConstraints: const BoxConstraints(
+            minWidth: 52,
+            minHeight: 56,
+          ),
+          labelText: label,
+          labelStyle: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.textSecondary,
+          ),
+          hintText: hint,
+          hintStyle: AppTextStyles.bodyMedium.copyWith(
+            color: AppColors.textMuted,
+          ),
+          suffixIcon: Icon(
+            selected ? Icons.check_circle_rounded : Icons.chevron_right_rounded,
+            color: selected ? AppColors.success : AppColors.textMuted,
+          ),
+          filled: true,
+          fillColor: selected
+              ? color.withValues(alpha: 0.035)
+              : Colors.transparent,
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          errorBorder: InputBorder.none,
+          focusedErrorBorder: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+          errorStyle: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
         ),
       ),
     );
@@ -154,35 +172,40 @@ class CreateOrderRecipientSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CreateOrderSection(
-      icon: Icons.person_rounded,
-      iconColor: AppColors.success,
+      icon: Icons.person_outline_rounded,
       title: 'Người nhận',
+      accentColor: AppColors.primary,
+      subtitle: 'Tài xế sẽ dùng thông tin này khi giao hàng',
       children: [
         CreateOrderTextField(
           controller: recipientNameController,
-          label: 'Tên người nhận',
-          hint: 'Nhập họ tên người nhận',
-          icon: Icons.badge_rounded,
+          label: 'Họ và tên',
+          hint: 'Nhập tên người nhận',
+          icon: Icons.person_outline_rounded,
           textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.name],
           validator: requiredText('Vui lòng nhập tên người nhận.'),
         ),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.lg),
         CreateOrderTextField(
           controller: recipientPhoneController,
           label: 'Số điện thoại',
-          hint: 'Nhập số điện thoại người nhận',
-          icon: Icons.phone_rounded,
+          hint: 'Nhập số điện thoại',
+          icon: Icons.phone_outlined,
           keyboardType: TextInputType.phone,
           textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.telephoneNumber],
+          inputFormatters: const [VietnamPhoneInputFormatter()],
+          maxLength: vietnamPhoneMaxLength,
           validator: validatePhone,
         ),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.lg),
         CreateOrderTextField(
           controller: noteController,
-          label: 'Ghi chú giao hàng',
-          hint: 'Ví dụ: gọi trước khi giao, để tại lễ tân',
-          icon: Icons.sticky_note_2_rounded,
-          maxLines: 3,
+          label: 'Ghi chú cho tài xế (tuỳ chọn)',
+          hint: 'Ví dụ: gọi trước khi giao',
+          icon: Icons.notes_rounded,
+          maxLines: 2,
           textInputAction: TextInputAction.done,
         ),
       ],
@@ -196,94 +219,88 @@ class CreateOrderCargoSection extends StatelessWidget {
     required this.itemNameController,
     required this.itemDescriptionController,
     required this.itemCategory,
-    required this.image,
     required this.requiredText,
     required this.onCategoryChanged,
-    required this.onPickImage,
-    required this.onRemoveImage,
   });
 
   final TextEditingController itemNameController;
   final TextEditingController itemDescriptionController;
   final String itemCategory;
-  final XFile? image;
   final String? Function(String?) Function(String message) requiredText;
   final ValueChanged<String> onCategoryChanged;
-  final VoidCallback onPickImage;
-  final VoidCallback onRemoveImage;
 
   @override
   Widget build(BuildContext context) {
     return CreateOrderSection(
-      icon: Icons.inventory_2_rounded,
-      iconColor: AppColors.accent,
-      title: 'Thông tin hàng hoá',
+      icon: Icons.inventory_2_outlined,
+      title: 'Thông tin kiện hàng',
+      accentColor: AppColors.accent,
+      subtitle: 'Mô tả rõ để tài xế xử lý phù hợp',
       children: [
         CreateOrderTextField(
           controller: itemNameController,
-          label: 'Tên hàng hoá',
+          label: 'Tên kiện hàng',
           hint: 'Ví dụ: hồ sơ, bánh kem, quần áo',
           icon: Icons.inventory_2_outlined,
           textInputAction: TextInputAction.next,
           validator: requiredText('Vui lòng nhập tên hàng hoá.'),
         ),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.lg),
+        Text(
+          'Danh mục',
+          style: AppTextStyles.labelMedium.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
         CargoCategorySelector(
           value: itemCategory,
           onChanged: onCategoryChanged,
         ),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.lg),
         CreateOrderTextField(
           controller: itemDescriptionController,
-          label: 'Mô tả hàng hoá',
+          label: 'Mô tả (tuỳ chọn)',
           hint: 'Kích thước, lưu ý bảo quản hoặc thông tin cần biết',
-          icon: Icons.notes_rounded,
+          icon: Icons.subject_rounded,
           maxLines: 3,
           textInputAction: TextInputAction.next,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        CargoImagePicker(
-          image: image,
-          onPick: onPickImage,
-          onRemove: onRemoveImage,
         ),
       ],
     );
   }
 }
 
-class CreateOrderServiceSection extends StatelessWidget {
-  const CreateOrderServiceSection({
+class CreateOrderPhotosSection extends StatelessWidget {
+  const CreateOrderPhotosSection({
     super.key,
-    required this.serviceType,
-    required this.onChanged,
+    required this.image,
+    required this.onPickCamera,
+    required this.onPickGallery,
+    required this.onRemove,
   });
 
-  final String serviceType;
-  final ValueChanged<String> onChanged;
+  final XFile? image;
+  final VoidCallback onPickCamera;
+  final VoidCallback onPickGallery;
+  final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
     return CreateOrderSection(
-      icon: Icons.local_shipping_rounded,
-      iconColor: AppColors.accent,
-      title: 'Dịch vụ',
-      children: [ServiceTypeSelector(value: serviceType, onChanged: onChanged)],
+      icon: Icons.photo_camera_outlined,
+      title: 'Ảnh kiện hàng',
+      accentColor: AppColors.accent,
+      subtitle: 'Không bắt buộc, giúp tài xế nhận diện kiện hàng',
+      children: [
+        CargoImagePicker(
+          image: image,
+          onPickCamera: onPickCamera,
+          onPickGallery: onPickGallery,
+          onRemove: onRemove,
+        ),
+      ],
     );
   }
 }
-
-class CreateOrderPaymentSection extends StatelessWidget {
-  const CreateOrderPaymentSection({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const CreateOrderSection(
-      icon: Icons.payments_rounded,
-      iconColor: AppColors.warning,
-      title: 'Thanh toán',
-      children: [PaymentMethodSelector()],
-    );
-  }
-}
-

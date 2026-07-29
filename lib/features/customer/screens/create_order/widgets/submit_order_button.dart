@@ -23,41 +23,85 @@ class SubmitOrderButton extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: AppColors.bgCard,
-        boxShadow: AppShadow.card,
-        border: Border(top: BorderSide(color: AppColors.border)),
+        border: Border(
+          top: BorderSide(color: AppColors.border.withValues(alpha: 0.72)),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, -6),
+          ),
+        ],
       ),
       child: SafeArea(
         top: false,
-        child: Container(
-          height: 52,
-          decoration: BoxDecoration(
-            borderRadius: AppRadius.full,
-            boxShadow: AppShadow.accentGlow,
-          ),
-          child: Material(
-            color: AppColors.accent,
-            borderRadius: AppRadius.full,
-            child: InkWell(
-              onTap: onPressed,
-              borderRadius: AppRadius.full,
-              child: Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.arrow_forward_rounded,
-                      color: AppColors.textOnAccent,
-                      size: 20,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Text(
-                      label,
-                      style: AppTextStyles.labelLarge.copyWith(
-                        color: AppColors.textOnAccent,
+        child: Semantics(
+          button: true,
+          label: label,
+          child: SizedBox(
+            height: 60,
+            child: Material(
+              color: AppColors.accent,
+              borderRadius: AppRadius.lg,
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: onPressed,
+                splashColor: AppColors.textPrimary.withValues(alpha: 0.1),
+                child: Center(
+                  child: Row(
+                    children: [
+                      const SizedBox(width: AppSpacing.lg),
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: AppColors.textOnAccent.withValues(alpha: 0.16),
+                          borderRadius: AppRadius.sm,
+                        ),
+                        child: const Icon(
+                          Icons.receipt_long_rounded,
+                          color: AppColors.textOnAccent,
+                          size: 18,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.labelLarge.copyWith(
+                                color: AppColors.textOnAccent,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(
+                              'Kiểm tra thông tin trước khi đặt',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.labelSmall.copyWith(
+                                color: AppColors.textOnAccent.withValues(
+                                  alpha: 0.76,
+                                ),
+                                letterSpacing: 0,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: AppColors.textOnAccent,
+                        size: 21,
+                      ),
+                      const SizedBox(width: AppSpacing.lg),
+                    ],
+                  ),
                 ),
               ),
             ),

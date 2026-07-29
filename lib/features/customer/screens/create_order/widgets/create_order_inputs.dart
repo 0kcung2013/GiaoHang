@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../../../core/constants/app_theme.dart';
 
@@ -6,47 +7,56 @@ class CreateOrderSection extends StatelessWidget {
   const CreateOrderSection({
     super.key,
     required this.icon,
-    required this.iconColor,
     required this.title,
+    this.subtitle,
+    this.accentColor = AppColors.primary,
     required this.children,
   });
 
   final IconData icon;
-  final Color iconColor;
   final String title;
+  final String? subtitle;
+  final Color accentColor;
   final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: AppRadius.lg,
-        boxShadow: AppShadow.card,
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
-      ),
+    return Semantics(
+      container: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.1),
-                  borderRadius: AppRadius.sm,
+                  color: accentColor.withValues(alpha: 0.12),
+                  borderRadius: AppRadius.md,
                 ),
-                child: Icon(icon, color: iconColor, size: 18),
+                child: Icon(icon, size: 20, color: accentColor),
               ),
-              const SizedBox(width: AppSpacing.md),
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.labelLarge.copyWith(
-                  color: AppColors.textPrimary,
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppTextStyles.headingMedium.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (subtitle != null)
+                      Text(
+                        subtitle!,
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],
@@ -70,6 +80,13 @@ class CreateOrderTextField extends StatelessWidget {
     this.keyboardType,
     this.textInputAction,
     this.maxLines = 1,
+    this.readOnly = false,
+    this.onTap,
+    this.suffixIcon,
+    this.helperText,
+    this.autofillHints,
+    this.inputFormatters,
+    this.maxLength,
   });
 
   final TextEditingController controller;
@@ -80,49 +97,75 @@ class CreateOrderTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final int maxLines;
+  final bool readOnly;
+  final VoidCallback? onTap;
+  final Widget? suffixIcon;
+  final String? helperText;
+  final Iterable<String>? autofillHints;
+  final List<TextInputFormatter>? inputFormatters;
+  final int? maxLength;
 
   @override
   Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      style: AppTextStyles.bodyMedium.copyWith(
-        color: AppColors.textPrimary,
-        height: 1.5,
-      ),
-      keyboardType: keyboardType,
-      textInputAction: textInputAction,
-      maxLines: maxLines,
-      validator: validator,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        prefixIcon: Icon(icon, color: AppColors.textMuted, size: 20),
-        labelStyle: AppTextStyles.bodySmall.copyWith(
-          color: AppColors.textSecondary,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: AppTextStyles.labelMedium.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        hintStyle: AppTextStyles.bodyMedium.copyWith(
-          color: AppColors.textMuted,
+        const SizedBox(height: AppSpacing.sm),
+        TextFormField(
+          controller: controller,
+          readOnly: readOnly,
+          onTap: onTap,
+          autofillHints: autofillHints,
+          style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textPrimary),
+          keyboardType: keyboardType,
+          textInputAction: textInputAction,
+          maxLines: maxLines,
+          maxLength: maxLength,
+          inputFormatters: inputFormatters,
+          validator: validator,
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: Icon(icon, color: AppColors.textSecondary, size: 20),
+            suffixIcon: suffixIcon,
+            helperText: helperText,
+            counterText: maxLength == null ? null : '',
+            hintStyle: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.textMuted,
+            ),
+            helperStyle: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
+            filled: true,
+            fillColor: const Color(0xFFF4F5F7),
+            border: _inputBorder(Colors.transparent),
+            enabledBorder: _inputBorder(Colors.transparent),
+            focusedBorder: _inputBorder(AppColors.accent, width: 1.5),
+            errorBorder: _inputBorder(AppColors.error),
+            focusedErrorBorder: _inputBorder(AppColors.error, width: 1.5),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.lg,
+            ),
+            errorStyle: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.error,
+            ),
+          ),
         ),
-        filled: true,
-        fillColor: AppColors.bgLight,
-        border: _inputBorder(AppColors.border),
-        enabledBorder: _inputBorder(AppColors.border),
-        focusedBorder: _inputBorder(AppColors.borderFocus, width: 1.5),
-        errorBorder: _inputBorder(AppColors.error),
-        focusedErrorBorder: _inputBorder(AppColors.error, width: 1.5),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.md,
-        ),
-        errorStyle: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
-      ),
+      ],
     );
   }
 }
 
 OutlineInputBorder _inputBorder(Color color, {double width = 1}) {
   return OutlineInputBorder(
-    borderRadius: AppRadius.md,
+    borderRadius: AppRadius.lg,
     borderSide: BorderSide(color: color, width: width),
   );
 }

@@ -5,129 +5,103 @@ import '../../../../../core/models/order_model.dart';
 
 class DashboardOrderCard extends StatelessWidget {
   final OrderModel order;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
+  final bool showDivider;
 
   const DashboardOrderCard({
     super.key,
     required this.order,
-    this.onTap,
+    required this.onTap,
+    this.showDivider = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final statusColor = _statusColor(order.status);
+    final statusLabel = _statusLabel(order.status);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Material(
-        color: AppColors.bgCard,
-        borderRadius: AppRadius.xl,
-        shadowColor: const Color(0x0A000000),
-        elevation: 2,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: AppRadius.xl,
-          splashColor: AppColors.accent.withValues(alpha: 0.06),
-          highlightColor: Colors.transparent,
-          child: Container(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            decoration: BoxDecoration(
-              borderRadius: AppRadius.xl,
-              boxShadow: AppShadow.card,
-            ),
-            child: Row(
-              children: [
-                _buildStatusIcon(statusColor),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(child: _buildContent(statusColor)),
-                const SizedBox(width: AppSpacing.sm),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppColors.textMuted,
-                  size: 22,
-                ),
-              ],
-            ),
+    return Semantics(
+      button: true,
+      label:
+          '${order.deliveryAddress}, $statusLabel, ${_displayOrderCode(order)}',
+      child: InkWell(
+        onTap: onTap,
+        splashColor: AppColors.accent.withValues(alpha: 0.06),
+        highlightColor: AppColors.accent.withValues(alpha: 0.03),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 84),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusIcon(Color color) {
-    return Container(
-      width: 42,
-      height: 42,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: AppRadius.md,
-      ),
-      child: Icon(
-        _statusIcon(order.status),
-        color: color,
-        size: 20,
-      ),
-    );
-  }
-
-  Widget _buildContent(Color statusColor) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          order.deliveryAddress,
-          style: AppTextStyles.headingSmall.copyWith(
-            color: AppColors.textPrimary,
-            height: 1.3,
+          decoration: BoxDecoration(
+            border: showDivider
+                ? const Border(
+                    bottom: BorderSide(color: AppColors.border, width: 1),
+                  )
+                : null,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                '${_displayOrderCode(order)} · ${_timeAgo(order.createdAt)}',
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.textSecondary,
-                  height: 1.3,
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.1),
+                  borderRadius: AppRadius.md,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                child: Icon(
+                  _statusIcon(order.status),
+                  color: statusColor,
+                  size: 20,
+                ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            _StatusPill(status: order.status, color: statusColor),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  final String status;
-  final Color color;
-
-  const _StatusPill({required this.status, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: AppRadius.full,
-      ),
-      child: Text(
-        _statusLabel(status),
-        style: AppTextStyles.labelSmall.copyWith(
-          color: color,
-          fontWeight: FontWeight.w700,
-          fontSize: 11,
-          letterSpacing: 0,
-          height: 1.2,
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      order.deliveryAddress,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.headingSmall.copyWith(
+                        color: AppColors.textPrimary,
+                        height: 1.25,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      '${_displayOrderCode(order)} · ${_timeAgo(order.createdAt)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      statusLabel,
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: statusColor,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textMuted,
+                size: 22,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -136,57 +110,49 @@ class _StatusPill extends StatelessWidget {
 
 String _displayOrderCode(OrderModel order) {
   if (order.trackingCode.isNotEmpty) return order.trackingCode;
-  final len = order.id.length >= 8 ? 8 : order.id.length;
-  return '#${order.id.substring(0, len)}';
+  final length = order.id.length >= 8 ? 8 : order.id.length;
+  return '#${order.id.substring(0, length).toUpperCase()}';
 }
 
-String _statusLabel(String status) {
-  return switch (status) {
-    'pending' => 'Chờ xác nhận',
-    'confirmed' => 'Đã xác nhận',
-    'assigned' => 'Đã phân công',
-    'picking_up' => 'Đang lấy',
-    'delivering' => 'Đang giao',
-    'delivered' => 'Hoàn thành',
-    'cancelled' => 'Đã huỷ',
-    _ => 'Không rõ',
-  };
-}
+String _statusLabel(String status) => switch (status) {
+  'pending' => 'Chờ xác nhận',
+  'confirmed' => 'Đã xác nhận',
+  'assigned' => 'Đã có tài xế',
+  'picking_up' => 'Đang lấy hàng',
+  'delivering' => 'Đang giao',
+  'delivered' => 'Đã giao',
+  'cancelled' => 'Đã huỷ',
+  _ => 'Đang cập nhật',
+};
 
-Color _statusColor(String status) {
-  return switch (status) {
-    'pending' => AppColors.warning,
-    'confirmed' => AppColors.info,
-    'assigned' => AppColors.info,
-    'picking_up' => AppColors.accent,
-    'delivering' => AppColors.accent,
-    'delivered' => AppColors.success,
-    'cancelled' => AppColors.error,
-    _ => AppColors.textMuted,
-  };
-}
+Color _statusColor(String status) => switch (status) {
+  'pending' => AppColors.warning,
+  'confirmed' || 'assigned' => AppColors.info,
+  'picking_up' || 'delivering' => AppColors.accent,
+  'delivered' => AppColors.success,
+  'cancelled' => AppColors.error,
+  _ => AppColors.textSecondary,
+};
 
-IconData _statusIcon(String status) {
-  return switch (status) {
-    'pending' => Icons.access_time_rounded,
-    'confirmed' => Icons.check_circle_outline_rounded,
-    'assigned' => Icons.local_shipping_rounded,
-    'picking_up' => Icons.storefront_rounded,
-    'delivering' => Icons.local_shipping_outlined,
-    'delivered' => Icons.check_circle_rounded,
-    'cancelled' => Icons.cancel_rounded,
-    _ => Icons.help_outline_rounded,
-  };
-}
+IconData _statusIcon(String status) => switch (status) {
+  'pending' => Icons.schedule_rounded,
+  'confirmed' => Icons.check_circle_outline_rounded,
+  'assigned' => Icons.person_pin_circle_rounded,
+  'picking_up' => Icons.inventory_2_outlined,
+  'delivering' => Icons.local_shipping_outlined,
+  'delivered' => Icons.check_rounded,
+  'cancelled' => Icons.close_rounded,
+  _ => Icons.more_horiz_rounded,
+};
 
 String _timeAgo(DateTime dateTime) {
-  final now = DateTime.now();
-  final diff = now.difference(dateTime);
-
-  if (diff.inSeconds < 60) return 'Vừa xong';
-  if (diff.inMinutes < 60) return '${diff.inMinutes} phút trước';
-  if (diff.inHours < 24) return '${diff.inHours} giờ trước';
-  if (diff.inDays < 7) return '${diff.inDays} ngày trước';
-  if (diff.inDays < 30) return '${(diff.inDays / 7).floor()} tuần trước';
-  return '${(diff.inDays / 30).floor()} tháng trước';
+  final difference = DateTime.now().difference(dateTime);
+  if (difference.inSeconds < 60) return 'Vừa xong';
+  if (difference.inMinutes < 60) return '${difference.inMinutes} phút trước';
+  if (difference.inHours < 24) return '${difference.inHours} giờ trước';
+  if (difference.inDays < 7) return '${difference.inDays} ngày trước';
+  if (difference.inDays < 30) {
+    return '${(difference.inDays / 7).floor()} tuần trước';
+  }
+  return '${(difference.inDays / 30).floor()} tháng trước';
 }

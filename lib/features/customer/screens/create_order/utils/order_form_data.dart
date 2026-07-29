@@ -7,6 +7,8 @@ class OrderFormData {
   final String deliveryAddress;
   final double deliveryLat;
   final double deliveryLng;
+  final String senderName;
+  final String senderPhone;
   final String recipientName;
   final String recipientPhone;
   final String note;
@@ -14,7 +16,6 @@ class OrderFormData {
   final String itemCategory;
   final String itemDescription;
   final XFile? cargoImage;
-  final String serviceType;
   final String paymentMethod;
   final double deliveryFee;
   final double totalPrice;
@@ -29,6 +30,8 @@ class OrderFormData {
     required this.deliveryAddress,
     required this.deliveryLat,
     required this.deliveryLng,
+    required this.senderName,
+    required this.senderPhone,
     required this.recipientName,
     required this.recipientPhone,
     required this.note,
@@ -36,7 +39,6 @@ class OrderFormData {
     required this.itemCategory,
     required this.itemDescription,
     required this.cargoImage,
-    required this.serviceType,
     required this.paymentMethod,
     required this.deliveryFee,
     required this.totalPrice,

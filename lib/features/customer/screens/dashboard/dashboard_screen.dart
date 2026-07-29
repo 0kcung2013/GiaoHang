@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_theme.dart';
 import '../../../../core/models/order_model.dart';
 import '../../../../core/providers/customer_providers.dart';
+import '../order/order_screen.dart';
 import 'widgets/dashboard_header.dart';
+import 'widgets/dashboard_hero.dart';
 import 'widgets/dashboard_order_card.dart';
+import 'widgets/dashboard_quick_actions.dart';
 import 'widgets/dashboard_states.dart';
-import 'widgets/dashboard_stats.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -27,7 +30,7 @@ class DashboardScreen extends ConsumerWidget {
             layout.padding,
             layout.topPadding,
             layout.padding,
-            AppSpacing.xl2,
+            AppSpacing.xl3,
           ),
           child: Center(
             child: ConstrainedBox(
@@ -51,107 +54,119 @@ class _DashboardBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profileAsync = ref.watch(customerProfileProvider(user.id));
+    ref.watch(ordersRealtimeProvider(user.id));
     final ordersAsync = ref.watch(customerOrdersProvider(user.id));
-    final activeOrderAsync = ref.watch(activeOrderProvider(user.id));
 
-    final isLoading = profileAsync.isLoading ||
-        ordersAsync.isLoading && !ordersAsync.hasValue;
-    if (isLoading) return const DashboardShimmer();
+    if (ordersAsync.isLoading && !ordersAsync.hasValue) {
+      return const DashboardShimmer();
+    }
 
-    final hasError =
-        (profileAsync.hasError && !profileAsync.hasValue) ||
-        (ordersAsync.hasError && !ordersAsync.hasValue);
-    if (hasError) {
+    if (ordersAsync.hasError && !ordersAsync.hasValue) {
       return DashboardError(
-        onRetry: () {
-          ref.invalidate(customerProfileProvider(user.id));
-          ref.invalidate(customerOrdersProvider(user.id));
-        },
+        onRetry: () => ref.invalidate(customerOrdersProvider(user.id)),
       );
     }
 
-    final profile = profileAsync.valueOrNull;
     final allOrders = ordersAsync.valueOrNull ?? const <OrderModel>[];
-    final activeOrder = activeOrderAsync.valueOrNull;
-    final name = _displayName(user, profile?.fullName);
-    final activeCount =
-        allOrders.where((o) => _activeStatuses.contains(o.status)).length;
-    final completedCount =
-        allOrders.where((o) => o.status == 'delivered').length;
-    final recentOrders = allOrders.take(3).toList();
+    final activeOrders = allOrders
+        .where((order) => _activeStatuses.contains(order.status))
+        .toList();
+    final recentOrders = allOrders
+        .where((order) => !_activeStatuses.contains(order.status))
+        .take(3)
+        .toList();
 
     return AnimatedSwitcher(
       duration: AppDuration.page,
       switchInCurve: AppCurve.decelerate,
       switchOutCurve: AppCurve.accelerate,
       child: Column(
-        key: ValueKey('body_${allOrders.length}'),
+        key: ValueKey('dashboard_${activeOrders.length}_${allOrders.length}'),
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          DashboardHeader(
-            userName: name,
-            activeCount: activeCount,
-            hasActiveDelivery: activeOrder != null,
+          const DashboardHeader(),
+          SizedBox(height: layout.sectionGap),
+          DashboardHero(
+            activeOrders: activeOrders,
+            isFirstDelivery: allOrders.isEmpty,
           ),
           SizedBox(height: layout.sectionGap),
-          DashboardStats(
-            activeCount: activeCount,
-            completedCount: completedCount,
-          ),
-          SizedBox(height: layout.sectionGap),
-          _buildRecentOrdersHeader(context, allOrders),
-          const SizedBox(height: AppSpacing.md),
-          if (recentOrders.isEmpty)
-            const DashboardEmpty()
-          else
-            ...recentOrders.map(
-              (order) => DashboardOrderCard(order: order),
+          DashboardQuickActions(hasActiveDelivery: activeOrders.isNotEmpty),
+          if (recentOrders.isNotEmpty) ...[
+            SizedBox(height: layout.sectionGap),
+            _RecentDeliveries(
+              orders: recentOrders,
+              customerId: user.id,
+              showViewAll: allOrders.length > recentOrders.length,
             ),
+          ],
         ],
       ),
     );
   }
+}
 
-  Widget _buildRecentOrdersHeader(
-    BuildContext context,
-    List<OrderModel> allOrders,
-  ) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.center,
+class _RecentDeliveries extends StatelessWidget {
+  final List<OrderModel> orders;
+  final String customerId;
+  final bool showViewAll;
+
+  const _RecentDeliveries({
+    required this.orders,
+    required this.customerId,
+    required this.showViewAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Đơn gần đây',
-          style: AppTextStyles.headingLarge.copyWith(
-            color: AppColors.textPrimary,
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        if (allOrders.length > 3)
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () {},
-              borderRadius: AppRadius.full,
-              splashColor: AppColors.accent.withValues(alpha: 0.08),
-              highlightColor: Colors.transparent,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
-                ),
-                child: Text(
-                  'Xem tất cả',
-                  style: AppTextStyles.labelMedium.copyWith(
-                    color: AppColors.accent,
-                    fontWeight: FontWeight.w700,
-                  ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Gần đây',
+                style: AppTextStyles.headingMedium.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
+            if (showViewAll)
+              TextButton(
+                onPressed: () => context.go('/customer-home?tab=orders'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.textPrimary,
+                  minimumSize: const Size(48, 48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                  ),
+                ),
+                child: const Text('Xem tất cả'),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Material(
+          color: AppColors.bgCard,
+          borderRadius: AppRadius.xl2,
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              for (var index = 0; index < orders.length; index++)
+                DashboardOrderCard(
+                  order: orders[index],
+                  showDivider: index < orders.length - 1,
+                  onTap: () => showOrderDetailSheet(
+                    context: context,
+                    customerId: customerId,
+                    order: orders[index],
+                  ),
+                ),
+            ],
           ),
+        ),
       ],
     );
   }
@@ -174,7 +189,7 @@ class _Layout {
     if (width >= 1024) {
       return const _Layout(
         padding: AppSpacing.xl3,
-        topPadding: AppSpacing.xl3,
+        topPadding: AppSpacing.xl2,
         sectionGap: AppSpacing.xl2,
         maxWidth: 600,
       );
@@ -182,30 +197,18 @@ class _Layout {
     if (width >= 600) {
       return const _Layout(
         padding: AppSpacing.xl3,
-        topPadding: AppSpacing.xl3,
+        topPadding: AppSpacing.xl2,
         sectionGap: AppSpacing.xl2,
         maxWidth: 520,
       );
     }
     return const _Layout(
       padding: AppSpacing.screenH,
-      topPadding: AppSpacing.xl2,
+      topPadding: AppSpacing.md,
       sectionGap: AppSpacing.xl2,
       maxWidth: double.infinity,
     );
   }
-}
-
-String _displayName(User user, String? profileName) {
-  final metadataName =
-      user.userMetadata?['full_name']?.toString() ??
-      user.userMetadata?['name']?.toString();
-  final name = (profileName?.trim().isNotEmpty ?? false)
-      ? profileName!.trim()
-      : metadataName?.trim();
-  if (name != null && name.isNotEmpty) return name;
-  if ((user.email ?? '').isNotEmpty) return user.email!.split('@').first;
-  return 'Khách hàng';
 }
 
 const _activeStatuses = {

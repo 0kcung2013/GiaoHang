@@ -1,13 +1,15 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
 import '../../../../../core/constants/app_theme.dart';
+import '../utils/reverse_geocode_result.dart';
+import '../utils/reverse_geocoding_service.dart';
+
+part 'map_picker_components.dart';
 
 class MapPickerResult {
   final LatLng position;
@@ -18,8 +20,13 @@ class MapPickerResult {
 
 class MapPickerSheet extends StatefulWidget {
   final LatLng initialPosition;
+  final String title;
 
-  const MapPickerSheet({super.key, required this.initialPosition});
+  const MapPickerSheet({
+    super.key,
+    required this.initialPosition,
+    this.title = 'Chọn vị trí',
+  });
 
   @override
   State<MapPickerSheet> createState() => _MapPickerSheetState();
@@ -27,10 +34,17 @@ class MapPickerSheet extends StatefulWidget {
 
 class _MapPickerSheetState extends State<MapPickerSheet> {
   final _mapController = MapController();
+  final _detailController = TextEditingController();
+  final _geocodingService = ReverseGeocodingService();
+
   late LatLng _selectedPosition;
-  String _addressText = 'Đang tải địa chỉ...';
-  bool _isLocating = false;
+  ReverseGeocodeResult? _resolvedAddress;
   Timer? _debounceTimer;
+  int _requestSerial = 0;
+  bool _isLocating = false;
+  bool _isResolving = true;
+  String? _resolutionError;
+  String? _detailError;
 
   @override
   void initState() {
@@ -42,56 +56,61 @@ class _MapPickerSheetState extends State<MapPickerSheet> {
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _detailController.dispose();
+    _geocodingService.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchAddress(LatLng pos) async {
-    setState(() => _addressText = 'Đang tải địa chỉ...');
-
-    for (int attempt = 0; attempt < 2; attempt++) {
-      try {
-        if (attempt > 0) {
-          await Future.delayed(const Duration(seconds: 1));
-        }
-
-        final url = Uri.parse(
-          'https://nominatim.openstreetmap.org/reverse'
-          '?format=json&lat=${pos.latitude}&lon=${pos.longitude}&accept-language=vi',
-        );
-        final response = await http
-            .get(url, headers: {'User-Agent': 'DATN-GiaoHang/1.0'})
-            .timeout(const Duration(seconds: 8));
-
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          final displayName = data['display_name'] as String?;
-          if (displayName != null && displayName.isNotEmpty) {
-            setState(() => _addressText = displayName);
-            return;
-          }
-        } else {
-          debugPrint('[Nominatim] HTTP ${response.statusCode}: ${response.body}');
-        }
-      } catch (e) {
-        debugPrint('[Nominatim] attempt $attempt error: $e');
-      }
+  Future<void> _fetchAddress(LatLng position) async {
+    final request = ++_requestSerial;
+    if (mounted) {
+      setState(() {
+        _isResolving = true;
+        _resolutionError = null;
+        _detailError = null;
+      });
     }
 
-    setState(() {
-      _addressText =
-          '${pos.latitude.toStringAsFixed(6)}, ${pos.longitude.toStringAsFixed(6)}';
-    });
+    try {
+      final result = await _geocodingService.resolve(position);
+      if (!mounted || request != _requestSerial) return;
+      setState(() {
+        _resolvedAddress = result;
+        _isResolving = false;
+      });
+    } catch (_) {
+      if (!mounted || request != _requestSerial) return;
+      final coordinates =
+          '${position.latitude.toStringAsFixed(6)}, '
+          '${position.longitude.toStringAsFixed(6)}';
+      setState(() {
+        _resolvedAddress = ReverseGeocodeResult(
+          displayAddress: coordinates,
+          rawDisplayName: coordinates,
+        );
+        _resolutionError =
+            'Không đọc được địa chỉ tự động. Ghim vẫn chính xác; hãy nhập mô tả vị trí bên dưới.';
+        _isResolving = false;
+      });
+    }
   }
 
   void _onMapMoved(MapEvent event) {
     final center = _mapController.camera.center;
-    if (_selectedPosition != center) {
-      _selectedPosition = center;
-      _debounceTimer?.cancel();
-      _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-        _fetchAddress(center);
-      });
+    if (_selectedPosition == center) return;
+
+    if (_detailController.text.isNotEmpty) {
+      _detailController.clear();
     }
+    setState(() {
+      _selectedPosition = center;
+      _isResolving = true;
+      _detailError = null;
+    });
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 1100), () {
+      _fetchAddress(center);
+    });
   }
 
   Future<void> _locateMe() async {
@@ -99,20 +118,13 @@ class _MapPickerSheetState extends State<MapPickerSheet> {
     setState(() => _isLocating = true);
 
     try {
-      final hasPermission = await Geolocator.requestPermission();
-      if (hasPermission != LocationPermission.whileInUse &&
-          hasPermission != LocationPermission.always) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text(
-                'Vui lòng cấp quyền vị trí để sử dụng tính năng này.',
-              ),
-              backgroundColor: AppColors.warning,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
+      final permission = await Geolocator.requestPermission();
+      if (permission != LocationPermission.whileInUse &&
+          permission != LocationPermission.always) {
+        _showMessage(
+          'Hãy cấp quyền vị trí để dùng vị trí hiện tại.',
+          isError: true,
+        );
         return;
       }
 
@@ -122,96 +134,74 @@ class _MapPickerSheetState extends State<MapPickerSheet> {
           timeLimit: Duration(seconds: 15),
         ),
       );
-
       if (!mounted) return;
 
-      final newPos = LatLng(position.latitude, position.longitude);
-      _selectedPosition = newPos;
-      _mapController.move(newPos, 16);
-      _fetchAddress(newPos);
-    } catch (e) {
-      debugPrint('[LocateMe] error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Không thể lấy vị trí hiện tại. Vui lòng kiểm tra GPS và thử lại.',
-            ),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      final location = LatLng(position.latitude, position.longitude);
+      _selectedPosition = location;
+      _mapController.move(location, 18);
+      _debounceTimer?.cancel();
+      await _fetchAddress(location);
+    } catch (_) {
+      _showMessage(
+        'Không thể lấy vị trí hiện tại. Hãy kiểm tra GPS và thử lại.',
+        isError: true,
+      );
     } finally {
       if (mounted) setState(() => _isLocating = false);
     }
   }
 
+  void _confirmLocation() {
+    if (_isResolving || _resolvedAddress == null) return;
+
+    final detail = _detailController.text.trim();
+    if (!_resolvedAddress!.hasHouseNumber && detail.isEmpty) {
+      setState(() {
+        _detailError =
+            'Nhập số nhà, tên tòa nhà hoặc mô tả điểm đón để tài xế tìm đúng.';
+      });
+      return;
+    }
+
+    Navigator.pop(
+      context,
+      MapPickerResult(
+        position: _selectedPosition,
+        address: _resolvedAddress!.addressWithDetail(detail),
+      ),
+    );
+  }
+
+  void _showMessage(String message, {required bool isError}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppColors.error : AppColors.success,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
-      initialChildSize: 0.92,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
+      initialChildSize: 0.94,
+      minChildSize: 0.65,
+      maxChildSize: 0.97,
       expand: false,
       builder: (context, scrollController) {
         return Container(
           decoration: const BoxDecoration(
             color: AppColors.bgCard,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
+          clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(
-                  top: AppSpacing.md,
-                  bottom: AppSpacing.sm,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: AppRadius.full,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                  vertical: AppSpacing.sm,
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.map_rounded,
-                      color: AppColors.accent,
-                      size: 20,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Text(
-                      'Chọn vị trí trên bản đồ',
-                      style: AppTextStyles.headingSmall.copyWith(
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: AppColors.bgLight,
-                          borderRadius: AppRadius.sm,
-                        ),
-                        child: const Icon(
-                          Icons.close_rounded,
-                          size: 18,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              _SheetHeader(
+                title: widget.title,
+                onClose: () => Navigator.pop(context),
               ),
               Expanded(
                 child: Stack(
@@ -220,40 +210,62 @@ class _MapPickerSheetState extends State<MapPickerSheet> {
                       mapController: _mapController,
                       options: MapOptions(
                         initialCenter: widget.initialPosition,
-                        initialZoom: 16,
+                        initialZoom: 18,
+                        minZoom: 5,
+                        maxZoom: 19,
                         onMapEvent: _onMapMoved,
                       ),
                       children: [
                         TileLayer(
                           urlTemplate:
-                              'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                           userAgentPackageName: 'com.datn.giaohang',
-                          subdomains: const ['a', 'b', 'c'],
                           maxNativeZoom: 19,
+                        ),
+                        SimpleAttributionWidget(
+                          source: Text(
+                            'OpenStreetMap contributors',
+                            style: AppTextStyles.labelSmall.copyWith(
+                              fontSize: 9,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          backgroundColor: AppColors.bgCard.withValues(
+                            alpha: 0.85,
+                          ),
                         ),
                       ],
                     ),
                     const IgnorePointer(
                       child: Center(
-                        child: Icon(
-                          Icons.location_on_rounded,
-                          color: AppColors.error,
-                          size: 40,
-                          shadows: AppShadow.subtle,
+                        child: Padding(
+                          padding: EdgeInsets.only(bottom: 36),
+                          child: Icon(
+                            Icons.location_on_rounded,
+                            color: AppColors.accent,
+                            size: 46,
+                            shadows: AppShadow.card,
+                          ),
                         ),
                       ),
+                    ),
+                    Positioned(
+                      top: AppSpacing.md,
+                      left: AppSpacing.md,
+                      child: _MapHint(isResolving: _isResolving),
                     ),
                     Positioned(
                       right: AppSpacing.md,
                       bottom: AppSpacing.md,
                       child: FloatingActionButton.small(
                         heroTag: 'locate_me',
+                        elevation: 2,
                         backgroundColor: AppColors.bgCard,
                         onPressed: _isLocating ? null : _locateMe,
                         child: _isLocating
                             ? const SizedBox(
-                                width: 20,
-                                height: 20,
+                                width: 18,
+                                height: 18,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                   color: AppColors.accent,
@@ -268,66 +280,18 @@ class _MapPickerSheetState extends State<MapPickerSheet> {
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                decoration: const BoxDecoration(
-                  color: AppColors.bgCard,
-                  border: Border(top: BorderSide(color: AppColors.border)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Vị trí đã chọn',
-                      style: AppTextStyles.labelMedium.copyWith(
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      _addressText,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textPrimary,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      '${_selectedPosition.latitude.toStringAsFixed(6)}, ${_selectedPosition.longitude.toStringAsFixed(6)}',
-                      style: AppTextStyles.mono.copyWith(
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    SizedBox(
-                      height: 48,
-                      child: Material(
-                        color: AppColors.accent,
-                        borderRadius: AppRadius.full,
-                        child: InkWell(
-                          borderRadius: AppRadius.full,
-                          onTap: () => Navigator.pop(
-                            context,
-                            MapPickerResult(
-                              position: _selectedPosition,
-                              address: _addressText,
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              'Xác nhận vị trí này',
-                              style: AppTextStyles.labelLarge.copyWith(
-                                color: AppColors.textOnAccent,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              _AddressConfirmationPanel(
+                resolvedAddress: _resolvedAddress,
+                isResolving: _isResolving,
+                resolutionError: _resolutionError,
+                detailController: _detailController,
+                detailError: _detailError,
+                onDetailChanged: (_) {
+                  if (_detailError != null) {
+                    setState(() => _detailError = null);
+                  }
+                },
+                onConfirm: _confirmLocation,
               ),
             ],
           ),

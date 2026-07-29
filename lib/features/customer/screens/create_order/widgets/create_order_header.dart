@@ -7,51 +7,43 @@ class CreateOrderHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary, Color(0xFF1A3A5C)],
-        ),
-        borderRadius: AppRadius.xl,
-        boxShadow: AppShadow.elevated,
-      ),
-      child: Row(
+    return Semantics(
+      header: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.2),
-              borderRadius: AppRadius.md,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs,
             ),
-            child: const Icon(
-              Icons.local_shipping_rounded,
-              color: AppColors.accent,
-              size: 26,
+            decoration: const BoxDecoration(
+              color: AppColors.accentLight,
+              borderRadius: AppRadius.sm,
+            ),
+            child: Text(
+              'GIAO HÀNG THEO YÊU CẦU',
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.accent,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.65,
+              ),
             ),
           ),
-          const SizedBox(width: AppSpacing.lg),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tạo đơn giao hàng mới',
-                  style: AppTextStyles.headingMedium.copyWith(
-                    color: AppColors.textOnDark,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  'Điền thông tin bên dưới để tiếp tục',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textOnDark.withValues(alpha: 0.65),
-                  ),
-                ),
-              ],
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Gửi một kiện hàng',
+            style: AppTextStyles.displayMedium.copyWith(
+              color: AppColors.textPrimary,
+              letterSpacing: -0.7,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Chọn lộ trình trước, sau đó thêm thông tin người nhận và kiện hàng.',
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.textSecondary,
+              height: 1.5,
             ),
           ),
         ],

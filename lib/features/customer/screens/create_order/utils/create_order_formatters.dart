@@ -17,14 +17,6 @@ String formatDeliveryFee(double? fee) {
   return '$bufferđ';
 }
 
-String serviceTypeLabel(String value) {
-  return switch (value) {
-    'express' => 'Nhanh',
-    'standard' => 'Tiêu chuẩn',
-    _ => 'Tiêu chuẩn',
-  };
-}
-
 String paymentMethodLabel(String value) {
   return switch (value) {
     'cash' => 'COD / Tiền mặt',

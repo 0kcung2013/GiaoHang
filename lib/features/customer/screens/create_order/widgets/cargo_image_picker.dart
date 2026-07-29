@@ -1,5 +1,4 @@
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -9,12 +8,14 @@ class CargoImagePicker extends StatefulWidget {
   const CargoImagePicker({
     super.key,
     required this.image,
-    required this.onPick,
+    required this.onPickCamera,
+    required this.onPickGallery,
     required this.onRemove,
   });
 
   final XFile? image;
-  final VoidCallback onPick;
+  final VoidCallback onPickCamera;
+  final VoidCallback onPickGallery;
   final VoidCallback onRemove;
 
   @override
@@ -22,8 +23,6 @@ class CargoImagePicker extends StatefulWidget {
 }
 
 class _CargoImagePickerState extends State<CargoImagePicker> {
-  static const _debugTag = '[CargoImagePickerDebug]';
-
   Uint8List? _previewBytes;
   bool _isLoadingPreview = false;
 
@@ -54,16 +53,12 @@ class _CargoImagePickerState extends State<CargoImagePicker> {
     setState(() => _isLoadingPreview = true);
     try {
       final bytes = await image.readAsBytes();
-      debugPrint(
-        '$_debugTag preview loaded name=${image.name} bytes=${bytes.length}',
-      );
       if (!mounted) return;
       setState(() {
         _previewBytes = bytes;
         _isLoadingPreview = false;
       });
-    } catch (error) {
-      debugPrint('$_debugTag preview load failed error=$error');
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _previewBytes = null;
@@ -72,28 +67,191 @@ class _CargoImagePickerState extends State<CargoImagePicker> {
     }
   }
 
+  void _previewImage() {
+    final bytes = _previewBytes;
+    if (bytes == null) return;
+    showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.all(AppSpacing.xl),
+        backgroundColor: Colors.transparent,
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            ClipRRect(
+              borderRadius: AppRadius.lg,
+              child: InteractiveViewer(child: Image.memory(bytes)),
+            ),
+            IconButton.filled(
+              tooltip: 'Đóng xem ảnh',
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final selectedImage = widget.image;
+    final image = widget.image;
+    final isWeb = kIsWeb;
+    final animationDuration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : AppDuration.normal;
 
+    return AnimatedSize(
+      duration: animationDuration,
+      curve: AppCurve.standard,
+      child: image == null
+          ? _EmptyPhotoPicker(
+              showCamera: !isWeb,
+              onPickCamera: widget.onPickCamera,
+              onPickGallery: widget.onPickGallery,
+            )
+          : _SelectedPhoto(
+              imageName: image.name,
+              bytes: _previewBytes,
+              isLoading: _isLoadingPreview,
+              onPreview: _previewImage,
+              onReplace: widget.onPickGallery,
+              onRemove: widget.onRemove,
+            ),
+    );
+  }
+}
+
+class _EmptyPhotoPicker extends StatelessWidget {
+  const _EmptyPhotoPicker({
+    required this.showCamera,
+    required this.onPickCamera,
+    required this.onPickGallery,
+  });
+
+  final bool showCamera;
+  final VoidCallback onPickCamera;
+  final VoidCallback onPickGallery;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        color: AppColors.accentLight,
+        borderRadius: AppRadius.xl,
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.add_a_photo_outlined,
+            color: AppColors.accent,
+            size: 30,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Thêm ảnh kiện hàng',
+            style: AppTextStyles.labelLarge.copyWith(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Tối đa 1 ảnh cho mỗi đơn hàng',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          if (showCamera) ...[
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: FilledButton.icon(
+                onPressed: onPickCamera,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.accent,
+                  foregroundColor: AppColors.textOnAccent,
+                ),
+                icon: const Icon(Icons.photo_camera_outlined),
+                label: const Text('Chụp ảnh'),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: TextButton.icon(
+              onPressed: onPickGallery,
+              style: TextButton.styleFrom(foregroundColor: AppColors.accent),
+              icon: const Icon(Icons.photo_library_outlined),
+              label: Text(showCamera ? 'Chọn từ thư viện' : 'Chọn ảnh'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectedPhoto extends StatelessWidget {
+  const _SelectedPhoto({
+    required this.imageName,
+    required this.bytes,
+    required this.isLoading,
+    required this.onPreview,
+    required this.onReplace,
+    required this.onRemove,
+  });
+
+  final String imageName;
+  final Uint8List? bytes;
+  final bool isLoading;
+  final VoidCallback onPreview;
+  final VoidCallback onReplace;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.bgLight,
-        borderRadius: AppRadius.md,
-        border: Border.all(color: AppColors.border),
+        color: AppColors.accentLight,
+        borderRadius: AppRadius.xl,
       ),
       child: Row(
         children: [
-          Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              color: AppColors.bgCard,
+          Semantics(
+            button: true,
+            label: 'Xem trước ảnh kiện hàng',
+            child: InkWell(
+              onTap: onPreview,
               borderRadius: AppRadius.md,
+              child: Container(
+                width: 76,
+                height: 76,
+                decoration: const BoxDecoration(
+                  color: AppColors.bgCard,
+                  borderRadius: AppRadius.md,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: isLoading
+                    ? const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : bytes == null
+                    ? const Icon(Icons.image_not_supported_outlined)
+                    : Image.memory(bytes!, fit: BoxFit.cover),
+              ),
             ),
-            clipBehavior: Clip.antiAlias,
-            child: _buildPreview(),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
@@ -101,68 +259,43 @@ class _CargoImagePickerState extends State<CargoImagePicker> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  selectedImage == null ? 'Ảnh hàng hoá' : selectedImage.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.labelMedium.copyWith(
+                  '1 ảnh đã chọn',
+                  style: AppTextStyles.labelLarge.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  selectedImage == null
-                      ? 'Tải lên 1 ảnh JPEG, PNG hoặc WebP.'
-                      : 'Ảnh sẽ được tải lên khi tạo đơn.',
+                  imageName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.bodySmall.copyWith(
                     color: AppColors.textSecondary,
                   ),
                 ),
+                const SizedBox(height: AppSpacing.sm),
+                TextButton(
+                  onPressed: onReplace,
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(48, 40),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                    ),
+                  ),
+                  child: const Text('Thay ảnh'),
+                ),
               ],
             ),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          if (selectedImage != null)
-            IconButton(
-              onPressed: widget.onRemove,
-              icon: const Icon(Icons.close_rounded),
-              color: AppColors.error,
-              tooltip: 'Xoá ảnh',
-            )
-          else
-            TextButton.icon(
-              onPressed: () {
-                debugPrint('$_debugTag choose button tapped');
-                widget.onPick();
-              },
-              icon: const Icon(Icons.upload_rounded, size: 18),
-              label: const Text('Chọn ảnh'),
-            ),
+          IconButton(
+            tooltip: 'Xoá ảnh',
+            onPressed: onRemove,
+            color: AppColors.error,
+            icon: const Icon(Icons.delete_outline_rounded),
+          ),
         ],
       ),
-    );
-  }
-
-  Widget _buildPreview() {
-    final bytes = _previewBytes;
-    if (_isLoadingPreview) {
-      return const Center(
-        child: SizedBox(
-          width: 18,
-          height: 18,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      );
-    }
-
-    if (bytes != null) {
-      return Image.memory(bytes, fit: BoxFit.cover);
-    }
-
-    return const Icon(
-      Icons.image_rounded,
-      color: AppColors.textMuted,
-      size: 22,
     );
   }
 }

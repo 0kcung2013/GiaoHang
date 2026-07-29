@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_theme.dart';
@@ -8,7 +9,8 @@ import '../../../../core/providers/customer_providers.dart';
 import 'order_widgets.dart' as widgets;
 import 'order_dialogs.dart' as dialogs;
 
-export 'order_helpers.dart' show fallbackTimelineSteps, OrderStatusView, formatOrderDateTime;
+export 'order_helpers.dart'
+    show fallbackTimelineSteps, OrderStatusView, formatOrderDateTime;
 export 'order_widgets.dart'
     show
         OrderFilterBar,
@@ -98,12 +100,17 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                   constraints: BoxConstraints(maxWidth: layout.maxWidth),
                   child: Column(
                     children: [
+                      widgets.OrderListHeader(
+                        onCreateOrder: () =>
+                            context.push('/customer/create-order'),
+                      ),
+                      const SizedBox(height: AppSpacing.xl2),
                       widgets.OrderSearchBar(
                         controller: _searchController,
                         onChanged: (v) =>
                             setState(() => _searchQuery = v.trim()),
                       ),
-                      const SizedBox(height: AppSpacing.md),
+                      const SizedBox(height: AppSpacing.lg),
                       widgets.OrderFilterBar(
                         filters: _filters.map((f) => f.label).toList(),
                         selectedIndex: _selectedFilterIndex,
@@ -144,7 +151,7 @@ class _OrderListBody extends ConsumerWidget {
   final _FilterOption selectedFilter;
   final String searchQuery;
   final List<OrderModel> Function(List<OrderModel>, Set<String>?, String)
-      applyFilters;
+  applyFilters;
 
   const _OrderListBody({
     required this.customerId,
@@ -189,8 +196,11 @@ class _OrderListBody extends ConsumerWidget {
     required List<OrderModel> allOrders,
     required bool isRefreshing,
   }) {
-    final visibleOrders =
-        applyFilters(allOrders, selectedFilter.statuses, searchQuery);
+    final visibleOrders = applyFilters(
+      allOrders,
+      selectedFilter.statuses,
+      searchQuery,
+    );
 
     if (allOrders.isEmpty) {
       return const widgets.OrderEmptyState(
@@ -204,8 +214,9 @@ class _OrderListBody extends ConsumerWidget {
       return widgets.OrderEmptyState(
         icon: Icons.search_off_rounded,
         title: 'Không tìm thấy đơn hàng',
-        message:
-            searchQuery.isNotEmpty ? 'Không có đơn nào khớp với "$searchQuery".' : 'Không có đơn hàng nào trong mục "${selectedFilter.label}".',
+        message: searchQuery.isNotEmpty
+            ? 'Không có đơn nào khớp với "$searchQuery".'
+            : 'Không có đơn hàng nào trong mục "${selectedFilter.label}".',
       );
     }
 
@@ -243,9 +254,14 @@ class _OrderListBody extends ConsumerWidget {
                 );
               }
               return Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
                 child: widgets.OrderCard(
                   order: visibleOrders[i],
+                  isFeatured:
+                      i == 0 &&
+                      _OrderScreenState._activeStatuses.contains(
+                        visibleOrders[i].status,
+                      ),
                   onTap: () => dialogs.showOrderDetailSheet(
                     context: context,
                     customerId: customerId,

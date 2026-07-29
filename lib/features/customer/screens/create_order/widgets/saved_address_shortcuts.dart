@@ -35,19 +35,39 @@ class SavedAddressShortcuts extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Địa chỉ đã lưu',
-              style: AppTextStyles.labelMedium.copyWith(
-                color: AppColors.textSecondary,
-              ),
+            Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: const BoxDecoration(
+                    color: AppColors.accentLight,
+                    borderRadius: AppRadius.sm,
+                  ),
+                  child: const Icon(
+                    Icons.bolt_rounded,
+                    color: AppColors.accent,
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  'Chọn nhanh địa chỉ đã lưu',
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.md),
             SizedBox(
-              height: 40,
+              height: 46,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: addresses.length,
-                separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
+                separatorBuilder: (_, _) =>
+                    const SizedBox(width: AppSpacing.sm),
                 itemBuilder: (context, index) {
                   final a = addresses[index];
                   return _AddressChip(
@@ -58,7 +78,7 @@ class SavedAddressShortcuts extends ConsumerWidget {
                 },
               ),
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.lg),
           ],
         );
       },
@@ -85,8 +105,28 @@ class _AddressChip extends StatelessWidget {
         if (value == 'delivery') onDelivery();
       },
       itemBuilder: (context) => const [
-        PopupMenuItem(value: 'pickup', child: Text('Dùng làm điểm lấy')),
-        PopupMenuItem(value: 'delivery', child: Text('Dùng làm điểm giao')),
+        PopupMenuItem(
+          value: 'pickup',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+              Icons.radio_button_checked_rounded,
+              color: AppColors.markerPickup,
+            ),
+            title: Text('Dùng làm điểm lấy'),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'delivery',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(
+              Icons.location_on_rounded,
+              color: AppColors.markerDrop,
+            ),
+            title: Text('Dùng làm điểm giao'),
+          ),
+        ),
       ],
       child: Container(
         padding: const EdgeInsets.symmetric(
@@ -95,8 +135,9 @@ class _AddressChip extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: AppColors.bgCard,
-          borderRadius: AppRadius.full,
+          borderRadius: AppRadius.md,
           border: Border.all(color: AppColors.border),
+          boxShadow: AppShadow.subtle,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -105,10 +146,10 @@ class _AddressChip extends StatelessWidget {
               address.isDefaultPickup
                   ? Icons.home_rounded
                   : address.isDefaultDelivery
-                      ? Icons.work_outline_rounded
-                      : Icons.bookmark_outline_rounded,
+                  ? Icons.work_outline_rounded
+                  : Icons.bookmark_outline_rounded,
               size: 16,
-              color: AppColors.info,
+              color: AppColors.accent,
             ),
             const SizedBox(width: 6),
             Text(

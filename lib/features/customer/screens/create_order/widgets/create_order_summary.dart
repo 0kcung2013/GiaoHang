@@ -78,7 +78,6 @@ class OrderConfirmationSummary extends StatelessWidget {
     required this.deliveryAddress,
     required this.recipientName,
     required this.recipientPhone,
-    required this.serviceType,
     required this.paymentMethod,
     required this.note,
     required this.itemName,
@@ -92,7 +91,6 @@ class OrderConfirmationSummary extends StatelessWidget {
   final String deliveryAddress;
   final String recipientName;
   final String recipientPhone;
-  final String serviceType;
   final String paymentMethod;
   final String note;
   final String itemName;
@@ -121,11 +119,6 @@ class OrderConfirmationSummary extends StatelessWidget {
           value: recipientPhone.trim().isEmpty
               ? _valueOrPlaceholder(recipientName, 'Chưa nhập người nhận')
               : '${_valueOrPlaceholder(recipientName, 'Chưa nhập người nhận')} · $recipientPhone',
-        ),
-        _SummaryRow(
-          icon: Icons.local_shipping_rounded,
-          label: 'Dịch vụ',
-          value: serviceTypeLabel(serviceType),
         ),
         _SummaryRow(
           icon: Icons.inventory_2_rounded,
