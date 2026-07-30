@@ -6,6 +6,7 @@ import '../models/order_model.dart';
 import '../models/order_status_log_model.dart';
 import '../models/user_model.dart';
 import '../utils/order_display_utils.dart';
+import 'customer_order_command_service.dart';
 import 'driver_order_service.dart';
 import 'nearest_driver_service.dart';
 import 'notification_service.dart';
@@ -20,7 +21,10 @@ class CustomerOrderService {
     OrderAssignmentService? orderAssignmentService,
     DriverOrderService? driverOrderService,
     RealtimeService? realtimeService,
+    CustomerOrderCommandService? commandService,
   }) : _supabase = client ?? Supabase.instance.client,
+       _commandService =
+           commandService ?? CustomerOrderCommandService(client: client),
        _nearestDriverService =
            nearestDriverService ?? NearestDriverService(client: client),
        _notificationService =
@@ -43,6 +47,7 @@ class CustomerOrderService {
        _realtimeService = realtimeService ?? RealtimeService(client: client);
 
   final SupabaseClient _supabase;
+  final CustomerOrderCommandService _commandService;
   final NearestDriverService _nearestDriverService;
   final NotificationService _notificationService;
   final OrderAssignmentService _orderAssignmentService;
@@ -59,32 +64,12 @@ class CustomerOrderService {
   static const String _statusAssigned = 'assigned';
   static const String _statusPickingUp = 'picking_up';
   static const String _statusDelivering = 'delivering';
-  static const String _statusCancelled = 'cancelled';
-  static const String _serviceStandard = 'standard';
-  static const String _serviceExpress = 'express';
-  static const String _serviceFragile = 'fragile';
-  static const String _serviceDocument = 'document';
-
-  static const Set<String> _allowedServiceTypes = {
-    _serviceStandard,
-    _serviceExpress,
-    _serviceFragile,
-    _serviceDocument,
-  };
-
   static const List<String> _activeStatuses = [
     _statusPending,
     _statusConfirmed,
     _statusAssigned,
     _statusPickingUp,
     _statusDelivering,
-  ];
-
-  static const List<String> _cancellableStatuses = [
-    _statusPending,
-    _statusConfirmed,
-    _statusAssigned, // Cho phép hủy kèm cảnh báo (tài xế đang di chuyển đến)
-    _statusPickingUp, // Cho phép hủy kèm cảnh báo mạnh (tài xế đang ở điểm lấy hàng)
   ];
 
   Future<List<OrderModel>> getCustomerOrders(String customerId) async {
@@ -283,44 +268,8 @@ class CustomerOrderService {
     OrderModel order,
   ) async {
     try {
-      final payload = _createOrderPayload(order);
-      final response = await _supabase
-          .from(_ordersTable)
-          .insert(payload)
-          .select('id, tracking_code')
-          .single();
-
-      final orderId = response['id']?.toString();
-      if (orderId == null || orderId.isEmpty) {
-        throw Exception('Created order did not return an id.');
-      }
-      final tracking = response['tracking_code']?.toString() ?? '';
-
-      await _createOrderStatusLog(
-        orderId: orderId,
-        status: _statusPending,
-        title: 'Đã tạo đơn',
-        description: 'Đơn hàng đã được ghi nhận và đang chờ tài xế nhận.',
-      );
-
-      final itemName = order.itemName?.trim();
-      if (itemName != null && itemName.isNotEmpty) {
-        try {
-          await createOrderItems(orderId, [
-            OrderItemModel(
-              id: '',
-              orderId: orderId,
-              name: itemName,
-              quantity: 1,
-              price: order.deliveryFee,
-            ),
-          ]);
-        } catch (_) {
-          // Không chặn tạo đơn nếu order_items fail
-        }
-      }
-
-      return (orderId: orderId, trackingCode: tracking);
+      final created = await _commandService.createOrder(order);
+      return (orderId: created.orderId, trackingCode: created.trackingCode);
     } catch (error) {
       throw Exception('Failed to create customer order: $error');
     }
@@ -374,78 +323,24 @@ class CustomerOrderService {
     }
   }
 
-  Future<void> _createOrderStatusLog({
-    required String orderId,
-    required String status,
-    required String title,
-    required String description,
-  }) async {
-    try {
-      await _supabase.from(_orderStatusLogsTable).insert({
-        'order_id': orderId,
-        'status': status,
-        'title': title,
-        'description': description,
-      });
-    } catch (_) {
-      // Status logs are useful for tracking, but accepting the order is the
-      // critical operation. Do not fail the assignment if logs are restricted.
-    }
-  }
-
   Future<void> cancelOrder(
     String orderId,
     String customerId, {
     String? statusNote,
   }) async {
     try {
-      final order = await _supabase
-          .from(_ordersTable)
-          .select('id,status,driver_id,tracking_code')
-          .eq('id', orderId)
-          .eq('customer_id', customerId)
-          .maybeSingle();
-
-      if (order == null) {
-        throw Exception('Order not found for this customer.');
-      }
-
-      final status = order['status']?.toString();
-      if (!_cancellableStatuses.contains(status)) {
-        throw Exception('Only pending or confirmed orders can be cancelled.');
-      }
-
-      final tracking = order['tracking_code']?.toString() ?? '';
-      final code = tracking.isNotEmpty
-          ? (tracking.startsWith('GH-') ? tracking : 'GH-$tracking')
-          : 'GH-${orderId.length >= 8 ? orderId.substring(0, 8).toUpperCase() : orderId}';
-
-      final updatedOrder = await _supabase
-          .from(_ordersTable)
-          .update({
-            'status': _statusCancelled,
-            'status_note': statusNote,
-            'cancelled_at': DateTime.now().toIso8601String(),
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', orderId)
-          .eq('customer_id', customerId)
-          .inFilter('status', _cancellableStatuses)
-          .select('id,status,driver_id,tracking_code')
-          .maybeSingle();
-
-      if (updatedOrder == null ||
-          updatedOrder['status']?.toString() != _statusCancelled) {
-        throw Exception('No cancellable order was updated.');
-      }
-
-      final updatedDriverId = updatedOrder['driver_id']?.toString();
-      final updatedTracking = updatedOrder['tracking_code']?.toString() ?? '';
+      final cancelled = await _commandService.cancelOrder(
+        orderId: orderId,
+        customerId: customerId,
+        statusNote: statusNote,
+      );
+      final updatedDriverId = cancelled.driverId;
+      final updatedTracking = cancelled.trackingCode;
       final updatedCode = updatedTracking.isNotEmpty
           ? (updatedTracking.startsWith('GH-')
                 ? updatedTracking
                 : 'GH-$updatedTracking')
-          : code;
+          : 'GH-${orderId.length >= 8 ? orderId.substring(0, 8).toUpperCase() : orderId}';
 
       if (updatedDriverId != null && updatedDriverId.isNotEmpty) {
         try {
@@ -460,45 +355,24 @@ class CustomerOrderService {
         }
       }
 
-      await _realtimeService.broadcastOrderCancelled(
-        DriverOrderCancellationEvent(
-          eventId:
-              'order_cancelled:$orderId:'
-              '${DateTime.now().microsecondsSinceEpoch}',
-          orderId: orderId,
-          driverId: updatedDriverId,
-          orderCode: updatedCode,
-        ),
-      );
+      try {
+        await _realtimeService.broadcastOrderCancelled(
+          DriverOrderCancellationEvent(
+            eventId:
+                'order_cancelled:$orderId:'
+                '${DateTime.now().microsecondsSinceEpoch}',
+            orderId: orderId,
+            driverId: updatedDriverId,
+            orderCode: updatedCode,
+          ),
+        );
+      } catch (_) {
+        // The database command is committed. Realtime is best-effort and must
+        // not make the UI report the cancellation itself as failed.
+      }
     } catch (error) {
       throw Exception('Failed to cancel customer order: $error');
     }
-  }
-
-  Map<String, dynamic> _createOrderPayload(OrderModel order) {
-    final payload = Map<String, dynamic>.from(order.toJson());
-
-    _removeEmptyGeneratedId(payload);
-    if ((payload['tracking_code'] as String?)?.isEmpty ?? true) {
-      payload.remove('tracking_code');
-    }
-    if (payload['assignment_expires_at'] == null) {
-      payload.remove('assignment_expires_at');
-    }
-    if (payload['assignment_timed_out_at'] == null) {
-      payload.remove('assignment_timed_out_at');
-    }
-    payload['service_type'] = _normalizeServiceType(
-      payload['service_type']?.toString(),
-    );
-
-    return payload;
-  }
-
-  String _normalizeServiceType(String? value) {
-    if (value == 'bulky') return _serviceFragile;
-    if (value != null && _allowedServiceTypes.contains(value)) return value;
-    return _serviceStandard;
   }
 
   void _removeEmptyGeneratedId(Map<String, dynamic> json) {

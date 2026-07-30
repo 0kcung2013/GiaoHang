@@ -15,8 +15,8 @@ void main() {
     () async {
       final client = _cancellationClient(
         updatedOrder: {
-          'id': 'order-1',
-          'status': 'cancelled',
+          'order_id': 'order-1',
+          'new_status': 'cancelled',
           'driver_id': 'driver-1',
           'tracking_code': '10001',
         },
@@ -63,25 +63,10 @@ SupabaseClient _cancellationClient({
   required Map<String, dynamic>? updatedOrder,
 }) {
   final httpClient = MockClient((request) async {
-    if (request.method == 'GET' && request.url.path.endsWith('/orders')) {
+    if (request.method == 'POST' &&
+        request.url.path.endsWith('/rpc/cancel_customer_order')) {
       return http.Response(
-        jsonEncode([
-          {
-            'id': 'order-1',
-            'status': 'assigned',
-            'driver_id': 'driver-1',
-            'tracking_code': '10001',
-          },
-        ]),
-        200,
-        headers: {'content-type': 'application/json'},
-        request: request,
-      );
-    }
-
-    if (request.method == 'PATCH' && request.url.path.endsWith('/orders')) {
-      return http.Response(
-        updatedOrder == null ? '' : jsonEncode(updatedOrder),
+        jsonEncode(updatedOrder == null ? [] : [updatedOrder]),
         200,
         headers: {'content-type': 'application/json'},
         request: request,
