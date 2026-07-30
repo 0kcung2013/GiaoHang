@@ -16,6 +16,7 @@ import '../../../../core/utils/order_cargo_utils.dart';
 import 'utils/order_form_data.dart';
 import 'utils/sender_contact_loader.dart';
 import 'utils/vietnam_phone_input.dart';
+import 'widgets/create_order_app_bar.dart';
 import 'widgets/create_order_body.dart';
 import 'widgets/fee_loading_dialog.dart';
 import 'widgets/map_picker_sheet.dart';
@@ -223,6 +224,8 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         distanceMeters: estimate.distanceMeters,
         durationSeconds: estimate.durationSeconds,
         distanceSource: estimate.source,
+        feeBreakdown: estimate.feeBreakdown,
+        deliveryEta: estimate.eta,
       );
 
       if (!mounted) return;
@@ -307,24 +310,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bgLight,
-      appBar: AppBar(
-        centerTitle: false,
-        titleSpacing: 0,
-        leadingWidth: 56,
-        title: Text(
-          'Tạo đơn giao hàng',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: AppTextStyles.headingMedium.copyWith(
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        backgroundColor: AppColors.bgLight,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
-      ),
+      appBar: const CreateOrderAppBar(),
       bottomNavigationBar: SubmitOrderButton(
         label: 'Xem giá và tiếp tục',
         onPressed: _goToConfirmation,

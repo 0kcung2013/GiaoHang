@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/driver_model.dart';
+import '../models/driver_order_cancellation_event.dart';
+import '../models/delivery_proof_model.dart';
 import '../models/notification_model.dart';
 import '../models/order_item_model.dart';
 import '../models/order_model.dart';
@@ -12,6 +14,7 @@ import '../models/user_model.dart';
 import '../location/location_ingest_service.dart';
 import '../services/customer_order_service.dart';
 import '../services/cargo_image_service.dart';
+import '../services/delivery_proof_service.dart';
 import '../services/driver_service.dart';
 import '../services/notification_service.dart';
 import '../services/realtime_service.dart';
@@ -28,12 +31,25 @@ final locationIngestServiceProvider = Provider<LocationIngestService>((ref) {
 });
 
 final customerOrderServiceProvider = Provider<CustomerOrderService>((ref) {
-  return CustomerOrderService();
+  return CustomerOrderService(
+    realtimeService: ref.watch(realtimeServiceProvider),
+  );
 });
 
 final cargoImageServiceProvider = Provider<CargoImageService>((ref) {
   return CargoImageService();
 });
+
+final deliveryProofServiceProvider = Provider<DeliveryProofService>((ref) {
+  return DeliveryProofService();
+});
+
+final orderDeliveryProofsProvider = FutureProvider.autoDispose
+    .family<List<DeliveryProofImageModel>, String>((ref, orderId) {
+      return ref
+          .watch(deliveryProofServiceProvider)
+          .getProofsForOrder(orderId: orderId);
+    });
 
 final savedAddressServiceProvider = Provider<SavedAddressService>((ref) {
   return SavedAddressService();
@@ -48,8 +64,10 @@ final reviewServiceProvider = Provider<ReviewService>((ref) {
 });
 
 /// Review khách → tài xế theo orderId (null = chưa đánh giá).
-final orderReviewProvider =
-    FutureProvider.family<ReviewModel?, String>((ref, orderId) async {
+final orderReviewProvider = FutureProvider.family<ReviewModel?, String>((
+  ref,
+  orderId,
+) async {
   final service = ref.watch(reviewServiceProvider);
   return service.getReviewByOrderId(
     orderId,
@@ -60,12 +78,12 @@ final orderReviewProvider =
 /// Review tài xế → khách theo orderId.
 final driverCustomerReviewProvider =
     FutureProvider.family<ReviewModel?, String>((ref, orderId) async {
-  final service = ref.watch(reviewServiceProvider);
-  return service.getReviewByOrderId(
-    orderId,
-    direction: ReviewDirection.driverToCustomer,
-  );
-});
+      final service = ref.watch(reviewServiceProvider);
+      return service.getReviewByOrderId(
+        orderId,
+        direction: ReviewDirection.driverToCustomer,
+      );
+    });
 
 final driverServiceProvider = Provider<DriverService>((ref) {
   return DriverService(
@@ -74,7 +92,9 @@ final driverServiceProvider = Provider<DriverService>((ref) {
 });
 
 final realtimeServiceProvider = Provider<RealtimeService>((ref) {
-  return RealtimeService();
+  final service = RealtimeService();
+  ref.onDispose(service.dispose);
+  return service;
 });
 
 final customerOrdersProvider = FutureProvider.family<List<OrderModel>, String>((
@@ -109,13 +129,12 @@ final activeOrderProvider = FutureProvider.family<OrderModel?, String>((
   return service.getActiveOrder(customerId);
 });
 
-final availableOrdersProvider = StreamProvider.family<List<OrderModel>, String>((
-  ref,
-  driverUserId,
-) {
-  final service = ref.watch(customerOrderServiceProvider);
-  return service.watchAvailableOrders(driverId: driverUserId);
-});
+final availableOrdersProvider = StreamProvider.family<List<OrderModel>, String>(
+  (ref, driverUserId) {
+    final service = ref.watch(customerOrderServiceProvider);
+    return service.watchAvailableOrders(driverId: driverUserId);
+  },
+);
 
 final driverOrdersProvider = StreamProvider.family<List<OrderModel>, String>((
   ref,
@@ -247,6 +266,7 @@ final trackedOrderRealtimeProvider =
         ref.invalidate(orderByTrackingCodeProvider(request.trackingCode));
         ref.invalidate(orderStatusLogsProvider(request.orderId));
         ref.invalidate(assignedDriverProvider(request.orderId));
+        ref.invalidate(orderDeliveryProofsProvider(request.orderId));
         debugPrint(
           '[TrackingRealtime] providers invalidated after orders event',
         );
@@ -259,6 +279,7 @@ final trackedOrderRealtimeProvider =
         );
         ref.invalidate(orderStatusLogsProvider(request.orderId));
         ref.invalidate(orderByTrackingCodeProvider(request.trackingCode));
+        ref.invalidate(orderDeliveryProofsProvider(request.orderId));
         debugPrint(
           '[TrackingRealtime] providers invalidated after order_status_logs event',
         );
@@ -276,58 +297,39 @@ final trackedOrderRealtimeProvider =
       });
     });
 
-/// Realtime subscription for cancelled-order dialog on Driver screen.
-/// Also refreshes order list providers so the driver sees the update.
+/// Latest relevant cancellation for driver UI consumers.
+final driverOrderCancellationEventProvider =
+    StateProvider<DriverOrderCancellationEvent?>((ref) => null);
+
+/// Shared cancellation broadcast subscription for the authenticated driver.
 final driverCancelledOrderRealtimeProvider =
     FutureProvider.family<void, String>((ref, driverId) async {
-  final realtimeService = ref.watch(realtimeServiceProvider);
+      final realtimeService = ref.watch(realtimeServiceProvider);
+      String? lastReceivedEventId;
 
-  realtimeService.subscribeToCancelledOrdersForDriver(
-    driverId,
-    () async {
-      await Future.delayed(const Duration(milliseconds: 800));
-      // ignore: unused_result
-      ref.refresh(availableOrdersProvider(driverId));
-      // ignore: unused_result
-      ref.refresh(driverOrdersProvider(driverId));
-    },
-    onOrderCancelled: (orderId) {
-      ref.read(latestCancelledOrderIdProvider.notifier).state = orderId;
-    },
-  );
+      realtimeService.subscribeToDriverOrderCancellations((event) {
+        if (event.eventId == lastReceivedEventId) return;
+        lastReceivedEventId = event.eventId;
 
-  ref.onDispose(() async {
-    await realtimeService.unsubscribe('driver_cancelled_orders:$driverId');
-  });
-});
+        final availableOrders =
+            ref.read(availableOrdersProvider(driverId)).valueOrNull ??
+            const <OrderModel>[];
+        final isRelevant = event.isRelevantTo(
+          driverUserId: driverId,
+          availableOrderIds: {for (final order in availableOrders) order.id},
+        );
 
-/// Realtime subscription that refreshes driver order lists on any order change.
-final driverOrdersRealtimeProvider =
-    FutureProvider.family<void, String>((ref, driverId) async {
-  final realtimeService = ref.watch(realtimeServiceProvider);
+        ref.invalidate(availableOrdersProvider(driverId));
+        ref.invalidate(driverOrdersProvider(driverId));
 
-  realtimeService.subscribeToAllOrdersChanges((payload) async {
-    final orderDriverId = payload.newRecord?['driver_id']?.toString();
-    final status = payload.newRecord?['status']?.toString();
+        if (isRelevant) {
+          ref.read(driverOrderCancellationEventProvider.notifier).state = event;
+        }
+      });
 
-    // If order was cancelled and was assigned to this driver, skip immediate refresh
-    // so the alert dialog has time to pop up and stay visible.
-    if (orderDriverId == driverId && status == 'cancelled') {
-      debugPrint('[driverOrdersRealtimeProvider] Order cancelled belongs to current driver. Dismiss dialog will handle refresh. Skipping auto-refresh.');
-      return;
-    }
-
-    await Future.delayed(const Duration(milliseconds: 800));
-    // ignore: unused_result
-    ref.refresh(availableOrdersProvider(driverId));
-    // ignore: unused_result
-    ref.refresh(driverOrdersProvider(driverId));
-  });
-
-  ref.onDispose(() async {
-    await realtimeService.unsubscribe('driver_all_orders_watch');
-  });
-});
-
-/// Tracks the latest cancelled order ID — reset after dialog is shown.
-final latestCancelledOrderIdProvider = StateProvider<String?>((ref) => null);
+      ref.onDispose(() async {
+        await realtimeService.unsubscribe(
+          RealtimeService.driverOrderEventsChannel,
+        );
+      });
+    });

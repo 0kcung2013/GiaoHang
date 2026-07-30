@@ -3,131 +3,127 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../location/location_ingest_config.dart';
 import '../models/order_model.dart';
-import '../utils/geo_utils.dart';
 
-/// Phân công / lọc đơn theo tài xế gần điểm lấy hàng nhất.
+typedef AssignableDriverLoader =
+    Future<List<AssignableDriverPoint>> Function({
+      required double nearLat,
+      required double nearLng,
+    });
+
+/// Tìm tài xế có thể nhận đơn từ nguồn server-authoritative.
+///
+/// PostgreSQL/Redis chịu trách nhiệm loại tài xế offline, chưa duyệt, đang bận
+/// hoặc có vị trí quá cũ. Flutter chỉ áp dụng `rejected_by` theo từng đơn.
 class NearestDriverService {
-  NearestDriverService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+  NearestDriverService({
+    SupabaseClient? client,
+    AssignableDriverLoader? assignableDriverLoader,
+  }) : _supabase = client ?? Supabase.instance.client,
+       _assignableDriverLoader = assignableDriverLoader;
 
   final SupabaseClient _supabase;
+  final AssignableDriverLoader? _assignableDriverLoader;
 
-  /// Bán kính tìm tài xế gần nhất (mét). Demo DATN: 15km.
   static const double radiusMeters = 15000;
-
+  static const int _maxCandidates = 50;
   static const String _ordersTable = 'orders';
-  static const String _driversTable = 'drivers';
   static const String _orderStatusLogsTable = 'order_status_logs';
-  static const String _statusPending = 'pending';
-  static const String _statusConfirmed = 'confirmed';
-  static const String _statusAssigned = 'assigned';
 
-  /// Gán đơn cho tài xế gần điểm lấy hàng nhất.
-  /// Ưu tiên RPC SECURITY DEFINER; fallback client-side nếu RPC chưa deploy.
   Future<String?> assignNearestDriver({
     required String orderId,
     required double pickupLat,
     required double pickupLng,
     double radiusMeters = NearestDriverService.radiusMeters,
   }) async {
-    if (orderId.trim().isEmpty) return null;
-    if (pickupLat == 0 && pickupLng == 0) return null;
+    if (orderId.trim().isEmpty || (pickupLat == 0 && pickupLng == 0)) {
+      return null;
+    }
 
     try {
       final rpcResult = await _supabase.rpc(
         'assign_order_to_nearest_driver',
-        params: {
-          'p_order_id': orderId,
-          'p_radius_meters': radiusMeters,
-        },
+        params: {'p_order_id': orderId, 'p_radius_meters': radiusMeters},
       );
       final assigned = rpcResult?.toString();
       if (assigned != null && assigned.isNotEmpty && assigned != 'null') {
         _log('assign:rpc ok order=$orderId driver=$assigned');
         return assigned;
       }
-      _log('assign:rpc empty order=$orderId');
+      return null;
     } catch (error) {
       _log('assign:rpc failed, fallback client: $error');
+      return _assignNearestDriverClient(
+        orderId: orderId,
+        pickupLat: pickupLat,
+        pickupLng: pickupLng,
+        radiusMeters: radiusMeters,
+      );
     }
-
-    return _assignNearestDriverClient(
-      orderId: orderId,
-      pickupLat: pickupLat,
-      pickupLng: pickupLng,
-      radiusMeters: radiusMeters,
-    );
   }
 
-  /// Chỉ giữ các đơn mà [driverUserId] là tài xế gần pickup nhất
-  /// trong số tài xế available + có tọa độ + chưa reject đơn đó.
+  /// Chỉ giữ đơn mà tài xế hiện tại là ứng viên hợp lệ gần nhất.
   Future<List<OrderModel>> filterOrdersForNearestDriver(
     List<OrderModel> orders,
     String driverUserId,
   ) async {
-    if (orders.isEmpty) return orders;
+    if (orders.isEmpty || driverUserId.isEmpty) return const [];
 
-    // Pool nhiều đơn / nhiều pickup → đọc PG (latest đã throttle).
-    // Redis GEO dùng khi biết 1 tâm (tạo đơn / assign).
-    final candidates = await loadAssignableDrivers();
-    if (candidates.isEmpty) {
-      _log('nearest-filter: no drivers with location; hide all pool orders');
-      return const [];
-    }
+    final allocations = await allocateOrderOffers(orders);
+    return orders
+        .where((order) => allocations[order.id] == driverUserId)
+        .toList();
+  }
 
-    final kept = <OrderModel>[];
-    for (final order in orders) {
+  /// Phân phối lời mời theo nguyên tắc một tài xế chỉ giữ một đơn đang chờ.
+  ///
+  /// Đơn cũ được ưu tiên trước để kết quả ổn định giữa các thiết bị, kể cả khi
+  /// stream trả danh sách mới nhất trước.
+  Future<Map<String, String>> allocateOrderOffers(
+    List<OrderModel> orders,
+  ) async {
+    if (orders.isEmpty) return const {};
+
+    final ordered = [...orders]
+      ..sort((left, right) {
+        final byCreatedAt = left.createdAt.compareTo(right.createdAt);
+        return byCreatedAt != 0 ? byCreatedAt : left.id.compareTo(right.id);
+      });
+    final reservedDriverIds = <String>{};
+    final allocations = <String, String>{};
+
+    for (final order in ordered) {
+      if (order.pickupLat == 0 && order.pickupLng == 0) continue;
+      final candidates = await loadAssignableDrivers(
+        nearLat: order.pickupLat,
+        nearLng: order.pickupLng,
+      );
       final eligible = candidates
-          .where((d) => !order.rejectedBy.contains(d.userId))
+          .where(
+            (driver) =>
+                !order.rejectedBy.contains(driver.userId) &&
+                !reservedDriverIds.contains(driver.userId),
+          )
           .toList();
       if (eligible.isEmpty) continue;
 
-      eligible.sort((a, b) {
-        final da = GeoUtils.distanceMeters(
-          fromLat: a.lat,
-          fromLng: a.lng,
-          toLat: order.pickupLat,
-          toLng: order.pickupLng,
+      eligible.sort((left, right) {
+        final byDistance = (left.distanceMeters ?? double.infinity).compareTo(
+          right.distanceMeters ?? double.infinity,
         );
-        final db = GeoUtils.distanceMeters(
-          fromLat: b.lat,
-          fromLng: b.lng,
-          toLat: order.pickupLat,
-          toLng: order.pickupLng,
-        );
-        return da.compareTo(db);
+        return byDistance != 0
+            ? byDistance
+            : left.userId.compareTo(right.userId);
       });
 
-      final nearest = eligible.first;
-      final dist = GeoUtils.distanceMeters(
-        fromLat: nearest.lat,
-        fromLng: nearest.lng,
-        toLat: order.pickupLat,
-        toLng: order.pickupLng,
-      );
-
-      if (dist > radiusMeters) {
-        _log(
-          'nearest-filter: order=${order.id} nearest too far '
-          '(${dist.toStringAsFixed(0)}m > $radiusMeters)',
-        );
-        continue;
-      }
-
-      if (nearest.userId == driverUserId) {
-        kept.add(order);
-      } else {
-        _log(
-          'nearest-filter: order=${order.id} offered to ${nearest.userId} '
-          '(${dist.toStringAsFixed(0)}m), skip $driverUserId',
-        );
-      }
+      final selected = eligible.first;
+      reservedDriverIds.add(selected.userId);
+      allocations[order.id] = selected.userId;
+      _log('offer: order=${order.id} driver=${selected.userId}');
     }
 
-    return kept;
+    return allocations;
   }
 
-  /// Tài xế gần pickup nhất sau khi loại [excludingUserId] (và rejected_by).
   Future<String?> findNextNearestDriverUserId({
     required OrderModel order,
     required String excludingUserId,
@@ -136,125 +132,117 @@ class NearestDriverService {
       nearLat: order.pickupLat,
       nearLng: order.pickupLng,
     );
-    final eligible = candidates
-        .where((d) => d.userId != excludingUserId)
-        .where((d) => !order.rejectedBy.contains(d.userId))
-        .toList();
-    if (eligible.isEmpty) return null;
-
-    eligible.sort((a, b) {
-      final da = GeoUtils.distanceMeters(
-        fromLat: a.lat,
-        fromLng: a.lng,
-        toLat: order.pickupLat,
-        toLng: order.pickupLng,
-      );
-      final db = GeoUtils.distanceMeters(
-        fromLat: b.lat,
-        fromLng: b.lng,
-        toLat: order.pickupLat,
-        toLng: order.pickupLng,
-      );
-      return da.compareTo(db);
-    });
-
-    final next = eligible.first;
-    final dist = GeoUtils.distanceMeters(
-      fromLat: next.lat,
-      fromLng: next.lng,
-      toLat: order.pickupLat,
-      toLng: order.pickupLng,
-    );
-    if (dist > radiusMeters) return null;
-    return next.userId;
+    for (final candidate in candidates) {
+      if (candidate.userId == excludingUserId) continue;
+      if (order.rejectedBy.contains(candidate.userId)) continue;
+      return candidate.userId;
+    }
+    return null;
   }
 
-  /// Ứng viên assignable. Nếu có [nearLat]/[nearLng] → thử Redis GEO trước.
+  /// Redis là hot path; RPC Postgres là source-of-truth fallback.
   Future<List<AssignableDriverPoint>> loadAssignableDrivers({
     double? nearLat,
     double? nearLng,
   }) async {
-    if (nearLat != null && nearLng != null) {
-      final fromRedis = await _loadAssignableDriversFromRedis(
-        aroundLat: nearLat,
-        aroundLng: nearLng,
-      );
-      if (fromRedis != null) {
-        return fromRedis;
-      }
+    if (nearLat == null || nearLng == null) return const [];
+
+    final injectedLoader = _assignableDriverLoader;
+    if (injectedLoader != null) {
+      return injectedLoader(nearLat: nearLat, nearLng: nearLng);
     }
 
-    return _loadAssignableDriversFromPostgres();
+    final fromRedis = await _loadAssignableDriversFromRedis(
+      aroundLat: nearLat,
+      aroundLng: nearLng,
+    );
+    if (fromRedis != null) return fromRedis;
+
+    final fromRpc = await _loadAssignableDriversFromRpc(
+      aroundLat: nearLat,
+      aroundLng: nearLng,
+    );
+    return fromRpc ?? const [];
   }
 
-  Future<List<AssignableDriverPoint>> _loadAssignableDriversFromPostgres() async {
+  Future<List<AssignableDriverPoint>?> _loadAssignableDriversFromRpc({
+    required double aroundLat,
+    required double aroundLng,
+  }) async {
     try {
-      final response = await _supabase
-          .from(_driversTable)
-          .select(
-            'user_id, current_lat, current_lng, is_available, approval_status',
-          )
-          .eq('is_available', true)
-          .eq('approval_status', 'approved');
-
-      final drivers = <AssignableDriverPoint>[];
-      for (final row in response as List<dynamic>) {
-        final map = Map<String, dynamic>.from(row as Map);
-        final userId = map['user_id']?.toString();
-        final lat = _parseDouble(map['current_lat']);
-        final lng = _parseDouble(map['current_lng']);
-        if (userId == null || userId.isEmpty) continue;
-        if (lat == null || lng == null) continue;
-        drivers.add(AssignableDriverPoint(userId: userId, lat: lat, lng: lng));
-      }
-      return drivers;
+      final response = await _supabase.rpc(
+        'find_nearest_drivers',
+        params: {
+          'pickup_lat': aroundLat,
+          'pickup_lng': aroundLng,
+          'radius_meters': radiusMeters,
+          'max_results': _maxCandidates,
+        },
+      );
+      final rows = response as List<dynamic>? ?? const [];
+      return rows
+          .whereType<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .map(_candidateFromMap)
+          .whereType<AssignableDriverPoint>()
+          .toList();
     } catch (error) {
-      _log('load-drivers:error $error');
-      return const [];
+      _log('load-drivers:rpc failed $error');
+      return null;
     }
   }
 
-  /// null = Redis/Edge không dùng được.
+  /// null = Edge/Redis không dùng được; [] = dùng được nhưng không có ứng viên.
   Future<List<AssignableDriverPoint>?> _loadAssignableDriversFromRedis({
     required double aroundLat,
     required double aroundLng,
   }) async {
     if (!LocationIngestConfig.useEdgeIngest) return null;
     try {
-      final res = await _supabase.functions.invoke(
+      final response = await _supabase.functions.invoke(
         LocationIngestConfig.nearestFunctionName,
         body: {
           'pickup_lat': aroundLat,
           'pickup_lng': aroundLng,
           'radius_meters': LocationIngestConfig.geoRadiusMeters,
-          'max_results': 50,
+          'max_results': _maxCandidates,
         },
       );
-      if (res.status < 200 || res.status >= 300) return null;
-      final data = res.data;
-      final list = data is Map && data['drivers'] is List
+      if (response.status < 200 || response.status >= 300) return null;
+
+      final data = response.data;
+      final rawDrivers = data is Map && data['drivers'] is List
           ? data['drivers'] as List
           : (data is List ? data : null);
-      if (list == null) return null;
+      if (rawDrivers == null) return null;
 
-      final drivers = <AssignableDriverPoint>[];
-      for (final raw in list) {
-        if (raw is! Map) continue;
-        final map = Map<String, dynamic>.from(raw);
-        final userId = map['user_id']?.toString();
-        final lat = _parseDouble(map['lat'] ?? map['current_lat']);
-        final lng = _parseDouble(map['lng'] ?? map['current_lng']);
-        if (userId == null || userId.isEmpty || lat == null || lng == null) {
-          continue;
-        }
-        drivers.add(AssignableDriverPoint(userId: userId, lat: lat, lng: lng));
-      }
+      final drivers = rawDrivers
+          .whereType<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .map(_candidateFromMap)
+          .whereType<AssignableDriverPoint>()
+          .toList();
       _log('load-drivers:redis count=${drivers.length}');
       return drivers;
-    } catch (e) {
-      _log('load-drivers:redis skip $e');
+    } catch (error) {
+      _log('load-drivers:redis skip $error');
       return null;
     }
+  }
+
+  AssignableDriverPoint? _candidateFromMap(Map<String, dynamic> map) {
+    final userId = map['user_id']?.toString();
+    final lat = _parseDouble(map['lat'] ?? map['current_lat']);
+    final lng = _parseDouble(map['lng'] ?? map['current_lng']);
+    if (userId == null || userId.isEmpty || lat == null || lng == null) {
+      return null;
+    }
+    return AssignableDriverPoint(
+      userId: userId,
+      lat: lat,
+      lng: lng,
+      distanceMeters: _parseDouble(map['distance_meters']),
+    );
   }
 
   Future<String?> _assignNearestDriverClient({
@@ -264,95 +252,37 @@ class NearestDriverService {
     required double radiusMeters,
   }) async {
     try {
-      String? nearestUserId;
-      try {
-        final data = await _supabase.rpc(
-          'find_nearest_drivers',
-          params: {
-            'pickup_lat': pickupLat,
-            'pickup_lng': pickupLng,
-            'radius_meters': radiusMeters,
-            'max_results': 1,
-          },
-        );
-        final list = data as List<dynamic>? ?? const [];
-        if (list.isNotEmpty) {
-          nearestUserId = (list.first as Map)['user_id']?.toString();
-        }
-      } catch (_) {
-        final candidates = await loadAssignableDrivers(
-          nearLat: pickupLat,
-          nearLng: pickupLng,
-        );
-        if (candidates.isEmpty) return null;
-        candidates.sort((a, b) {
-          final da = GeoUtils.distanceMeters(
-            fromLat: a.lat,
-            fromLng: a.lng,
-            toLat: pickupLat,
-            toLng: pickupLng,
-          );
-          final db = GeoUtils.distanceMeters(
-            fromLat: b.lat,
-            fromLng: b.lng,
-            toLat: pickupLat,
-            toLng: pickupLng,
-          );
-          return da.compareTo(db);
-        });
-        final nearest = candidates.first;
-        final dist = GeoUtils.distanceMeters(
-          fromLat: nearest.lat,
-          fromLng: nearest.lng,
-          toLat: pickupLat,
-          toLng: pickupLng,
-        );
-        if (dist <= radiusMeters) {
-          nearestUserId = nearest.userId;
-        }
-      }
+      final candidates = await loadAssignableDrivers(
+        nearLat: pickupLat,
+        nearLng: pickupLng,
+      );
+      if (candidates.isEmpty) return null;
+      final nearestUserId = candidates.first.userId;
 
-      if (nearestUserId == null || nearestUserId.isEmpty) {
-        _log('assign:client no nearest driver for $orderId');
-        return null;
-      }
-
-      final updatedAt = DateTime.now().toIso8601String();
       final response = await _supabase
           .from(_ordersTable)
           .update({
             'driver_id': nearestUserId,
-            'status': _statusAssigned,
-            'updated_at': updatedAt,
+            'status': 'assigned',
+            'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', orderId)
-          .inFilter('status', [_statusPending, _statusConfirmed])
+          .inFilter('status', ['pending', 'confirmed'])
           .isFilter('driver_id', null)
           .select('id')
           .maybeSingle();
-
-      if (response == null) {
-        // RLS có thể chặn customer gán status=assigned — pool filter vẫn bảo vệ.
-        _log(
-          'assign:client update blocked/empty order=$orderId '
-          'nearest=$nearestUserId (pool filter still applies)',
-        );
-        return null;
-      }
+      if (response == null) return null;
 
       try {
         await _supabase.from(_orderStatusLogsTable).insert({
           'order_id': orderId,
-          'status': _statusAssigned,
+          'status': 'assigned',
           'title': 'Đã phân công tài xế',
-          'description':
-              'Hệ thống gán đơn cho tài xế gần điểm lấy hàng nhất.',
+          'description': 'Hệ thống gán đơn cho tài xế gần điểm lấy hàng nhất.',
         });
       } catch (_) {
-        // Status log optional.
+        // Log không được phép làm thất bại assignment đã thành công.
       }
-
-      _log('assign:client ok order=$orderId driver=$nearestUserId');
       return nearestUserId;
     } catch (error) {
       _log('assign:client error $error');
@@ -367,9 +297,7 @@ class NearestDriverService {
   }
 
   void _log(String message) {
-    if (kDebugMode) {
-      debugPrint('[NearestDriver] $message');
-    }
+    if (kDebugMode) debugPrint('[NearestDriver] $message');
   }
 }
 
@@ -378,9 +306,11 @@ class AssignableDriverPoint {
     required this.userId,
     required this.lat,
     required this.lng,
+    this.distanceMeters,
   });
 
   final String userId;
   final double lat;
   final double lng;
+  final double? distanceMeters;
 }

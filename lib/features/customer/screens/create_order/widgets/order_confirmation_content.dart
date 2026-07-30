@@ -5,6 +5,7 @@ import '../../../../../core/utils/order_cargo_utils.dart';
 import '../utils/create_order_formatters.dart';
 import '../utils/order_form_data.dart';
 import 'confirmation_components.dart';
+import 'delivery_quote_card.dart';
 
 class OrderConfirmationContent extends StatelessWidget {
   const OrderConfirmationContent({super.key, required this.data});
@@ -25,7 +26,7 @@ class OrderConfirmationContent extends StatelessWidget {
         const SizedBox(height: AppSpacing.xl2),
         _RouteCard(data: data),
         const SizedBox(height: AppSpacing.md),
-        _OrderTotal(data: data),
+        DeliveryQuoteCard(data: data),
         const SizedBox(height: AppSpacing.xl3),
         _ContactsCard(data: data),
         const SizedBox(height: AppSpacing.xl3),
@@ -128,100 +129,6 @@ class _RouteCard extends StatelessWidget {
           isEmpty: data.deliveryAddress.isEmpty,
         ),
       ],
-    );
-  }
-}
-
-class _OrderTotal extends StatelessWidget {
-  const _OrderTotal({required this.data});
-
-  final OrderFormData data;
-
-  @override
-  Widget build(BuildContext context) {
-    final sourceLabel = data.distanceSource == 'osrm'
-        ? 'Theo lộ trình'
-        : 'Khoảng cách ước tính';
-    final durationMin = data.durationSeconds == null
-        ? null
-        : (data.durationSeconds! / 60).round();
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: const BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: AppRadius.xl,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: AppColors.textOnDark.withValues(alpha: 0.12),
-                  borderRadius: AppRadius.md,
-                ),
-                child: const Icon(
-                  Icons.receipt_long_rounded,
-                  color: AppColors.accent,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  'Tổng thanh toán',
-                  style: AppTextStyles.labelLarge.copyWith(
-                    color: AppColors.textOnDark,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Text(
-                formatDeliveryFee(data.totalPrice),
-                style: AppTextStyles.headingLarge.copyWith(
-                  color: AppColors.textOnDark,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Container(
-            height: 1,
-            color: AppColors.textOnDark.withValues(alpha: 0.12),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              const Icon(
-                Icons.near_me_outlined,
-                size: 17,
-                color: AppColors.accent,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  '${data.distanceKm.toStringAsFixed(1)} km · $sourceLabel'
-                  '${durationMin == null ? '' : ' · ~$durationMin phút'}',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textOnDark.withValues(alpha: 0.72),
-                  ),
-                ),
-              ),
-              Text(
-                'Phí giao ${formatDeliveryFee(data.deliveryFee)}',
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.textOnDark.withValues(alpha: 0.84),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }

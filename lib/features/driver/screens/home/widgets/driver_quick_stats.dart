@@ -2,16 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../../../../../core/constants/app_theme.dart';
 
-/// Two compact stat cards: active deliveries and available orders.
 class DriverQuickStats extends StatelessWidget {
-  final int activeCount;
-  final int availableCount;
-
   const DriverQuickStats({
     super.key,
     required this.activeCount,
     required this.availableCount,
   });
+
+  final int activeCount;
+  final int availableCount;
 
   @override
   Widget build(BuildContext context) {
@@ -20,18 +19,18 @@ class DriverQuickStats extends StatelessWidget {
         Expanded(
           child: _MiniStatCard(
             value: activeCount.toString(),
-            label: 'Đang giao',
+            label: 'Đang thực hiện',
             icon: Icons.local_shipping_rounded,
             color: AppColors.accent,
           ),
         ),
-        const SizedBox(width: AppSpacing.sm),
+        const SizedBox(width: AppSpacing.md),
         Expanded(
           child: _MiniStatCard(
             value: availableCount.toString(),
-            label: 'Có thể nhận',
-            icon: Icons.inventory_2_rounded,
-            color: AppColors.info,
+            label: 'Đơn gần bạn',
+            icon: Icons.near_me_rounded,
+            color: AppColors.warning,
           ),
         ),
       ],
@@ -40,11 +39,6 @@ class DriverQuickStats extends StatelessWidget {
 }
 
 class _MiniStatCard extends StatelessWidget {
-  final String value;
-  final String label;
-  final IconData icon;
-  final Color color;
-
   const _MiniStatCard({
     required this.value,
     required this.label,
@@ -52,51 +46,61 @@ class _MiniStatCard extends StatelessWidget {
     required this.color,
   });
 
+  final String value;
+  final String label;
+  final IconData icon;
+  final Color color;
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.bgCard,
-        borderRadius: AppRadius.lg,
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-        boxShadow: AppShadow.subtle,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: AppRadius.md,
-            ),
-            child: Icon(icon, color: color, size: 18),
+        borderRadius: AppRadius.xl,
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.07),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: AppTextStyles.headingMedium.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w800,
-                    height: 1,
-                  ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: AppRadius.md,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.textSecondary,
-                    letterSpacing: 0,
-                  ),
+                child: Icon(icon, color: color, size: 19),
+              ),
+              const Spacer(),
+              Text(
+                value,
+                style: AppTextStyles.headingLarge.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
                 ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.labelMedium.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0,
             ),
           ),
         ],

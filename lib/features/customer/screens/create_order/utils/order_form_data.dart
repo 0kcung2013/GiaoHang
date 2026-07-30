@@ -1,5 +1,8 @@
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../../core/utils/delivery_eta_calculator.dart';
+import '../../../../../core/utils/delivery_pricing_policy.dart';
+
 class OrderFormData {
   final String pickupAddress;
   final double pickupLat;
@@ -22,6 +25,8 @@ class OrderFormData {
   final double distanceMeters;
   final double? durationSeconds;
   final String distanceSource;
+  final DeliveryFeeBreakdown feeBreakdown;
+  final DeliveryEtaEstimate deliveryEta;
 
   const OrderFormData({
     required this.pickupAddress,
@@ -45,6 +50,8 @@ class OrderFormData {
     required this.distanceMeters,
     this.durationSeconds,
     this.distanceSource = 'haversine',
+    required this.feeBreakdown,
+    required this.deliveryEta,
   });
 
   double get distanceKm => distanceMeters / 1000;

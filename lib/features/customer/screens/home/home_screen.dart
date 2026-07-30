@@ -74,6 +74,13 @@ class _BottomNav extends StatelessWidget {
       decoration: const BoxDecoration(
         color: AppColors.bgCard,
         border: Border(top: BorderSide(color: AppColors.border, width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x0F0F172A),
+            blurRadius: 18,
+            offset: Offset(0, -4),
+          ),
+        ],
       ),
       child: SizedBox(
         height: 72 + bottomPadding,
@@ -139,9 +146,7 @@ class _NavItem extends StatefulWidget {
 class _NavItemState extends State<_NavItem> {
   @override
   Widget build(BuildContext context) {
-    final color = widget.active
-        ? AppColors.textPrimary
-        : AppColors.textSecondary;
+    final color = widget.active ? AppColors.accent : AppColors.textSecondary;
 
     return Expanded(
       child: Semantics(
@@ -160,7 +165,7 @@ class _NavItemState extends State<_NavItem> {
                 AnimatedContainer(
                   duration: AppDuration.fast,
                   curve: AppCurve.decelerate,
-                  width: 44,
+                  width: 48,
                   height: 32,
                   decoration: BoxDecoration(
                     color: widget.active

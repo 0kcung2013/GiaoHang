@@ -34,10 +34,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   String _searchQuery = '';
 
   static const List<_FilterOption> _filters = [
-    _FilterOption('Tất cả', null),
-    _FilterOption('Đang xử lý', _activeStatuses),
-    _FilterOption('Hoàn thành', {'delivered'}),
-    _FilterOption('Đã huỷ', {'cancelled'}),
+    _FilterOption('Tất cả', Icons.view_stream_rounded, null),
+    _FilterOption('Đang xử lý', Icons.local_shipping_rounded, _activeStatuses),
+    _FilterOption('Hoàn thành', Icons.task_alt_rounded, {'delivered'}),
+    _FilterOption('Đã huỷ', Icons.cancel_rounded, {'cancelled'}),
   ];
 
   static const Set<String> _activeStatuses = {
@@ -61,7 +61,10 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   ) {
     var filtered = orders;
     if (statuses != null) {
-      filtered = filtered.where((o) => statuses.contains(o.status)).toList();
+      final now = DateTime.now();
+      filtered = filtered
+          .where((o) => statuses.contains(o.effectiveStatusAt(now)))
+          .toList();
     }
     if (query.isNotEmpty) {
       final q = query.toLowerCase();
@@ -98,26 +101,16 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
               child: Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: layout.maxWidth),
-                  child: Column(
-                    children: [
-                      widgets.OrderListHeader(
-                        onCreateOrder: () =>
-                            context.push('/customer/create-order'),
-                      ),
-                      const SizedBox(height: AppSpacing.xl2),
-                      widgets.OrderSearchBar(
-                        controller: _searchController,
-                        onChanged: (v) =>
-                            setState(() => _searchQuery = v.trim()),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      widgets.OrderFilterBar(
-                        filters: _filters.map((f) => f.label).toList(),
-                        selectedIndex: _selectedFilterIndex,
-                        onSelected: (i) =>
-                            setState(() => _selectedFilterIndex = i),
-                      ),
-                    ],
+                  child: widgets.OrderCompactToolbar(
+                    onCreateOrder: () => context.push('/customer/create-order'),
+                    controller: _searchController,
+                    onSearchChanged: (v) =>
+                        setState(() => _searchQuery = v.trim()),
+                    filters: _filters.map((f) => f.label).toList(),
+                    filterIcons: _filters.map((f) => f.icon).toList(),
+                    selectedIndex: _selectedFilterIndex,
+                    onFilterSelected: (i) =>
+                        setState(() => _selectedFilterIndex = i),
                   ),
                 ),
               ),
@@ -243,30 +236,55 @@ class _OrderListBody extends ConsumerWidget {
               if (i == visibleOrders.length) {
                 return Padding(
                   padding: const EdgeInsets.only(top: AppSpacing.md),
-                  child: Text(
-                    '${visibleOrders.length} đơn hàng',
-                    textAlign: TextAlign.center,
-                    style: AppTextStyles.labelSmall.copyWith(
-                      color: AppColors.textMuted,
-                      letterSpacing: 0,
+                  child: Semantics(
+                    label: '${visibleOrders.length} đơn hàng',
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.inventory_2_outlined,
+                          color: AppColors.textMuted,
+                          size: 14,
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Text(
+                          '${visibleOrders.length}',
+                          style: AppTextStyles.labelSmall.copyWith(
+                            color: AppColors.textMuted,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );
               }
+              final order = visibleOrders[i];
               return Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.md),
                 child: widgets.OrderCard(
-                  order: visibleOrders[i],
+                  order: order,
                   isFeatured:
                       i == 0 &&
                       _OrderScreenState._activeStatuses.contains(
-                        visibleOrders[i].status,
+                        order.effectiveStatusAt(DateTime.now()),
                       ),
-                  onTap: () => dialogs.showOrderDetailSheet(
-                    context: context,
-                    customerId: customerId,
-                    order: visibleOrders[i],
-                  ),
+                  onTap: () {
+                    if (order.isAssignmentTimedOutAt(DateTime.now()) &&
+                        order.trackingCode.trim().isNotEmpty) {
+                      context.go(
+                        '/customer-home?tab=tracking&code='
+                        '${Uri.encodeComponent(order.trackingCode)}',
+                      );
+                      return;
+                    }
+                    dialogs.showOrderDetailSheet(
+                      context: context,
+                      customerId: customerId,
+                      order: order,
+                    );
+                  },
                 ),
               );
             },
@@ -327,7 +345,8 @@ class _OrderLayout {
 
 class _FilterOption {
   final String label;
+  final IconData icon;
   final Set<String>? statuses;
 
-  const _FilterOption(this.label, this.statuses);
+  const _FilterOption(this.label, this.icon, this.statuses);
 }

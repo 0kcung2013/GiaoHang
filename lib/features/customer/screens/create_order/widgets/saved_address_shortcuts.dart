@@ -32,54 +32,63 @@ class SavedAddressShortcuts extends ConsumerWidget {
       data: (addresses) {
         if (addresses.isEmpty) return const SizedBox.shrink();
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: const BoxDecoration(
-                    color: AppColors.accentLight,
-                    borderRadius: AppRadius.sm,
+        return Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.accentLight.withValues(alpha: 0.55),
+            borderRadius: AppRadius.xl,
+            border: Border.all(color: AppColors.accent.withValues(alpha: 0.14)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: const BoxDecoration(
+                      color: AppColors.bgCard,
+                      borderRadius: AppRadius.sm,
+                    ),
+                    child: const Icon(
+                      Icons.bolt_rounded,
+                      color: AppColors.accent,
+                      size: 17,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.bolt_rounded,
-                    color: AppColors.accent,
-                    size: 16,
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      'Địa chỉ dùng gần đây',
+                      style: AppTextStyles.labelMedium.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  'Chọn nhanh địa chỉ đã lưu',
-                  style: AppTextStyles.labelMedium.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            SizedBox(
-              height: 46,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: addresses.length,
-                separatorBuilder: (_, _) =>
-                    const SizedBox(width: AppSpacing.sm),
-                itemBuilder: (context, index) {
-                  final a = addresses[index];
-                  return _AddressChip(
-                    address: a,
-                    onPickup: () => onApplyPickup(a),
-                    onDelivery: () => onApplyDelivery(a),
-                  );
-                },
+                ],
               ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-          ],
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                height: 46,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: addresses.length,
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(width: AppSpacing.sm),
+                  itemBuilder: (context, index) {
+                    final address = addresses[index];
+                    return _AddressChip(
+                      address: address,
+                      onPickup: () => onApplyPickup(address),
+                      onDelivery: () => onApplyDelivery(address),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         );
       },
     );

@@ -1,20 +1,23 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/app_theme.dart';
 import '../../../core/providers/customer_providers.dart';
-import '../../../core/providers/location_providers.dart';
-import '../../../core/utils/geo_utils.dart';
+import '../../notifications/models/notification_inbox_item.dart';
 import '../../notifications/widgets/notification_bell_button.dart';
 import 'account/driver_account_screen.dart';
 import 'earnings/driver_earnings_screen.dart';
 import 'home/home_screen.dart';
 import 'orders/driver_orders_screen.dart';
 import 'widgets/driver_drawer.dart';
+import 'widgets/driver_gps_debug_dialog.dart';
 
 class DriverShellScreen extends ConsumerStatefulWidget {
-  const DriverShellScreen({super.key});
+  const DriverShellScreen({super.key, this.initialTab = 0});
+
+  final int initialTab;
 
   @override
   ConsumerState<DriverShellScreen> createState() => _DriverShellScreenState();
@@ -28,55 +31,100 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
     DriverAccountScreen(),
   ];
 
-  static const _titles = [
-    'Tổng quan',
-    'Đơn hàng',
-    'Thu nhập',
-    'Tài khoản',
-  ];
+  static const _titles = ['Tổng quan', 'Đơn hàng', 'Thu nhập', 'Tài khoản'];
 
-  int _currentIndex = 0;
+  late int _currentIndex;
+  String? _lastHandledCancellationEventId;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialTab.clamp(0, _tabs.length - 1);
+  }
+
+  @override
+  void didUpdateWidget(covariant DriverShellScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTab != widget.initialTab) {
+      _currentIndex = widget.initialTab.clamp(0, _tabs.length - 1);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final cancelledId = ref.watch(latestCancelledOrderIdProvider);
     final currentUser = Supabase.instance.client.auth.currentUser;
 
     if (currentUser != null) {
       ref.watch(driverCancelledOrderRealtimeProvider(currentUser.id));
-      ref.watch(driverOrdersRealtimeProvider(currentUser.id));
-
-      if (cancelledId != null) {
+      ref.listen(driverOrderCancellationEventProvider, (previous, next) {
+        if (next == null || next.eventId == _lastHandledCancellationEventId) {
+          return;
+        }
+        _lastHandledCancellationEventId = next.eventId;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          ref.read(latestCancelledOrderIdProvider.notifier).state = null;
-          if (mounted) _showCancelledDialog(cancelledId, currentUser.id);
+          if (mounted) {
+            _showCancelledDialog(next.orderId, next.orderCode, currentUser.id);
+          }
         });
-      }
+      });
     }
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: AppColors.bgLight,
+      backgroundColor: const Color(0xFFFFFAF6),
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu_rounded),
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-        ),
-        title: Text(
-          _titles[_currentIndex],
-          style: AppTextStyles.headingMedium.copyWith(
-            color: AppColors.textPrimary,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: AppSpacing.sm),
+          child: IconButton(
+            icon: const Icon(Icons.menu_rounded),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
           ),
+        ),
+        titleSpacing: AppSpacing.sm,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: AppColors.accent,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              _titles[_currentIndex],
+              style: AppTextStyles.headingMedium.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
         ),
         backgroundColor: AppColors.bgCard,
         surfaceTintColor: AppColors.bgCard,
         elevation: 0,
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
-        actions: const [
-          NotificationBellButton(),
-          SizedBox(width: AppSpacing.xs),
+        scrolledUnderElevation: 0,
+        iconTheme: const IconThemeData(color: AppColors.accent),
+        actions: [
+          if (kDebugMode)
+            IconButton(
+              tooltip: 'Kiểm tra vị trí',
+              onPressed: _showGpsDebugSheet,
+              icon: const Icon(Icons.my_location_rounded),
+            ),
+          const NotificationBellButton(audience: NotificationAudience.driver),
+          const SizedBox(width: AppSpacing.sm),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: ColoredBox(
+            color: AppColors.accentLight,
+            child: const SizedBox(height: 1),
+          ),
+        ),
       ),
       drawer: DriverDrawer(
         currentIndex: _currentIndex,
@@ -86,356 +134,97 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
         bottom: false,
         child: IndexedStack(index: _currentIndex, children: _tabs),
       ),
-      floatingActionButton: FloatingActionButton.small(
-        heroTag: 'debug_gps',
-        backgroundColor: AppColors.accent,
-        onPressed: () => _showGpsDebugDialog(),
-        child: const Icon(Icons.gps_fixed_rounded, color: Colors.white),
-      ),
     );
   }
 
-  void _showGpsDebugDialog() {
-    showDialog(
+  void _showGpsDebugSheet() {
+    showModalBottomSheet<void>(
       context: context,
-      builder: (ctx) => _GpsDebugDialog(),
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const DriverGpsDebugSheet(),
     );
   }
 
-  void _showCancelledDialog(String orderId, String currentUserId) {
-    final shortId =
-        orderId.length >= 8 ? orderId.substring(0, 8) : orderId;
-    showDialog(
+  void _showCancelledDialog(
+    String orderId,
+    String orderCode,
+    String currentUserId,
+  ) {
+    showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.bgCard,
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.xl),
-        contentPadding: const EdgeInsets.all(AppSpacing.xl2),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(AppSpacing.xl2),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.xl2),
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: AppRadius.xl2,
+            boxShadow: AppShadow.elevated,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.cancel_rounded,
+                  color: AppColors.error,
+                  size: 30,
+                ),
               ),
-              child: const Icon(
-                Icons.cancel_rounded,
-                color: AppColors.error,
-                size: 30,
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Khách hàng đã huỷ đơn',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.headingMedium.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              'Đơn hàng đã bị huỷ',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.headingSmall.copyWith(
-                color: AppColors.textPrimary,
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Đơn $orderCode đã bị huỷ. '
+                'Bạn có thể tiếp tục nhận đơn khác.',
+                textAlign: TextAlign.center,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              'Đơn #$shortId đã được khách hàng huỷ.',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xl2),
-            SizedBox(
-              width: double.infinity,
-              child: Material(
-                color: AppColors.info,
-                borderRadius: AppRadius.full,
-                child: InkWell(
-                  onTap: () => Navigator.of(ctx).pop(),
-                  borderRadius: AppRadius.full,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                    child: Center(
-                      child: Text(
-                        'Đã hiểu',
-                        style: AppTextStyles.labelMedium.copyWith(
-                          color: AppColors.textOnAccent,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+              const SizedBox(height: AppSpacing.xl2),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.accent,
+                    foregroundColor: AppColors.textOnAccent,
+                    shape: RoundedRectangleBorder(borderRadius: AppRadius.full),
+                  ),
+                  child: Text(
+                    'Đã hiểu',
+                    style: AppTextStyles.labelMedium.copyWith(
+                      color: AppColors.textOnAccent,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    ).then((_) {
-      debugPrint('[DriverShellScreen] Cancelled dialog dismissed. Refreshing order list providers.');
-      // ignore: unused_result
-      ref.refresh(availableOrdersProvider(currentUserId));
-      // ignore: unused_result
-      ref.refresh(driverOrdersProvider(currentUserId));
-    });
-  }
-}
-
-class _GpsDebugDialog extends ConsumerStatefulWidget {
-  const _GpsDebugDialog();
-
-  @override
-  ConsumerState<_GpsDebugDialog> createState() => _GpsDebugDialogState();
-}
-
-class _GpsDebugDialogState extends ConsumerState<_GpsDebugDialog> {
-  String _status = 'Chưa test';
-  double? _lat;
-  double? _lng;
-  int _updateCount = 0;
-  bool _isTracking = false;
-
-  @override
-  void dispose() {
-    ref.read(locationServiceProvider).stopTracking();
-    super.dispose();
-  }
-
-  Future<void> _testPermission() async {
-    setState(() => _status = 'Đang xin quyền...');
-    final service = ref.read(locationServiceProvider);
-    final ok = await service.requestPermission();
-    setState(() => _status = ok ? 'Quyền GPS: OK' : 'Quyền GPS: BỊ TỪ CHỐI');
-  }
-
-  Future<void> _testGetPosition() async {
-    setState(() => _status = 'Đang lấy vị trí...');
-    final service = ref.read(locationServiceProvider);
-    final pos = await service.getCurrentPosition();
-    if (pos == null) {
-      setState(() => _status = 'Lỗi: Không lấy được vị trí');
-      return;
-    }
-    setState(() {
-      _lat = pos.latitude;
-      _lng = pos.longitude;
-      _status = 'Vị trí OK: ${pos.latitude.toStringAsFixed(6)}, ${pos.longitude.toStringAsFixed(6)}';
-    });
-  }
-
-  void _testStartTracking() {
-    if (_isTracking) return;
-    setState(() {
-      _isTracking = true;
-      _status = 'Đang tracking...';
-      _updateCount = 0;
-    });
-
-    final service = ref.read(locationServiceProvider);
-
-    service.startTracking(
-      onPosition: (pos) {
-        setState(() {
-          _updateCount++;
-          _lat = pos.latitude;
-          _lng = pos.longitude;
-          _status = 'Tracking #$_updateCount: ${pos.latitude.toStringAsFixed(6)}, ${pos.longitude.toStringAsFixed(6)}';
-        });
-        debugPrint('[GPS-TEST] $_status');
-      },
-      onError: (err) {
-        setState(() => _status = 'Lỗi tracking: $err');
-      },
-    );
-  }
-
-  void _testStopTracking() {
-    ref.read(locationServiceProvider).stopTracking();
-    setState(() {
-      _isTracking = false;
-      _status = 'Đã dừng tracking (tổng $_updateCount lần update)';
-    });
-  }
-
-  Future<void> _testUpdateSupabase() async {
-    if (_lat == null || _lng == null) {
-      setState(() => _status = 'Chưa có vị trí, hãy lấy vị trí trước');
-      return;
-    }
-    await _uploadPosition(_lat!, _lng!);
-  }
-
-  /// Gán vị trí demo từ GPS: taixe giữ thật, taixe2 tự lệch ~3km (1 lần offset).
-  Future<void> _seedDemoPositionFromGps() async {
-    setState(() => _status = 'Đang lấy GPS để seed vị trí demo...');
-    final service = ref.read(locationServiceProvider);
-    final pos = await service.getCurrentPosition();
-    if (pos == null) {
-      setState(() => _status = 'Lỗi: Không lấy được vị trí GPS');
-      return;
-    }
-
-    final email = Supabase.instance.client.auth.currentUser?.email;
-    final offsetNote = (email?.toLowerCase() == 'taixe2@gmail.com')
-        ? ' (đã lệch ~3km cho taixe2)'
-        : ' (vị trí thật cho taixe)';
-    // Truyền GPS thô — DriverService.updateLocation tự áp offset theo email.
-    await _uploadPosition(pos.latitude, pos.longitude, note: offsetNote);
-  }
-
-  Future<void> _uploadPosition(
-    double lat,
-    double lng, {
-    String note = '',
-  }) async {
-    final currentUser = Supabase.instance.client.auth.currentUser;
-    if (currentUser == null) {
-      setState(() => _status = 'Chưa đăng nhập driver');
-      return;
-    }
-
-    setState(() => _status = 'Đang update lên Supabase...');
-    try {
-      final driverService = ref.read(driverServiceProvider);
-      final driver = await driverService.getDriverByUserId(currentUser.id);
-      if (driver == null) {
-        setState(() => _status = 'Không tìm thấy driver profile');
-        return;
-      }
-
-      // updateLocation áp offset test (taixe2) đúng 1 lần.
-      await driverService.updateLocation(
-        driverId: driver.id,
-        lat: lat,
-        lng: lng,
-      );
-
-      final stored = GeoUtils.applyTestDriverOffset(
-        email: currentUser.email,
-        lat: lat,
-        lng: lng,
-      );
-
-      await driverService.insertHistoryPoint(
-        driverId: driver.id,
-        lat: stored.latitude,
-        lng: stored.longitude,
-      );
-
-      setState(() {
-        _lat = stored.latitude;
-        _lng = stored.longitude;
-        _status =
-            'OK: Đã lưu (${stored.latitude.toStringAsFixed(5)}, '
-            '${stored.longitude.toStringAsFixed(5)})$note';
-      });
-    } catch (e) {
-      setState(() => _status = 'Lỗi Supabase: $e');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: AppColors.bgCard,
-      shape: RoundedRectangleBorder(borderRadius: AppRadius.xl),
-      title: Row(
-        children: [
-          const Icon(Icons.gps_fixed_rounded, color: AppColors.accent),
-          const SizedBox(width: AppSpacing.sm),
-          Text('Test GPS', style: AppTextStyles.headingSmall),
-        ],
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: _status.contains('OK')
-                    ? AppColors.success.withValues(alpha: 0.1)
-                    : _status.contains('Lỗi')
-                        ? AppColors.error.withValues(alpha: 0.1)
-                        : AppColors.accentLight,
-                borderRadius: AppRadius.sm,
-              ),
-              child: Text(
-                _status,
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: _status.contains('OK')
-                      ? AppColors.success
-                      : _status.contains('Lỗi')
-                          ? AppColors.error
-                          : AppColors.textSecondary,
-                ),
-              ),
-            ),
-            if (_lat != null && _lng != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Lat: ${_lat!.toStringAsFixed(6)}',
-                style: AppTextStyles.mono.copyWith(fontSize: 12),
-              ),
-              Text(
-                'Lng: ${_lng!.toStringAsFixed(6)}',
-                style: AppTextStyles.mono.copyWith(fontSize: 12),
-              ),
             ],
-            const SizedBox(height: AppSpacing.md),
-            _buildButton('1. Xin quyền GPS', Icons.shield_outlined, _testPermission),
-            _buildButton('2. Lấy vị trí hiện tại', Icons.my_location_rounded, _testGetPosition),
-            _buildButton(
-              _isTracking ? 'Đang tracking... ($_updateCount)' : '3. Bắt đầu tracking (30s)',
-              Icons.play_arrow_rounded,
-              _testStartTracking,
-            ),
-            _buildButton('4. Dừng tracking', Icons.stop_rounded, _testStopTracking),
-            _buildButton('5. Update lên Supabase', Icons.cloud_upload_rounded, _testUpdateSupabase),
-            _buildButton(
-              '6. Seed vị trí demo (taixe gần / taixe2 xa)',
-              Icons.science_rounded,
-              _seedDemoPositionFromGps,
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            _testStopTracking();
-            Navigator.of(context).pop();
-          },
-          child: Text('Đóng', style: AppTextStyles.labelMedium.copyWith(color: AppColors.accent)),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildButton(String label, IconData icon, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Material(
-        color: AppColors.bgLight,
-        borderRadius: AppRadius.sm,
-        child: InkWell(
-          borderRadius: AppRadius.sm,
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-            child: Row(
-              children: [
-                Icon(icon, size: 18, color: AppColors.primary),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(label, style: AppTextStyles.bodySmall.copyWith(color: AppColors.textPrimary)),
-                ),
-                const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textMuted),
-              ],
-            ),
           ),
         ),
       ),
-    );
+    ).then((_) {
+      ref.invalidate(availableOrdersProvider(currentUserId));
+      ref.invalidate(driverOrdersProvider(currentUserId));
+    });
   }
 }

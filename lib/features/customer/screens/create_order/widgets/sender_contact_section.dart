@@ -42,22 +42,35 @@ class _SenderContactSectionState extends ConsumerState<SenderContactSection> {
           container: true,
           child: Container(
             decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: AppColors.border.withValues(alpha: 0.8)),
-              ),
+              color: AppColors.bgCard,
+              borderRadius: AppRadius.xl,
+              border: Border.all(color: AppColors.border),
+              boxShadow: AppShadow.subtle,
             ),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             child: Column(
               children: [
                 InkWell(
                   onTap: () => setState(() => _expanded = !_expanded),
+                  borderRadius: AppRadius.lg,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.lg,
-                    ),
+                    padding: EdgeInsets.zero,
                     child: Row(
                       children: [
-                        const Icon(Icons.account_circle_outlined, size: 22),
-                        const SizedBox(width: AppSpacing.sm),
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: const BoxDecoration(
+                            color: AppColors.accentLight,
+                            borderRadius: AppRadius.md,
+                          ),
+                          child: const Icon(
+                            Icons.account_circle_outlined,
+                            color: AppColors.accent,
+                            size: 21,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -66,9 +79,10 @@ class _SenderContactSectionState extends ConsumerState<SenderContactSection> {
                                 'Người gửi',
                                 style: AppTextStyles.headingSmall.copyWith(
                                   color: AppColors.textPrimary,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
+                              const SizedBox(height: 2),
                               Text(
                                 details.isComplete
                                     ? '${details.name} · Thông tin từ tài khoản'
@@ -84,11 +98,30 @@ class _SenderContactSectionState extends ConsumerState<SenderContactSection> {
                             ],
                           ),
                         ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.sm,
+                            vertical: AppSpacing.xs,
+                          ),
+                          decoration: const BoxDecoration(
+                            color: AppColors.accentLight,
+                            borderRadius: AppRadius.full,
+                          ),
+                          child: Text(
+                            '05',
+                            style: AppTextStyles.labelSmall.copyWith(
+                              color: AppColors.accent,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
                         Icon(
                           _expanded
-                              ? Icons.keyboard_arrow_up_rounded
-                              : Icons.keyboard_arrow_down_rounded,
-                          color: AppColors.textSecondary,
+                              ? Icons.expand_less_rounded
+                              : Icons.expand_more_rounded,
+                          color: AppColors.textMuted,
                         ),
                       ],
                     ),
@@ -103,7 +136,7 @@ class _SenderContactSectionState extends ConsumerState<SenderContactSection> {
                       : CrossFadeState.showFirst,
                   firstChild: const SizedBox.shrink(),
                   secondChild: Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+                    padding: const EdgeInsets.only(top: AppSpacing.lg),
                     child: _SenderDetails(details: details),
                   ),
                 ),
@@ -160,8 +193,9 @@ class _SenderDetails extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: const BoxDecoration(
-        color: Color(0xFFF4F5F7),
+        color: AppColors.bgLight,
         borderRadius: AppRadius.lg,
+        border: Border.fromBorderSide(BorderSide(color: AppColors.border)),
       ),
       child: Column(
         children: [
@@ -233,12 +267,27 @@ class _SenderNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+      borderRadius: AppRadius.xl,
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: AppRadius.xl,
+          border: Border.all(color: AppColors.border),
+          boxShadow: AppShadow.subtle,
+        ),
         child: Row(
           children: [
-            Icon(icon, color: AppColors.warning),
-            const SizedBox(width: AppSpacing.sm),
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: AppColors.warning.withValues(alpha: 0.1),
+                borderRadius: AppRadius.md,
+              ),
+              child: Icon(icon, color: AppColors.warning, size: 20),
+            ),
+            const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Text(
                 message,

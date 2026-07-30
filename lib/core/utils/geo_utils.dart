@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
 /// Tiện ích khoảng cách địa lý (Haversine).
@@ -20,14 +21,31 @@ class GeoUtils {
     );
   }
 
-  /// Offset test 2 tài xế / 1 máy — **TẮT mặc định**.
-  /// Bật true chỉ khi demo nearest trên cùng thiết bị (sẽ lệch map L/G).
-  static const bool enableTestDriverOffsets = false;
+  /// Offset test 2 tài xế / 1 máy.
+  ///
+  /// Mặc định chỉ bật trong debug (`flutter run`) và tự tắt ở release.
+  /// Có thể ghi đè bằng:
+  /// `--dart-define=ENABLE_TEST_DRIVER_OFFSETS=false`.
+  static const bool enableTestDriverOffsets = bool.fromEnvironment(
+    'ENABLE_TEST_DRIVER_OFFSETS',
+    defaultValue: kDebugMode,
+  );
 
   /// `taixe2@gmail.com` lệch ~3km ĐN so với GPS thật (chỉ khi [enableTestDriverOffsets]).
   static const Map<String, LatLng> testDriverPositionOffsets = {
     'taixe2@gmail.com': LatLng(0.022, 0.018),
   };
+
+  /// Tài khoản có được cấu hình offset demo hay không.
+  static bool hasConfiguredTestDriverOffset(String? email) {
+    final key = email?.trim().toLowerCase();
+    return key != null && testDriverPositionOffsets.containsKey(key);
+  }
+
+  /// Tài khoản có đang được áp offset demo hay không.
+  static bool hasTestDriverOffset(String? email) {
+    return enableTestDriverOffsets && hasConfiguredTestDriverOffset(email);
+  }
 
   /// Áp offset test theo email tài xế (nếu bật flag + có mapping).
   static LatLng applyTestDriverOffset({

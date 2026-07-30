@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_theme.dart';
+import '../../../../core/providers/customer_providers.dart';
+import '../../widgets/order_assignment_status_card.dart';
 import 'utils/create_order_formatters.dart';
 
 /// Màn đặt đơn thành công + điều hướng theo dõi / danh sách đơn.
-class OrderSuccessScreen extends StatelessWidget {
+class OrderSuccessScreen extends ConsumerWidget {
   const OrderSuccessScreen({
     super.key,
     required this.orderId,
@@ -21,19 +24,33 @@ class OrderSuccessScreen extends StatelessWidget {
   final double? distanceKm;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final code = trackingCode.trim().isEmpty
         ? 'GH-${orderId.length >= 8 ? orderId.substring(0, 8).toUpperCase() : orderId}'
         : trackingCode;
+    final orderAsync = trackingCode.trim().isEmpty
+        ? ref.watch(orderByIdProvider(orderId))
+        : ref.watch(orderByTrackingCodeProvider(trackingCode));
+    final order = orderAsync.valueOrNull;
+
+    if (order != null && order.trackingCode.isNotEmpty) {
+      ref.watch(
+        trackedOrderRealtimeProvider((
+          orderId: order.id,
+          trackingCode: order.trackingCode,
+        )),
+      );
+    }
+    final hasDriver = order?.driverId?.trim().isNotEmpty == true;
 
     return Scaffold(
       backgroundColor: AppColors.bgLight,
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.screenH),
           child: Column(
             children: [
-              const Spacer(),
+              const SizedBox(height: AppSpacing.xl3),
               Container(
                 width: 88,
                 height: 88,
@@ -57,7 +74,9 @@ class OrderSuccessScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                'Đơn đang chờ tài xế nhận. Bạn có thể theo dõi trạng thái bất cứ lúc nào.',
+                hasDriver
+                    ? 'Đơn hàng đã có tài xế nhận. Bạn có thể theo dõi hành trình ngay bây giờ.'
+                    : 'Đơn đang chờ tài xế nhận. Thời gian tìm tài xế tối đa là 15 phút.',
                 style: AppTextStyles.bodyMedium.copyWith(
                   color: AppColors.textSecondary,
                   height: 1.45,
@@ -65,6 +84,13 @@ class OrderSuccessScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppSpacing.xl2),
+              if (order != null && order.canWaitForDriver) ...[
+                OrderAssignmentStatusCard(
+                  order: order,
+                  onCancelled: () => context.go('/customer-home?tab=orders'),
+                ),
+                const SizedBox(height: AppSpacing.xl2),
+              ],
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(AppSpacing.lg),
@@ -157,7 +183,7 @@ class OrderSuccessScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const Spacer(),
+              const SizedBox(height: AppSpacing.xl3),
               SizedBox(
                 width: double.infinity,
                 height: 52,

@@ -13,10 +13,15 @@ import '../../../../core/providers/customer_providers.dart';
 import '../../../../core/providers/location_providers.dart';
 import '../../../../core/services/osrm_service.dart';
 import '../../../../core/utils/delivery_map_utils.dart';
+import '../../../../core/utils/text_encoding_utils.dart';
 import '../../../../core/widgets/delivery_map_markers.dart';
 import '../../../../core/widgets/order_cargo_info_block.dart';
 import '../../../reviews/widgets/order_review_section.dart';
+import '../../widgets/delivery_proof/customer_delivery_proof_section.dart';
+import '../../widgets/order_assignment_status_card.dart';
 import '../order/order_helpers.dart';
+import 'utils/tracking_driver_position.dart';
+import 'utils/tracking_map_phase.dart';
 import 'widgets/assigned_driver_card.dart';
 
 part 'tracking_widgets.dart';
@@ -200,16 +205,32 @@ class _TrackingLookupResult extends ConsumerWidget {
                 ref.invalidate(orderByTrackingCodeProvider(trackingCode));
                 ref.invalidate(orderStatusLogsProvider(order.id));
                 ref.invalidate(assignedDriverProvider(order.id));
+                ref.invalidate(orderDeliveryProofsProvider(order.id));
               },
             ),
           ],
         ),
         const SizedBox(height: AppSpacing.md),
+        if (order.canWaitForDriver) ...[
+          OrderAssignmentStatusCard(order: order),
+          const SizedBox(height: AppSpacing.md),
+        ],
         if (_shouldShowOrderMap(order)) ...[
           _TrackingMap(order: order),
           const SizedBox(height: AppSpacing.md),
         ],
         _TrackingTimeline(order: order),
+        if (const {
+          'picking_up',
+          'delivering',
+          'delivered',
+        }.contains(order.status)) ...[
+          const SizedBox(height: AppSpacing.md),
+          CustomerDeliveryProofSection(
+            orderId: order.id,
+            orderStatus: order.status,
+          ),
+        ],
         if (shouldShowAssignedDriverForOrder(order)) ...[
           const SizedBox(height: AppSpacing.xl2 + AppSpacing.xs),
           AssignedDriverCard(orderId: order.id),

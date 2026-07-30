@@ -4,43 +4,79 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/constants/app_theme.dart';
 import '../../../../../core/models/driver_model.dart';
 import '../../../../../core/providers/customer_providers.dart';
+import '../../../../../core/providers/location_providers.dart';
+import '../driver_home_strings.dart';
 
-/// Big toggle card: OFF (default) → ON to receive orders.
+/// Trạng thái online là ý định nhận đơn; trạng thái busy được suy ra từ đơn active.
 class AvailabilityToggleCard extends ConsumerStatefulWidget {
-  final DriverModel driver;
+  const AvailabilityToggleCard({
+    super.key,
+    required this.driver,
+    required this.hasActiveOrder,
+  });
 
-  const AvailabilityToggleCard({super.key, required this.driver});
+  final DriverModel driver;
+  final bool hasActiveOrder;
 
   @override
   ConsumerState<AvailabilityToggleCard> createState() =>
       _AvailabilityToggleCardState();
 }
 
-class _AvailabilityToggleCardState extends ConsumerState<AvailabilityToggleCard> {
+class _AvailabilityToggleCardState
+    extends ConsumerState<AvailabilityToggleCard> {
   bool _isToggling = false;
 
   Future<void> _toggle(bool value) async {
     if (_isToggling) return;
     setState(() => _isToggling = true);
+
     try {
-      await ref
-          .read(driverServiceProvider)
-          .updateAvailability(widget.driver.id, value);
-      ref.invalidate(driverByUserIdProvider(widget.driver.userId));
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              value
-                  ? 'Không thể bật trạng thái. Thử lại.'
-                  : 'Không thể tắt trạng thái. Thử lại.',
-            ),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      if (value) {
+        final position = await ref
+            .read(locationServiceProvider)
+            .getCurrentPosition();
+        if (position == null) {
+          throw Exception(
+            'Hãy bật GPS và cấp quyền vị trí trước khi nhận đơn.',
+          );
+        }
+
+        await ref
+            .read(driverServiceProvider)
+            .updateAvailability(widget.driver.id, true);
+        await ref
+            .read(locationIngestServiceProvider)
+            .ingest(
+              driverProfileId: widget.driver.id,
+              lat: position.latitude,
+              lng: position.longitude,
+              heading: position.heading,
+              speed: position.speed,
+              force: true,
+            );
+        ref.invalidate(currentPositionProvider);
+      } else {
+        await ref
+            .read(driverServiceProvider)
+            .updateAvailability(widget.driver.id, false);
       }
+
+      ref.invalidate(driverByUserIdProvider(widget.driver.userId));
+    } catch (error) {
+      if (!mounted) return;
+      final message = error.toString().replaceFirst('Exception: ', '').trim();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            message.isEmpty
+                ? 'Không thể cập nhật trạng thái. Vui lòng thử lại.'
+                : message,
+          ),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isToggling = false);
     }
@@ -48,83 +84,113 @@ class _AvailabilityToggleCardState extends ConsumerState<AvailabilityToggleCard>
 
   @override
   Widget build(BuildContext context) {
-    final isOn = widget.driver.isAvailable;
+    final isOnline = widget.driver.isAvailable;
+    final isBusy = widget.hasActiveOrder;
+    final statusLabel = isBusy
+        ? DriverHomeStrings.activityBusy
+        : isOnline
+        ? DriverHomeStrings.activityOnline
+        : DriverHomeStrings.activityOffline;
+    final statusColor = isBusy
+        ? AppColors.warning
+        : isOnline
+        ? AppColors.accent
+        : AppColors.textMuted;
 
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.xl,
-        vertical: AppSpacing.lg,
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
       ),
       decoration: BoxDecoration(
-        color: isOn
-            ? AppColors.success.withValues(alpha: 0.06)
-            : AppColors.bgCard,
+        color: AppColors.bgCard,
         borderRadius: AppRadius.xl,
         border: Border.all(
-          color: isOn
-              ? AppColors.success.withValues(alpha: 0.3)
+          color: isOnline || isBusy
+              ? AppColors.accent.withValues(alpha: 0.22)
               : AppColors.border,
         ),
-        boxShadow: AppShadow.card,
+        boxShadow: AppShadow.subtle,
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: (isOn ? AppColors.success : AppColors.textMuted)
-                  .withValues(alpha: 0.12),
-              borderRadius: AppRadius.lg,
-            ),
-            child: Icon(
-              isOn
-                  ? Icons.radio_button_checked_rounded
-                  : Icons.pause_circle_filled_rounded,
-              color: isOn ? AppColors.success : AppColors.textMuted,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isOn ? 'Đang sẵn sàng' : 'Đang offline',
+                  DriverHomeStrings.activityLabel,
                   style: AppTextStyles.headingSmall.copyWith(
                     color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  isOn
-                      ? 'Bạn đang nhận đơn mới'
-                      : 'Bật để bắt đầu nhận đơn',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                const SizedBox(height: AppSpacing.xs),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: statusColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Flexible(
+                      child: Text(
+                        statusLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: statusColor,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          const SizedBox(width: AppSpacing.md),
-          _isToggling
-              ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: AppColors.info,
+          const SizedBox(width: AppSpacing.lg),
+          AnimatedSwitcher(
+            duration: AppDuration.normal,
+            child: _isToggling
+                ? Semantics(
+                    label: DriverHomeStrings.activityUpdating,
+                    child: const SizedBox(
+                      key: ValueKey('syncing'),
+                      width: 48,
+                      height: 48,
+                      child: Center(
+                        child: Icon(
+                          Icons.sync_rounded,
+                          color: AppColors.accent,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  )
+                : Semantics(
+                    label: DriverHomeStrings.activityToggleLabel,
+                    value: statusLabel,
+                    child: Switch(
+                      key: const ValueKey('switch'),
+                      value: isOnline,
+                      onChanged: _toggle,
+                      activeThumbColor: AppColors.textOnAccent,
+                      activeTrackColor: AppColors.accent,
+                      inactiveThumbColor: AppColors.bgCard,
+                      inactiveTrackColor: AppColors.textMuted.withValues(
+                        alpha: 0.35,
+                      ),
+                    ),
                   ),
-                )
-              : Switch(
-                  value: isOn,
-                  onChanged: _toggle,
-                  activeThumbColor: AppColors.success,
-                  inactiveThumbColor: AppColors.textMuted,
-                  inactiveTrackColor: AppColors.textMuted.withValues(alpha: 0.2),
-                ),
+          ),
         ],
       ),
     );

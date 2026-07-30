@@ -280,7 +280,10 @@ class _PackageInfoCard extends StatelessWidget {
           const Divider(color: AppColors.border, height: 1),
           const SizedBox(height: AppSpacing.md),
           _InfoRow(label: 'Mã đơn', value: displayCode),
-          _InfoRow(label: 'Trạng thái', value: _statusLabel(order.status)),
+          _InfoRow(
+            label: 'Trạng thái',
+            value: _statusLabel(order.effectiveStatusAt(DateTime.now())),
+          ),
           _InfoRow(
             label: 'Người nhận',
             value: recipient.isEmpty ? 'Chưa có thông tin' : recipient,

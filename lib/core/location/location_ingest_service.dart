@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../utils/geo_utils.dart';
+import 'driver_location_producer_policy.dart';
 import 'location_history_queue.dart';
 import 'location_ingest_config.dart';
 import 'location_throttle.dart';
@@ -25,9 +27,9 @@ class LocationIngestService {
     SupabaseClient? client,
     LocationThrottle? throttle,
     LocationHistoryQueue? historyQueue,
-  })  : _supabase = client ?? Supabase.instance.client,
-        _throttle = throttle ?? LocationThrottle(),
-        _historyQueue = historyQueue ?? LocationHistoryQueue() {
+  }) : _supabase = client ?? Supabase.instance.client,
+       _throttle = throttle ?? LocationThrottle(),
+       _historyQueue = historyQueue ?? LocationHistoryQueue() {
     _historyQueue.start();
   }
 
@@ -57,6 +59,8 @@ class LocationIngestService {
     double? speed,
     bool force = false,
     bool prioritySync = false,
+    LocationIngestCoordinateSpace coordinateSpace =
+        LocationIngestCoordinateSpace.rawGps,
   }) async {
     if (driverProfileId == null &&
         (driverUserId == null || driverUserId.isEmpty)) {
@@ -64,11 +68,9 @@ class LocationIngestService {
     }
 
     final email = _supabase.auth.currentUser?.email;
-    final adjusted = GeoUtils.applyTestDriverOffset(
-      email: email,
-      lat: lat,
-      lng: lng,
-    );
+    final adjusted = coordinateSpace.shouldApplyDemoOffset
+        ? GeoUtils.applyTestDriverOffset(email: email, lat: lat, lng: lng)
+        : LatLng(lat, lng);
 
     if (!force) {
       if (prioritySync) {
@@ -84,6 +86,7 @@ class LocationIngestService {
             lat: adjusted.latitude,
             lng: adjusted.longitude,
             prioritySync: true,
+            force: force,
           );
           return;
         }
@@ -114,6 +117,7 @@ class LocationIngestService {
             lat: adjusted.latitude,
             lng: adjusted.longitude,
             prioritySync: true,
+            force: force,
           );
         }
         return;
@@ -135,6 +139,7 @@ class LocationIngestService {
       heading: heading,
       speed: speed,
       prioritySync: prioritySync,
+      force: force,
     );
   }
 
@@ -150,12 +155,12 @@ class LocationIngestService {
       final res = await _supabase.functions.invoke(
         LocationIngestConfig.ingestFunctionName,
         body: {
-          if (driverProfileId != null) 'driver_profile_id': driverProfileId,
-          if (driverUserId != null) 'driver_user_id': driverUserId,
+          'driver_profile_id': ?driverProfileId,
+          'driver_user_id': ?driverUserId,
           'lat': lat,
           'lng': lng,
-          if (heading != null) 'heading': heading,
-          if (speed != null) 'speed': speed,
+          'heading': ?heading,
+          'speed': ?speed,
           'client_ts': DateTime.now().toIso8601String(),
         },
       );
@@ -187,6 +192,7 @@ class LocationIngestService {
     double? heading,
     double? speed,
     bool prioritySync = false,
+    bool force = false,
   }) async {
     final ids = await _resolveIds(
       driverProfileId: driverProfileId,
@@ -202,6 +208,7 @@ class LocationIngestService {
       lng: lng,
       prioritySync: prioritySync,
       resolvedProfileId: ids.profileId,
+      force: force,
     );
 
     // History: bulk queue
@@ -225,12 +232,14 @@ class LocationIngestService {
     required double lng,
     bool prioritySync = false,
     String? resolvedProfileId,
+    bool force = false,
   }) async {
     final interval = prioritySync
         ? LocationIngestConfig.navigationRealtimePgInterval
         : LocationIngestConfig.realtimePgInterval;
     final now = DateTime.now();
-    if (_lastRealtimePgAt != null &&
+    if (!force &&
+        _lastRealtimePgAt != null &&
         now.difference(_lastRealtimePgAt!) < interval) {
       return;
     }
@@ -246,11 +255,15 @@ class LocationIngestService {
     if (profileId == null) return;
 
     try {
-      await _supabase.from('drivers').update({
-        'current_lat': lat,
-        'current_lng': lng,
-        'updated_at': now.toIso8601String(),
-      }).eq('id', profileId);
+      await _supabase
+          .from('drivers')
+          .update({
+            'current_lat': lat,
+            'current_lng': lng,
+            'location_updated_at': now.toIso8601String(),
+            'updated_at': now.toIso8601String(),
+          })
+          .eq('id', profileId);
       _lastRealtimePgAt = now;
       if (kDebugMode) {
         debugPrint(

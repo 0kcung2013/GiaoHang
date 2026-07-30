@@ -4,25 +4,43 @@ import '../../../../core/constants/app_theme.dart';
 import '../../../../core/models/order_model.dart';
 
 class TimelineStep {
-  final String title;
-  final String? description;
-  final String time;
-  final String status;
-
   const TimelineStep({
     required this.title,
     required this.description,
     required this.time,
     required this.status,
   });
+
+  final String title;
+  final String? description;
+  final String time;
+  final String status;
 }
 
 List<TimelineStep> fallbackTimelineSteps(OrderModel order) {
-  final statusView = OrderStatusView.fromStatus(order.status);
+  final effectiveStatus = order.effectiveStatusAt(DateTime.now());
+  final statusView = OrderStatusView.fromStatus(effectiveStatus);
   final createdTime = formatOrderDateTime(order.createdAt);
   final updatedTime = order.updatedAt.millisecondsSinceEpoch > 0
       ? formatOrderDateTime(order.updatedAt)
       : createdTime;
+
+  if (effectiveStatus == 'assignment_timeout') {
+    return [
+      TimelineStep(
+        title: 'Đã tạo đơn',
+        description: 'Đơn hàng đã được ghi nhận trong hệ thống.',
+        time: createdTime,
+        status: 'pending',
+      ),
+      TimelineStep(
+        title: statusView.label,
+        description: 'Chưa có tài xế nhận đơn trong vòng 15 phút.',
+        time: formatOrderDateTime(order.assignmentDeadline),
+        status: effectiveStatus,
+      ),
+    ];
+  }
 
   if (order.status == 'pending') {
     return [
@@ -47,7 +65,7 @@ List<TimelineStep> fallbackTimelineSteps(OrderModel order) {
       description: order.status == 'cancelled'
           ? (order.statusNote?.trim().isNotEmpty ?? false
                 ? order.statusNote!.trim()
-                : 'Đơn hàng đã bị huỷ.')
+                : 'Đơn hàng đã bị hủy.')
           : statusProgressDescription(order.status),
       time: updatedTime,
       status: order.status,
@@ -66,7 +84,6 @@ String statusProgressDescription(String status) {
   };
 }
 
-/// Hiện card tài xế khi đơn đã gán TX (tab Đơn hàng + tracking).
 bool shouldShowAssignedDriverForOrder(OrderModel order) {
   final driverId = order.driverId?.trim();
   if (driverId != null && driverId.isNotEmpty) return true;
@@ -87,15 +104,15 @@ String formatOrderDateTime(DateTime value) {
 }
 
 class OrderStatusView {
-  final String label;
-  final Color color;
-  final IconData icon;
-
   const OrderStatusView({
     required this.label,
     required this.color,
     required this.icon,
   });
+
+  final String label;
+  final Color color;
+  final IconData icon;
 
   factory OrderStatusView.fromStatus(String status) {
     return switch (status) {
@@ -130,9 +147,14 @@ class OrderStatusView {
         icon: Icons.check_circle_rounded,
       ),
       'cancelled' => const OrderStatusView(
-        label: 'Đã huỷ',
+        label: 'Đã hủy',
         color: AppColors.error,
         icon: Icons.cancel_rounded,
+      ),
+      'assignment_timeout' => const OrderStatusView(
+        label: 'Chưa có tài xế',
+        color: AppColors.error,
+        icon: Icons.person_search_rounded,
       ),
       _ => const OrderStatusView(
         label: 'Không rõ',

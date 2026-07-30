@@ -57,22 +57,59 @@ class _ShimmerCardState extends State<_ShimmerCard>
           alpha: 0.28 + (_controller.value * 0.38),
         );
         return Container(
-          height: 166,
+          height: 304,
           padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: AppColors.bgCard,
             borderRadius: AppRadius.xl,
+            border: Border.all(color: AppColors.border),
+            boxShadow: AppShadow.subtle,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _ShimmerLine(width: 108, color: shade),
-              const SizedBox(height: AppSpacing.xl),
-              _ShimmerLine(width: 210, color: shade),
-              const SizedBox(height: AppSpacing.sm),
-              _ShimmerLine(width: 160, color: shade),
-              const Spacer(),
-              _ShimmerLine(width: 132, color: shade),
+              Row(
+                children: [
+                  _ShimmerLine(width: 92, color: shade),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(child: _ShimmerLine(width: 126, color: shade)),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 84,
+                    height: 84,
+                    decoration: BoxDecoration(
+                      color: shade,
+                      borderRadius: AppRadius.lg,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _ShimmerLine(width: 72, color: shade),
+                        const SizedBox(height: AppSpacing.sm),
+                        _ShimmerLine(width: 150, color: shade),
+                        const SizedBox(height: AppSpacing.md),
+                        _ShimmerLine(width: 94, color: shade),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Container(
+                height: 92,
+                decoration: BoxDecoration(
+                  color: shade.withValues(alpha: 0.66),
+                  borderRadius: AppRadius.lg,
+                ),
+              ),
             ],
           ),
         );

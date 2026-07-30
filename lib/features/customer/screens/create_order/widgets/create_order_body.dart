@@ -75,9 +75,9 @@ class CreateOrderBody extends StatelessWidget {
               child: ListView(
                 padding: EdgeInsets.fromLTRB(
                   layout.horizontalPadding,
-                  AppSpacing.sm,
+                  AppSpacing.md,
                   layout.horizontalPadding,
-                  AppSpacing.xl3,
+                  AppSpacing.xl2,
                 ),
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
@@ -88,7 +88,7 @@ class CreateOrderBody extends StatelessWidget {
                     onApplyPickup: onApplyPickup,
                     onApplyDelivery: onApplyDelivery,
                   ),
-                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: AppSpacing.lg),
                   CreateOrderAddressSection(
                     pickupAddressController: pickupAddressController,
                     deliveryAddressController: deliveryAddressController,
@@ -98,7 +98,7 @@ class CreateOrderBody extends StatelessWidget {
                     hasPickupPin: hasPickupPin,
                     hasDeliveryPin: hasDeliveryPin,
                   ),
-                  const SizedBox(height: AppSpacing.xl3),
+                  const SizedBox(height: AppSpacing.lg),
                   CreateOrderRecipientSection(
                     recipientNameController: recipientNameController,
                     recipientPhoneController: recipientPhoneController,
@@ -106,7 +106,7 @@ class CreateOrderBody extends StatelessWidget {
                     requiredText: requiredText,
                     validatePhone: validatePhone,
                   ),
-                  const SizedBox(height: AppSpacing.xl3),
+                  const SizedBox(height: AppSpacing.lg),
                   CreateOrderCargoSection(
                     itemNameController: itemNameController,
                     itemDescriptionController: itemDescriptionController,
@@ -114,14 +114,14 @@ class CreateOrderBody extends StatelessWidget {
                     requiredText: requiredText,
                     onCategoryChanged: onCategoryChanged,
                   ),
-                  const SizedBox(height: AppSpacing.xl3),
+                  const SizedBox(height: AppSpacing.lg),
                   CreateOrderPhotosSection(
                     image: cargoImage,
                     onPickCamera: onPickCamera,
                     onPickGallery: onPickGallery,
                     onRemove: onRemoveImage,
                   ),
-                  const SizedBox(height: AppSpacing.xl3),
+                  const SizedBox(height: AppSpacing.lg),
                   const SenderContactSection(),
                 ],
               ),

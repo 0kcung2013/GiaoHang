@@ -13,13 +13,8 @@ class _HeroSurface extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.bgCard,
         borderRadius: AppRadius.xl2,
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x122C211B),
-            blurRadius: 28,
-            offset: Offset(0, 10),
-          ),
-        ],
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.14)),
+        boxShadow: AppShadow.card,
       ),
       child: child,
     );
@@ -73,73 +68,41 @@ class _PrimaryHeroButton extends StatelessWidget {
       label: label,
       child: Material(
         color: AppColors.accent,
-        borderRadius: AppRadius.lg,
+        borderRadius: AppRadius.full,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           splashColor: AppColors.textPrimary.withValues(alpha: 0.1),
-          child: SizedBox(
-            height: 56,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: AppColors.textPrimary, size: 22),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  label,
-                  style: AppTextStyles.labelLarge.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 16,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 56),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.md,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: AppColors.textOnAccent, size: 22),
+                  const SizedBox(width: AppSpacing.sm),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.labelLarge.copyWith(
+                        color: AppColors.textOnAccent,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyRouteCue extends StatelessWidget {
-  const _EmptyRouteCue();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.bgLight,
-        borderRadius: AppRadius.lg,
-      ),
-      child: const Column(
-        children: [
-          _RouteCueRow(
-            icon: Icons.radio_button_checked_rounded,
-            label: 'Điểm lấy hàng',
-            color: AppColors.textPrimary,
-          ),
-          Padding(
-            padding: EdgeInsets.only(left: 9),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: SizedBox(
-                height: 16,
-                child: VerticalDivider(
-                  width: 1,
-                  thickness: 1,
-                  color: AppColors.border,
-                ),
+                ],
               ),
             ),
           ),
-          _RouteCueRow(
-            icon: Icons.location_on_rounded,
-            label: 'Chọn điểm giao',
-            color: AppColors.accent,
-          ),
-        ],
+        ),
       ),
     );
   }

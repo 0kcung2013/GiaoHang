@@ -74,17 +74,26 @@ Map<String, OrderStatusLogModel> _latestLogByStatus(
 
 String _stepDescription(String status, bool done, OrderStatusLogModel? log) {
   if (!done) return _statusDescription(status, false);
-  final description = log?.description?.trim();
-  if (description != null && description.isNotEmpty) return description;
+  final description = log?.displayDescription?.trim();
+  if (description != null &&
+      description.isNotEmpty &&
+      !containsUtf8Mojibake(description)) {
+    return description;
+  }
   return _statusDescription(status, true);
 }
 
 String _cancelledDescription(OrderModel order, OrderStatusLogModel? log) {
   final note = order.statusNote?.trim();
-  if (note != null && note.isNotEmpty) return note;
+  if (note != null && note.isNotEmpty) {
+    final repairedNote = repairUtf8Mojibake(note);
+    if (!containsUtf8Mojibake(repairedNote)) return repairedNote;
+  }
 
-  final logDescription = log?.description?.trim();
-  if (logDescription != null && logDescription.isNotEmpty) {
+  final logDescription = log?.displayDescription?.trim();
+  if (logDescription != null &&
+      logDescription.isNotEmpty &&
+      !containsUtf8Mojibake(logDescription)) {
     return logDescription;
   }
 
@@ -123,6 +132,7 @@ String _statusLabel(String status) {
     'delivering' => 'Đang giao đến bạn',
     'delivered' => 'Giao hàng thành công',
     'cancelled' => 'Đã huỷ',
+    'assignment_timeout' => 'Chưa có tài xế',
     _ => 'Không rõ',
   };
 }
@@ -140,6 +150,7 @@ String _statusDescription(String status, bool done) {
     'delivering' => 'Tài xế đang mang hàng đến địa chỉ giao.',
     'delivered' => 'Đơn hàng đã được giao thành công.',
     'cancelled' => 'Đơn hàng đã bị huỷ.',
+    'assignment_timeout' => 'Chưa có tài xế nhận đơn trong thời gian quy định.',
     _ => 'Trạng thái đơn hàng đã được cập nhật.',
   };
 }

@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/constants/app_theme.dart';
 import '../../../../core/models/order_model.dart';
 import '../../../../core/providers/customer_providers.dart';
-import '../order/order_screen.dart';
+import 'widgets/dashboard_create_delivery_hero.dart';
 import 'widgets/dashboard_header.dart';
 import 'widgets/dashboard_hero.dart';
-import 'widgets/dashboard_order_card.dart';
 import 'widgets/dashboard_quick_actions.dart';
 import 'widgets/dashboard_states.dart';
 
@@ -47,58 +45,64 @@ class DashboardScreen extends ConsumerWidget {
 }
 
 class _DashboardBody extends ConsumerWidget {
+  const _DashboardBody({required this.user, required this.layout});
+
   final User user;
   final _Layout layout;
-
-  const _DashboardBody({required this.user, required this.layout});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(ordersRealtimeProvider(user.id));
     final ordersAsync = ref.watch(customerOrdersProvider(user.id));
 
-    if (ordersAsync.isLoading && !ordersAsync.hasValue) {
-      return const DashboardShimmer();
-    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DashboardHeader(user: user),
+        SizedBox(height: layout.sectionGap),
+        if (ordersAsync.isLoading && !ordersAsync.hasValue)
+          const DashboardShimmer()
+        else if (ordersAsync.hasError && !ordersAsync.hasValue)
+          DashboardError(
+            onRetry: () => ref.invalidate(customerOrdersProvider(user.id)),
+          )
+        else
+          _DashboardContent(
+            allOrders: ordersAsync.valueOrNull ?? const <OrderModel>[],
+            sectionGap: layout.sectionGap,
+          ),
+      ],
+    );
+  }
+}
 
-    if (ordersAsync.hasError && !ordersAsync.hasValue) {
-      return DashboardError(
-        onRetry: () => ref.invalidate(customerOrdersProvider(user.id)),
-      );
-    }
+class _DashboardContent extends StatelessWidget {
+  const _DashboardContent({required this.allOrders, required this.sectionGap});
 
-    final allOrders = ordersAsync.valueOrNull ?? const <OrderModel>[];
+  final List<OrderModel> allOrders;
+  final double sectionGap;
+
+  @override
+  Widget build(BuildContext context) {
     final activeOrders = allOrders
         .where((order) => _activeStatuses.contains(order.status))
         .toList();
-    final recentOrders = allOrders
-        .where((order) => !_activeStatuses.contains(order.status))
-        .take(3)
-        .toList();
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return AnimatedSwitcher(
-      duration: AppDuration.page,
+      duration: reduceMotion ? Duration.zero : AppDuration.page,
       switchInCurve: AppCurve.decelerate,
       switchOutCurve: AppCurve.accelerate,
       child: Column(
         key: ValueKey('dashboard_${activeOrders.length}_${allOrders.length}'),
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const DashboardHeader(),
-          SizedBox(height: layout.sectionGap),
-          DashboardHero(
-            activeOrders: activeOrders,
-            isFirstDelivery: allOrders.isEmpty,
-          ),
-          SizedBox(height: layout.sectionGap),
+          DashboardCreateDeliveryHero(isFirstDelivery: allOrders.isEmpty),
+          SizedBox(height: sectionGap),
           DashboardQuickActions(hasActiveDelivery: activeOrders.isNotEmpty),
-          if (recentOrders.isNotEmpty) ...[
-            SizedBox(height: layout.sectionGap),
-            _RecentDeliveries(
-              orders: recentOrders,
-              customerId: user.id,
-              showViewAll: allOrders.length > recentOrders.length,
-            ),
+          if (activeOrders.isNotEmpty) ...[
+            SizedBox(height: sectionGap),
+            DashboardActiveDeliveryCard(activeOrders: activeOrders),
           ],
         ],
       ),
@@ -106,78 +110,7 @@ class _DashboardBody extends ConsumerWidget {
   }
 }
 
-class _RecentDeliveries extends StatelessWidget {
-  final List<OrderModel> orders;
-  final String customerId;
-  final bool showViewAll;
-
-  const _RecentDeliveries({
-    required this.orders,
-    required this.customerId,
-    required this.showViewAll,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Gần đây',
-                style: AppTextStyles.headingMedium.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            if (showViewAll)
-              TextButton(
-                onPressed: () => context.go('/customer-home?tab=orders'),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.textPrimary,
-                  minimumSize: const Size(48, 48),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                  ),
-                ),
-                child: const Text('Xem tất cả'),
-              ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Material(
-          color: AppColors.bgCard,
-          borderRadius: AppRadius.xl2,
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              for (var index = 0; index < orders.length; index++)
-                DashboardOrderCard(
-                  order: orders[index],
-                  showDivider: index < orders.length - 1,
-                  onTap: () => showOrderDetailSheet(
-                    context: context,
-                    customerId: customerId,
-                    order: orders[index],
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _Layout {
-  final double padding;
-  final double topPadding;
-  final double sectionGap;
-  final double maxWidth;
-
   const _Layout({
     required this.padding,
     required this.topPadding,
@@ -185,13 +118,18 @@ class _Layout {
     required this.maxWidth,
   });
 
+  final double padding;
+  final double topPadding;
+  final double sectionGap;
+  final double maxWidth;
+
   factory _Layout.fromWidth(double width) {
     if (width >= 1024) {
       return const _Layout(
         padding: AppSpacing.xl3,
         topPadding: AppSpacing.xl2,
         sectionGap: AppSpacing.xl2,
-        maxWidth: 600,
+        maxWidth: 680,
       );
     }
     if (width >= 600) {
@@ -199,7 +137,7 @@ class _Layout {
         padding: AppSpacing.xl3,
         topPadding: AppSpacing.xl2,
         sectionGap: AppSpacing.xl2,
-        maxWidth: 520,
+        maxWidth: 600,
       );
     }
     return const _Layout(

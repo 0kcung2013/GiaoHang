@@ -174,6 +174,8 @@ dependencies:
 - Target: premium mobile app aesthetic — sạch, nhanh, rõ ràng
 - Tránh generic Flutter/Material default UI
 - Dùng `AppColors`, `AppTextStyles`, `AppSpacing` từ `lib/core/constants/app_theme.dart`
+- Bắt buộc đọc `docs/design/visual_first_ui.md` cho quy tắc mật độ nội dung,
+  hình minh họa, icon và yêu cầu riêng theo từng màn hình
 
 ---
 
@@ -203,6 +205,7 @@ class AppColors {
   // === Backgrounds ===
   static const bgLight     = Color(0xFFF8FAFC); // Screen background (light)
   static const bgCard      = Color(0xFFFFFFFF); // Card surface
+  static const bgWarm      = Color(0xFFFFF7F1); // Chibi/visual header surface
   static const bgDark      = Color(0xFF1E293B); // Dark surface (driver night mode)
   static const bgDarkCard  = Color(0xFF243447); // Dark card
 
@@ -437,94 +440,39 @@ class AppCurve {
 
 ---
 
-### Screen-Specific Design Notes
+### Visual hierarchy, icons và screen rules
 
-#### Onboarding
-- Full-screen gradient: `primary` → `Color(0xFF1A3A5C)` (navy lighter)
-- Text màu `textOnDark`, illustration dùng Lottie
-- Page indicator: pill shape, màu `accent`
+Xem tài liệu bắt buộc:
+[`docs/design/visual_first_ui.md`](docs/design/visual_first_ui.md).
 
-#### Login
-- Background: `bgLight`
-- Google button: trắng, border `border`, shadow `subtle`
-- Logo/brand centered, clean whitespace
+### Customer Orders — Visual Order Hub
 
-#### Customer Home
-- AppBar trong suốt với greeting text
-- Search bar nổi bật (rounded, shadow `card`)
-- Quick action chips: màu `accentLight` + `accent` icon
-- Order card: status badge + timeline indicator
+Màn Đơn hàng của khách hàng dùng pattern **visual order hub** để giảm chữ nhưng vẫn giữ
+thông tin nghiệp vụ rõ ràng:
 
-#### Driver Home (Dark Mode)
-- Background: `bgDark`
-- Status toggle (Available/Busy): pill, màu `success`/`error`
-- Đơn chờ nhận: card nền `bgDarkCard`, border trái 3px màu `accent`
-- Map chiếm 60% màn hình, controls overlay
-
-#### Order Tracking
-- Map full-screen với bottom sheet
-- Route line màu `routeLine` (blue), dashed
-- Marker pickup: blue pin, marker drop: orange pin
-- Driver marker: green dot với pulse animation
-- Bottom sheet: `bgCard`, drag handle, thông tin ETA + tên tài xế
-
-#### Admin Dashboard
-- Grid 2 cột: metric cards với icon + số lớn
-- Chart: dùng `fl_chart` package (thêm khi cần Phase 3)
-- Table: alternating row màu `bgLight`/`bgCard`
-- Sidebar (web): `primary` background, icon + label
-
----
-
-### Icons
-
-Dùng `Icons.*` từ Material — **không dùng emoji làm icon**.
-
-Icon mapping chuẩn cho project:
-```dart
-// Navigation
-Icons.home_rounded         // Home
-Icons.list_alt_rounded     // Danh sách đơn
-Icons.map_rounded          // Bản đồ
-Icons.history_rounded      // Lịch sử
-Icons.person_rounded       // Profile
-
-// Order actions
-Icons.add_location_alt_rounded  // Thêm địa chỉ
-Icons.local_shipping_rounded    // Giao hàng
-Icons.check_circle_rounded      // Đã giao
-Icons.cancel_rounded            // Hủy
-Icons.access_time_rounded       // Thời gian
-
-// Driver
-Icons.directions_car_rounded    // Xe
-Icons.navigation_rounded        // Dẫn đường
-Icons.radio_button_on_rounded   // Trạng thái online
-
-// Admin
-Icons.dashboard_rounded         // Dashboard
-Icons.people_alt_rounded        // Quản lý tài xế
-Icons.inventory_2_rounded       // Quản lý đơn
-```
-
-**Icon size chuẩn:** 20px (inline), 24px (standalone), 28px (header action).
-
----
-
-### Anti-Patterns — KHÔNG làm
-
-| ❌ Sai | ✅ Đúng |
-|--------|---------|
-| `Colors.blue`, `Colors.orange` mặc định | Dùng `AppColors.*` |
-| `TextStyle(fontSize: 16)` hardcode | Dùng `AppTextStyles.*` |
-| `EdgeInsets.all(16)` random | Dùng `AppSpacing.*` |
-| `CircularProgressIndicator()` thuần | Lottie hoặc shimmer skeleton |
-| `Container` màu trắng thuần không shadow | Card với `AppShadow.card` |
-| Emoji icon (🚀 📦 🗺️) | `Icons.*` hoặc SVG |
-| `BorderRadius.circular(4)` — quá vuông | Tối thiểu `AppRadius.sm` (8px) |
-| `showDialog` mặc định với AlertDialog | Custom bottom sheet hoặc custom dialog |
-| Text overflow không handle | `overflow: TextOverflow.ellipsis` |
-| Không có `SafeArea` | Luôn wrap screen với `SafeArea` |
+- Không lặp tiêu đề “Đơn hàng” và câu mô tả dài khi bottom navigation đã cho biết vị trí
+  hiện tại. Dùng một visual header chibi không chứa text/logo; visual phải có
+  `semanticLabel` và kích thước cố định để tránh layout shift.
+- Trên mobile, visual chibi và control surface nằm **chung một hàng** trong toolbar cao
+  128dp. Visual rộng 80–96dp theo available width; control surface dùng phần chiều rộng
+  còn lại. Không xếp hai khối full-width theo chiều dọc vì sẽ đẩy danh sách đơn xuống thấp.
+- Header chỉ có một hành động chính: nút icon tạo đơn tối thiểu 48×48dp, có tooltip,
+  semantics và phản hồi nhấn. Không raster hoá CTA vào ảnh.
+- Search và bộ lọc phải nằm trong một `bgCard` control surface riêng trên nền `bgLight`,
+  có `AppColors.border`, `AppRadius.xl` và `AppShadow.subtle`. Input bên trong dùng nền
+  `bgLight` để tạo ba lớp dễ đọc: screen → control surface → input.
+- Toolbar compact dùng bốn filter icon-only 48dp; mọi mục bắt buộc có tooltip và
+  semantic label. Trạng thái chọn dùng `accent`, không trộn thêm màu nhấn không cần thiết.
+- Card đơn hàng luôn dùng `bgCard`, viền nhìn thấy rõ và shadow theo token. Không đặt
+  card trắng không viền trên nền gần trắng.
+- Mỗi card có status rail, status icon và nhãn ngắn; không dùng màu làm tín hiệu duy
+  nhất. Route panel và recipient panel dùng `bgLight` + border để tách khỏi card.
+- Điểm lấy dùng `markerPickup`, điểm giao dùng `markerDrop`. Địa chỉ được phép tối đa
+  hai dòng; không rút gọn thông tin nghiệp vụ bắt buộc chỉ để giảm chữ.
+- Giữ text cho mã đơn, trạng thái, địa chỉ, giá và người nhận. Loại các nhãn dư như
+  “Chi tiết” khi toàn bộ card đã tappable; thay bằng chevron và semantic action.
+- Hình chibi cho màn này dùng nền `bgWarm` (`#FFF7F1`), tông cam–trắng–be, không text,
+  không logo, không mô phỏng control tương tác bên trong raster.
 
 ## Conventions
 - File: snake_case.dart

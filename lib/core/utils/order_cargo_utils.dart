@@ -15,7 +15,7 @@ String cargoCategoryLabel(String? value) {
     'document' => 'Tài liệu',
     'parcel' => 'Bưu kiện',
     'fragile' => 'Dễ vỡ',
-    'grocery' => 'Tạp hoá',
+    'grocery' => 'Tạp hóa',
     'other' => 'Khác',
     _ => 'Chưa phân loại',
   };
@@ -32,5 +32,5 @@ bool hasCargoInfo(OrderModel order) {
 
 String cargoNameOrFallback(OrderModel order) {
   final name = order.itemName?.trim();
-  return name == null || name.isEmpty ? 'Hàng hoá' : name;
+  return name == null || name.isEmpty ? 'Hàng hóa' : name;
 }

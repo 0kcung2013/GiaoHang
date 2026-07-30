@@ -1,4 +1,6 @@
 import '../services/osrm_service.dart';
+import 'delivery_eta_calculator.dart';
+import 'delivery_pricing_policy.dart';
 import 'geo_utils.dart';
 
 /// Ước tính phí giao hàng theo khoảng cách (haversine / OSRM).
@@ -9,6 +11,8 @@ class DeliveryFeeEstimate {
     required this.totalPrice,
     required this.serviceType,
     required this.source,
+    required this.feeBreakdown,
+    required this.eta,
     this.durationSeconds,
   });
 
@@ -16,9 +20,12 @@ class DeliveryFeeEstimate {
   final double deliveryFee;
   final double totalPrice;
   final String serviceType;
+
   /// 'osrm' | 'haversine'
   final String source;
   final double? durationSeconds;
+  final DeliveryFeeBreakdown feeBreakdown;
+  final DeliveryEtaEstimate eta;
 
   double get distanceKm => distanceMeters / 1000;
 }
@@ -26,31 +33,14 @@ class DeliveryFeeEstimate {
 class DeliveryFeeCalculator {
   DeliveryFeeCalculator._();
 
-  /// Phí nền (VND).
-  static const double baseFee = 15000;
-
-  /// Phí mỗi km sau nền.
-  static const double perKm = 5000;
-
-  /// Sàn phí tối thiểu.
-  static const double minFee = 25000;
-
-  /// Hệ số dịch vụ nhanh.
-  static const double expressMultiplier = 1.35;
-
-  /// Tính phí từ khoảng cách mét + loại dịch vụ.
+  /// Giữ API cũ cho các caller hiện tại; phí tiêu chuẩn do policy đảm nhiệm.
   static double feeFromDistanceMeters({
     required double distanceMeters,
     required String serviceType,
   }) {
-    final km = distanceMeters / 1000;
-    var fee = baseFee + perKm * km;
-    if (fee < minFee) fee = minFee;
-    if (serviceType == 'express') {
-      fee *= expressMultiplier;
-    }
-    // Làm tròn 1000đ
-    return (fee / 1000).round() * 1000.0;
+    return DeliveryPricingPolicy.calculate(
+      distanceMeters: distanceMeters,
+    ).total;
   }
 
   /// Ưu tiên OSRM (đường thật); fallback haversine nếu API lỗi.
@@ -61,6 +51,7 @@ class DeliveryFeeCalculator {
     required double deliveryLng,
     required String serviceType,
     OsrmService? osrm,
+    DateTime? quotedAt,
   }) async {
     final haversineM = GeoUtils.distanceMeters(
       fromLat: pickupLat,
@@ -89,18 +80,24 @@ class DeliveryFeeCalculator {
       // giữ haversine
     }
 
-    final fee = feeFromDistanceMeters(
+    final feeBreakdown = DeliveryPricingPolicy.calculate(
       distanceMeters: meters,
-      serviceType: serviceType,
+    );
+    final eta = DeliveryEtaCalculator.calculate(
+      distanceMeters: meters,
+      routeDurationSeconds: duration,
+      quotedAt: quotedAt,
     );
 
     return DeliveryFeeEstimate(
       distanceMeters: meters,
-      deliveryFee: fee,
-      totalPrice: fee,
+      deliveryFee: feeBreakdown.total,
+      totalPrice: feeBreakdown.total,
       serviceType: serviceType,
       source: source,
       durationSeconds: duration,
+      feeBreakdown: feeBreakdown,
+      eta: eta,
     );
   }
 }

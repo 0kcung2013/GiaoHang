@@ -9,8 +9,8 @@ String statusLabel(String status) {
   return switch (status) {
     'pending' => 'Chờ xác nhận',
     'confirmed' => 'Chờ tài xế',
-    'assigned' => 'Đã phân công',
-    'picking_up' => 'Đang lấy',
+    'assigned' => 'Đã nhận đơn',
+    'picking_up' => 'Đến lấy hàng',
     'delivering' => 'Đang giao',
     'delivered' => 'Hoàn thành',
     'cancelled' => 'Huỷ',
@@ -52,16 +52,6 @@ bool isActiveDriverOrder(OrderModel order) {
       order.status == 'delivering';
 }
 
-String? driverOrderStatusActionLabel(String status) {
-  return switch (status) {
-    // Luồng gạt (map DB): assigned → picking_up → delivering → delivered
-    'assigned' => 'Gạt: đang đến điểm lấy hàng',
-    'picking_up' => 'Gạt: đã lấy hàng — bắt đầu giao',
-    'delivering' => 'Gạt: hoàn tất giao hàng',
-    _ => null,
-  };
-}
-
 bool isAvailableOrder(OrderModel order) {
   return (order.driverId == null || order.driverId!.isEmpty) &&
       (order.status == 'pending' || order.status == 'confirmed');
@@ -89,6 +79,19 @@ String createdTimeText(OrderModel order) {
   final hour = local.hour.toString().padLeft(2, '0');
   final minute = local.minute.toString().padLeft(2, '0');
   return '$day/$month $hour:$minute';
+}
+
+String pickupDistanceText(double? distanceMeters) {
+  if (distanceMeters == null || !distanceMeters.isFinite) {
+    return 'Chưa có khoảng cách';
+  }
+  if (distanceMeters < 1000) {
+    final roundedMeters = (distanceMeters / 50).round() * 50;
+    return 'cách ${roundedMeters.clamp(0, 950)} m';
+  }
+  final distanceKm = distanceMeters / 1000;
+  final decimals = distanceKm < 10 ? 1 : 0;
+  return 'cách ${distanceKm.toStringAsFixed(decimals)} km';
 }
 
 String serviceTypeLabel(String value) {

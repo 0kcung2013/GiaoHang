@@ -109,6 +109,16 @@ Deno.serve(async (req) => {
       }
 
       if (meta && meta.is_available === false) continue;
+      const locationUpdatedAt =
+        typeof meta?.updated_at === "string"
+          ? Date.parse(meta.updated_at)
+          : Number.NaN;
+      if (
+        !Number.isFinite(locationUpdatedAt) ||
+        Date.now() - locationUpdatedAt > 3 * 60 * 1000
+      ) {
+        continue;
+      }
 
       // Bỏ tài xế đang bận đơn (source of truth: Postgres)
       const { data: busy } = await admin

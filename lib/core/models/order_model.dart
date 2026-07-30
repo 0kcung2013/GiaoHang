@@ -19,6 +19,8 @@ class OrderModel {
     this.actualPickedUpAt,
     this.actualDeliveredAt,
     this.cancelledAt,
+    this.assignmentExpiresAt,
+    this.assignmentTimedOutAt,
     this.recipientName,
     this.recipientPhone,
     this.itemName,
@@ -52,6 +54,8 @@ class OrderModel {
   final DateTime? actualPickedUpAt;
   final DateTime? actualDeliveredAt;
   final DateTime? cancelledAt;
+  final DateTime? assignmentExpiresAt;
+  final DateTime? assignmentTimedOutAt;
   final String? recipientName;
   final String? recipientPhone;
   final String? itemName;
@@ -88,6 +92,8 @@ class OrderModel {
       actualPickedUpAt: _parseDateTime(json['actual_picked_up_at']),
       actualDeliveredAt: _parseDateTime(json['actual_delivered_at']),
       cancelledAt: _parseDateTime(json['cancelled_at']),
+      assignmentExpiresAt: _parseDateTime(json['assignment_expires_at']),
+      assignmentTimedOutAt: _parseDateTime(json['assignment_timed_out_at']),
       recipientName: json['recipient_name']?.toString(),
       recipientPhone: json['recipient_phone']?.toString(),
       itemName: json['item_name']?.toString(),
@@ -148,6 +154,8 @@ class OrderModel {
       'actual_picked_up_at': actualPickedUpAt?.toIso8601String(),
       'actual_delivered_at': actualDeliveredAt?.toIso8601String(),
       'cancelled_at': cancelledAt?.toIso8601String(),
+      'assignment_expires_at': assignmentExpiresAt?.toIso8601String(),
+      'assignment_timed_out_at': assignmentTimedOutAt?.toIso8601String(),
       'recipient_name': recipientName,
       'recipient_phone': recipientPhone,
       'item_name': itemName,
@@ -195,6 +203,8 @@ class OrderModel {
     DateTime? actualPickedUpAt,
     DateTime? actualDeliveredAt,
     DateTime? cancelledAt,
+    DateTime? assignmentExpiresAt,
+    DateTime? assignmentTimedOutAt,
     String? recipientName,
     String? recipientPhone,
     String? itemName,
@@ -228,6 +238,8 @@ class OrderModel {
       actualPickedUpAt: actualPickedUpAt ?? this.actualPickedUpAt,
       actualDeliveredAt: actualDeliveredAt ?? this.actualDeliveredAt,
       cancelledAt: cancelledAt ?? this.cancelledAt,
+      assignmentExpiresAt: assignmentExpiresAt ?? this.assignmentExpiresAt,
+      assignmentTimedOutAt: assignmentTimedOutAt ?? this.assignmentTimedOutAt,
       recipientName: recipientName ?? this.recipientName,
       recipientPhone: recipientPhone ?? this.recipientPhone,
       itemName: itemName ?? this.itemName,
@@ -242,4 +254,25 @@ class OrderModel {
       rejectedBy: rejectedBy ?? this.rejectedBy,
     );
   }
+
+  static const assignmentWindow = Duration(minutes: 15);
+
+  DateTime get assignmentDeadline =>
+      assignmentExpiresAt ?? createdAt.add(assignmentWindow);
+
+  bool get canWaitForDriver =>
+      driverId?.trim().isNotEmpty != true &&
+      (status == 'pending' || status == 'confirmed');
+
+  bool isAwaitingDriverAt(DateTime now) =>
+      canWaitForDriver &&
+      assignmentTimedOutAt == null &&
+      assignmentDeadline.isAfter(now);
+
+  bool isAssignmentTimedOutAt(DateTime now) =>
+      canWaitForDriver &&
+      (assignmentTimedOutAt != null || !assignmentDeadline.isAfter(now));
+
+  String effectiveStatusAt(DateTime now) =>
+      isAssignmentTimedOutAt(now) ? 'assignment_timeout' : status;
 }

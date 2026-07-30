@@ -4,19 +4,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/constants/app_theme.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/providers/customer_providers.dart';
+import '../../../../../core/providers/driver_nav_session_provider.dart';
 import '../../../../../core/utils/order_cargo_utils.dart';
 import '../../../../../core/widgets/order_cargo_info_block.dart';
 import '../../../../reviews/widgets/driver_rate_customer_sheet.dart';
 import '../../navigation/driver_navigation_screen.dart';
+import '../../navigation/widgets/driver_order_cancellation_guard.dart';
 import '../utils/driver_home_formatters.dart';
-import 'slide_status_action.dart';
+import 'driver_order_card_components.dart';
 
-/// A single order row card used in both "available" and "assigned" sections.
+/// Card đơn hàng dùng chung cho Tổng quan và danh sách đơn của tài xế.
+///
+/// File này chỉ giữ state/nghiệp vụ. Các thành phần trình bày được tách sang
+/// [driver_order_card_components.dart].
 class DriverOrderCard extends ConsumerStatefulWidget {
+  const DriverOrderCard({
+    super.key,
+    required this.order,
+    this.acceptDriverId,
+    this.pickupDistanceMeters,
+  });
+
   final OrderModel order;
   final String? acceptDriverId;
-
-  const DriverOrderCard({super.key, required this.order, this.acceptDriverId});
+  final double? pickupDistanceMeters;
 
   @override
   ConsumerState<DriverOrderCard> createState() => _DriverOrderCardState();
@@ -25,7 +36,6 @@ class DriverOrderCard extends ConsumerStatefulWidget {
 class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
   bool _isAccepting = false;
   bool _isTransferring = false;
-  bool _isUpdatingStatus = false;
 
   Future<void> _acceptOrder() async {
     final driverId = widget.acceptDriverId;
@@ -33,7 +43,9 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
 
     setState(() => _isAccepting = true);
     try {
-      await ref.read(customerOrderServiceProvider).acceptOrder(
+      await ref
+          .read(customerOrderServiceProvider)
+          .acceptOrder(
             widget.order.id,
             driverId,
             customerIdHint: widget.order.customerId,
@@ -45,8 +57,7 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
       _showSnackBar('Đã nhận đơn hàng.');
     } catch (e) {
       if (!mounted) return;
-      final msg = e.toString().replaceAll('Exception: ', '');
-      _showSnackBar(msg, isError: true);
+      _showSnackBar(e.toString().replaceAll('Exception: ', ''), isError: true);
     } finally {
       if (mounted) setState(() => _isAccepting = false);
     }
@@ -58,7 +69,7 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.bgCard,
         shape: RoundedRectangleBorder(borderRadius: AppRadius.xl),
         title: Text(
@@ -68,14 +79,15 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
           ),
         ),
         content: Text(
-          'Đơn sẽ được chuyển cho tài xế gần điểm lấy hàng nhất trong số còn lại. Bạn sẽ không còn thấy đơn này.',
+          'Hệ thống sẽ ưu tiên tài xế khác gần điểm lấy hàng. '
+          'Bạn sẽ không còn thấy đơn này.',
           style: AppTextStyles.bodySmall.copyWith(
             color: AppColors.textSecondary,
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
             child: Text(
               'Huỷ',
               style: AppTextStyles.labelMedium.copyWith(
@@ -84,7 +96,7 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
             ),
           ),
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
             child: Text(
               'Chuyển đơn',
               style: AppTextStyles.labelMedium.copyWith(
@@ -106,55 +118,16 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
       ref.invalidate(availableOrdersProvider(driverId));
       ref.invalidate(driverOrdersProvider(driverId));
       if (!mounted) return;
-      if (nextDriverId != null && nextDriverId.isNotEmpty) {
-        _showSnackBar('Đã chuyển đơn cho tài xế gần hơn.');
-      } else {
-        _showSnackBar(
-          'Đã chuyển đơn. Hiện chưa có tài xế khác gần điểm lấy hàng.',
-        );
-      }
+      _showSnackBar(
+        nextDriverId?.isNotEmpty == true
+            ? 'Đã chuyển đơn cho tài xế gần hơn.'
+            : 'Đã chuyển đơn. Hiện chưa có tài xế khác phù hợp.',
+      );
     } catch (e) {
       if (!mounted) return;
-      final msg = e.toString().replaceAll('Exception: ', '');
-      _showSnackBar(msg, isError: true);
+      _showSnackBar(e.toString().replaceAll('Exception: ', ''), isError: true);
     } finally {
       if (mounted) setState(() => _isTransferring = false);
-    }
-  }
-
-  Future<void> _updateOrderStatus() async {
-    final driverId = widget.order.driverId;
-    if (_isUpdatingStatus || driverId == null || driverId.isEmpty) return;
-
-    setState(() => _isUpdatingStatus = true);
-    try {
-      final nextStatus = await ref
-          .read(customerOrderServiceProvider)
-          .updateDriverOrderStatus(
-            orderId: widget.order.id,
-            driverId: driverId,
-            currentStatus: widget.order.status,
-          );
-      ref.invalidate(availableOrdersProvider(driverId));
-      ref.invalidate(driverOrdersProvider(driverId));
-      ref.invalidate(orderByIdProvider(widget.order.id));
-      if (!mounted) return;
-      if (nextStatus == 'delivered') {
-        _showSnackBar('Đã hoàn tất giao hàng.');
-        final delivered = widget.order.copyWith(status: nextStatus);
-        await showDriverRateCustomerSheet(
-          context: context,
-          order: delivered,
-        );
-      } else {
-        _showSnackBar('Đã cập nhật trạng thái đơn hàng.');
-      }
-    } catch (e) {
-      if (!mounted) return;
-      final msg = e.toString().replaceAll('Exception: ', '');
-      _showSnackBar(msg, isError: true);
-    } finally {
-      if (mounted) setState(() => _isUpdatingStatus = false);
     }
   }
 
@@ -170,8 +143,16 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
 
   void _openNavigation() {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => DriverNavigationScreen(order: widget.order),
+      MaterialPageRoute<void>(
+        builder: (_) => DriverOrderCancellationGuard(
+          orderId: widget.order.id,
+          onCancelled: () {
+            return ref
+                .read(driverNavSessionsProvider.notifier)
+                .remove(widget.order.id);
+          },
+          child: DriverNavigationScreen(order: widget.order),
+        ),
       ),
     );
   }
@@ -186,15 +167,7 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
     if (!mounted) return;
 
     if (existing != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Bạn đã đánh giá khách ${existing.rating}/5 cho đơn này.',
-          ),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppColors.info,
-        ),
-      );
+      _showSnackBar('Bạn đã đánh giá khách ${existing.rating}/5 cho đơn này.');
       return;
     }
 
@@ -205,12 +178,9 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
   }
 
   void _onCardTap() {
-    final order = widget.order;
-    if (isActiveDriverOrder(order)) {
+    if (isActiveDriverOrder(widget.order)) {
       _openNavigation();
-      return;
-    }
-    if (order.status == 'delivered') {
+    } else if (widget.order.status == 'delivered') {
       _openRateCustomer();
     }
   }
@@ -220,18 +190,12 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
     final order = widget.order;
     final color = statusColor(order.status);
     final canAccept = widget.acceptDriverId != null && isAvailableOrder(order);
-    final statusActionLabel = driverOrderStatusActionLabel(order.status);
-    final canUpdateStatus =
-        !canAccept && statusActionLabel != null && order.driverId != null;
+    final canContinueDelivery = !canAccept && isActiveDriverOrder(order);
     final isDelivered = order.status == 'delivered';
-    final hasAction = canAccept || canUpdateStatus || isDelivered;
-    final isActive = isActiveDriverOrder(order);
-    final canTap = isActive || isDelivered;
-
-    final reviewAsync =
-        isDelivered ? ref.watch(driverCustomerReviewProvider(order.id)) : null;
-    final alreadyRated = reviewAsync?.valueOrNull != null;
-    final reviewLoading = reviewAsync?.isLoading ?? false;
+    final canTap = isActiveDriverOrder(order) || isDelivered;
+    final reviewAsync = isDelivered
+        ? ref.watch(driverCustomerReviewProvider(order.id))
+        : null;
 
     return Material(
       color: Colors.transparent,
@@ -239,425 +203,154 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
         onTap: canTap ? _onCardTap : null,
         borderRadius: AppRadius.lg,
         child: Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.bgLight,
-        borderRadius: AppRadius.lg,
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Status accent bar
-          Container(
-            width: 3,
-            height: hasAction ? 148 : 110,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: AppRadius.full,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: AppRadius.lg,
+            border: Border.all(
+              color: canAccept
+                  ? AppColors.accent.withValues(alpha: 0.28)
+                  : AppColors.border,
             ),
+            boxShadow: AppShadow.subtle,
           ),
-          const SizedBox(width: AppSpacing.md),
-          // Status icon circle
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(statusIcon(order.status), color: color, size: 21),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Order code + badge
-                Row(
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: ColoredBox(
+                  color: color,
+                  child: const SizedBox(width: 4),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xl,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        displayOrderCode(order),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.labelMedium.copyWith(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w700,
+                    Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            statusIcon(order.status),
+                            color: color,
+                            size: 20,
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    _StatusBadge(status: order.status),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                _OrderInfoRow(
-                  icon: Icons.storefront_rounded,
-                  text: order.pickupAddress,
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                _OrderInfoRow(
-                  icon: Icons.location_on_outlined,
-                  text: order.deliveryAddress,
-                ),
-                if (hasCargoInfo(order)) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  OrderCargoInfoBlock(order: order, compact: true),
-                ],
-                const SizedBox(height: AppSpacing.xs),
-                Wrap(
-                  spacing: AppSpacing.sm,
-                  runSpacing: AppSpacing.xs,
-                  children: [
-                    _MetaPill(
-                      icon: Icons.payments_outlined,
-                      text: priceText(order),
-                    ),
-                    _MetaPill(
-                      icon: Icons.local_shipping_rounded,
-                      text: serviceTypeLabel(order.serviceType),
-                    ),
-                    _MetaPill(
-                      icon: Icons.access_time_rounded,
-                      text: createdTimeText(order),
-                    ),
-                  ],
-                ),
-                if (canAccept) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _AcceptOrderButton(
-                          isLoading: _isAccepting,
-                          onTap: _isAccepting ? null : _acceptOrder,
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Text(
+                            displayOrderCode(order),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.labelMedium.copyWith(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: _TransferOrderButton(
-                          isLoading: _isTransferring,
-                          onTap: _isTransferring ? null : _transferOrder,
+                        const SizedBox(width: AppSpacing.sm),
+                        DriverStatusBadge(status: order.status),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    DriverOrderInfoRow(
+                      icon: Icons.storefront_rounded,
+                      iconColor: AppColors.accent,
+                      text: order.pickupAddress,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    DriverOrderInfoRow(
+                      icon: Icons.location_on_rounded,
+                      iconColor: AppColors.markerDrop,
+                      text: order.deliveryAddress,
+                    ),
+                    if (hasCargoInfo(order)) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      OrderCargoInfoBlock(order: order, compact: true),
+                    ],
+                    const SizedBox(height: AppSpacing.md),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      children: [
+                        if (widget.pickupDistanceMeters != null)
+                          DriverMetaPill(
+                            icon: Icons.near_me_rounded,
+                            text: pickupDistanceText(
+                              widget.pickupDistanceMeters,
+                            ),
+                            emphasized: true,
+                          ),
+                        DriverMetaPill(
+                          icon: Icons.payments_outlined,
+                          text: priceText(order),
                         ),
+                        DriverMetaPill(
+                          icon: Icons.local_shipping_rounded,
+                          text: serviceTypeLabel(order.serviceType),
+                        ),
+                        DriverMetaPill(
+                          icon: Icons.access_time_rounded,
+                          text: createdTimeText(order),
+                        ),
+                      ],
+                    ),
+                    if (canAccept) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DriverAcceptOrderButton(
+                              isLoading: _isAccepting,
+                              onTap: _isAccepting ? null : _acceptOrder,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: DriverTransferOrderButton(
+                              isLoading: _isTransferring,
+                              onTap: _isTransferring ? null : _transferOrder,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
-                  ),
-                ],
-                if (canUpdateStatus) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  SlideStatusAction(
-                    label: statusActionLabel,
-                    isLoading: _isUpdatingStatus,
-                    onConfirmed: _isUpdatingStatus ? null : _updateOrderStatus,
-                  ),
-                ],
-                if (isDelivered) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  _RateCustomerAction(
-                    alreadyRated: alreadyRated,
-                    isLoading: reviewLoading,
-                    onTap: reviewLoading ? null : _openRateCustomer,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RateCustomerAction extends StatelessWidget {
-  const _RateCustomerAction({
-    required this.alreadyRated,
-    required this.isLoading,
-    required this.onTap,
-  });
-
-  final bool alreadyRated;
-  final bool isLoading;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    if (isLoading) {
-      return const SizedBox(
-        height: 40,
-        child: Center(
-          child: SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
-    }
-
-    if (alreadyRated) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.success.withValues(alpha: 0.1),
-          borderRadius: AppRadius.md,
-          border: Border.all(color: AppColors.success.withValues(alpha: 0.25)),
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.check_circle_rounded,
-              size: 18,
-              color: AppColors.success,
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(
-                'Đã đánh giá khách hàng',
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.success,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return SizedBox(
-      width: double.infinity,
-      height: 42,
-      child: OutlinedButton.icon(
-        onPressed: onTap,
-        icon: const Icon(Icons.star_outline_rounded, size: 18),
-        label: const Text('Đánh giá khách hàng'),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          side: BorderSide(color: AppColors.primary.withValues(alpha: 0.35)),
-          shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Sub-widgets ───────────────────────────────────────────────────────────
-
-class _AcceptOrderButton extends StatelessWidget {
-  final bool isLoading;
-  final VoidCallback? onTap;
-
-  const _AcceptOrderButton({required this.isLoading, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: onTap == null
-          ? AppColors.textMuted.withValues(alpha: 0.24)
-          : AppColors.info,
-      borderRadius: AppRadius.full,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: AppRadius.full,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.lg,
-            vertical: AppSpacing.sm,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (isLoading)
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.textOnAccent,
-                  ),
-                )
-              else
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: AppColors.textOnAccent,
-                  size: 17,
-                ),
-              const SizedBox(width: AppSpacing.xs),
-              Text(
-                isLoading ? 'Đang nhận...' : 'Nhận đơn',
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.textOnAccent,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
+                    if (canContinueDelivery) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      DriverContinueDeliveryButton(
+                        status: order.status,
+                        onTap: _openNavigation,
+                      ),
+                    ],
+                    if (isDelivered) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      DriverRateCustomerAction(
+                        alreadyRated: reviewAsync?.valueOrNull != null,
+                        isLoading: reviewAsync?.isLoading ?? false,
+                        onTap: reviewAsync?.isLoading == true
+                            ? null
+                            : _openRateCustomer,
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TransferOrderButton extends StatelessWidget {
-  final bool isLoading;
-  final VoidCallback? onTap;
-
-  const _TransferOrderButton({required this.isLoading, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = AppColors.warning;
-    return Material(
-      color: onTap == null
-          ? AppColors.textMuted.withValues(alpha: 0.24)
-          : color.withValues(alpha: 0.12),
-      borderRadius: AppRadius.full,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: AppRadius.full,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (isLoading)
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: color,
-                  ),
-                )
-              else
-                Icon(
-                  Icons.swap_horiz_rounded,
-                  color: color,
-                  size: 17,
-                ),
-              const SizedBox(width: AppSpacing.xs),
-              Flexible(
-                child: Text(
-                  isLoading ? 'Đang chuyển...' : 'Chuyển đơn',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _OrderInfoRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _OrderInfoRow({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 16, color: AppColors.textMuted),
-        const SizedBox(width: AppSpacing.xs),
-        Expanded(
-          child: Text(
-            text.isEmpty ? 'Chưa cập nhật' : text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.textSecondary,
-              height: 1.35,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MetaPill extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _MetaPill({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: AppRadius.full,
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: AppColors.textMuted),
-          const SizedBox(width: AppSpacing.xs),
-          Text(
-            text,
-            style: AppTextStyles.labelSmall.copyWith(
-              color: AppColors.textSecondary,
-              letterSpacing: 0,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  final String status;
-
-  const _StatusBadge({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = statusColor(status);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm + 2,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: AppRadius.full,
-      ),
-      child: Text(
-        statusLabel(status),
-        style: AppTextStyles.labelSmall.copyWith(
-          color: color,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0,
         ),
       ),
     );

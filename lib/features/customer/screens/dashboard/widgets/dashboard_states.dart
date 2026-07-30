@@ -7,11 +7,15 @@ class DashboardShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const heights = [360.0, 136.0, 132.0];
+
     return Column(
-      children: List.generate(4, (i) {
+      children: List.generate(heights.length, (i) {
         return Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.md),
-          child: _ShimmerBlock(height: i == 0 ? 56 : 72),
+          padding: EdgeInsets.only(
+            bottom: i == heights.length - 1 ? 0 : AppSpacing.xl2,
+          ),
+          child: _ShimmerBlock(height: heights[i]),
         );
       }),
     );
@@ -38,9 +42,20 @@ class _ShimmerBlockState extends State<_ShimmerBlock>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
-    _animation = Tween<double>(begin: 0.3, end: 0.7).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _animation = Tween<double>(
+      begin: 0.3,
+      end: 0.7,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.stop();
+    } else if (!_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    }
   }
 
   @override
@@ -51,6 +66,17 @@ class _ShimmerBlockState extends State<_ShimmerBlock>
 
   @override
   Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return Container(
+        width: double.infinity,
+        height: widget.height,
+        decoration: BoxDecoration(
+          color: AppColors.border.withValues(alpha: 0.55),
+          borderRadius: AppRadius.xl,
+        ),
+      );
+    }
+
     return AnimatedBuilder(
       animation: _animation,
       builder: (context, child) {
@@ -58,9 +84,7 @@ class _ShimmerBlockState extends State<_ShimmerBlock>
           width: double.infinity,
           height: widget.height,
           decoration: BoxDecoration(
-            color: AppColors.border.withValues(
-              alpha: _animation.value,
-            ),
+            color: AppColors.border.withValues(alpha: _animation.value),
             borderRadius: AppRadius.xl,
           ),
         );

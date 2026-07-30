@@ -10,20 +10,15 @@ import '../../../../../core/providers/customer_providers.dart';
 part 'dashboard_hero_components.dart';
 part 'dashboard_hero_utils.dart';
 
-class DashboardHero extends ConsumerWidget {
-  final List<OrderModel> activeOrders;
-  final bool isFirstDelivery;
+class DashboardActiveDeliveryCard extends ConsumerWidget {
+  const DashboardActiveDeliveryCard({super.key, required this.activeOrders});
 
-  const DashboardHero({
-    super.key,
-    required this.activeOrders,
-    required this.isFirstDelivery,
-  });
+  final List<OrderModel> activeOrders;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (activeOrders.isEmpty) {
-      return _CreateDeliveryHero(isFirstDelivery: isFirstDelivery);
+      return const SizedBox.shrink();
     }
 
     final ordered = [...activeOrders]..sort(_compareActiveOrders);
@@ -43,71 +38,11 @@ class DashboardHero extends ConsumerWidget {
   }
 }
 
-class _CreateDeliveryHero extends StatelessWidget {
-  final bool isFirstDelivery;
-
-  const _CreateDeliveryHero({required this.isFirstDelivery});
-
-  @override
-  Widget build(BuildContext context) {
-    return _HeroSurface(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _Eyebrow(
-            icon: Icons.local_shipping_rounded,
-            label: 'Giao hàng tận nơi',
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            isFirstDelivery
-                ? 'Tạo chuyến giao đầu tiên'
-                : 'Bạn muốn gửi hàng đi đâu?',
-            style: AppTextStyles.displayMedium.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w700,
-              height: 1.2,
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Chọn điểm lấy và điểm giao. Phí vận chuyển được hiển thị trước khi xác nhận.',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.textSecondary,
-              height: 1.55,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          const _EmptyRouteCue(),
-          const SizedBox(height: AppSpacing.xl2),
-          _PrimaryHeroButton(
-            icon: Icons.add_rounded,
-            label: 'Tạo chuyến giao',
-            onTap: () => context.push('/customer/create-order'),
-          ),
-          if (isFirstDelivery) ...[
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              'Bạn chỉ thanh toán sau khi xem và đồng ý với mức phí.',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.textSecondary,
-                height: 1.45,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class _ActiveDeliveryHero extends StatelessWidget {
+  const _ActiveDeliveryHero({required this.order, required this.driver});
+
   final OrderModel order;
   final DriverModel? driver;
-
-  const _ActiveDeliveryHero({required this.order, required this.driver});
 
   @override
   Widget build(BuildContext context) {
@@ -182,15 +117,15 @@ class _ActiveDeliveryHero extends StatelessWidget {
 }
 
 class _MultipleDeliveryHero extends StatelessWidget {
-  final List<OrderModel> orders;
-  final OrderModel priorityOrder;
-  final DriverModel? driver;
-
   const _MultipleDeliveryHero({
     required this.orders,
     required this.priorityOrder,
     required this.driver,
   });
+
+  final List<OrderModel> orders;
+  final OrderModel priorityOrder;
+  final DriverModel? driver;
 
   @override
   Widget build(BuildContext context) {
@@ -214,7 +149,7 @@ class _MultipleDeliveryHero extends StatelessWidget {
               TextButton(
                 onPressed: () => context.go('/customer-home?tab=orders'),
                 style: TextButton.styleFrom(
-                  foregroundColor: AppColors.textPrimary,
+                  foregroundColor: AppColors.accent,
                   minimumSize: const Size(48, 48),
                 ),
                 child: const Text('Xem tất cả'),

@@ -22,9 +22,23 @@ class NotificationTypes {
   static const orderCancelled = orderUpdate;
 }
 
+/// Chính sách phát thông báo: chỉ các mốc người dùng cần biết hoặc cần hành động.
+class NotificationDeliveryPolicy {
+  NotificationDeliveryPolicy._();
+
+  static const customerOrderMilestones = {
+    'picking_up',
+    'delivering',
+    'delivered',
+  };
+
+  static bool shouldNotifyCustomerStatus(String status) =>
+      customerOrderMilestones.contains(status.trim());
+}
+
 class NotificationService {
   NotificationService({SupabaseClient? client})
-      : _supabase = client ?? Supabase.instance.client;
+    : _supabase = client ?? Supabase.instance.client;
 
   final SupabaseClient _supabase;
 
@@ -52,11 +66,17 @@ class NotificationService {
     try {
       final response = await _supabase
           .from(_table)
-          .select('id')
+          .select('id, order_id')
           .eq('user_id', userId)
           .eq('is_read', false);
 
-      return response.length;
+      final threadKeys = <String>{};
+      for (final row in response) {
+        final id = row['id']?.toString() ?? '';
+        final orderId = row['order_id']?.toString().trim() ?? '';
+        threadKeys.add(orderId.isEmpty ? 'notification:$id' : 'order:$orderId');
+      }
+      return threadKeys.length;
     } catch (error) {
       throw Exception('Failed to load unread notification count: $error');
     }
@@ -71,6 +91,28 @@ class NotificationService {
           .eq('user_id', userId);
     } catch (error) {
       throw Exception('Failed to mark notification as read: $error');
+    }
+  }
+
+  Future<void> markNotificationsAsRead(
+    List<String> notificationIds,
+    String userId,
+  ) async {
+    final ids = notificationIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+    if (ids.isEmpty) return;
+
+    try {
+      await _supabase
+          .from(_table)
+          .update({'is_read': true})
+          .eq('user_id', userId)
+          .inFilter('id', ids);
+    } catch (error) {
+      throw Exception('Failed to mark notification thread as read: $error');
     }
   }
 
@@ -103,8 +145,9 @@ class NotificationService {
       throw Exception('Notification payload invalid.');
     }
 
-    final normalizedOrderId =
-        (orderId != null && orderId.trim().isNotEmpty) ? orderId.trim() : null;
+    final normalizedOrderId = (orderId != null && orderId.trim().isNotEmpty)
+        ? orderId.trim()
+        : null;
 
     Object? lastError;
 
@@ -137,7 +180,7 @@ class NotificationService {
         'body': b,
         'type': ty,
         'is_read': false,
-        if (normalizedOrderId != null) 'order_id': normalizedOrderId,
+        'order_id': ?normalizedOrderId,
       });
       debugPrint(
         '[Notification] direct insert ok user=$uid type=$ty order=$normalizedOrderId',
@@ -204,7 +247,14 @@ class NotificationService {
     required String orderCode,
     required String status,
   }) {
-    final (title, body) = _customerStatusCopy(orderCode, status);
+    final normalizedStatus = status.trim();
+    if (!NotificationDeliveryPolicy.shouldNotifyCustomerStatus(
+      normalizedStatus,
+    )) {
+      return Future.value();
+    }
+
+    final (title, body) = _customerStatusCopy(orderCode, normalizedStatus);
     return createNotification(
       userId: customerId,
       title: title,
@@ -233,34 +283,28 @@ class NotificationService {
     required String orderId,
     required String orderCode,
   }) {
-    return createNotification(
-      userId: customerId,
-      title: 'Đặt đơn thành công',
-      body:
-          'Đơn $orderCode đang chờ tài xế gần nhất nhận. Bạn sẽ được thông báo khi có cập nhật.',
-      type: 'order_update',
-      orderId: orderId,
-    );
+    // Màn hình tạo đơn thành công đã xác nhận trực tiếp cho khách. Không ghi
+    // thêm một sự kiện inbox trùng lặp chỉ để lặp lại cùng thông tin.
+    return Future.value();
   }
 
   (String, String) _customerStatusCopy(String orderCode, String status) {
     return switch (status) {
       'picking_up' => (
-          'Tài xế đang đến lấy hàng',
-          'Đơn $orderCode: tài xế đang di chuyển đến điểm lấy hàng.',
-        ),
+        'Tài xế đang đến lấy hàng',
+        'Đơn $orderCode: tài xế đang di chuyển đến điểm lấy hàng.',
+      ),
       'delivering' => (
-          'Đang giao hàng',
-          'Đơn $orderCode: tài xế đã lấy hàng và đang giao đến bạn.',
-        ),
+        'Đang giao hàng',
+        'Đơn $orderCode: tài xế đã lấy hàng và đang giao đến bạn.',
+      ),
       'delivered' => (
-          'Giao hàng thành công',
-          'Đơn $orderCode đã được giao. Cảm ơn bạn đã sử dụng dịch vụ!',
-        ),
-      _ => (
-          'Cập nhật đơn hàng',
-          'Đơn $orderCode đã chuyển sang trạng thái $status.',
-        ),
+        'Giao hàng thành công',
+        'Đơn $orderCode đã được giao. Cảm ơn bạn đã sử dụng dịch vụ!',
+      ),
+      _ => throw StateError(
+        'Unsupported customer notification status: $status',
+      ),
     };
   }
 }

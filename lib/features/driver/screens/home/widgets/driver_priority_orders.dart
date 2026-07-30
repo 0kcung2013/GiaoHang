@@ -1,40 +1,52 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/constants/app_theme.dart';
 import '../../../../../core/models/order_model.dart';
 import '../utils/driver_home_formatters.dart';
 import 'driver_order_card.dart';
 
-/// Shows up to 2 priority orders on the dashboard.
+/// Hiển thị tối đa hai đơn ưu tiên trên dashboard.
 ///
-/// Priority: active deliveries first, then available orders.
-class DriverPriorityOrders extends ConsumerWidget {
-  final List<OrderModel> availableOrders;
-  final List<OrderModel> driverOrders;
-  final String driverUserId;
-
+/// Đơn đang thực hiện luôn đứng trước. Đơn có thể nhận được xếp theo khoảng
+/// cách đến điểm lấy hàng nếu đã có vị trí tài xế.
+class DriverPriorityOrders extends StatelessWidget {
   const DriverPriorityOrders({
     super.key,
     required this.availableOrders,
     required this.driverOrders,
     required this.driverUserId,
+    this.pickupDistancesMeters = const {},
   });
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final activeOrders =
-        driverOrders.where(isActiveDriverOrder).toList();
-    final priorityList = <_PriorityOrder>[];
+  final List<OrderModel> availableOrders;
+  final List<OrderModel> driverOrders;
+  final String driverUserId;
+  final Map<String, double> pickupDistancesMeters;
 
-    for (final o in activeOrders.take(2)) {
-      priorityList.add(_PriorityOrder(order: o, isActive: true));
-    }
+  @override
+  Widget build(BuildContext context) {
+    final activeOrders = driverOrders.where(isActiveDriverOrder).toList();
+    final sortedAvailable = [...availableOrders]
+      ..sort((left, right) {
+        final leftDistance = pickupDistancesMeters[left.id];
+        final rightDistance = pickupDistancesMeters[right.id];
+        if (leftDistance == null && rightDistance == null) return 0;
+        if (leftDistance == null) return 1;
+        if (rightDistance == null) return -1;
+        return leftDistance.compareTo(rightDistance);
+      });
+
+    final priorityList = <_PriorityOrder>[
+      for (final order in activeOrders.take(2))
+        _PriorityOrder(order: order, isActive: true),
+    ];
     final remaining = 2 - priorityList.length;
     if (remaining > 0) {
-      for (final o in availableOrders.take(remaining)) {
-        priorityList.add(_PriorityOrder(order: o, isActive: false));
-      }
+      priorityList.addAll(
+        sortedAvailable
+            .take(remaining)
+            .map((order) => _PriorityOrder(order: order, isActive: false)),
+      );
     }
 
     if (priorityList.isEmpty) {
@@ -47,14 +59,14 @@ class DriverPriorityOrders extends ConsumerWidget {
         Row(
           children: [
             Text(
-              'Ưu tiên',
+              activeOrders.isNotEmpty ? 'Việc cần làm' : 'Đơn gần bạn',
               style: AppTextStyles.headingSmall.copyWith(
                 color: AppColors.textPrimary,
               ),
             ),
             const Spacer(),
             Text(
-              '${priorityList.length} đơn',
+              '${priorityList.length} đơn ưu tiên',
               style: AppTextStyles.bodySmall.copyWith(
                 color: AppColors.textSecondary,
               ),
@@ -63,11 +75,12 @@ class DriverPriorityOrders extends ConsumerWidget {
         ),
         const SizedBox(height: AppSpacing.md),
         ...priorityList.map(
-          (p) => Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+          (priority) => Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.md),
             child: DriverOrderCard(
-              order: p.order,
-              acceptDriverId: p.isActive ? null : driverUserId,
+              order: priority.order,
+              acceptDriverId: priority.isActive ? null : driverUserId,
+              pickupDistanceMeters: pickupDistancesMeters[priority.order.id],
             ),
           ),
         ),
@@ -77,10 +90,10 @@ class DriverPriorityOrders extends ConsumerWidget {
 }
 
 class _PriorityOrder {
+  const _PriorityOrder({required this.order, required this.isActive});
+
   final OrderModel order;
   final bool isActive;
-
-  const _PriorityOrder({required this.order, required this.isActive});
 }
 
 class _EmptyPriorityCard extends StatelessWidget {
@@ -114,14 +127,14 @@ class _EmptyPriorityCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            'Chưa có đơn ưu tiên',
+            'Chưa có việc cần xử lý',
             style: AppTextStyles.labelLarge.copyWith(
               color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Bật trạng thái sẵn sàng để nhận đơn mới.',
+            'Bật trạng thái sẵn sàng để hệ thống gửi đơn phù hợp.',
             textAlign: TextAlign.center,
             style: AppTextStyles.bodySmall.copyWith(
               color: AppColors.textSecondary,

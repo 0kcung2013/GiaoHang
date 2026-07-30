@@ -1,3 +1,5 @@
+import '../utils/text_encoding_utils.dart';
+
 class OrderStatusLogModel {
   const OrderStatusLogModel({
     required this.id,
@@ -17,13 +19,22 @@ class OrderStatusLogModel {
   final String? loggedBy;
   final DateTime createdAt;
 
+  String get displayTitle => repairUtf8Mojibake(title);
+
+  String? get displayDescription {
+    final value = description;
+    return value == null ? null : repairUtf8Mojibake(value);
+  }
+
   factory OrderStatusLogModel.fromJson(Map<String, dynamic> json) {
+    final description = json['description']?.toString();
+
     return OrderStatusLogModel(
       id: json['id']?.toString() ?? '',
       orderId: json['order_id']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
-      title: json['title']?.toString() ?? '',
-      description: json['description']?.toString(),
+      title: repairUtf8Mojibake(json['title']?.toString() ?? ''),
+      description: description == null ? null : repairUtf8Mojibake(description),
       loggedBy: json['logged_by']?.toString(),
       createdAt:
           _parseDateTime(json['created_at']) ??

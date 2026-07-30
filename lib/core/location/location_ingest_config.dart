@@ -8,6 +8,9 @@ class LocationIngestConfig {
   /// Khoảng cách tối thiểu (m) giữa 2 lần ingest được chấp nhận.
   static const double minDistanceMeters = 25;
 
+  /// Heartbeat khi tài xế online chờ đơn để tọa độ matching không bị stale.
+  static const Duration onlinePresenceInterval = Duration(seconds: 60);
+
   /// Thời gian tối thiểu giữa 2 lần ingest (client throttle).
   static const Duration minInterval = Duration(seconds: 5);
 

@@ -26,13 +26,7 @@ class SubmitOrderButton extends StatelessWidget {
         border: Border(
           top: BorderSide(color: AppColors.border.withValues(alpha: 0.72)),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, -6),
-          ),
-        ],
+        boxShadow: AppShadow.subtle,
       ),
       child: SafeArea(
         top: false,
@@ -43,10 +37,13 @@ class SubmitOrderButton extends StatelessWidget {
             height: 60,
             child: Material(
               color: AppColors.accent,
-              borderRadius: AppRadius.lg,
+              borderRadius: AppRadius.full,
+              shadowColor: AppColors.accent,
+              elevation: 3,
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 onTap: onPressed,
+                borderRadius: AppRadius.full,
                 splashColor: AppColors.textPrimary.withValues(alpha: 0.1),
                 child: Center(
                   child: Row(
@@ -57,7 +54,7 @@ class SubmitOrderButton extends StatelessWidget {
                         height: 34,
                         decoration: BoxDecoration(
                           color: AppColors.textOnAccent.withValues(alpha: 0.16),
-                          borderRadius: AppRadius.sm,
+                          shape: BoxShape.circle,
                         ),
                         child: const Icon(
                           Icons.receipt_long_rounded,

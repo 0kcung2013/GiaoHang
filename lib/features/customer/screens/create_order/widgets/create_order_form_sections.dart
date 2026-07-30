@@ -30,47 +30,52 @@ class CreateOrderAddressSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CreateOrderSection(
+      step: '01',
       icon: Icons.route_rounded,
       title: 'Lộ trình giao hàng',
-      accentColor: AppColors.info,
+      accentColor: AppColors.accent,
       subtitle: hasPickupPin && hasDeliveryPin
           ? 'Đã sẵn sàng để xem phí giao hàng'
           : 'Chọn điểm lấy và điểm giao trên bản đồ',
       children: [
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.info.withValues(alpha: 0.035),
-            borderRadius: AppRadius.xl2,
-            border: Border.all(color: AppColors.border.withValues(alpha: 0.8)),
-          ),
-          child: Column(
+        _RouteStop(
+          controller: pickupAddressController,
+          label: 'Điểm lấy hàng',
+          hint: 'Chọn vị trí lấy hàng trên bản đồ',
+          icon: Icons.storefront_rounded,
+          color: AppColors.markerPickup,
+          selected: hasPickupPin,
+          onTap: onPickPickup,
+          validator: requiredAddress('Vui lòng chọn điểm lấy hàng.'),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: AppSpacing.xl),
+          child: Row(
             children: [
-              _RouteStop(
-                controller: pickupAddressController,
-                label: 'Lấy hàng',
-                hint: 'Chọn điểm lấy hàng',
-                icon: Icons.radio_button_checked_rounded,
-                color: AppColors.markerPickup,
-                selected: hasPickupPin,
-                onTap: onPickPickup,
-                validator: requiredAddress('Vui lòng chọn điểm lấy hàng.'),
+              Container(
+                width: 2,
+                height: AppSpacing.xl,
+                color: AppColors.accent.withValues(alpha: 0.2),
               ),
-              Padding(
-                padding: const EdgeInsets.only(left: 35),
-                child: Divider(height: 1, color: AppColors.border),
-              ),
-              _RouteStop(
-                controller: deliveryAddressController,
-                label: 'Giao đến',
-                hint: 'Chọn điểm giao hàng',
-                icon: Icons.location_on_rounded,
-                color: AppColors.markerDrop,
-                selected: hasDeliveryPin,
-                onTap: onPickDelivery,
-                validator: requiredAddress('Vui lòng chọn điểm giao hàng.'),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Divider(
+                  height: 1,
+                  color: AppColors.border.withValues(alpha: 0.72),
+                ),
               ),
             ],
           ),
+        ),
+        _RouteStop(
+          controller: deliveryAddressController,
+          label: 'Điểm giao hàng',
+          hint: 'Chọn vị trí giao hàng trên bản đồ',
+          icon: Icons.location_on_rounded,
+          color: AppColors.markerDrop,
+          selected: hasDeliveryPin,
+          onTap: onPickDelivery,
+          validator: requiredAddress('Vui lòng chọn điểm giao hàng.'),
         ),
       ],
     );
@@ -103,50 +108,92 @@ class _RouteStop extends StatelessWidget {
     return Semantics(
       button: true,
       label: '$label, ${selected ? 'đã chọn' : 'chưa chọn'}',
-      child: TextFormField(
-        controller: controller,
-        readOnly: true,
-        onTap: onTap,
-        validator: validator,
-        style: AppTextStyles.bodyMedium.copyWith(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.w600,
+      child: AnimatedContainer(
+        duration: AppDuration.fast,
+        decoration: BoxDecoration(
+          color: selected ? color.withValues(alpha: 0.045) : AppColors.bgLight,
+          borderRadius: AppRadius.lg,
+          border: Border.all(
+            color: selected ? color.withValues(alpha: 0.32) : AppColors.border,
+          ),
         ),
-        decoration: InputDecoration(
-          prefixIcon: Padding(
-            padding: const EdgeInsets.only(
-              left: AppSpacing.lg,
-              right: AppSpacing.md,
+        child: TextFormField(
+          controller: controller,
+          readOnly: true,
+          onTap: onTap,
+          validator: validator,
+          style: AppTextStyles.bodyMedium.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+          decoration: InputDecoration(
+            prefixIcon: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.sm,
+                AppSpacing.sm,
+                AppSpacing.sm,
+              ),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: AppRadius.md,
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
             ),
-            child: Icon(icon, color: color, size: 22),
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 60,
+              minHeight: 62,
+            ),
+            labelText: label,
+            labelStyle: AppTextStyles.labelSmall.copyWith(
+              color: selected ? color : AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+            hintText: hint,
+            hintStyle: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.textMuted,
+            ),
+            suffixIcon: Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.sm),
+              child: Container(
+                width: 38,
+                height: 38,
+                decoration: const BoxDecoration(
+                  color: AppColors.accentLight,
+                  borderRadius: AppRadius.md,
+                ),
+                child: Icon(
+                  selected ? Icons.check_rounded : Icons.map_outlined,
+                  color: AppColors.accent,
+                  size: 19,
+                ),
+              ),
+            ),
+            suffixIconConstraints: const BoxConstraints(
+              minWidth: 50,
+              minHeight: 56,
+            ),
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            errorBorder: const OutlineInputBorder(
+              borderRadius: AppRadius.lg,
+              borderSide: BorderSide(color: AppColors.error),
+            ),
+            focusedErrorBorder: const OutlineInputBorder(
+              borderRadius: AppRadius.lg,
+              borderSide: BorderSide(color: AppColors.error, width: 1.5),
+            ),
+            contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+            errorStyle: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.error,
+            ),
+            errorMaxLines: 2,
           ),
-          prefixIconConstraints: const BoxConstraints(
-            minWidth: 52,
-            minHeight: 56,
-          ),
-          labelText: label,
-          labelStyle: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.textSecondary,
-          ),
-          hintText: hint,
-          hintStyle: AppTextStyles.bodyMedium.copyWith(
-            color: AppColors.textMuted,
-          ),
-          suffixIcon: Icon(
-            selected ? Icons.check_circle_rounded : Icons.chevron_right_rounded,
-            color: selected ? AppColors.success : AppColors.textMuted,
-          ),
-          filled: true,
-          fillColor: selected
-              ? color.withValues(alpha: 0.035)
-              : Colors.transparent,
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          errorBorder: InputBorder.none,
-          focusedErrorBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
-          errorStyle: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
         ),
       ),
     );
@@ -172,9 +219,10 @@ class CreateOrderRecipientSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CreateOrderSection(
+      step: '02',
       icon: Icons.person_outline_rounded,
       title: 'Người nhận',
-      accentColor: AppColors.primary,
+      accentColor: AppColors.accent,
       subtitle: 'Tài xế sẽ dùng thông tin này khi giao hàng',
       children: [
         CreateOrderTextField(
@@ -185,6 +233,7 @@ class CreateOrderRecipientSection extends StatelessWidget {
           textInputAction: TextInputAction.next,
           autofillHints: const [AutofillHints.name],
           validator: requiredText('Vui lòng nhập tên người nhận.'),
+          requiredField: true,
         ),
         const SizedBox(height: AppSpacing.lg),
         CreateOrderTextField(
@@ -198,6 +247,7 @@ class CreateOrderRecipientSection extends StatelessWidget {
           inputFormatters: const [VietnamPhoneInputFormatter()],
           maxLength: vietnamPhoneMaxLength,
           validator: validatePhone,
+          requiredField: true,
         ),
         const SizedBox(height: AppSpacing.lg),
         CreateOrderTextField(
@@ -232,6 +282,7 @@ class CreateOrderCargoSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CreateOrderSection(
+      step: '03',
       icon: Icons.inventory_2_outlined,
       title: 'Thông tin kiện hàng',
       accentColor: AppColors.accent,
@@ -244,6 +295,7 @@ class CreateOrderCargoSection extends StatelessWidget {
           icon: Icons.inventory_2_outlined,
           textInputAction: TextInputAction.next,
           validator: requiredText('Vui lòng nhập tên hàng hoá.'),
+          requiredField: true,
         ),
         const SizedBox(height: AppSpacing.lg),
         Text(
@@ -289,6 +341,7 @@ class CreateOrderPhotosSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CreateOrderSection(
+      step: '04',
       icon: Icons.photo_camera_outlined,
       title: 'Ảnh kiện hàng',
       accentColor: AppColors.accent,

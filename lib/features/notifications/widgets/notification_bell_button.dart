@@ -4,11 +4,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/app_theme.dart';
 import '../../../core/providers/customer_providers.dart';
+import '../models/notification_inbox_item.dart';
+import '../notification_strings.dart';
 import '../screens/notifications_screen.dart';
 
-/// Nút chuông + badge số chưa đọc. Subscribe realtime khi có user.
+/// Nút chuông + badge số luồng thông báo chưa đọc.
 class NotificationBellButton extends ConsumerWidget {
-  const NotificationBellButton({super.key});
+  const NotificationBellButton({super.key, required this.audience});
+
+  final NotificationAudience audience;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -28,26 +32,29 @@ class NotificationBellButton extends ConsumerWidget {
     final unread = unreadAsync.valueOrNull ?? 0;
 
     return IconButton(
-      tooltip: 'Thông báo',
+      tooltip: NotificationStrings.notificationTooltip,
       onPressed: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => const NotificationsScreen(),
-          ),
-        ).then((_) {
-          ref.invalidate(notificationsProvider(user.id));
-          ref.invalidate(unreadNotificationCountProvider(user.id));
-        });
+        Navigator.of(context)
+            .push(
+              MaterialPageRoute(
+                builder: (_) => NotificationsScreen(audience: audience),
+              ),
+            )
+            .then((_) {
+              ref.invalidate(notificationsProvider(user.id));
+              ref.invalidate(unreadNotificationCountProvider(user.id));
+            });
       },
       icon: Badge(
         isLabelVisible: unread > 0,
         backgroundColor: AppColors.accent,
         label: Text(
-          unread > 99 ? '99+' : '$unread',
-          style: const TextStyle(
-            color: Colors.white,
+          unread > 9 ? '9+' : '$unread',
+          style: AppTextStyles.labelSmall.copyWith(
+            color: AppColors.textOnAccent,
             fontSize: 10,
             fontWeight: FontWeight.w700,
+            letterSpacing: 0,
           ),
         ),
         child: Icon(

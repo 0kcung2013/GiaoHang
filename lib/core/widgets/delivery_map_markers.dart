@@ -8,37 +8,48 @@ import '../constants/app_theme.dart';
 class DeliveryMapMarkers {
   DeliveryMapMarkers._();
 
+  static const driverAssetPath = 'assets/images/driver_map_marker.png';
+
   static Marker pickup(LatLng point) => Marker(
-        point: point,
-        width: 40,
-        height: 40,
-        alignment: Alignment.center,
-        child: const _BubbleMarker(
-          color: AppColors.markerPickup,
-          label: 'L',
-          tooltip: 'Lấy hàng',
-        ),
-      );
+    point: point,
+    width: 40,
+    height: 40,
+    alignment: Alignment.center,
+    child: const _BubbleMarker(
+      color: AppColors.markerPickup,
+      label: 'L',
+      tooltip: 'Lấy hàng',
+    ),
+  );
 
   static Marker dropoff(LatLng point) => Marker(
-        point: point,
-        width: 40,
-        height: 40,
-        alignment: Alignment.center,
-        child: const _BubbleMarker(
-          color: AppColors.markerDrop,
-          label: 'G',
-          tooltip: 'Giao hàng',
-        ),
-      );
+    point: point,
+    width: 40,
+    height: 40,
+    alignment: Alignment.center,
+    child: const _BubbleMarker(
+      color: AppColors.markerDrop,
+      label: 'G',
+      tooltip: 'Giao hàng',
+    ),
+  );
 
   static Marker driver(LatLng point, {bool highlight = true}) => Marker(
-        point: point,
-        width: 44,
-        height: 44,
-        alignment: Alignment.center,
-        child: _DriverMarker(highlight: highlight),
-      );
+    point: point,
+    width: 68,
+    height: 68,
+    alignment: Alignment.center,
+    child: _DriverMarker(isActive: highlight),
+  );
+
+  static Marker navigationDriver(LatLng point) => Marker(
+    point: point,
+    width: 76,
+    height: 76,
+    alignment: Alignment.center,
+    rotate: true,
+    child: const _DriverMarker(isActive: true),
+  );
 
   /// Chỉ lệch nhẹ khi **rất gần** (<12m) để không che chữ L/G.
   /// Không lệch mạnh — tránh cảm giác “sai vị trí”.
@@ -86,23 +97,46 @@ class _BubbleMarker extends StatelessWidget {
 }
 
 class _DriverMarker extends StatelessWidget {
-  const _DriverMarker({required this.highlight});
+  const _DriverMarker({required this.isActive});
 
-  final bool highlight;
+  final bool isActive;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.markerDriver,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 3),
-        boxShadow: highlight ? AppShadow.accentGlow : AppShadow.card,
-      ),
-      child: const Icon(
-        Icons.navigation_rounded,
-        color: Colors.white,
-        size: 22,
+    return Semantics(
+      image: true,
+      label: 'Vị trí tài xế',
+      child: Tooltip(
+        message: 'Tài xế',
+        child: Stack(
+          key: const Key('driver-map-marker-stack'),
+          alignment: Alignment.bottomCenter,
+          clipBehavior: Clip.none,
+          children: [
+            Image.asset(
+              DeliveryMapMarkers.driverAssetPath,
+              key: const Key('driver-map-marker-icon'),
+              fit: BoxFit.contain,
+              cacheWidth: 192,
+              filterQuality: FilterQuality.high,
+              semanticLabel: 'Tài xế giao hàng',
+            ),
+            if (isActive)
+              Positioned(
+                right: AppSpacing.xs,
+                bottom: AppSpacing.xs,
+                child: Container(
+                  key: const Key('driver-map-marker-active-dot'),
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: AppColors.markerDriver,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

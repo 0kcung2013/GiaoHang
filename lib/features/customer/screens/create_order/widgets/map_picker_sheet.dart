@@ -6,10 +6,13 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../../../core/constants/app_theme.dart';
+import '../utils/address_search_result.dart';
+import '../utils/address_search_service.dart';
 import '../utils/reverse_geocode_result.dart';
 import '../utils/reverse_geocoding_service.dart';
 
 part 'map_picker_components.dart';
+part 'map_picker_search_panel.dart';
 
 class MapPickerResult {
   final LatLng position;
@@ -34,16 +37,26 @@ class MapPickerSheet extends StatefulWidget {
 
 class _MapPickerSheetState extends State<MapPickerSheet> {
   final _mapController = MapController();
+  final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
   final _detailController = TextEditingController();
+  final _searchService = AddressSearchService();
   final _geocodingService = ReverseGeocodingService();
 
   late LatLng _selectedPosition;
   ReverseGeocodeResult? _resolvedAddress;
+  List<AddressSearchResult> _searchResults = const [];
   Timer? _debounceTimer;
+  Timer? _searchDebounceTimer;
+  Timer? _programmaticMoveTimer;
   int _requestSerial = 0;
+  int _searchRequestSerial = 0;
   bool _isLocating = false;
   bool _isResolving = true;
+  bool _isSearching = false;
+  bool _isProgrammaticMove = false;
   String? _resolutionError;
+  String? _searchError;
   String? _detailError;
 
   @override
@@ -56,7 +69,12 @@ class _MapPickerSheetState extends State<MapPickerSheet> {
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _searchDebounceTimer?.cancel();
+    _programmaticMoveTimer?.cancel();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
     _detailController.dispose();
+    _searchService.dispose();
     _geocodingService.dispose();
     super.dispose();
   }
@@ -96,20 +114,140 @@ class _MapPickerSheetState extends State<MapPickerSheet> {
   }
 
   void _onMapMoved(MapEvent event) {
+    if (_isProgrammaticMove) return;
+
     final center = _mapController.camera.center;
     if (_selectedPosition == center) return;
 
+    ++_searchRequestSerial;
+    _searchDebounceTimer?.cancel();
+    _searchFocusNode.unfocus();
     if (_detailController.text.isNotEmpty) {
       _detailController.clear();
     }
     setState(() {
       _selectedPosition = center;
+      _searchResults = const [];
+      _searchError = null;
+      _isSearching = false;
       _isResolving = true;
       _detailError = null;
     });
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 1100), () {
       _fetchAddress(center);
+    });
+  }
+
+  void _onSearchQueryChanged(String value) {
+    _searchDebounceTimer?.cancel();
+    ++_searchRequestSerial;
+
+    final query = value.trim();
+    if (query.length < 3) {
+      setState(() {
+        _searchResults = const [];
+        _searchError = null;
+        _isSearching = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _searchResults = const [];
+      _searchError = null;
+      _isSearching = false;
+    });
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _searchAddress(showValidationError: false);
+    });
+  }
+
+  Future<void> _searchAddress({bool showValidationError = true}) async {
+    _searchDebounceTimer?.cancel();
+    final query = _searchController.text.trim();
+    if (query.length < 3) {
+      setState(() {
+        _searchResults = const [];
+        _searchError = showValidationError
+            ? 'Nhập ít nhất 3 ký tự để tìm địa chỉ.'
+            : null;
+        _isSearching = false;
+      });
+      return;
+    }
+
+    final request = ++_searchRequestSerial;
+    setState(() {
+      _isSearching = true;
+      _searchError = null;
+      _searchResults = const [];
+    });
+
+    try {
+      final results = await _searchService.search(
+        query,
+        proximity: _selectedPosition,
+      );
+      if (!mounted || request != _searchRequestSerial) return;
+      setState(() {
+        _searchResults = results;
+        _searchError = results.isEmpty
+            ? 'Không tìm thấy địa chỉ phù hợp tại Việt Nam.'
+            : null;
+        _isSearching = false;
+      });
+    } catch (_) {
+      if (!mounted || request != _searchRequestSerial) return;
+      setState(() {
+        _searchResults = const [];
+        _searchError =
+            'Không thể tìm kiếm địa chỉ lúc này. Hãy kiểm tra mạng và thử lại.';
+        _isSearching = false;
+      });
+    }
+  }
+
+  void _clearSearch() {
+    _searchDebounceTimer?.cancel();
+    ++_searchRequestSerial;
+    _searchController.clear();
+    setState(() {
+      _searchResults = const [];
+      _searchError = null;
+      _isSearching = false;
+    });
+    _searchFocusNode.requestFocus();
+  }
+
+  void _selectSearchResult(AddressSearchResult result) {
+    _searchDebounceTimer?.cancel();
+    ++_searchRequestSerial;
+    ++_requestSerial;
+    _searchFocusNode.unfocus();
+    _searchController.text = result.displayAddress;
+    _detailController.clear();
+    _debounceTimer?.cancel();
+
+    setState(() {
+      _selectedPosition = result.position;
+      _searchResults = const [];
+      _searchError = null;
+      _isSearching = false;
+      _resolvedAddress = result.resolvedAddress;
+      _resolutionError = null;
+      _isResolving = false;
+      _detailError = null;
+    });
+    _moveMapTo(result.position);
+  }
+
+  void _moveMapTo(LatLng position) {
+    _isProgrammaticMove = true;
+    _mapController.move(position, 18);
+    _programmaticMoveTimer?.cancel();
+    _programmaticMoveTimer = Timer(const Duration(milliseconds: 300), () {
+      _isProgrammaticMove = false;
     });
   }
 
@@ -138,7 +276,7 @@ class _MapPickerSheetState extends State<MapPickerSheet> {
 
       final location = LatLng(position.latitude, position.longitude);
       _selectedPosition = location;
-      _mapController.move(location, 18);
+      _moveMapTo(location);
       _debounceTimer?.cancel();
       await _fetchAddress(location);
     } catch (_) {
@@ -252,8 +390,25 @@ class _MapPickerSheetState extends State<MapPickerSheet> {
                     Positioned(
                       top: AppSpacing.md,
                       left: AppSpacing.md,
-                      child: _MapHint(isResolving: _isResolving),
+                      right: AppSpacing.md,
+                      child: _AddressSearchPanel(
+                        controller: _searchController,
+                        focusNode: _searchFocusNode,
+                        isSearching: _isSearching,
+                        results: _searchResults,
+                        error: _searchError,
+                        onChanged: _onSearchQueryChanged,
+                        onSearch: _searchAddress,
+                        onClear: _clearSearch,
+                        onSelect: _selectSearchResult,
+                      ),
                     ),
+                    if (_searchResults.isEmpty && _searchError == null)
+                      Positioned(
+                        top: 76,
+                        left: AppSpacing.md,
+                        child: _MapHint(isResolving: _isResolving),
+                      ),
                     Positioned(
                       right: AppSpacing.md,
                       bottom: AppSpacing.md,

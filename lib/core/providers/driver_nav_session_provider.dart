@@ -13,6 +13,7 @@ class DriverNavSession {
     required this.lat,
     required this.lng,
     this.arrivedAtTarget = false,
+    this.pickupConfirmed = false,
     this.simRouteIndex = 0,
     this.updatedAt,
   });
@@ -22,8 +23,28 @@ class DriverNavSession {
   final double lat;
   final double lng;
   final bool arrivedAtTarget;
+  final bool pickupConfirmed;
   final int simRouteIndex;
   final DateTime? updatedAt;
+
+  bool canRestoreFor({
+    required String activeOrderId,
+    required String activeStatus,
+  }) {
+    const activeStatuses = {'assigned', 'picking_up', 'delivering'};
+    final hasValidCoordinates =
+        lat.isFinite &&
+        lng.isFinite &&
+        lat >= -90 &&
+        lat <= 90 &&
+        lng >= -180 &&
+        lng <= 180 &&
+        (lat != 0 || lng != 0);
+
+    return orderId == activeOrderId &&
+        activeStatuses.contains(activeStatus) &&
+        hasValidCoordinates;
+  }
 
   DriverNavSession copyWith({
     String? orderId,
@@ -31,6 +52,7 @@ class DriverNavSession {
     double? lat,
     double? lng,
     bool? arrivedAtTarget,
+    bool? pickupConfirmed,
     int? simRouteIndex,
     DateTime? updatedAt,
   }) {
@@ -40,20 +62,22 @@ class DriverNavSession {
       lat: lat ?? this.lat,
       lng: lng ?? this.lng,
       arrivedAtTarget: arrivedAtTarget ?? this.arrivedAtTarget,
+      pickupConfirmed: pickupConfirmed ?? this.pickupConfirmed,
       simRouteIndex: simRouteIndex ?? this.simRouteIndex,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'orderId': orderId,
-        'status': status,
-        'lat': lat,
-        'lng': lng,
-        'arrivedAtTarget': arrivedAtTarget,
-        'simRouteIndex': simRouteIndex,
-        'updatedAt': updatedAt?.toIso8601String(),
-      };
+    'orderId': orderId,
+    'status': status,
+    'lat': lat,
+    'lng': lng,
+    'arrivedAtTarget': arrivedAtTarget,
+    'pickupConfirmed': pickupConfirmed,
+    'simRouteIndex': simRouteIndex,
+    'updatedAt': updatedAt?.toIso8601String(),
+  };
 
   factory DriverNavSession.fromJson(Map<String, dynamic> json) {
     return DriverNavSession(
@@ -62,6 +86,7 @@ class DriverNavSession {
       lat: (json['lat'] as num?)?.toDouble() ?? 0,
       lng: (json['lng'] as num?)?.toDouble() ?? 0,
       arrivedAtTarget: json['arrivedAtTarget'] == true,
+      pickupConfirmed: json['pickupConfirmed'] == true,
       simRouteIndex: (json['simRouteIndex'] as num?)?.toInt() ?? 0,
       updatedAt: json['updatedAt'] != null
           ? DateTime.tryParse(json['updatedAt'].toString())
@@ -74,9 +99,10 @@ const _prefsKey = 'driver_nav_sessions_v1';
 
 /// orderId → session (memory + disk).
 final driverNavSessionsProvider =
-    StateNotifierProvider<DriverNavSessionsNotifier, Map<String, DriverNavSession>>(
-  (ref) => DriverNavSessionsNotifier()..hydrate(),
-);
+    StateNotifierProvider<
+      DriverNavSessionsNotifier,
+      Map<String, DriverNavSession>
+    >((ref) => DriverNavSessionsNotifier()..hydrate());
 
 class DriverNavSessionsNotifier
     extends StateNotifier<Map<String, DriverNavSession>> {
@@ -124,9 +150,7 @@ class DriverNavSessionsNotifier
   Future<void> _persist() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final encoded = {
-        for (final e in state.entries) e.key: e.value.toJson(),
-      };
+      final encoded = {for (final e in state.entries) e.key: e.value.toJson()};
       await prefs.setString(_prefsKey, jsonEncode(encoded));
     } catch (_) {}
   }

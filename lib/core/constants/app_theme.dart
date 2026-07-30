@@ -17,6 +17,7 @@ class AppColors {
   // === Backgrounds ===
   static const bgLight = Color(0xFFFAFAFA); // Screen background (light)
   static const bgCard = Color(0xFFFFFFFF); // Card surface
+  static const bgWarm = Color(0xFFFFF7F1); // Warm visual/header surface
   static const bgDark = Color(0xFF1E293B); // Dark surface (driver night mode)
   static const bgDarkCard = Color(0xFF243447); // Dark card
 
@@ -43,26 +44,73 @@ class AppTextStyles {
   static final _base = GoogleFonts.plusJakartaSans;
 
   // Display — màn hình onboarding, hero sections
-  static final displayLarge = _base(fontSize: 32, fontWeight: FontWeight.w800, height: 1.2);
-  static final displayMedium = _base(fontSize: 26, fontWeight: FontWeight.w700, height: 1.25);
+  static final displayLarge = _base(
+    fontSize: 32,
+    fontWeight: FontWeight.w800,
+    height: 1.2,
+  );
+  static final displayMedium = _base(
+    fontSize: 26,
+    fontWeight: FontWeight.w700,
+    height: 1.25,
+  );
 
   // Heading — section titles, screen titles
-  static final headingLarge = _base(fontSize: 22, fontWeight: FontWeight.w700, height: 1.3);
-  static final headingMedium = _base(fontSize: 18, fontWeight: FontWeight.w600, height: 1.35);
-  static final headingSmall = _base(fontSize: 16, fontWeight: FontWeight.w600, height: 1.4);
+  static final headingLarge = _base(
+    fontSize: 22,
+    fontWeight: FontWeight.w700,
+    height: 1.3,
+  );
+  static final headingMedium = _base(
+    fontSize: 18,
+    fontWeight: FontWeight.w600,
+    height: 1.35,
+  );
+  static final headingSmall = _base(
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    height: 1.4,
+  );
 
   // Body — nội dung chính
-  static final bodyLarge = _base(fontSize: 15, fontWeight: FontWeight.w400, height: 1.6);
-  static final bodyMedium = _base(fontSize: 14, fontWeight: FontWeight.w400, height: 1.6);
-  static final bodySmall = _base(fontSize: 13, fontWeight: FontWeight.w400, height: 1.5);
+  static final bodyLarge = _base(
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    height: 1.6,
+  );
+  static final bodyMedium = _base(
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    height: 1.6,
+  );
+  static final bodySmall = _base(
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+    height: 1.5,
+  );
 
   // Label — button, badge, chip
-  static final labelLarge = _base(fontSize: 15, fontWeight: FontWeight.w600, letterSpacing: 0.1);
-  static final labelMedium = _base(fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.2);
-  static final labelSmall = _base(fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.5);
+  static final labelLarge = _base(
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.1,
+  );
+  static final labelMedium = _base(
+    fontSize: 13,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.2,
+  );
+  static final labelSmall = _base(
+    fontSize: 11,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 0.5,
+  );
 
   // Mono — order ID, mã đơn, số liệu
-  static final mono = GoogleFonts.jetBrainsMono(fontSize: 13, fontWeight: FontWeight.w500);
+  static final mono = GoogleFonts.jetBrainsMono(
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+  );
 }
 
 /// Spacing constants (base unit: 4px)

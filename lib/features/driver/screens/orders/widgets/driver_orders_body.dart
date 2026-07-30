@@ -43,7 +43,6 @@ class _DriverOrdersBodyState extends ConsumerState<DriverOrdersBody> {
         if (driver == null) return const MissingDriverProfileState();
         _debugLog('driverProfile id=${driver.id} userId=${driver.userId}');
 
-        ref.watch(driverOrdersRealtimeProvider(driver.userId));
         final driverOrdersAsync = ref.watch(
           driverOrdersProvider(driver.userId),
         );
@@ -71,19 +70,17 @@ class _DriverOrdersBodyState extends ConsumerState<DriverOrdersBody> {
             availableOrdersAsync.valueOrNull ?? const <OrderModel>[];
         final driverOrders =
             driverOrdersAsync.valueOrNull ?? const <OrderModel>[];
-        final hasActiveOrder =
-            driverOrders.any(isActiveDriverOrder);
-        final availableOrders =
-            driver.isAvailable && !hasActiveOrder
-                ? rawAvailableOrders
-                : const <OrderModel>[];
+        final hasActiveOrder = driverOrders.any(isActiveDriverOrder);
+        final availableOrders = driver.isAvailable && !hasActiveOrder
+            ? rawAvailableOrders
+            : const <OrderModel>[];
 
         final showAvailableTab = driver.isAvailable && !hasActiveOrder;
         final visibleFilters = showAvailableTab
             ? DriverOrderFilter.values
             : DriverOrderFilter.values
-                .where((f) => f != DriverOrderFilter.available)
-                .toList();
+                  .where((f) => f != DriverOrderFilter.available)
+                  .toList();
 
         if (!visibleFilters.contains(_selectedFilter)) {
           _selectedFilter = visibleFilters.first;

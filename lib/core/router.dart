@@ -31,7 +31,10 @@ class _AuthStateNotifier extends ChangeNotifier {
   }
 }
 
-Future<String?> _fetchDriverApproval(SupabaseClient supabase, String userId) async {
+Future<String?> _fetchDriverApproval(
+  SupabaseClient supabase,
+  String userId,
+) async {
   try {
     final result = await supabase
         .from('drivers')
@@ -68,7 +71,9 @@ GoRouter createRouter({required String initialLocation}) {
       if (uri.contains('code=') || uri.contains('access_token=')) return null;
 
       if (loggedIn) {
-        if (location == '/' || location == '/login' || location == '/onboarding') {
+        if (location == '/' ||
+            location == '/login' ||
+            location == '/onboarding') {
           final result = await supabase
               .from('users')
               .select('role')
@@ -169,7 +174,16 @@ GoRouter createRouter({required String initialLocation}) {
       ),
       GoRoute(
         path: '/driver-home',
-        builder: (_, _) => const DriverShellScreen(),
+        builder: (_, state) {
+          final tab = state.uri.queryParameters['tab'];
+          final initialTab = switch (tab) {
+            'orders' => 1,
+            'earnings' => 2,
+            'account' => 3,
+            _ => 0,
+          };
+          return DriverShellScreen(initialTab: initialTab);
+        },
       ),
       GoRoute(path: '/admin-home', builder: (_, _) => const AdminShellScreen()),
     ],

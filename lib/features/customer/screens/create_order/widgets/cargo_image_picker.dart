@@ -137,17 +137,26 @@ class _EmptyPhotoPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.xl),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.accentLight,
+        color: AppColors.bgLight,
         borderRadius: AppRadius.xl,
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.22)),
       ),
       child: Column(
         children: [
-          const Icon(
-            Icons.add_a_photo_outlined,
-            color: AppColors.accent,
-            size: 30,
+          Container(
+            width: 54,
+            height: 54,
+            decoration: const BoxDecoration(
+              color: AppColors.accentLight,
+              borderRadius: AppRadius.lg,
+            ),
+            child: const Icon(
+              Icons.add_photo_alternate_outlined,
+              color: AppColors.accent,
+              size: 26,
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
@@ -166,33 +175,85 @@ class _EmptyPhotoPicker extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          if (showCamera) ...[
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: FilledButton.icon(
-                onPressed: onPickCamera,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  foregroundColor: AppColors.textOnAccent,
+          Row(
+            children: [
+              if (showCamera) ...[
+                Expanded(
+                  child: _PhotoAction(
+                    icon: Icons.photo_camera_outlined,
+                    label: 'Chụp ảnh',
+                    primary: true,
+                    onTap: onPickCamera,
+                  ),
                 ),
-                icon: const Icon(Icons.photo_camera_outlined),
-                label: const Text('Chụp ảnh'),
+                const SizedBox(width: AppSpacing.sm),
+              ],
+              Expanded(
+                child: _PhotoAction(
+                  icon: Icons.photo_library_outlined,
+                  label: showCamera ? 'Thư viện' : 'Chọn ảnh',
+                  onTap: onPickGallery,
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-          ],
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: TextButton.icon(
-              onPressed: onPickGallery,
-              style: TextButton.styleFrom(foregroundColor: AppColors.accent),
-              icon: const Icon(Icons.photo_library_outlined),
-              label: Text(showCamera ? 'Chọn từ thư viện' : 'Chọn ảnh'),
-            ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PhotoAction extends StatelessWidget {
+  const _PhotoAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.primary = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: primary ? AppColors.accent : AppColors.bgCard,
+      borderRadius: AppRadius.full,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.full,
+        child: Container(
+          height: 46,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.full,
+            border: primary ? null : Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: primary ? AppColors.textOnAccent : AppColors.accent,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: primary ? AppColors.textOnAccent : AppColors.accent,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -220,8 +281,9 @@ class _SelectedPhoto extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.accentLight,
+        color: AppColors.bgLight,
         borderRadius: AppRadius.xl,
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.22)),
       ),
       child: Row(
         children: [
@@ -241,10 +303,10 @@ class _SelectedPhoto extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: isLoading
                     ? const Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                        child: Icon(
+                          Icons.more_horiz_rounded,
+                          color: AppColors.accent,
+                          size: 24,
                         ),
                       )
                     : bytes == null
@@ -275,15 +337,26 @@ class _SelectedPhoto extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                TextButton(
-                  onPressed: onReplace,
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(48, 40),
+                InkWell(
+                  onTap: onReplace,
+                  borderRadius: AppRadius.full,
+                  child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm,
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: AppColors.accentLight,
+                      borderRadius: AppRadius.full,
+                    ),
+                    child: Text(
+                      'Thay ảnh',
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: AppColors.accent,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                  child: const Text('Thay ảnh'),
                 ),
               ],
             ),

@@ -3,9 +3,12 @@
 // Secrets: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN, SUPABASE_SERVICE_ROLE_KEY
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  enqueueHistoryOnce,
+  type GpsHistoryPayload,
+} from "./history_queue.ts";
 
 const GEO_KEY = "drivers:geo";
-const QUEUE_KEY = "gps:history:queue";
 const PG_TOUCH_PREFIX = "gps:pg_touch:";
 const LOC_PREFIX = "driver:loc:";
 const PG_TOUCH_TTL_SEC = 8;
@@ -122,20 +125,17 @@ Deno.serve(async (req) => {
       }),
     ]);
 
-    // Queue history (cold path)
-    await redis([
-      "LPUSH",
-      QUEUE_KEY,
-      JSON.stringify({
-        driver_id: profileId,
-        user_id: userId,
-        lat,
-        lng,
-        heading: body.heading ?? null,
-        speed: body.speed ?? null,
-        created_at: body.client_ts || now,
-      }),
-    ]);
+    // Queue history (cold path), idempotent across tabs/callers.
+    const historyPoint: GpsHistoryPayload = {
+      driver_id: profileId,
+      user_id: userId,
+      lat,
+      lng,
+      heading: body.heading ?? null,
+      speed: body.speed ?? null,
+      created_at: body.client_ts || now,
+    };
+    const historyEnqueued = await enqueueHistoryOnce(redis, historyPoint);
 
     // Throttle UPDATE drivers → Realtime khách vẫn nhận được, ít ghi hơn
     const touchKey = `${PG_TOUCH_PREFIX}${profileId}`;
@@ -148,6 +148,7 @@ Deno.serve(async (req) => {
         .update({
           current_lat: lat,
           current_lng: lng,
+          location_updated_at: now,
           updated_at: now,
         })
         .eq("id", profileId);
@@ -157,6 +158,7 @@ Deno.serve(async (req) => {
     return json({
       ok: true,
       redis: true,
+      history_enqueued: historyEnqueued,
       pg_updated: pgUpdated,
       profile_id: profileId,
       user_id: userId,

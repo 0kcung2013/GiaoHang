@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/driver_order_cancellation_event.dart';
+
 /// Service to manage Supabase realtime subscriptions
 class RealtimeService {
   RealtimeService({SupabaseClient? client})
@@ -10,6 +12,10 @@ class RealtimeService {
 
   final SupabaseClient _supabase;
   final Map<String, RealtimeChannel> _channels = {};
+  final Map<String, Future<bool>> _channelReady = {};
+
+  static const driverOrderEventsChannel = 'driver_order_events';
+  static const _orderCancelledEvent = 'order_cancelled';
 
   /// Subscribe to notifications table for a specific user
   RealtimeChannel subscribeToNotifications(
@@ -189,47 +195,96 @@ class RealtimeService {
     return channel;
   }
 
-  /// Subscribe to cancelled orders for a driver — emits order ID.
-  RealtimeChannel subscribeToCancelledOrdersForDriver(
-    String driverId,
-    void Function() onRefresh, {
-    void Function(String orderId)? onOrderCancelled,
-  }) {
-    final channelName = 'driver_cancelled_orders:$driverId';
+  /// Broadcasts a verified customer cancellation to online driver clients.
+  ///
+  /// The database update is authoritative, so delivery failure is logged and
+  /// deliberately does not escape to the cancellation operation.
+  Future<void> broadcastOrderCancelled(
+    DriverOrderCancellationEvent event,
+  ) async {
+    try {
+      var channel = _channels[driverOrderEventsChannel];
+      var ready = _channelReady[driverOrderEventsChannel];
+      if (channel == null) {
+        final subscribed = Completer<bool>();
+        channel = _supabase.channel(driverOrderEventsChannel);
+        _channels[driverOrderEventsChannel] = channel;
+        ready = subscribed.future;
+        _channelReady[driverOrderEventsChannel] = ready;
+        channel.subscribe((status, error) {
+          if (subscribed.isCompleted) return;
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            subscribed.complete(true);
+          } else if (status == RealtimeSubscribeStatus.channelError ||
+              status == RealtimeSubscribeStatus.closed ||
+              status == RealtimeSubscribeStatus.timedOut) {
+            subscribed.complete(false);
+          }
+        });
+      }
 
-    _removeChannel(channelName);
-    debugPrint('[RealtimeService] Subscribing to $channelName');
+      final didSubscribe =
+          await ready?.timeout(const Duration(seconds: 5)) ?? true;
+      if (!didSubscribe) {
+        throw StateError(
+          'Cannot subscribe to $driverOrderEventsChannel before broadcast.',
+        );
+      }
+
+      await channel.sendBroadcastMessage(
+        event: _orderCancelledEvent,
+        payload: event.toBroadcastPayload(),
+      );
+    } catch (error) {
+      debugPrint(
+        '[RealtimeService] broadcastOrderCancelled failed '
+        'orderId=${event.orderId}: $error',
+      );
+    }
+  }
+
+  /// Subscribes to the shared driver-order channel and emits valid events.
+  RealtimeChannel subscribeToDriverOrderCancellations(
+    void Function(DriverOrderCancellationEvent event) onCancelled,
+  ) {
+    _removeChannel(driverOrderEventsChannel);
+    final subscribed = Completer<bool>();
 
     final channel = _supabase
-        .channel(channelName)
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'orders',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'status',
-            value: 'cancelled',
-          ),
+        .channel(driverOrderEventsChannel)
+        .onBroadcast(
+          event: _orderCancelledEvent,
           callback: (payload) {
-            debugPrint('[RealtimeService] CANCELLED event received on $channelName: eventType=${payload.eventType}, table=${payload.table}, new=${payload.newRecord}');
-            final orderId = payload.newRecord['id']?.toString();
-            final orderDriverId = payload.newRecord['driver_id']?.toString();
-            debugPrint('[RealtimeService] Parsing orderId=$orderId, orderDriverId=$orderDriverId, targetDriverId=$driverId');
-            if (orderId != null && orderId.isNotEmpty && orderDriverId == driverId) {
-              debugPrint('[RealtimeService] Triggering onOrderCancelled callback for orderId=$orderId');
-              onOrderCancelled?.call(orderId);
-            } else {
-              // Only auto-refresh if it's not the current driver's assigned order
-              onRefresh();
+            final wrapped = payload['payload'];
+            final raw = wrapped is Map
+                ? Map<String, dynamic>.from(wrapped)
+                : Map<String, dynamic>.from(payload);
+            final event = DriverOrderCancellationEvent.fromBroadcastPayload(
+              raw,
+            );
+            if (event != null) {
+              onCancelled(event);
             }
           },
         )
         .subscribe((status, error) {
-          debugPrint('[RealtimeService] Channel $channelName status=$status, error=$error');
+          if (!subscribed.isCompleted) {
+            if (status == RealtimeSubscribeStatus.subscribed) {
+              subscribed.complete(true);
+            } else if (status == RealtimeSubscribeStatus.channelError ||
+                status == RealtimeSubscribeStatus.closed ||
+                status == RealtimeSubscribeStatus.timedOut) {
+              subscribed.complete(false);
+            }
+          }
+          debugPrint(
+            '[RealtimeService] Driver order events status=$status '
+            'error=$error',
+          );
         });
 
-    _channels[channelName] = channel;
+    _channels[driverOrderEventsChannel] = channel;
+    _channelReady[driverOrderEventsChannel] = subscribed.future;
     return channel;
   }
 
@@ -255,12 +310,16 @@ class RealtimeService {
             value: driverId,
           ),
           callback: (payload) {
-            debugPrint('[RealtimeService] ASSIGNED event received on $channelName: eventType=${payload.eventType}, table=${payload.table}, new=${payload.newRecord}');
+            debugPrint(
+              '[RealtimeService] ASSIGNED event received on $channelName: eventType=${payload.eventType}, table=${payload.table}, new=${payload.newRecord}',
+            );
             onDriverOrderChange();
           },
         )
         .subscribe((status, error) {
-          debugPrint('[RealtimeService] Channel $channelName status=$status, error=$error');
+          debugPrint(
+            '[RealtimeService] Channel $channelName status=$status, error=$error',
+          );
         });
 
     _channels[channelName] = channel;
@@ -283,12 +342,16 @@ class RealtimeService {
           schema: 'public',
           table: 'orders',
           callback: (payload) {
-            debugPrint('[RealtimeService] ALL_CHANGES event received on $channelName: eventType=${payload.eventType}, table=${payload.table}, new=${payload.newRecord}');
+            debugPrint(
+              '[RealtimeService] ALL_CHANGES event received on $channelName: eventType=${payload.eventType}, table=${payload.table}, new=${payload.newRecord}',
+            );
             onAnyChange(payload);
           },
         )
         .subscribe((status, error) {
-          debugPrint('[RealtimeService] Channel $channelName status=$status, error=$error');
+          debugPrint(
+            '[RealtimeService] Channel $channelName status=$status, error=$error',
+          );
         });
 
     _channels[channelName] = channel;
@@ -426,6 +489,7 @@ class RealtimeService {
       debugPrint('[TrackingRealtime] remove channel=$channelName');
       await _supabase.removeChannel(channel);
       _channels.remove(channelName);
+      _channelReady.remove(channelName);
     }
   }
 

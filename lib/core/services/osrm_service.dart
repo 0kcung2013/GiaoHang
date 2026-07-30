@@ -7,16 +7,72 @@ import 'package:latlong2/latlong.dart';
 
 import '../utils/polyline_decoder.dart';
 
+class OsrmNavigationStep {
+  const OsrmNavigationStep({
+    required this.location,
+    required this.distanceMeters,
+    required this.durationSeconds,
+    required this.maneuverType,
+    required this.modifier,
+    required this.roadName,
+  });
+
+  final LatLng location;
+  final double distanceMeters;
+  final double durationSeconds;
+  final String maneuverType;
+  final String modifier;
+  final String roadName;
+
+  String get instruction {
+    final road = roadName.trim().isEmpty ? '' : ' vào $roadName';
+    return switch (maneuverType) {
+      'depart' => road.isEmpty ? 'Bắt đầu di chuyển' : 'Đi theo $roadName',
+      'arrive' => 'Bạn sắp đến điểm đích',
+      'roundabout' || 'rotary' => 'Đi vào vòng xuyến$road',
+      'merge' => 'Nhập làn$road',
+      'fork' => '${_directionVerb('Giữ')}$road',
+      'on ramp' => '${_directionVerb('Đi theo lối')}$road',
+      'off ramp' => '${_directionVerb('Ra theo lối')}$road',
+      'end of road' => '${_directionVerb('Rẽ')}$road',
+      'continue' || 'new name' =>
+        modifier == 'straight'
+            ? 'Tiếp tục đi thẳng$road'
+            : '${_directionVerb('Đi')}$road',
+      'turn' => '${_directionVerb('Rẽ')}$road',
+      _ =>
+        modifier == 'straight'
+            ? 'Tiếp tục đi thẳng$road'
+            : '${_directionVerb('Đi')}$road',
+    };
+  }
+
+  String _directionVerb(String prefix) {
+    return switch (modifier) {
+      'left' => '$prefix trái',
+      'slight left' => '$prefix chếch trái',
+      'sharp left' => '$prefix ngoặt trái',
+      'right' => '$prefix phải',
+      'slight right' => '$prefix chếch phải',
+      'sharp right' => '$prefix ngoặt phải',
+      'uturn' => 'Quay đầu',
+      _ => '$prefix thẳng',
+    };
+  }
+}
+
 class OsrmRouteResult {
   const OsrmRouteResult({
     required this.points,
     required this.distanceMeters,
     required this.durationSeconds,
+    this.steps = const [],
   });
 
   final List<LatLng> points;
   final double distanceMeters;
   final double durationSeconds;
+  final List<OsrmNavigationStep> steps;
 
   double get distanceKm => distanceMeters / 1000;
   double get durationMinutes => durationSeconds / 60;
@@ -50,7 +106,9 @@ class OsrmService {
     final badCount = points.length - filtered.length;
 
     if (badCount > 0) {
-      debugPrint('[OSRM] Filtered $badCount/${points.length} bad point(s) outside bbox');
+      debugPrint(
+        '[OSRM] Filtered $badCount/${points.length} bad point(s) outside bbox',
+      );
     }
 
     // Nếu > 50% điểm bị lọc, route OSRM không đáng tin
@@ -64,7 +122,10 @@ class OsrmService {
     }
 
     if (filtered.isNotEmpty) {
-      final sample = [...filtered.take(3), if (filtered.length > 3) filtered.last];
+      final sample = [
+        ...filtered.take(3),
+        if (filtered.length > 3) filtered.last,
+      ];
       debugPrint(
         '[OSRM] Route sample (${filtered.length} pts): '
         '${sample.map((p) => '(${p.latitude.toStringAsFixed(5)}, ${p.longitude.toStringAsFixed(5)})').join(' → ')}',
@@ -83,7 +144,7 @@ class OsrmService {
     try {
       final url = Uri.parse(
         '$_baseUrl/route/v1/driving/$startLng,$startLat;$endLng,$endLat'
-        '?overview=full&geometries=polyline',
+        '?overview=full&geometries=polyline&steps=true',
       );
 
       final response = await http.get(url);
@@ -102,16 +163,14 @@ class OsrmService {
 
       if (geometry == null || geometry.isEmpty) return null;
 
-      final waypoints = [
-        LatLng(startLat, startLng),
-        LatLng(endLat, endLng),
-      ];
+      final waypoints = [LatLng(startLat, startLng), LatLng(endLat, endLng)];
       final points = _filterPoints(decodePolyline(geometry), waypoints);
 
       return OsrmRouteResult(
         points: points,
         distanceMeters: distance,
         durationSeconds: duration,
+        steps: _parseNavigationSteps(route),
       );
     } catch (_) {
       return null;
@@ -130,7 +189,7 @@ class OsrmService {
 
       final url = Uri.parse(
         '$_baseUrl/route/v1/driving/$coords'
-        '?overview=full&geometries=polyline',
+        '?overview=full&geometries=polyline&steps=true',
       );
 
       debugPrint('[OSRM] GET $url');
@@ -158,16 +217,51 @@ class OsrmService {
       debugPrint('[OSRM] Decoded ${decoded.length} points (before filter)');
 
       final points = _filterPoints(decoded, waypoints);
-      debugPrint('[OSRM] ${points.length} points after filter, dist=${distance.toStringAsFixed(0)}m');
+      debugPrint(
+        '[OSRM] ${points.length} points after filter, dist=${distance.toStringAsFixed(0)}m',
+      );
 
       return OsrmRouteResult(
         points: points,
         distanceMeters: distance,
         durationSeconds: duration,
+        steps: _parseNavigationSteps(route),
       );
     } catch (e) {
       debugPrint('[OSRM] Error: $e');
       return null;
     }
+  }
+
+  List<OsrmNavigationStep> _parseNavigationSteps(dynamic route) {
+    if (route is! Map) return const [];
+    final legs = route['legs'];
+    if (legs is! List) return const [];
+
+    final result = <OsrmNavigationStep>[];
+    for (final leg in legs) {
+      if (leg is! Map || leg['steps'] is! List) continue;
+      for (final rawStep in leg['steps'] as List) {
+        if (rawStep is! Map || rawStep['maneuver'] is! Map) continue;
+        final maneuver = rawStep['maneuver'] as Map;
+        final location = maneuver['location'];
+        if (location is! List || location.length < 2) continue;
+        final lng = location[0];
+        final lat = location[1];
+        if (lat is! num || lng is! num) continue;
+
+        result.add(
+          OsrmNavigationStep(
+            location: LatLng(lat.toDouble(), lng.toDouble()),
+            distanceMeters: (rawStep['distance'] as num?)?.toDouble() ?? 0,
+            durationSeconds: (rawStep['duration'] as num?)?.toDouble() ?? 0,
+            maneuverType: maneuver['type']?.toString() ?? '',
+            modifier: maneuver['modifier']?.toString() ?? 'straight',
+            roadName: rawStep['name']?.toString() ?? '',
+          ),
+        );
+      }
+    }
+    return result;
   }
 }
