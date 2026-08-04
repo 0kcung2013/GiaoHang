@@ -1,6 +1,6 @@
 # ROADMAP — Hệ thống Giao Hàng Thông Minh
 
-> Cập nhật: 29/07/2026  
+> Cập nhật: 01/08/2026
 > Đề tài: **Xây dựng ứng dụng quản lý giao hàng thông minh hỗ trợ theo dõi vị trí thời gian thực và dự đoán thời gian giao hàng.**
 
 ## 1. Mục đích
@@ -26,8 +26,9 @@ Quy ước:
 
 ### 2.1. Kiến trúc sản phẩm
 
-- Sử dụng **một ứng dụng Flutter duy nhất**.
-- Không tách Customer, Driver, Support và Admin thành các repository hoặc ứng dụng riêng.
+- Sử dụng **một monorepo với hai ứng dụng Flutter**: Delivery App cho Customer/Driver và Operations Web cho Support/Admin.
+- Hai ứng dụng có vòng đời build/deploy riêng nhưng dùng chung packages nền tảng, Supabase migrations và Edge Functions.
+- Không tách thành nhiều repository và không sao chép domain models/design tokens giữa hai ứng dụng.
 - PostgreSQL của Supabase là nguồn dữ liệu nghiệp vụ lâu dài.
 - Redis chỉ là nơi lưu dữ liệu GPS mới nhất và hàng đợi tạm thời.
 - Supabase Edge Functions xử lý các tác vụ cần xác thực hoặc quyền backend.
@@ -41,7 +42,7 @@ Hệ thống hướng đến bốn vai trò:
 - **Support:** tra cứu đơn và ghi nhận yêu cầu hỗ trợ.
 - **Admin:** quản lý hệ thống và tạo tài khoản Support.
 
-Source hiện mới hoàn chỉnh ở mức Customer, Driver và Admin. Support là giai đoạn phát triển sau phần cốt lõi và không được làm chậm tracking, ETA, bảo mật hoặc kiểm thử.
+Source hiện có Customer, Driver, Admin và lát cắt Support tối thiểu. Support không được làm chậm tracking, ETA, bảo mật hoặc kiểm thử.
 
 ### 2.3. Một tài xế — một đơn hàng
 
@@ -187,7 +188,7 @@ Khi OSRM lỗi, hệ thống giữ ETA hợp lệ gần nhất và đánh dấu 
 - GPS local fallback có thể mất batch khi PostgreSQL lỗi.
 - Redis queue chưa có idempotency và quy trình acknowledge/recovery đầy đủ.
 - GPS stale chưa được dùng để loại tài xế khỏi phân công.
-- Role, route, schema và RLS cho Support chưa tồn tại.
+- Role, route, schema và RLS cho Support đã có ở mức tối thiểu; tài khoản Support vẫn phải được Admin tạo qua luồng an toàn.
 - Router chưa bảo vệ đầy đủ route Admin và role lạ có thể rơi về Customer.
 - Database migrations chưa dựng lại được toàn bộ schema từ đầu.
 - README và một số tài liệu cũ chưa khớp source.
@@ -300,15 +301,28 @@ Tập trung các quy tắc vào một module có trách nhiệm rõ ràng:
 
 - Lọc điều kiện hợp lệ.
 - Kiểm tra GPS stale.
-- Xếp hạng khoảng cách và rating.
+- Xếp hạng theo khoảng cách; chưa dùng rating để đảo thứ tự offer trong MVP.
 - Tie-break có tính xác định.
 - Loại Driver đã từ chối.
 
 Redis, PostGIS và fallback phía Flutter phải tạo cùng kết quả với cùng dữ liệu đầu vào. Business rule không được thay đổi theo adapter đang sử dụng.
 
-Kịch bản demo:
+Kịch bản demo hiện tại:
 
-> Hai Driver có khoảng cách tương đương nhưng rating khác nhau; hệ thống gửi offer cho Driver có rating cao hơn.
+> Pickup gần `taixe3`; khi `taixe3` chuyển đơn thì offer sang `taixe2`, sau đó
+> sang `taixe`. Mỗi Driver chỉ có tối đa một order active.
+
+Checklist lát cắt chuyển đơn 3 tài xế (2026-08-04):
+
+- [x] Bán kính offer mặc định 5 km trên Flutter, PostgreSQL và Redis adapter.
+- [x] Loại Driver đã chuyển đơn trước khi xếp lại theo khoảng cách.
+- [x] PostgreSQL và Redis chỉ xếp theo khoảng cách, tie-break bằng `user_id`.
+- [x] Áp migration mới lên Supabase Cloud và deploy Edge Function v12 với JWT.
+- [x] Cấu hình debug: `taixe2` cách GPS thật khoảng 3,1 km; `taixe3` cách
+  `taixe2` khoảng 1 km trên cùng hướng, vẫn nằm trong bán kính 5 km.
+- [x] Test tự động chuỗi `taixe3 → taixe2 → taixe → hết tài xế` và kiểm tra
+  static hardening migration/Edge Function.
+- [x] Chạy manual E2E trên ba phiên đăng nhập sau khi hot restart app (đã xác nhận đạt).
 
 ### 6.2. ETA pipeline
 

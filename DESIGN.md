@@ -2,60 +2,28 @@
 
 ## Phase 1 Documentation Note
 
-- Project hiện là **một Flutter app duy nhất** cho 3 role: customer, driver, admin.
+- Project hiện là **một monorepo với hai Flutter app**: Delivery App cho customer/driver và Operations Web cho support/admin.
 - Không split repo thành `customer_app/`, `driver_app/`, `admin_web/`, hoặc `shared/`.
-- Preferred design tokens cho UI mới/refactor: `AppColors`, `AppTextStyles`, `AppSpacing`, `AppRadius` trong `lib/core/constants/app_theme.dart`.
+- Preferred design tokens cho UI mới/refactor: `AppColors`, `AppTextStyles`, `AppSpacing`, `AppRadius` trong `packages/giaohang_design/lib/src/app_theme.dart`.
 - `NavColors` và `OrderColors` đang hỗ trợ UI hiện có. Không xóa hoặc migrate hàng loạt trong Phase 1.
 - Phase 1 chỉ align tài liệu và checklist; không đổi runtime UI.
 
 ## Mô tả Project
-Ứng dụng giao hàng 1 Flutter project duy nhất, hỗ trợ 3 loại người dùng: khách hàng đặt đơn, tài xế nhận & giao hàng, admin quản lý hệ thống. Sau khi đăng nhập, app tự động điều hướng đến giao diện đúng theo role.
 
-## Cấu trúc Project (1 project duy nhất)
-```
-project_app/
-├── lib/
-│   ├── main.dart
-│   ├── core/
-│   │   ├── constants/
-│   │   │   └── supabase_constants.dart
-│   │   ├── models/
-│   │   │   ├── user_model.dart
-│   │   │   ├── order_model.dart
-│   │   │   ├── driver_model.dart
-│   │   │   └── route_model.dart
-│   │   ├── services/
-│   │   │   ├── auth_service.dart
-│   │   │   ├── order_service.dart
-│   │   │   └── location_service.dart
-│   │   └── router.dart
-│   ├── features/
-│   │   ├── onboarding/
-│   │   │   └── screens/onboarding_screen.dart
-│   │   ├── auth/
-│   │   │   └── screens/login_screen.dart
-│   │   ├── customer/
-│   │   │   ├── screens/
-│   │   │   │   ├── customer_home_screen.dart
-│   │   │   │   ├── place_order_screen.dart
-│   │   │   │   ├── order_tracking_screen.dart
-│   │   │   │   └── order_history_screen.dart
-│   │   │   └── widgets/
-│   │   ├── driver/
-│   │   │   ├── screens/
-│   │   │   │   ├── driver_home_screen.dart
-│   │   │   │   ├── order_list_screen.dart
-│   │   │   │   ├── navigation_screen.dart
-│   │   │   │   └── driver_history_screen.dart
-│   │   │   └── widgets/
-│   │   └── admin/
-│   │       ├── screens/
-│   │       │   ├── admin_home_screen.dart
-│   │       │   ├── manage_orders_screen.dart
-│   │       │   ├── manage_drivers_screen.dart
-│   │       │   └── dashboard_screen.dart
-│   │       └── widgets/
-└── pubspec.yaml
+Hệ thống có hai Flutter app: Delivery App dành cho Customer/Driver và Operations Web dành cho Support/Admin. Mỗi app có bootstrap, router và giao diện riêng nhưng cùng dùng design tokens và Supabase.
+
+## Cấu trúc Project
+
+```text
+GiaoHang/
+├── apps/
+│   ├── delivery_app/       # Customer + Driver
+│   └── operations_web/     # Support + Admin
+├── packages/
+│   ├── giaohang_config/
+│   ├── giaohang_design/
+│   └── giaohang_domain/
+└── supabase/
 ```
 
 ## Tech Stack
@@ -70,13 +38,15 @@ project_app/
 
 ## Commands
 ```bash
-flutter run                    # Chạy app
-flutter run -d chrome          # Chạy trên web
-flutter test                   # Chạy tests
-flutter analyze                # Static analysis
-flutter pub get                # Cài dependencies
-flutter build apk              # Build Android
-flutter build web              # Build web
+flutter pub get                # Chạy tại root workspace
+cd apps/delivery_app           # Customer + Driver
+flutter analyze
+flutter test
+flutter build apk
+cd ../operations_web           # Support + Admin
+flutter analyze
+flutter test
+flutter build web
 ```
 
 ## Dependencies (pubspec.yaml)
@@ -94,7 +64,7 @@ dependencies:
 ## Database Schema (Supabase)
 
 ### Enum Types
-- **user_role**: customer, driver, admin
+- **user_role**: customer, driver, support, admin
 - **order_status**: pending, confirmed, assigned, picking_up, delivering, delivered, cancelled
 
 ### Bảng chính
@@ -173,7 +143,7 @@ dependencies:
 - Mọi màn hình phải follow design system bên dưới
 - Target: premium mobile app aesthetic — sạch, nhanh, rõ ràng
 - Tránh generic Flutter/Material default UI
-- Dùng `AppColors`, `AppTextStyles`, `AppSpacing` từ `lib/core/constants/app_theme.dart`
+- Dùng `AppColors`, `AppTextStyles`, `AppSpacing` từ `packages/giaohang_design/lib/src/app_theme.dart`
 - Bắt buộc đọc `docs/design/visual_first_ui.md` cho quy tắc mật độ nội dung,
   hình minh họa, icon và yêu cầu riêng theo từng màn hình
 
@@ -187,7 +157,7 @@ dependencies:
 
 ### Color Palette
 
-Tất cả màu định nghĩa trong `lib/core/constants/app_theme.dart`:
+Tất cả màu định nghĩa trong `packages/giaohang_design/lib/src/app_theme.dart`:
 
 ```dart
 class AppColors {

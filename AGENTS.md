@@ -2,22 +2,27 @@
 
 ## Architecture Decision
 
-Project này là **một Flutter app duy nhất** cho 3 role: customer, driver, admin.
-Không tách repo thành `customer_app/`, `driver_app/`, `admin_web/`, hoặc `shared/` trong giai đoạn hiện tại.
-Nếu có ví dụ tài liệu cũ nhắc đến cấu trúc nhiều app, hiểu đó là lịch sử/ý tưởng cũ và không dùng cho cleanup hiện tại.
+Project là **một monorepo với hai Flutter app** dùng chung Supabase và các package nền tảng:
+
+- `apps/delivery_app`: Customer + Driver, phát hành Android/iOS.
+- `apps/operations_web`: Support (CSKH) + Admin, phát hành Web.
+
+Không tách thành nhiều repository và không sao chép models/design tokens giữa hai app.
 
 ## Mô tả Project
-Ứng dụng giao hàng gồm 3 giao diện: khách hàng đặt đơn, tài xế nhận & giao hàng, admin quản lý hệ thống. Tích hợp bản đồ thực tế và thuật toán tối ưu route giao hàng.
+Ứng dụng giao hàng gồm 4 giao diện: khách hàng đặt đơn, tài xế nhận & giao hàng, Support (CSKH) tra cứu/xử lý yêu cầu, admin quản lý hệ thống. Tích hợp bản đồ thực tế và thuật toán tối ưu route giao hàng.
 
 ## Kiến trúc Hệ thống
 ```
 GiaoHang/
-├── lib/
-│   ├── main.dart
-│   ├── core/              # router, constants, models, services, providers dùng chung
-│   └── features/          # admin, auth, customer, driver, onboarding
-├── test/
-├── android/ ios/ web/ ... # Flutter platform folders
+├── apps/
+│   ├── delivery_app/      # Customer + Driver, Android/iOS
+│   └── operations_web/    # Support + Admin, Web
+├── packages/
+│   ├── giaohang_config/   # Runtime config dùng chung
+│   ├── giaohang_design/   # Design tokens dùng chung
+│   └── giaohang_domain/   # Domain models dùng chung
+├── supabase/              # migrations và Edge Functions dùng chung
 ├── AGENTS.md
 ├── DESIGN.md
 ├── README.md
@@ -35,18 +40,18 @@ GiaoHang/
 
 ## Commands
 ```bash
-flutter run                          # Chạy app
-flutter test                         # Chạy tất cả tests
-flutter analyze                      # Static analysis
-flutter pub get                      # Cài dependencies
-flutter build apk                    # Build Android
-flutter build web                    # Build web (admin)
+flutter pub get                                      # Cài dependencies toàn workspace
+cd apps/delivery_app                                 # Vào Delivery App
+flutter analyze && flutter test && flutter run       # Analyze/test/chạy Customer/Driver
+cd ../operations_web                                # Vào Operations Web
+flutter analyze && flutter run -d chrome             # Analyze/chạy Support/Admin
+flutter build web                                    # Build Operations Web
 ```
 
 ## Database Schema (Supabase)
 
 ### Bảng chính
-- **users** — id, email, full_name, phone, role (customer/driver/admin), avatar_url, created_at
+- **users** — id, email, full_name, phone, role (customer/driver/support/admin), avatar_url, created_at
 - **drivers** — id, user_id, vehicle_type, license_plate, vehicle_brand_model, vehicle_color, is_available, current_lat, current_lng, rating, total_deliveries, approval_status, verified_at, submitted_at, rejection_reason, KYC fields (id_card_*, driver_license_*, vehicle_photo_url), updated_at
 - **orders** — id, customer_id, driver_id, status, pickup_address, pickup_lat, pickup_lng, delivery_address, delivery_lat, delivery_lng, total_price, note, created_at
 - **order_items** — id, order_id, name, quantity, price
@@ -123,14 +128,14 @@ Quan trọng: không thay đổi Supabase schema, RLS policies, migrations, Edge
 - Prefer files under 300-400 lines.
 - Any file over 500 lines must be treated as a refactor candidate.
 - Any file over 800 lines must not receive new features until it is split.
-- Do not add new features into `lib/features/customer/screens/tracking/tracking_screen.dart` or `lib/features/customer/screens/order/order_screen.dart` until they are refactored.
+- Do not add new features into `apps/delivery_app/lib/features/customer/screens/tracking/tracking_screen.dart` or `apps/delivery_app/lib/features/customer/screens/order/order_screen.dart` until they are refactored.
 - When implementing features, report if any touched file exceeds 400 lines.
 - Before modifying a large file, propose a split plan first.
 
 Recommended customer order structure:
 
 ```text
-lib/features/customer/screens/order/
+apps/delivery_app/lib/features/customer/screens/order/
 ├── order_screen.dart
 ├── widgets/
 ├── dialogs/
@@ -141,7 +146,7 @@ lib/features/customer/screens/order/
 Recommended customer tracking structure:
 
 ```text
-lib/features/customer/screens/tracking/
+apps/delivery_app/lib/features/customer/screens/tracking/
 ├── tracking_screen.dart
 ├── widgets/
 ├── dialogs/
@@ -155,7 +160,7 @@ lib/features/customer/screens/tracking/
 - Supabase URL và anon key lưu trong `.env` — không commit lên Git
 - RLS phải bật cho tất cả bảng trước khi deploy
 
-Current runtime note: project hiện vẫn đọc Supabase URL/anon key từ `lib/core/constants/supabase_constants.dart`. Việc chuyển sang `.env` là cleanup riêng trong tương lai; không đổi runtime config trong Phase 1.
+Current runtime note: hai app đọc Supabase URL/anon key từ `packages/giaohang_config/lib/src/supabase_constants.dart`. Việc chuyển sang `.env` là cleanup riêng trong tương lai; không đổi runtime config trong Phase 1.
 
 
 ## UI Design Rules
@@ -166,6 +171,6 @@ Current runtime note: project hiện vẫn đọc Supabase URL/anon key từ `li
 - Target: premium mobile app aesthetic
 
 ## Design Token Direction
-- Preferred design system: `AppColors`, `AppTextStyles`, `AppSpacing`, `AppRadius` trong `lib/core/constants/app_theme.dart`.
+- Preferred design system: `AppColors`, `AppTextStyles`, `AppSpacing`, `AppRadius` trong `packages/giaohang_design/lib/src/app_theme.dart`.
 - `NavColors` và `OrderColors` đang tồn tại để hỗ trợ UI hiện có; không xóa hoặc migrate hàng loạt trong Phase 1.
 - Khi tạo UI mới, ưu tiên token trong `app_theme.dart`.

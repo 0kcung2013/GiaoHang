@@ -1,0 +1,8 @@
+name: giaohang_config
+description: Runtime configuration dùng chung cho các ứng dụng Giao Hàng.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.9.0

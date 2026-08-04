@@ -1,5 +1,5 @@
 // Edge Function: tìm tài xế gần pickup bằng Redis GEO.
-// Fallback phía client vẫn dùng PostGIS/Haversine nếu function lỗi.
+// Lookup fallback dùng PostGIS RPC; assignment mutation luôn ở PostgreSQL.
 // Secrets: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN, SUPABASE_SERVICE_ROLE_KEY
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -59,25 +59,32 @@ Deno.serve(async (req) => {
     const body = (await req.json()) as Body;
     const lat = Number(body.pickup_lat);
     const lng = Number(body.pickup_lng);
-    const radius = Number(body.radius_meters ?? 15000);
-    const maxResults = Math.min(Number(body.max_results ?? 20), 50);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    const radius = Number(body.radius_meters ?? 5000);
+    const requestedMaxResults = Number(body.max_results ?? 20);
+    const maxResults = Number.isFinite(requestedMaxResults)
+      ? Math.min(Math.max(Math.trunc(requestedMaxResults), 1), 50)
+      : 20;
+    if (
+      !Number.isFinite(lat) || lat < -90 || lat > 90 ||
+      !Number.isFinite(lng) || lng < -180 || lng > 180 ||
+      !Number.isFinite(radius) || radius <= 0
+    ) {
       return json({ error: "Invalid pickup" }, 400);
     }
+    const effectiveRadius = Math.min(radius, 50000);
 
-    // GEORADIUS ... WITHDIST WITHCOORD ASC COUNT n
+    // Lấy toàn bộ ứng viên trước khi kiểm tra eligibility; chỉ giới hạn kết quả
+    // sau khi đã loại tài xế bận, offline hoặc có GPS cũ.
     const geo = await redis([
       "GEORADIUS",
       GEO_KEY,
       lng,
       lat,
-      radius,
+      effectiveRadius,
       "m",
       "WITHDIST",
       "WITHCOORD",
       "ASC",
-      "COUNT",
-      maxResults,
     ]) as unknown[] | null;
 
     if (!geo || !Array.isArray(geo) || geo.length === 0) {
@@ -133,7 +140,9 @@ Deno.serve(async (req) => {
       // Phải approved
       const { data: row } = await admin
         .from("drivers")
-        .select("user_id, approval_status, is_available")
+        .select(
+          "user_id, approval_status, is_available, rating, location_updated_at",
+        )
         .eq("user_id", userId)
         .maybeSingle();
       if (!row || row.approval_status !== "approved") continue;
@@ -146,10 +155,28 @@ Deno.serve(async (req) => {
         current_lat: dLat ?? meta?.lat,
         current_lng: dLng ?? meta?.lng,
         distance_meters: dist,
+        rating: Number(row.rating ?? 0),
+        location_updated_at:
+          typeof meta?.updated_at === "string"
+            ? meta.updated_at
+            : row.location_updated_at,
       });
     }
 
-    return json({ drivers, source: "redis" });
+    const rankedDrivers = drivers
+      .filter((driver) => {
+        const distance = Number(driver.distance_meters);
+        return Number.isFinite(distance) && distance >= 0;
+      })
+      .sort((left, right) => {
+        const distanceOrder =
+          Number(left.distance_meters) - Number(right.distance_meters);
+        if (distanceOrder !== 0) return distanceOrder;
+        return String(left.user_id).localeCompare(String(right.user_id));
+      })
+      .slice(0, maxResults);
+
+    return json({ drivers: rankedDrivers, source: "redis" });
   } catch (e) {
     return json(
       { error: e instanceof Error ? e.message : String(e) },

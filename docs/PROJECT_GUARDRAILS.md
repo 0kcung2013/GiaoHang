@@ -4,11 +4,14 @@ Permanent source of truth for future Codex sessions. This file contains only non
 
 ## Project Vision
 
-- Build one Flutter app for all roles; do not split into separate customer, driver, admin, or shared repos.
-- Support three role experiences in the same app:
+- Build two Flutter apps in one monorepo; do not split them into separate repositories.
+- Delivery App supports:
   - Customer: place orders and track deliveries.
   - Driver: receive assignments, update availability, and deliver orders.
+- Operations Web supports:
+  - Support: search orders and handle support tickets.
   - Admin: manage orders, drivers, and operational visibility.
+- Share stable design/domain/config Modules through `packages/`; do not copy them between apps.
 - Use Supabase as the backend for auth, database, realtime, and storage.
 - Prefer Riverpod for state management direction. Do not introduce Bloc or another state framework without approval.
 
@@ -80,14 +83,14 @@ Permanent source of truth for future Codex sessions. This file contains only non
 - Prefer files under 300-400 lines.
 - Any file over 500 lines must be treated as a refactor candidate.
 - Any file over 800 lines must not receive new features until it is split.
-- Do not add new features into `lib/features/customer/screens/tracking/tracking_screen.dart` or `lib/features/customer/screens/order/order_screen.dart` until they are refactored.
+- Do not add new features into `apps/delivery_app/lib/features/customer/screens/tracking/tracking_screen.dart` or `apps/delivery_app/lib/features/customer/screens/order/order_screen.dart` until they are refactored.
 - When implementing features, report if any touched file exceeds 400 lines.
 - Before modifying a large file, propose a split plan first.
 
 Recommended customer order structure:
 
 ```text
-lib/features/customer/screens/order/
+apps/delivery_app/lib/features/customer/screens/order/
 ├── order_screen.dart
 ├── widgets/
 ├── dialogs/
@@ -98,7 +101,7 @@ lib/features/customer/screens/order/
 Recommended customer tracking structure:
 
 ```text
-lib/features/customer/screens/tracking/
+apps/delivery_app/lib/features/customer/screens/tracking/
 ├── tracking_screen.dart
 ├── widgets/
 ├── dialogs/

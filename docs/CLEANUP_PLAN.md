@@ -4,14 +4,15 @@ This document tracks safe cleanup work for the current DATN GiaoHang Flutter pro
 
 ## Architecture Decision
 
-- Keep one Flutter app for all three roles: customer, driver, admin.
-- Do not split the repository into `customer_app/`, `driver_app/`, `admin_web/`, or `shared/`.
+- As of 01/08/2026, use one monorepo with `apps/delivery_app` (Customer/Driver) and `apps/operations_web` (Support/Admin).
+- Keep Supabase, docs and shared packages in the same repository.
+- Treat earlier single-app cleanup notes as historical where paths or role placement conflict with this decision.
 - Keep the current runtime behavior intact during Phase 1.
 - Do not modify Supabase schema, RLS, migrations, Edge Functions, or database fields without explicit approval.
 
 ## Phase 1 Scope
 
-- Align documentation with the current single-app architecture.
+- Align documentation with the current two-app monorepo architecture.
 - List unused or empty folders and likely unused widget files.
 - Document design token consolidation direction.
 - Document Supabase schema compatibility checks.
@@ -28,12 +29,12 @@ Preferred design tokens:
 
 Source file:
 
-- `lib/core/constants/app_theme.dart`
+- `packages/giaohang_design/lib/src/app_theme.dart`
 
 Current compatibility tokens that must not be deleted yet:
 
-- `NavColors` in `lib/core/constants/colors.dart`
-- `OrderColors`, `OrderSpacing`, `OrderShadow` in `lib/features/customer/screens/order/widgets/order_theme.dart`
+- `NavColors` in `apps/delivery_app/lib/core/constants/colors.dart`
+- `OrderColors`, `OrderSpacing`, `OrderShadow` in `apps/delivery_app/lib/features/customer/screens/order/widgets/order_theme.dart`
 
 Phase 1 does not migrate UI. Phase 2 should migrate screen by screen and verify visuals after each group.
 
@@ -41,25 +42,25 @@ Phase 1 does not migrate UI. Phase 2 should migrate screen by screen and verify 
 
 Do not delete these in Phase 1. They are only marked for review:
 
-- `lib/features/admin/screens/home/widgets/`
-- `lib/features/auth/screens/login/widgets/`
-- `lib/features/customer/screens/account/widgets/`
-- `lib/features/customer/screens/dashboard/widgets/`
-- `lib/features/customer/screens/home/widgets/`
-- `lib/features/customer/screens/tracking/widgets/`
-- `lib/features/driver/screens/home/widgets/`
-- `lib/features/onboarding/screens/onboarding/widgets/`
+- `apps/operations_web/lib/features/admin/screens/home/widgets/`
+- `apps/delivery_app/lib/features/auth/screens/login/widgets/`
+- `apps/delivery_app/lib/features/customer/screens/account/widgets/`
+- `apps/delivery_app/lib/features/customer/screens/dashboard/widgets/`
+- `apps/delivery_app/lib/features/customer/screens/home/widgets/`
+- `apps/delivery_app/lib/features/customer/screens/tracking/widgets/`
+- `apps/delivery_app/lib/features/driver/screens/home/widgets/`
+- `apps/delivery_app/lib/features/onboarding/screens/onboarding/widgets/`
 
 ## Likely Unused Widget Files To Review Later
 
 Do not delete these in Phase 1. They appear not to be referenced by the current `OrderScreen`, based on source search:
 
-- `lib/features/customer/screens/order/widgets/order_card.dart`
-- `lib/features/customer/screens/order/widgets/order_filter_row.dart`
-- `lib/features/customer/screens/order/widgets/order_summary_card.dart`
-- `lib/features/customer/screens/order/widgets/order_vm.dart`
-- `lib/features/customer/screens/order/widgets/section_title.dart`
-- `lib/features/customer/screens/order/widgets/order_theme.dart`
+- `apps/delivery_app/lib/features/customer/screens/order/widgets/order_card.dart`
+- `apps/delivery_app/lib/features/customer/screens/order/widgets/order_filter_row.dart`
+- `apps/delivery_app/lib/features/customer/screens/order/widgets/order_summary_card.dart`
+- `apps/delivery_app/lib/features/customer/screens/order/widgets/order_vm.dart`
+- `apps/delivery_app/lib/features/customer/screens/order/widgets/section_title.dart`
+- `apps/delivery_app/lib/features/customer/screens/order/widgets/order_theme.dart`
 
 Review before removal because these may be intended for the next order-screen refactor.
 
@@ -112,7 +113,7 @@ Rule for later phases:
 
 Current runtime config reads Supabase URL and anon key from:
 
-- `lib/core/constants/supabase_constants.dart`
+- `packages/giaohang_config/lib/src/supabase_constants.dart`
 
 Future cleanup should move these values to `.env` or another approved environment configuration approach. Phase 1 intentionally does not change this file or runtime initialization.
 

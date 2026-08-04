@@ -31,8 +31,18 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+**/build/
 /coverage/
+**/coverage/
 .tmp/
+
+# Runtime secrets
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
 
 # Symbolication related
 app.*.symbols

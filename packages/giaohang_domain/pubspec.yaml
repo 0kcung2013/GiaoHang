@@ -1,0 +1,8 @@
+name: giaohang_domain
+description: Domain models dùng chung cho Delivery và Operations.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.9.0
