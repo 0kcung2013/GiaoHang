@@ -40,7 +40,11 @@ class DriverHomeScreen extends StatelessWidget {
                       message:
                           'Vui long dang nhap bang tai khoan tai xe de xem don hang.',
                     )
-                  : DriverDashboardBody(userId: currentUser.id, layout: layout),
+                  : DriverDashboardBody(
+                      userId: currentUser.id,
+                      email: currentUser.email,
+                      layout: layout,
+                    ),
             ),
           ),
         );

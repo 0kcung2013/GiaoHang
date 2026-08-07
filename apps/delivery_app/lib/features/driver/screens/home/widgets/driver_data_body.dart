@@ -5,6 +5,7 @@ import '../../../../../core/models/order_model.dart';
 import '../../../../../core/providers/customer_providers.dart';
 import '../../../../../core/providers/location_providers.dart';
 import '../../../../../core/utils/geo_utils.dart';
+import '../utils/driver_dashboard_location.dart';
 import '../utils/driver_home_formatters.dart';
 import 'availability_toggle_card.dart';
 import 'driver_home_banner.dart';
@@ -17,11 +18,13 @@ import 'driver_state_widgets.dart';
 /// Simplified dashboard body: toggle + 2 stats + priority orders.
 class DriverDashboardBody extends ConsumerWidget {
   final String userId;
+  final String? email;
   final DriverHomeLayout layout;
 
   const DriverDashboardBody({
     super.key,
     required this.userId,
+    required this.email,
     required this.layout,
   });
 
@@ -76,10 +79,17 @@ class DriverDashboardBody extends ConsumerWidget {
         final activeOrders = driverOrders.where(isActiveDriverOrder).toList();
         final showIdleBanner = !hasActiveOrder && visibleAvailable.isEmpty;
         final currentPosition = currentPositionAsync.valueOrNull;
+        final dashboardPosition = resolveDriverDashboardPosition(
+          email: email,
+          rawLat: currentPosition?.latitude,
+          rawLng: currentPosition?.longitude,
+          storedLat: driver.currentLat,
+          storedLng: driver.currentLng,
+        );
         final pickupDistancesMeters = _pickupDistances(
           orders: [...visibleAvailable, ...activeOrders],
-          originLat: currentPosition?.latitude ?? driver.currentLat,
-          originLng: currentPosition?.longitude ?? driver.currentLng,
+          originLat: dashboardPosition?.latitude,
+          originLng: dashboardPosition?.longitude,
         );
 
         return Column(

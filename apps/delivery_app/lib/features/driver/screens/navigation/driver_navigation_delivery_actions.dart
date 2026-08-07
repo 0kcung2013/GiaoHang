@@ -128,6 +128,7 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
 
     if (nextStatus == 'delivered') {
       final deliveredOrder = _currentOrder.copyWith(status: nextStatus);
+      await DriverForegroundLocationService.stop();
       await showDriverDeliverySuccessDialog(context);
       if (!mounted) return;
       await showDriverRateCustomerSheet(

@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../location/location_ingest_service.dart';
 import '../models/driver_location_model.dart';
+import '../utils/geo_utils.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
 class DriverService {
@@ -11,6 +13,7 @@ class DriverService {
 
   final SupabaseClient _supabase;
   final LocationIngestService _locationIngest;
+  final Map<String, String?> _debugEmailByUserId = <String, String?>{};
 
   static const String _driversTable = 'drivers';
   static const String _ordersTable = 'orders';
@@ -131,7 +134,7 @@ class DriverService {
       );
       if (rpcResult != null) {
         final map = Map<String, dynamic>.from(rpcResult as Map);
-        return DriverModel.fromPublicProfileJson(map);
+        return _hydrateDebugDemoEmail(DriverModel.fromPublicProfileJson(map));
       }
     } catch (_) {
       // RPC chưa deploy hoặc auth/policy — fallback client join.
@@ -142,6 +145,40 @@ class DriverService {
 
   Future<DriverModel?> getDriverForOrder(String orderId) async {
     return getPublicDriverForOrder(orderId);
+  }
+
+  /// RPC public intentionally omits email. Only in debug, fetch it privately
+  /// to recognize the three local GPS-demo accounts; it is never shown in UI.
+  Future<DriverModel> _hydrateDebugDemoEmail(DriverModel driver) async {
+    if (!kDebugMode ||
+        !GeoUtils.enableTestDriverOffsets ||
+        driver.email != null ||
+        driver.userId.isEmpty) {
+      return driver;
+    }
+
+    try {
+      final hasCachedEmail = _debugEmailByUserId.containsKey(driver.userId);
+      final email = hasCachedEmail
+          ? _debugEmailByUserId[driver.userId]
+          : await _loadDebugEmail(driver.userId);
+      if (!GeoUtils.hasConfiguredTestDriverOffset(email)) return driver;
+      return driver.copyWith(email: email);
+    } catch (_) {
+      // RLS can hide email. The driver app still publishes its demo point.
+      return driver;
+    }
+  }
+
+  Future<String?> _loadDebugEmail(String userId) async {
+    final user = await _supabase
+        .from('users')
+        .select('email')
+        .eq('id', userId)
+        .maybeSingle();
+    final email = user?['email']?.toString();
+    _debugEmailByUserId[userId] = email;
+    return email;
   }
 
   Future<DriverModel?> _getDriverForOrderFallback(String orderId) async {

@@ -45,83 +45,89 @@ void main() {
   });
 
   group('DeliveryEtaCalculator', () {
-    test(
-      'rejects an implausible eight-minute OSRM ETA for nine kilometers',
-      () {
-        final eta = DeliveryEtaCalculator.calculate(
-          distanceMeters: 9000,
-          routeDurationSeconds: 8 * 60,
-          quotedAt: DateTime(2026, 7, 29, 12),
-        );
+    test('uses TP.HCM traffic AI when coordinates are supported', () {
+      final eta = _hcmEta(quotedAt: DateTime(2026, 7, 29, 17, 30));
 
-        expect(eta.usedRouteDuration, isFalse);
-        expect(eta.minMinutes, 25);
-        expect(eta.maxMinutes, 35);
-      },
-    );
-
-    test('widens the estimate during a configured peak window', () {
-      final eta = DeliveryEtaCalculator.calculate(
-        distanceMeters: 9000,
-        routeDurationSeconds: 8 * 60,
-        quotedAt: DateTime(2026, 7, 29, 17, 30),
+      expect(eta.usedRouteDuration, isTrue);
+      expect(eta.usedAiCorrection, isTrue);
+      expect(eta.aiModelVersion, 'hcm_utraffic_lgbm_v2_road_profile');
+      expect(eta.aiDatasetLabel, 'UTraffic TP.HCM');
+      expect(eta.aiUsesRealtimeTraffic, isFalse);
+      expect(eta.aiTrafficMultiplier, greaterThanOrEqualTo(1));
+      expect(
+        eta.calibratedTravelMinutes,
+        greaterThanOrEqualTo(eta.baselineTravelMinutes),
       );
-
-      expect(eta.isPeakHour, isTrue);
-      expect(eta.minMinutes, 30);
-      expect(eta.maxMinutes, 40);
+      expect(eta.aiFallbackReason, isNull);
     });
 
-    test('keeps a plausible OSRM duration as an input signal', () {
+    test('does not extrapolate the TP.HCM model to Bình Dương', () {
       final eta = DeliveryEtaCalculator.calculate(
         distanceMeters: 9000,
         routeDurationSeconds: 20 * 60,
-        quotedAt: DateTime(2026, 7, 29, 12),
+        pickupLat: 11.05,
+        pickupLng: 106.66,
+        deliveryLat: 11.10,
+        deliveryLng: 106.70,
+        quotedAt: DateTime(2026, 7, 29, 17, 30),
       );
 
       expect(eta.usedRouteDuration, isTrue);
-      expect(eta.calibratedTravelMinutes, closeTo(22, 0.001));
-      expect(eta.rangeLabel, '25–35 phút');
+      expect(eta.usedAiCorrection, isFalse);
+      expect(eta.aiFallbackReason, 'Ngoài vùng dữ liệu giao thông TP.HCM');
+      expect(eta.calibratedTravelMinutes, 25);
+    });
+
+    test('rejects an implausibly fast OSRM duration', () {
+      final eta = DeliveryEtaCalculator.calculate(
+        distanceMeters: 9000,
+        routeDurationSeconds: 8 * 60,
+        pickupLat: 10.775,
+        pickupLng: 106.68,
+        deliveryLat: 10.825,
+        deliveryLng: 106.73,
+        quotedAt: DateTime(2026, 7, 29, 12),
+      );
+
+      expect(eta.usedRouteDuration, isFalse);
+      expect(eta.usedAiCorrection, isTrue);
+      expect(eta.rawRouteMinutes, 8);
     });
   });
 
-  test('DeliveryFeeCalculator returns one coherent route quote', () async {
+  test('DeliveryFeeCalculator returns one coherent HCMC route quote', () async {
     final quote = await DeliveryFeeCalculator.estimate(
-      pickupLat: 11.0,
-      pickupLng: 106.6,
-      deliveryLat: 11.05,
-      deliveryLng: 106.65,
+      pickupLat: 10.775,
+      pickupLng: 106.68,
+      deliveryLat: 10.825,
+      deliveryLng: 106.73,
       serviceType: 'standard',
       osrm: _NineKilometerOsrm(),
-      quotedAt: DateTime(2026, 7, 29, 12),
+      quotedAt: DateTime(2026, 7, 29, 17, 30),
     );
 
     expect(quote.source, 'osrm');
     expect(quote.distanceKm, 9);
     expect(quote.deliveryFee, 53000);
-    expect(quote.eta.usedRouteDuration, isFalse);
-    expect(quote.eta.rangeLabel, '25–35 phút');
+    expect(quote.eta.usedAiCorrection, isTrue);
+    expect(quote.eta.aiModelVersion, 'hcm_utraffic_lgbm_v2_road_profile');
   });
 
-  testWidgets('quote card presents ETA and an auditable price breakdown', (
+  testWidgets('quote card exposes an auditable AI ETA breakdown', (
     tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(375, 812));
+    await tester.binding.setSurfaceSize(const Size(375, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final fee = DeliveryPricingPolicy.calculate(distanceMeters: 9000);
-    final eta = DeliveryEtaCalculator.calculate(
-      distanceMeters: 9000,
-      routeDurationSeconds: 8 * 60,
-      quotedAt: DateTime(2026, 7, 29, 12),
-    );
+    final eta = _hcmEta(quotedAt: DateTime(2026, 7, 29, 17, 30));
     final data = OrderFormData(
-      pickupAddress: 'Điểm lấy hàng',
-      pickupLat: 11,
-      pickupLng: 106.6,
-      deliveryAddress: 'Điểm giao hàng',
-      deliveryLat: 11.05,
-      deliveryLng: 106.65,
+      pickupAddress: 'Điểm lấy hàng TP.HCM',
+      pickupLat: 10.775,
+      pickupLng: 106.68,
+      deliveryAddress: 'Điểm giao hàng TP.HCM',
+      deliveryLat: 10.825,
+      deliveryLng: 106.73,
       senderName: 'Người gửi',
       senderPhone: '0900000000',
       recipientName: 'Người nhận',
@@ -135,7 +141,7 @@ void main() {
       deliveryFee: fee.total,
       totalPrice: fee.total,
       distanceMeters: 9000,
-      durationSeconds: 8 * 60,
+      durationSeconds: 20 * 60,
       distanceSource: 'osrm',
       feeBreakdown: fee,
       deliveryEta: eta,
@@ -155,12 +161,38 @@ void main() {
     );
 
     expect(find.text('Giao hàng dự kiến'), findsOneWidget);
-    expect(find.text('25–35 phút'), findsOneWidget);
-    expect(find.text('9.0 km đường bộ'), findsOneWidget);
-    expect(find.text('Tìm tài xế tối đa 15 phút'), findsOneWidget);
-    expect(find.text('CHI TIẾT CƯỚC PHÍ'), findsOneWidget);
+    expect(find.text(eta.rangeLabel), findsOneWidget);
+    expect(find.text('AI TP.HCM + OSRM'), findsOneWidget);
+    expect(find.text('ETA có AI hiệu chỉnh'), findsOneWidget);
+    expect(find.text('Đã áp dụng UTraffic TP.HCM'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('eta-ai-details-toggle')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ETA nền từ OSRM'), findsOneWidget);
+    expect(find.text('AI giao thông lịch sử'), findsOneWidget);
+    expect(
+      find.textContaining('Model hcm_utraffic_lgbm_v2_road_profile'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Không phải dữ liệu giao thông realtime'),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
+}
+
+DeliveryEtaEstimate _hcmEta({required DateTime quotedAt}) {
+  return DeliveryEtaCalculator.calculate(
+    distanceMeters: 9000,
+    routeDurationSeconds: 20 * 60,
+    pickupLat: 10.775,
+    pickupLng: 106.68,
+    deliveryLat: 10.825,
+    deliveryLng: 106.73,
+    quotedAt: quotedAt,
+  );
 }
 
 class _NineKilometerOsrm extends OsrmService {
@@ -174,7 +206,7 @@ class _NineKilometerOsrm extends OsrmService {
     return const OsrmRouteResult(
       points: [],
       distanceMeters: 9000,
-      durationSeconds: 8 * 60,
+      durationSeconds: 20 * 60,
     );
   }
 }

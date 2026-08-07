@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
 class CreateOrderAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const CreateOrderAppBar({super.key});
+  const CreateOrderAppBar({super.key, this.onBack});
+
+  final VoidCallback? onBack;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -20,7 +22,7 @@ class CreateOrderAppBar extends StatelessWidget implements PreferredSizeWidget {
           color: AppColors.bgCard,
           shape: const CircleBorder(),
           child: InkWell(
-            onTap: () => Navigator.of(context).maybePop(),
+            onTap: onBack ?? () => Navigator.of(context).maybePop(),
             customBorder: const CircleBorder(),
             child: const Icon(
               Icons.arrow_back_rounded,
@@ -40,6 +42,24 @@ class CreateOrderAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       actions: [
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          decoration: const BoxDecoration(
+            color: AppColors.accentLight,
+            borderRadius: AppRadius.full,
+          ),
+          child: Text(
+            '2 / 3',
+            style: AppTextStyles.labelSmall.copyWith(
+              color: AppColors.accent,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
         Container(
           margin: const EdgeInsets.only(right: AppSpacing.lg),
           padding: const EdgeInsets.symmetric(

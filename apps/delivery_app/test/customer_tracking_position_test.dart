@@ -27,6 +27,17 @@ void main() {
       expect(result, stable);
     });
 
+    test('uses the fixed TP.HCM point for a configured demo driver', () {
+      final result = TrackingDriverPositionResolver.resolve(
+        live: const LatLng(11.02516, 106.62344),
+        profile: const LatLng(11.02516, 106.62344),
+        stable: null,
+        demoEmail: 'taixe@gmail.com',
+      );
+
+      expect(result, const LatLng(10.7790, 106.6765));
+    });
+
     test('tracking map polls a fresh profile and uses the resolver', () {
       final source = File(
         'lib/features/customer/screens/tracking/widgets/tracking_map.dart',

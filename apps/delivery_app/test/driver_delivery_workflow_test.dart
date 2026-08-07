@@ -53,7 +53,7 @@ void main() {
 
       expect(
         DriverDeliveryAction.confirmPickup.advancesOrderStatusImmediately,
-        isFalse,
+        isTrue,
       );
       expect(
         DriverDeliveryAction.startDelivery.advancesOrderStatusImmediately,

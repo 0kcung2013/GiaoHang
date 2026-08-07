@@ -2,15 +2,23 @@ import 'package:device_preview/device_preview.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_config/giaohang_config.dart';
+import 'core/location/driver_foreground_location_service.dart';
 import 'core/router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // `flutter_foreground_task` dùng dart:isolate nên không chạy được trên Web.
+  // Chỉ Android/iOS mới cần foreground location service.
+  if (!kIsWeb) {
+    FlutterForegroundTask.initCommunicationPort();
+    DriverForegroundLocationService.initialize();
+  }
 
   if (kIsWeb) {
     FlutterError.onError = (details) {

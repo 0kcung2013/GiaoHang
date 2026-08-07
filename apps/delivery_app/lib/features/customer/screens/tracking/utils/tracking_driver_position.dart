@@ -1,5 +1,7 @@
 import 'package:latlong2/latlong.dart';
 
+import '../../../../../core/utils/geo_utils.dart';
+
 class TrackingDriverPositionResolver {
   const TrackingDriverPositionResolver._();
 
@@ -7,10 +9,22 @@ class TrackingDriverPositionResolver {
     required LatLng? live,
     required LatLng? profile,
     required LatLng? stable,
+    String? demoEmail,
   }) {
-    if (_isValid(live)) return live;
-    if (_isValid(profile)) return profile;
-    return _isValid(stable) ? stable : null;
+    final source = _isValid(live)
+        ? live
+        : _isValid(profile)
+        ? profile
+        : _isValid(stable)
+        ? stable
+        : null;
+    if (source == null) return null;
+
+    return GeoUtils.applyTestDriverOffset(
+      email: demoEmail,
+      lat: source.latitude,
+      lng: source.longitude,
+    );
   }
 
   static bool _isValid(LatLng? point) {

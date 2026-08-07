@@ -1,17 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import '../../../core/location/driver_foreground_location_service.dart';
 import '../../../core/providers/customer_providers.dart';
 import '../../notifications/models/notification_inbox_item.dart';
 import '../../notifications/widgets/notification_bell_button.dart';
 import 'account/driver_account_screen.dart';
 import 'earnings/driver_earnings_screen.dart';
 import 'home/home_screen.dart';
+import 'home/utils/driver_home_formatters.dart';
 import 'orders/driver_orders_screen.dart';
 import 'widgets/driver_drawer.dart';
+import 'widgets/driver_active_delivery_location_tracker.dart';
 import 'widgets/driver_gps_debug_dialog.dart';
 
 class DriverShellScreen extends ConsumerStatefulWidget {
@@ -57,6 +62,13 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
 
     if (currentUser != null) {
       ref.watch(driverCancelledOrderRealtimeProvider(currentUser.id));
+      ref.listen(driverOrdersProvider(currentUser.id), (previous, next) {
+        final hasActiveOrder =
+            next.valueOrNull?.any(isActiveDriverOrder) ?? true;
+        if (!hasActiveOrder) {
+          unawaited(DriverForegroundLocationService.stop());
+        }
+      });
       ref.listen(driverOrderCancellationEventProvider, (previous, next) {
         if (next == null || next.eventId == _lastHandledCancellationEventId) {
           return;
@@ -132,7 +144,16 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
       ),
       body: SafeArea(
         bottom: false,
-        child: IndexedStack(index: _currentIndex, children: _tabs),
+        child: Stack(
+          children: [
+            IndexedStack(index: _currentIndex, children: _tabs),
+            if (currentUser != null)
+              DriverActiveDeliveryLocationTracker(
+                userId: currentUser.id,
+                email: currentUser.email,
+              ),
+          ],
+        ),
       ),
     );
   }

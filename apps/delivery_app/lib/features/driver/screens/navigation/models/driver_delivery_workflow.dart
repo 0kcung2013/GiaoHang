@@ -16,9 +16,7 @@ extension DriverDeliveryActionRules on DriverDeliveryAction {
       this == DriverDeliveryAction.confirmPickup ||
       this == DriverDeliveryAction.confirmDelivery;
 
-  bool get advancesOrderStatusImmediately =>
-      this != DriverDeliveryAction.confirmPickup &&
-      this != DriverDeliveryAction.none;
+  bool get advancesOrderStatusImmediately => this != DriverDeliveryAction.none;
 }
 
 class DriverDeliveryWorkflow {

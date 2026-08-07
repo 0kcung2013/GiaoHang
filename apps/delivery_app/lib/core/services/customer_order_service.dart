@@ -371,6 +371,12 @@ class CustomerOrderService {
         // not make the UI report the cancellation itself as failed.
       }
     } catch (error) {
+      if (error.toString().contains('ORDER_ALREADY_PICKED_UP')) {
+        throw Exception(
+          'Không thể hủy: tài xế đã xác nhận nhận hàng. '
+          'Vui lòng liên hệ CSKH để được hỗ trợ.',
+        );
+      }
       throw Exception('Failed to cancel customer order: $error');
     }
   }

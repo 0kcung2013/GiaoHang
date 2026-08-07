@@ -86,6 +86,10 @@ class DeliveryFeeCalculator {
     final eta = DeliveryEtaCalculator.calculate(
       distanceMeters: meters,
       routeDurationSeconds: duration,
+      pickupLat: pickupLat,
+      pickupLng: pickupLng,
+      deliveryLat: deliveryLat,
+      deliveryLng: deliveryLng,
       quotedAt: quotedAt,
     );
 

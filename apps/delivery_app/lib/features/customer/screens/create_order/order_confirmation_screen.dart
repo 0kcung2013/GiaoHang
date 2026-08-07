@@ -44,6 +44,24 @@ class _OrderConfirmationScreenState
         surfaceTintColor: Colors.transparent,
         iconTheme: const IconThemeData(color: AppColors.textPrimary),
         actions: [
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            decoration: const BoxDecoration(
+              color: AppColors.accentLight,
+              borderRadius: AppRadius.full,
+            ),
+            child: Text(
+              '3 / 3',
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.accent,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
           TextButton.icon(
             onPressed: _isSubmitting ? null : () => context.pop(),
             icon: const Icon(Icons.edit_outlined, size: 18),

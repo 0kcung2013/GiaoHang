@@ -1,21 +1,30 @@
 part of '../tracking_screen.dart';
 
 class _TrackingMap extends ConsumerStatefulWidget {
-  final OrderModel order;
+  const _TrackingMap({required this.order, this.isFullscreen = false});
 
-  const _TrackingMap({required this.order});
+  final OrderModel order;
+  final bool isFullscreen;
 
   @override
   ConsumerState<_TrackingMap> createState() => _TrackingMapState();
 }
 
-class _TrackingMapState extends ConsumerState<_TrackingMap> {
+class _TrackingMapState extends ConsumerState<_TrackingMap>
+    with TickerProviderStateMixin {
   /// Full polyline chặng hiện tại (OSRM).
   List<LatLng>? _fullRoute;
   int _routeKey = 0;
   String _lastRouteHash = '';
   DateTime _lastOsrmCall = DateTime(2000);
   LatLng? _stableDriverPos;
+  LatLng? _displayedDriverPos;
+  LatLng? _motionStart;
+  LatLng? _motionTarget;
+  late final AnimationController _driverMotionController;
+  DateTime? _lastRealtimeAt;
+  bool _isPublishingPollFallback = false;
+  bool _hasInitialCameraFit = false;
   Timer? _pollTimer;
   bool _pollInFlight = false;
   final MapController _mapController = MapController();
@@ -29,6 +38,10 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
   @override
   void initState() {
     super.initState();
+    _driverMotionController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..addListener(_onDriverMotionTick);
     _loadRoute();
     _syncLocationPolling();
   }
@@ -36,6 +49,9 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _driverMotionController
+      ..removeListener(_onDriverMotionTick)
+      ..dispose();
     super.dispose();
   }
 
@@ -48,7 +64,9 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
       _fullRoute = null;
       if (!_phase.tracksLiveDriver) {
         _stableDriverPos = null;
+        _displayedDriverPos = null;
       }
+      _hasInitialCameraFit = false;
       _syncLocationPolling();
       _loadRoute();
     }
@@ -69,7 +87,11 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
     if (!mounted ||
         !_phase.tracksLiveDriver ||
         widget.order.driverId == null ||
-        _pollInFlight) {
+        _pollInFlight ||
+        !TrackingLocationMotion.shouldPollFallback(
+          lastRealtimeAt: _lastRealtimeAt,
+          now: DateTime.now(),
+        )) {
       return;
     }
     _pollInFlight = true;
@@ -84,15 +106,21 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
       final lng = driver?.currentLng;
       if (lat == null || lng == null || lat == 0.0 || lng == 0.0) return;
 
-      final pos = LatLng(lat, lng);
-      final prev = _stableDriverPos;
-      _stableDriverPos = pos;
-      ref.read(liveDriverLatLngProvider(widget.order.id).notifier).state = (
-        lat: lat,
-        lng: lng,
+      final pos = TrackingDriverPositionResolver.resolve(
+        live: null,
+        profile: LatLng(lat, lng),
+        stable: null,
+        demoEmail: driver?.email,
       );
-      if (mounted) setState(() {});
-      _fitCamera(pos);
+      if (pos == null) return;
+      final prev = _stableDriverPos;
+      _isPublishingPollFallback = true;
+      ref.read(liveDriverLatLngProvider(widget.order.id).notifier).state = (
+        lat: pos.latitude,
+        lng: pos.longitude,
+      );
+      _isPublishingPollFallback = false;
+      _animateDriverPosition(pos);
 
       final moved = prev == null
           ? 999.0
@@ -120,8 +148,8 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
       live: livePoint,
       profile: profilePoint,
       stable: _stableDriverPos,
+      demoEmail: driver?.email,
     );
-    _stableDriverPos = resolved;
     return resolved;
   }
 
@@ -186,6 +214,7 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
   }
 
   void _fitCamera(LatLng? driver) {
+    if (_hasInitialCameraFit) return;
     final points = _phase.cameraPoints(
       driver: driver,
       pickup: LatLng(widget.order.pickupLat, widget.order.pickupLng),
@@ -195,15 +224,47 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
       _mapController.fitCamera(
         CameraFit.coordinates(
           coordinates: points,
-          padding: const EdgeInsets.fromLTRB(40, 48, 40, 48),
+          padding: widget.isFullscreen
+              ? const EdgeInsets.fromLTRB(40, 112, 40, 96)
+              : const EdgeInsets.fromLTRB(40, 48, 40, 48),
           maxZoom: 16,
         ),
       );
+      _hasInitialCameraFit = true;
     } catch (_) {
       try {
         _mapController.move(points.first, 15);
+        _hasInitialCameraFit = true;
       } catch (_) {}
     }
+  }
+
+  void _animateDriverPosition(LatLng target) {
+    final current = _displayedDriverPos ?? _stableDriverPos ?? target;
+    _motionStart = current;
+    _motionTarget = target;
+    _stableDriverPos = target;
+    if (current == target) {
+      if (mounted) setState(() => _displayedDriverPos = target);
+      return;
+    }
+    _driverMotionController.forward(from: 0);
+  }
+
+  void _onDriverMotionTick() {
+    final from = _motionStart;
+    final to = _motionTarget;
+    if (!mounted || from == null || to == null) return;
+    final progress = Curves.easeOutCubic.transform(
+      _driverMotionController.value,
+    );
+    setState(() {
+      _displayedDriverPos = TrackingLocationMotion.interpolate(
+        from,
+        to,
+        progress,
+      );
+    });
   }
 
   @override
@@ -247,12 +308,17 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
         liveDriverLatLngProvider(order.id),
         (previous, next) {
           if (next == null) return;
-          final pos = LatLng(next.lat, next.lng);
-          _stableDriverPos = pos;
-          if (mounted) {
-            setState(() {});
-            _fitCamera(pos);
-          }
+          if (_isPublishingPollFallback) return;
+          _lastRealtimeAt = DateTime.now();
+          final driver = ref.read(assignedDriverProvider(order.id)).valueOrNull;
+          final pos = TrackingDriverPositionResolver.resolve(
+            live: LatLng(next.lat, next.lng),
+            profile: null,
+            stable: null,
+            demoEmail: driver?.email,
+          );
+          if (pos == null) return;
+          _animateDriverPosition(pos);
           unawaited(_loadRoute(explicitDriverPos: pos));
         },
       );
@@ -266,7 +332,9 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
     );
 
     final driverPos = phase.visibleDriverPosition(
-      latestDriverPosition: _resolveDriverPos(driverAsync.valueOrNull, live),
+      latestDriverPosition:
+          _displayedDriverPos ??
+          _resolveDriverPos(driverAsync.valueOrNull, live),
       delivery: deliveryPoint,
     );
 
@@ -278,6 +346,116 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
             current: driverPos,
           )
         : _fullRoute;
+    final trafficSegments = DeliveryTrafficRouteAnalyzer.analyze(
+      routePoints: remaining ?? const [],
+      quotedAt: DateTime.now(),
+    );
+
+    final map = Stack(
+      children: [
+        FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: driverPos ?? midPoint,
+            initialZoom: 15,
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.datn.giaohang',
+              subdomains: const ['a', 'b', 'c'],
+              maxNativeZoom: 19,
+            ),
+            // Full chặng mờ (ngữ cảnh)
+            if (_fullRoute != null && _fullRoute!.length >= 2)
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: _fullRoute!,
+                    color: AppColors.routeLine.withValues(alpha: 0.2),
+                    strokeWidth: 4,
+                  ),
+                ],
+              ),
+            // Còn lại — đậm (đi qua thì ngắn dần)
+            if (trafficSegments.isNotEmpty)
+              DeliveryTrafficRouteLayer(
+                segments: trafficSegments,
+                strokeWidth: 5,
+              ),
+            MarkerLayer(
+              markers: [
+                DeliveryMapMarkers.pickup(pickupPoint),
+                DeliveryMapMarkers.dropoff(deliveryPoint),
+                if (driverPos != null)
+                  DeliveryMapMarkers.driver(
+                    phase == TrackingMapPhase.completed
+                        ? driverPos
+                        : DeliveryMapMarkers.offsetIfNear(
+                            DeliveryMapMarkers.offsetIfNear(
+                              driverPos,
+                              pickupPoint,
+                            ),
+                            deliveryPoint,
+                          ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+        if (trafficSegments.isNotEmpty)
+          Positioned(
+            left: AppSpacing.sm,
+            top: widget.isFullscreen ? 72 : AppSpacing.sm,
+            right: AppSpacing.sm,
+            child: DeliveryTrafficMapLegend(segments: trafficSegments),
+          ),
+        // Legend
+        Positioned(
+          left: 10,
+          bottom: 10,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.94),
+              borderRadius: AppRadius.md,
+              boxShadow: AppShadow.subtle,
+            ),
+            child: Text(
+              phase.legend,
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+        if (!widget.isFullscreen)
+          Positioned(
+            right: AppSpacing.sm,
+            bottom: AppSpacing.sm,
+            child: _MapActionButton(
+              icon: Icons.fullscreen_rounded,
+              label: 'Xem bản đồ',
+              onTap: _openFullscreen,
+            ),
+          ),
+        if (widget.isFullscreen)
+          Positioned(
+            top: AppSpacing.md,
+            left: AppSpacing.md,
+            child: _MapActionButton(
+              icon: Icons.arrow_back_rounded,
+              label: 'Theo dõi đơn',
+              onTap: () => Navigator.of(context).pop(),
+            ),
+          ),
+      ],
+    );
+
+    if (widget.isFullscreen) {
+      return Scaffold(body: map);
+    }
 
     return Container(
       height: 260,
@@ -286,85 +464,79 @@ class _TrackingMapState extends ConsumerState<_TrackingMap> {
         border: Border.all(color: AppColors.border),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: driverPos ?? midPoint,
-              initialZoom: 15,
-            ),
-            children: [
-              TileLayer(
-                urlTemplate:
-                    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.datn.giaohang',
-                subdomains: const ['a', 'b', 'c'],
-                maxNativeZoom: 19,
-              ),
-              // Full chặng mờ (ngữ cảnh)
-              if (_fullRoute != null && _fullRoute!.length >= 2)
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: _fullRoute!,
-                      color: AppColors.routeLine.withValues(alpha: 0.2),
-                      strokeWidth: 4,
+      child: map,
+    );
+  }
+
+  void _openFullscreen() {
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        pageBuilder: (_, _, _) => _TrackingFullscreenMap(order: widget.order),
+        transitionsBuilder: (_, animation, _, child) => FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+          child: child,
+        ),
+        transitionDuration: const Duration(milliseconds: 250),
+      ),
+    );
+  }
+}
+
+class _TrackingFullscreenMap extends StatelessWidget {
+  const _TrackingFullscreenMap({required this.order});
+
+  final OrderModel order;
+
+  @override
+  Widget build(BuildContext context) {
+    return _TrackingMap(order: order, isFullscreen: true);
+  }
+}
+
+class _MapActionButton extends StatelessWidget {
+  const _MapActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        color: AppColors.bgCard.withValues(alpha: 0.96),
+        borderRadius: AppRadius.full,
+        elevation: 3,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: AppRadius.full,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, color: AppColors.primary, size: 22),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    label,
+                    style: AppTextStyles.labelMedium.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w800,
                     ),
-                  ],
-                ),
-              // Còn lại — đậm (đi qua thì ngắn dần)
-              if (remaining != null && remaining.length >= 2)
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: remaining,
-                      color: AppColors.routeLine,
-                      strokeWidth: 5,
-                    ),
-                  ],
-                ),
-              MarkerLayer(
-                markers: [
-                  DeliveryMapMarkers.pickup(pickupPoint),
-                  DeliveryMapMarkers.dropoff(deliveryPoint),
-                  if (driverPos != null)
-                    DeliveryMapMarkers.driver(
-                      phase == TrackingMapPhase.completed
-                          ? driverPos
-                          : DeliveryMapMarkers.offsetIfNear(
-                              DeliveryMapMarkers.offsetIfNear(
-                                driverPos,
-                                pickupPoint,
-                              ),
-                              deliveryPoint,
-                            ),
-                    ),
+                  ),
                 ],
               ),
-            ],
-          ),
-          // Legend
-          Positioned(
-            left: 10,
-            bottom: 10,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.94),
-                borderRadius: AppRadius.md,
-                boxShadow: AppShadow.subtle,
-              ),
-              child: Text(
-                phase.legend,
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

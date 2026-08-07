@@ -3,15 +3,13 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import 'create_order_form_sections.dart';
-import 'create_order_header.dart';
+import 'demo_autofill_button.dart';
 import 'sender_contact_section.dart';
 
 class CreateOrderBody extends StatelessWidget {
   const CreateOrderBody({
     super.key,
     required this.formKey,
-    required this.pickupAddressController,
-    required this.deliveryAddressController,
     required this.recipientNameController,
     required this.recipientPhoneController,
     required this.noteController,
@@ -19,22 +17,17 @@ class CreateOrderBody extends StatelessWidget {
     required this.itemDescriptionController,
     required this.itemCategory,
     required this.cargoImage,
-    required this.hasPickupPin,
-    required this.hasDeliveryPin,
-    required this.requiredAddress,
     required this.requiredText,
     required this.validatePhone,
-    required this.onPickPickup,
-    required this.onPickDelivery,
     required this.onCategoryChanged,
     required this.onPickCamera,
     required this.onPickGallery,
     required this.onRemoveImage,
+    required this.onAutofillDemo,
+    this.trafficDemoRouteCard,
   });
 
   final GlobalKey<FormState> formKey;
-  final TextEditingController pickupAddressController;
-  final TextEditingController deliveryAddressController;
   final TextEditingController recipientNameController;
   final TextEditingController recipientPhoneController;
   final TextEditingController noteController;
@@ -42,17 +35,14 @@ class CreateOrderBody extends StatelessWidget {
   final TextEditingController itemDescriptionController;
   final String itemCategory;
   final XFile? cargoImage;
-  final bool hasPickupPin;
-  final bool hasDeliveryPin;
-  final String? Function(String?) Function(String message) requiredAddress;
   final String? Function(String?) Function(String message) requiredText;
   final String? Function(String?) validatePhone;
-  final VoidCallback onPickPickup;
-  final VoidCallback onPickDelivery;
   final ValueChanged<String> onCategoryChanged;
   final VoidCallback onPickCamera;
   final VoidCallback onPickGallery;
   final VoidCallback onRemoveImage;
+  final VoidCallback onAutofillDemo;
+  final Widget? trafficDemoRouteCard;
 
   @override
   Widget build(BuildContext context) {
@@ -76,18 +66,12 @@ class CreateOrderBody extends StatelessWidget {
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
                 children: [
-                  const CreateOrderHeader(),
-                  const SizedBox(height: AppSpacing.xl2),
-                  CreateOrderAddressSection(
-                    pickupAddressController: pickupAddressController,
-                    deliveryAddressController: deliveryAddressController,
-                    requiredAddress: requiredAddress,
-                    onPickPickup: onPickPickup,
-                    onPickDelivery: onPickDelivery,
-                    hasPickupPin: hasPickupPin,
-                    hasDeliveryPin: hasDeliveryPin,
-                  ),
+                  DemoAutofillButton(onPressed: onAutofillDemo),
                   const SizedBox(height: AppSpacing.lg),
+                  if (trafficDemoRouteCard != null) ...[
+                    trafficDemoRouteCard!,
+                    const SizedBox(height: AppSpacing.lg),
+                  ],
                   CreateOrderRecipientSection(
                     recipientNameController: recipientNameController,
                     recipientPhoneController: recipientPhoneController,

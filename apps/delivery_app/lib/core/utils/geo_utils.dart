@@ -31,18 +31,21 @@ class GeoUtils {
     defaultValue: kDebugMode,
   );
 
-  /// `taixe2@gmail.com` lệch ~3 km Đông Nam so với GPS thật.
-  /// `taixe3@gmail.com` nằm tiếp ~1 km cùng hướng để demo chuỗi
-  /// taixe3 → taixe2 → taixe khi pickup đặt gần taixe3.
-  static const Map<String, LatLng> testDriverPositionOffsets = {
-    'taixe2@gmail.com': LatLng(0.022, 0.018),
-    'taixe3@gmail.com': LatLng(0.0293, 0.024),
+  /// Ba GPS cố định quanh hai tuyến AI mẫu ở TP.HCM.
+  ///
+  /// `taixe` và `taixe2` nằm trên/gần hai tuyến AI mẫu trung tâm; `taixe3`
+  /// nằm ở phía bắc để kiểm thử tải đơn. Vì vậy test phân công và OSRM luôn
+  /// tái lập được dù GPS thiết bị thật đang ở đâu. Chỉ có hiệu lực ở debug.
+  static const Map<String, LatLng> testDriverDemoPositions = {
+    'taixe@gmail.com': LatLng(10.7790, 106.6765),
+    'taixe2@gmail.com': LatLng(10.8080, 106.6810),
+    'taixe3@gmail.com': LatLng(10.8520, 106.6170),
   };
 
   /// Tài khoản có được cấu hình offset demo hay không.
   static bool hasConfiguredTestDriverOffset(String? email) {
     final key = email?.trim().toLowerCase();
-    return key != null && testDriverPositionOffsets.containsKey(key);
+    return key != null && testDriverDemoPositions.containsKey(key);
   }
 
   /// Tài khoản có đang được áp offset demo hay không.
@@ -50,7 +53,7 @@ class GeoUtils {
     return enableTestDriverOffsets && hasConfiguredTestDriverOffset(email);
   }
 
-  /// Áp offset test theo email tài xế (nếu bật flag + có mapping).
+  /// Áp vị trí GPS demo cố định theo email tài xế (nếu bật flag + có mapping).
   static LatLng applyTestDriverOffset({
     required String? email,
     required double lat,
@@ -59,8 +62,6 @@ class GeoUtils {
     if (!enableTestDriverOffsets) return LatLng(lat, lng);
     final key = email?.trim().toLowerCase();
     if (key == null || key.isEmpty) return LatLng(lat, lng);
-    final offset = testDriverPositionOffsets[key];
-    if (offset == null) return LatLng(lat, lng);
-    return LatLng(lat + offset.latitude, lng + offset.longitude);
+    return testDriverDemoPositions[key] ?? LatLng(lat, lng);
   }
 }

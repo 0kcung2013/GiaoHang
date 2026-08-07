@@ -4,7 +4,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/services/osrm_service.dart';
 import '../../../../../core/utils/delivery_map_utils.dart';
-import 'driver_delivery_workflow_panel.dart';
+import 'driver_navigation_arrival_bar.dart';
 
 class DriverNavigationView extends StatelessWidget {
   const DriverNavigationView({
@@ -96,25 +96,22 @@ class DriverNavigationView extends StatelessWidget {
               ),
             ),
           ),
-          DraggableScrollableSheet(
-            initialChildSize: 0.34,
-            minChildSize: 0.23,
-            maxChildSize: 0.76,
-            snap: true,
-            snapSizes: const [0.23, 0.34, 0.76],
-            builder: (context, scrollController) {
-              return DriverDeliveryWorkflowPanel(
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              top: false,
+              child: DriverNavigationArrivalBar(
                 order: order,
                 arrivedAtTarget: arrivedAtTarget,
                 pickupConfirmed: pickupConfirmed,
                 isLoading: isUpdatingStatus,
                 onPrimaryAction: onPrimaryAction,
-                scrollController: scrollController,
                 remainingDistanceMeters: totalDistance,
                 remainingDurationSeconds: totalDuration,
-                onCallRecipient: onCallRecipient,
-              );
-            },
+              ),
+            ),
           ),
         ],
       ),

@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../core/location/driver_location_producer_policy.dart';
+import '../../../../core/location/driver_foreground_location_service.dart';
 import '../../../../core/models/delivery_proof_model.dart';
 import '../../../../core/models/order_model.dart';
 import '../../../../core/providers/customer_providers.dart';
@@ -22,6 +23,8 @@ import '../../../reviews/widgets/driver_rate_customer_sheet.dart';
 import 'models/driver_arrival_policy.dart';
 import 'models/driver_delivery_workflow.dart';
 import 'utils/driver_navigation_route_logic.dart';
+import 'utils/driver_navigation_position_smoother.dart';
+import 'utils/driver_navigation_resume_policy.dart';
 import 'widgets/driver_delivery_confirmation_sheet.dart';
 import 'widgets/driver_delivery_success_dialog.dart';
 import 'widgets/driver_navigation_map.dart';
@@ -59,9 +62,12 @@ class _DriverNavigationScreenState
 
   String? _lastRouteStatus;
   int _routeKey = 0;
+  DateTime _lastCameraFollowAt = DateTime.fromMillisecondsSinceEpoch(0);
+  LatLng? _lastCameraFollowPosition;
 
   bool _arrivedAtTarget = false;
   bool _pickupConfirmed = false;
+  bool _hasRestoredNavigationPosition = false;
 
   static const int _simPointsPerSecond = 1;
 
@@ -84,8 +90,21 @@ class _DriverNavigationScreenState
     Future<void>(() {
       if (!mounted) return;
       _navigationOwner.state = orderId;
+      unawaited(_startForegroundLocationService());
       unawaited(_ensureInitialRoute());
     });
+  }
+
+  Future<void> _startForegroundLocationService() async {
+    if (kIsWeb) return;
+    final driverUserId = _currentOrder.driverId;
+    if (driverUserId == null || driverUserId.isEmpty) return;
+    final driver = await ref.read(driverByUserIdProvider(driverUserId).future);
+    if (driver == null || !mounted) return;
+    await DriverForegroundLocationService.start(
+      driverProfileId: driver.id,
+      driverUserId: driverUserId,
+    );
   }
 
   Future<void> _ensureInitialRoute() async {
@@ -177,11 +196,13 @@ class _DriverNavigationScreenState
     if (saved.lat == 0 && saved.lng == 0) return;
 
     _driverPos = LatLng(saved.lat, saved.lng);
+    _hasRestoredNavigationPosition = true;
     // Chỉ giữ cờ arrived nếu cùng chặng (tránh kẹt banner chặng cũ).
     if (saved.status == _currentOrder.status) {
-      _pickupConfirmed =
-          _currentOrder.status == 'picking_up' && saved.pickupConfirmed;
-      _arrivedAtTarget = saved.arrivedAtTarget || _pickupConfirmed;
+      // Từ phiên bản luồng mới, proof lấy hàng chuyển đơn sang `delivering`
+      // ngay lập tức. Bỏ cờ session cũ để không quay lại bước "chờ giao".
+      _pickupConfirmed = false;
+      _arrivedAtTarget = saved.arrivedAtTarget;
       _simRouteIndex = saved.simRouteIndex;
     } else {
       _arrivedAtTarget = false;
@@ -260,6 +281,15 @@ class _DriverNavigationScreenState
       }
     } else if (_routePoints == null) {
       await _loadRoute();
+    }
+
+    // Điểm GPS demo là cố định nên sẽ kéo marker về đầu tuyến sau hot restart.
+    // Session là tọa độ cuối đã đồng bộ; giữ nó cho đến khi hành trình kết thúc.
+    if (DriverNavigationResumePolicy.shouldKeepRestoredPosition(
+      hasRestoredPosition: _hasRestoredNavigationPosition,
+      driverEmail: Supabase.instance.client.auth.currentUser?.email,
+    )) {
+      return;
     }
 
     _posStream?.cancel();
@@ -442,6 +472,12 @@ class _DriverNavigationScreenState
         current: published,
       );
     }
+    if (source != DriverPositionSource.simulation && _driverPos != null) {
+      published = DriverNavigationPositionSmoother.smooth(
+        previous: _driverPos!,
+        next: published,
+      );
+    }
 
     var justArrived = false;
     if (!_arrivedAtTarget) {
@@ -478,12 +514,7 @@ class _DriverNavigationScreenState
     });
     _advanceNavigationStep(published);
     _persistNavSession();
-    DriverNavigationRouteLogic.followDriverCamera(
-      controller: _mapController,
-      order: _currentOrder,
-      driverPosition: published,
-      routePoints: _routePoints,
-    );
+    _followCamera(published, force: isFirstPos || justArrived);
 
     final driverId = _currentOrder.driverId;
     final orderId = _currentOrder.id;
@@ -549,6 +580,25 @@ class _DriverNavigationScreenState
     );
     if (nextIndex == _activeNavigationStepIndex || !mounted) return;
     setState(() => _activeNavigationStepIndex = nextIndex);
+  }
+
+  void _followCamera(LatLng position, {bool force = false}) {
+    final previous = _lastCameraFollowPosition;
+    final moved = previous == null
+        ? double.infinity
+        : const Distance().as(LengthUnit.Meter, previous, position);
+    final elapsed = DateTime.now().difference(_lastCameraFollowAt);
+    if (!force && (elapsed < const Duration(milliseconds: 350) || moved < 4)) {
+      return;
+    }
+    _lastCameraFollowAt = DateTime.now();
+    _lastCameraFollowPosition = position;
+    DriverNavigationRouteLogic.followDriverCamera(
+      controller: _mapController,
+      order: _currentOrder,
+      driverPosition: position,
+      routePoints: _routePoints,
+    );
   }
 
   Future<void> _loadRoute() async {
