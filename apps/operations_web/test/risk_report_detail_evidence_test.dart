@@ -26,6 +26,10 @@ void main() {
 
     expect(find.text('Tin nhắn bằng chứng'), findsOneWidget);
     expect(find.text('Tài xế xác nhận đang chờ.'), findsOneWidget);
+    expect(find.text('Ảnh và vị trí'), findsOneWidget);
+    expect(find.text('10.77650, 106.70090'), findsOneWidget);
+    expect(find.text('Mở bản đồ'), findsOneWidget);
+    expect(find.byType(Image), findsOneWidget);
     expect(repository.requestedOrderId, 'order-1');
     expect(repository.requestedReportId, 'risk-1');
   });
@@ -52,7 +56,8 @@ final _report = RiskReport(
   ),
 );
 
-class _EvidenceRepository implements RiskReportRepository {
+class _EvidenceRepository
+    implements RiskReportRepository, RiskReportAttachmentRepository {
   String? requestedOrderId;
   String? requestedReportId;
 
@@ -107,4 +112,34 @@ class _EvidenceRepository implements RiskReportRepository {
 
   @override
   Future<List<RiskReport>> fetchReports() async => [];
+
+  @override
+  Future<List<RiskReportAttachmentView>> fetchAttachments(
+    String reportId,
+  ) async {
+    return [
+      RiskReportAttachmentView(
+        attachment: RiskReportAttachment.fromJson({
+          'id': 'photo-1',
+          'risk_report_id': reportId,
+          'order_id': 'order-1',
+          'evidence_type': 'photo',
+          'storage_path': 'user/risk/photo.jpg',
+          'created_at': '2026-08-08T10:00:00Z',
+        }),
+        signedUrl: 'https://example.com/photo.jpg',
+      ),
+      RiskReportAttachmentView(
+        attachment: RiskReportAttachment.fromJson({
+          'id': 'location-1',
+          'risk_report_id': reportId,
+          'order_id': 'order-1',
+          'evidence_type': 'location',
+          'latitude': 10.7765,
+          'longitude': 106.7009,
+          'created_at': '2026-08-08T10:00:00Z',
+        }),
+      ),
+    ];
+  }
 }

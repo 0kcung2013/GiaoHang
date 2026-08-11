@@ -125,6 +125,32 @@ class RiskReportCard extends StatelessWidget {
                             ],
                           ),
                           const SizedBox(height: AppSpacing.md),
+                          Wrap(
+                            spacing: AppSpacing.sm,
+                            runSpacing: AppSpacing.xs,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              RiskBadge(
+                                label: _reporterRoleLabel(report.reporterRole),
+                                color: AppColors.info,
+                                icon: _reporterRoleIcon(report.reporterRole),
+                              ),
+                              if ((report.reporterName ?? '').isNotEmpty)
+                                Text(
+                                  report.reporterName!,
+                                  style: AppTextStyles.labelSmall.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              if (report.triageOverdue)
+                                const RiskBadge(
+                                  label: 'Quá hạn phân loại',
+                                  color: AppColors.error,
+                                  icon: Icons.timer_off_outlined,
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpacing.md),
                           Container(
                             padding: const EdgeInsets.all(AppSpacing.md),
                             decoration: BoxDecoration(
@@ -180,3 +206,18 @@ class RiskReportCard extends StatelessWidget {
     );
   }
 }
+
+String _reporterRoleLabel(RiskReporterRole role) => switch (role) {
+  RiskReporterRole.customer => 'Khách hàng',
+  RiskReporterRole.driver => 'Tài xế',
+  RiskReporterRole.support => 'CSKH',
+  RiskReporterRole.admin => 'Admin',
+  RiskReporterRole.unknown => 'Không xác định',
+};
+
+IconData _reporterRoleIcon(RiskReporterRole role) => switch (role) {
+  RiskReporterRole.driver => Icons.local_shipping_outlined,
+  RiskReporterRole.support ||
+  RiskReporterRole.admin => Icons.support_agent_rounded,
+  _ => Icons.person_outline_rounded,
+};

@@ -13,4 +13,7 @@ class RiskReportStrings {
   static const takeOwnership = 'Nhận xử lý';
   static const assignedToYou = 'Bạn đang phụ trách';
   static const unassigned = 'Chưa phân công';
+  static const evidenceTitle = 'Ảnh và vị trí';
+  static const noAttachments = 'Không có ảnh hoặc vị trí đính kèm.';
+  static const openMap = 'Mở bản đồ';
 }

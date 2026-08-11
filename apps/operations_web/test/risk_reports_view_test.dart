@@ -26,6 +26,8 @@ void main() {
     expect(find.text('Địa chỉ nhận bất thường'), findsOneWidget);
     expect(find.text('GH-00001'), findsOneWidget);
     expect(find.text('Nghiêm trọng'), findsWidgets);
+    expect(find.text('Khách hàng'), findsOneWidget);
+    expect(find.text('Nguyễn An'), findsOneWidget);
     expect(find.byKey(const Key('risk-search-field')), findsOneWidget);
   });
 
@@ -67,6 +69,10 @@ final _sampleReport = RiskReport(
   resolution: null,
   createdAt: DateTime(2026, 8, 1, 10),
   updatedAt: DateTime(2026, 8, 1, 10, 5),
+  reporterRole: RiskReporterRole.customer,
+  reporterName: 'Nguyễn An',
+  triageDueAt: DateTime(2026, 8, 1, 10, 10),
+  escalatedAt: DateTime(2026, 8, 1, 10, 11),
   order: const RiskOrderSummary(
     trackingCode: 'GH-00001',
     status: 'delivering',

@@ -21,7 +21,19 @@ abstract interface class RiskReportRepository {
   });
 }
 
-class SupabaseRiskReportRepository implements RiskReportRepository {
+class RiskReportAttachmentView {
+  const RiskReportAttachmentView({required this.attachment, this.signedUrl});
+
+  final RiskReportAttachment attachment;
+  final String? signedUrl;
+}
+
+abstract interface class RiskReportAttachmentRepository {
+  Future<List<RiskReportAttachmentView>> fetchAttachments(String reportId);
+}
+
+class SupabaseRiskReportRepository
+    implements RiskReportRepository, RiskReportAttachmentRepository {
   SupabaseRiskReportRepository(this._client);
 
   final SupabaseClient _client;
@@ -31,6 +43,9 @@ class SupabaseRiskReportRepository implements RiskReportRepository {
     order_id,
     reported_by,
     assigned_to,
+    reporter_role_snapshot,
+    triage_due_at,
+    escalated_at,
     category,
     severity,
     status,
@@ -39,6 +54,10 @@ class SupabaseRiskReportRepository implements RiskReportRepository {
     resolution,
     created_at,
     updated_at,
+    reporter:users!risk_reports_reported_by_fkey(
+      full_name,
+      role
+    ),
     orders!risk_reports_order_id_fkey(
       tracking_code,
       status,
@@ -69,6 +88,32 @@ class SupabaseRiskReportRepository implements RiskReportRepository {
     return List<Map<String, dynamic>>.from(
       rows,
     ).map(RiskReportEvent.fromJson).toList();
+  }
+
+  @override
+  Future<List<RiskReportAttachmentView>> fetchAttachments(
+    String reportId,
+  ) async {
+    final rows = await _client
+        .from('risk_report_attachments')
+        .select()
+        .eq('risk_report_id', reportId)
+        .order('created_at');
+    final result = <RiskReportAttachmentView>[];
+    for (final row in List<Map<String, dynamic>>.from(rows)) {
+      final attachment = RiskReportAttachment.fromJson(row);
+      String? signedUrl;
+      if (attachment.evidenceType == RiskEvidenceType.photo &&
+          attachment.storagePath != null) {
+        signedUrl = await _client.storage
+            .from('risk-report-evidence')
+            .createSignedUrl(attachment.storagePath!, 3600);
+      }
+      result.add(
+        RiskReportAttachmentView(attachment: attachment, signedUrl: signedUrl),
+      );
+    }
+    return result;
   }
 
   @override

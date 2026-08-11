@@ -8,6 +8,7 @@ import '../models/risk_report.dart';
 import '../models/risk_report_policy.dart';
 import '../utils/risk_report_ui.dart';
 import '../widgets/risk_badge.dart';
+import '../widgets/risk_attachment_section.dart';
 import '../widgets/risk_report_actions.dart';
 import '../widgets/risk_report_detail_content.dart';
 import '../widgets/risk_message_evidence_section.dart';
@@ -34,6 +35,7 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
   List<RiskReportEvent>? _events;
   List<RiskOrderMessage>? _orderMessages;
   List<RiskMessageEvidence>? _messageEvidence;
+  List<RiskReportAttachmentView>? _attachments;
   String? _error;
   bool _submitting = false;
   bool _attachingEvidence = false;
@@ -43,6 +45,26 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
     super.initState();
     _loadEvents();
     _loadMessageEvidence();
+    _loadAttachments();
+  }
+
+  Future<void> _loadAttachments() async {
+    final repository = widget.repository;
+    if (repository is! RiskReportAttachmentRepository) {
+      setState(() => _attachments = const []);
+      return;
+    }
+    try {
+      final attachmentRepository = repository as RiskReportAttachmentRepository;
+      final attachments = await attachmentRepository.fetchAttachments(
+        widget.report.id,
+      );
+      if (mounted) setState(() => _attachments = attachments);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Không tải được ảnh và vị trí bằng chứng.');
+      }
+    }
   }
 
   Future<void> _loadEvents() async {
@@ -196,6 +218,8 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
                           color: AppColors.textSecondary,
                         ),
                       ),
+                      const SizedBox(height: AppSpacing.xl),
+                      RiskAttachmentSection(items: _attachments),
                       const SizedBox(height: AppSpacing.xl),
                       RiskMessageEvidenceSection(
                         evidence: _messageEvidence ?? const [],
