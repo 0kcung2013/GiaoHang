@@ -30,6 +30,8 @@ class RiskReportUi {
   static String categoryLabel(RiskCategory category) => switch (category) {
     RiskCategory.deliveryDelay => 'Chậm giao hàng',
     RiskCategory.suspiciousAddress => 'Địa chỉ đáng ngờ',
+    RiskCategory.contactIssue => 'Không liên lạc được',
+    RiskCategory.cargoIssue => 'Hàng hóa bất thường',
     RiskCategory.repeatedCancellation => 'Hủy đơn lặp lại',
     RiskCategory.payment => 'Thanh toán',
     RiskCategory.safety => 'An toàn',
@@ -40,6 +42,8 @@ class RiskReportUi {
   static IconData categoryIcon(RiskCategory category) => switch (category) {
     RiskCategory.deliveryDelay => Icons.timer_outlined,
     RiskCategory.suspiciousAddress => Icons.location_off_outlined,
+    RiskCategory.contactIssue => Icons.phone_missed_outlined,
+    RiskCategory.cargoIssue => Icons.inventory_2_outlined,
     RiskCategory.repeatedCancellation => Icons.event_repeat_rounded,
     RiskCategory.payment => Icons.payments_outlined,
     RiskCategory.safety => Icons.health_and_safety_outlined,
