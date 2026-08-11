@@ -1,10 +1,17 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/risk_message_evidence.dart';
 import '../models/risk_report.dart';
 
 abstract interface class RiskReportRepository {
   Future<List<RiskReport>> fetchReports();
   Future<List<RiskReportEvent>> fetchEvents(String reportId);
+  Future<List<RiskOrderMessage>> fetchOrderMessages(String orderId);
+  Future<List<RiskMessageEvidence>> fetchMessageEvidence(String reportId);
+  Future<List<RiskMessageEvidence>> attachMessageEvidence(
+    String reportId,
+    List<String> messageIds,
+  );
   Future<void> createReport(RiskReportDraft draft);
   Future<void> assignToMe(String reportId);
   Future<void> changeStatus(
@@ -62,6 +69,47 @@ class SupabaseRiskReportRepository implements RiskReportRepository {
     return List<Map<String, dynamic>>.from(
       rows,
     ).map(RiskReportEvent.fromJson).toList();
+  }
+
+  @override
+  Future<List<RiskOrderMessage>> fetchOrderMessages(String orderId) async {
+    final rows = await _client
+        .from('order_messages')
+        .select('id, sender_id, message_type, body, created_at')
+        .eq('order_id', orderId)
+        .order('created_at')
+        .limit(200);
+    return List<Map<String, dynamic>>.from(
+      rows,
+    ).map(RiskOrderMessage.fromJson).toList();
+  }
+
+  @override
+  Future<List<RiskMessageEvidence>> fetchMessageEvidence(
+    String reportId,
+  ) async {
+    final rows = await _client
+        .from('risk_report_message_evidence')
+        .select()
+        .eq('risk_report_id', reportId)
+        .order('sent_at_snapshot');
+    return List<Map<String, dynamic>>.from(
+      rows,
+    ).map(RiskMessageEvidence.fromJson).toList();
+  }
+
+  @override
+  Future<List<RiskMessageEvidence>> attachMessageEvidence(
+    String reportId,
+    List<String> messageIds,
+  ) async {
+    final rows = await _client.rpc<List<dynamic>>(
+      'attach_risk_report_message_evidence',
+      params: {'p_risk_report_id': reportId, 'p_message_ids': messageIds},
+    );
+    return List<Map<String, dynamic>>.from(
+      rows,
+    ).map(RiskMessageEvidence.fromJson).toList();
   }
 
   @override

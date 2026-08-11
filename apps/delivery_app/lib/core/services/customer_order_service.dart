@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/driver_order_cancellation_event.dart';
 import '../models/order_item_model.dart';
 import '../models/order_model.dart';
+import '../models/order_sender_contact_model.dart';
 import '../models/order_status_log_model.dart';
 import '../models/user_model.dart';
 import '../utils/order_display_utils.dart';
@@ -98,6 +99,23 @@ class CustomerOrderService {
       return UserModel.fromJson(response);
     } catch (error) {
       throw Exception('Failed to load customer profile: $error');
+    }
+  }
+
+  /// Thông tin người tạo đơn chỉ dành cho tài xế đang được phân công.
+  /// Quyền truy cập được kiểm tra bên trong RPC theo `auth.uid()` và order ID.
+  Future<OrderSenderContactModel?> getOrderSenderContact(String orderId) async {
+    try {
+      final response = await _supabase.rpc(
+        'get_order_sender_contact',
+        params: {'p_order_id': orderId},
+      );
+      if (response is! List || response.isEmpty) return null;
+      final first = response.first;
+      if (first is! Map) return null;
+      return OrderSenderContactModel.fromJson(Map<String, dynamic>.from(first));
+    } catch (error) {
+      throw Exception('Failed to load order sender contact: $error');
     }
   }
 

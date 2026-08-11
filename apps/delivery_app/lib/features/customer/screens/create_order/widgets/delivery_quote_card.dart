@@ -4,7 +4,6 @@ import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/utils/delivery_pricing_policy.dart';
 import '../utils/create_order_formatters.dart';
 import '../utils/order_form_data.dart';
-import 'delivery_route_meta.dart';
 import 'eta_ai_detail_panel.dart';
 
 class DeliveryQuoteCard extends StatelessWidget {
@@ -36,8 +35,6 @@ class DeliveryQuoteCard extends StatelessWidget {
           _QuoteHeader(total: fee.total),
           const SizedBox(height: AppSpacing.lg),
           _EtaPanel(data: data),
-          const SizedBox(height: AppSpacing.lg),
-          DeliveryRouteMeta(data: data),
           const SizedBox(height: AppSpacing.md),
           EtaAiDetailPanel(eta: data.deliveryEta),
           const SizedBox(height: AppSpacing.lg),

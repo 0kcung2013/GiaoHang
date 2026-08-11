@@ -4,7 +4,11 @@ import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 import 'driver_card_actions.dart';
 
-void showAssignedDriverDetailSheet(BuildContext context, DriverModel driver) {
+void showAssignedDriverDetailSheet(
+  BuildContext context,
+  DriverModel driver, {
+  required VoidCallback onChat,
+}) {
   final name = (driver.fullName?.trim().isNotEmpty ?? false)
       ? driver.fullName!.trim()
       : 'Tài xế giao hàng';
@@ -108,12 +112,13 @@ void showAssignedDriverDetailSheet(BuildContext context, DriverModel driver) {
                     Expanded(
                       child: DriverContactActionButton(
                         icon: Icons.chat_bubble_outline_rounded,
-                        label: 'SMS',
+                        label: 'Chat',
                         filled: false,
-                        enabled: hasPhone,
-                        onTap: hasPhone
-                            ? () => launchDriverSms(ctx, phone)
-                            : null,
+                        enabled: true,
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          onChat();
+                        },
                       ),
                     ),
                   ],

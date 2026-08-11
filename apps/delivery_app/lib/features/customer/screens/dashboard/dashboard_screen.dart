@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -5,6 +7,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../core/models/order_model.dart';
 import '../../../../core/providers/customer_providers.dart';
+import '../../../order_contact/models/order_contact_message.dart';
+import '../../../order_contact/order_contact_strings.dart';
+import '../../../order_contact/widgets/order_contact_chat_sheet.dart';
+import '../../../order_contact/widgets/order_message_alert_listener.dart';
 import 'widgets/dashboard_create_delivery_hero.dart';
 import 'widgets/dashboard_header.dart';
 import 'widgets/dashboard_hero.dart';
@@ -54,24 +60,48 @@ class _DashboardBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(ordersRealtimeProvider(user.id));
     final ordersAsync = ref.watch(customerOrdersProvider(user.id));
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        DashboardHeader(user: user),
-        SizedBox(height: layout.sectionGap),
-        if (ordersAsync.isLoading && !ordersAsync.hasValue)
-          const DashboardShimmer()
-        else if (ordersAsync.hasError && !ordersAsync.hasValue)
-          DashboardError(
-            onRetry: () => ref.invalidate(customerOrdersProvider(user.id)),
-          )
-        else
-          _DashboardContent(
-            allOrders: ordersAsync.valueOrNull ?? const <OrderModel>[],
-            sectionGap: layout.sectionGap,
+    final orders = ordersAsync.valueOrNull ?? const <OrderModel>[];
+    final messageOrders = orders
+        .where((order) => _messageStatuses.contains(order.status))
+        .map(
+          (order) => OrderMessageAlertOrder(
+            orderId: order.id,
+            trackingCode: order.trackingCode,
+            stage: _contactStage(order.status),
           ),
-      ],
+        )
+        .toList(growable: false);
+
+    return OrderMessageAlertListener(
+      currentUserId: user.id,
+      activeOrders: messageOrders,
+      onOpenChat: (order) {
+        unawaited(
+          showOrderContactChatSheet(
+            context: context,
+            orderId: order.orderId,
+            currentUserId: user.id,
+            currentRole: OrderContactSenderRole.customer,
+            counterpartName: OrderContactStrings.driverName,
+            stage: order.stage,
+          ),
+        );
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DashboardHeader(user: user),
+          SizedBox(height: layout.sectionGap),
+          if (ordersAsync.isLoading && !ordersAsync.hasValue)
+            const DashboardShimmer()
+          else if (ordersAsync.hasError && !ordersAsync.hasValue)
+            DashboardError(
+              onRetry: () => ref.invalidate(customerOrdersProvider(user.id)),
+            )
+          else
+            _DashboardContent(allOrders: orders, sectionGap: layout.sectionGap),
+        ],
+      ),
     );
   }
 }
@@ -155,4 +185,12 @@ const _activeStatuses = {
   'assigned',
   'picking_up',
   'delivering',
+};
+
+const _messageStatuses = {'assigned', 'picking_up', 'delivering'};
+
+OrderContactStage _contactStage(String status) => switch (status) {
+  'assigned' || 'picking_up' => OrderContactStage.pickup,
+  'delivering' => OrderContactStage.delivery,
+  _ => OrderContactStage.general,
 };

@@ -129,6 +129,7 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
     if (nextStatus == 'delivered') {
       final deliveredOrder = _currentOrder.copyWith(status: nextStatus);
       await DriverForegroundLocationService.stop();
+      if (!mounted) return;
       await showDriverDeliverySuccessDialog(context);
       if (!mounted) return;
       await showDriverRateCustomerSheet(
@@ -158,20 +159,6 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
     _persistNavSession();
     await _loadRoute();
     _fitMapBounds();
-  }
-
-  Future<void> _callRecipient() async {
-    final phone = _currentOrder.recipientPhone?.trim() ?? '';
-    if (phone.isEmpty) return;
-    try {
-      final launched = await launchUrl(Uri(scheme: 'tel', path: phone));
-      if (launched || !mounted) return;
-    } catch (_) {
-      if (!mounted) return;
-    }
-    if (mounted) {
-      _showWorkflowMessage('Thiết bị không thể thực hiện cuộc gọi.');
-    }
   }
 
   void _showStatusError(Object error) {

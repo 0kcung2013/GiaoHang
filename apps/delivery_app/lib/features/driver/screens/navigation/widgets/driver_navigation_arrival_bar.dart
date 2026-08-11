@@ -15,6 +15,7 @@ class DriverNavigationArrivalBar extends StatelessWidget {
     required this.pickupConfirmed,
     required this.isLoading,
     required this.onPrimaryAction,
+    this.onContact,
     this.remainingDistanceMeters,
     this.remainingDurationSeconds,
   });
@@ -24,6 +25,7 @@ class DriverNavigationArrivalBar extends StatelessWidget {
   final bool pickupConfirmed;
   final bool isLoading;
   final VoidCallback? onPrimaryAction;
+  final VoidCallback? onContact;
   final double? remainingDistanceMeters;
   final double? remainingDurationSeconds;
 
@@ -95,6 +97,23 @@ class DriverNavigationArrivalBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
+          if (onContact != null) ...[
+            Material(
+              color: AppColors.bgDarkCard,
+              borderRadius: AppRadius.full,
+              clipBehavior: Clip.antiAlias,
+              child: IconButton(
+                onPressed: onContact,
+                tooltip: 'Liên hệ',
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(48, 48),
+                  foregroundColor: AppColors.info,
+                ),
+                icon: const Icon(Icons.forum_rounded, size: 21),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+          ],
           Material(
             color: enabled ? workflow.accent : AppColors.bgDarkCard,
             borderRadius: AppRadius.full,

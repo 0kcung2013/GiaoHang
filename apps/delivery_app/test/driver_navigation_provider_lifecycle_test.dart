@@ -1,4 +1,5 @@
 import 'package:delivery_app/core/models/order_model.dart';
+import 'package:delivery_app/core/providers/customer_providers.dart';
 import 'package:delivery_app/features/driver/screens/navigation/driver_navigation_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +18,9 @@ void main() {
 
       await tester.pumpWidget(
         ProviderScope(
+          overrides: [
+            driverByUserIdProvider.overrideWith((ref, userId) async => null),
+          ],
           child: ValueListenableBuilder<bool>(
             valueListenable: showNavigation,
             builder: (context, visible, _) {

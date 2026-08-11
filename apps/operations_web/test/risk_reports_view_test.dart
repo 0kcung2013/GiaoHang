@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:operations_web/features/risk_reports/data/risk_report_repository.dart';
+import 'package:operations_web/features/risk_reports/models/risk_message_evidence.dart';
 import 'package:operations_web/features/risk_reports/models/risk_report.dart';
 import 'package:operations_web/features/risk_reports/screens/risk_reports_view.dart';
 
@@ -93,6 +94,20 @@ class _FakeRiskReportRepository implements RiskReportRepository {
 
   @override
   Future<List<RiskReportEvent>> fetchEvents(String reportId) async => [];
+
+  @override
+  Future<List<RiskOrderMessage>> fetchOrderMessages(String orderId) async => [];
+
+  @override
+  Future<List<RiskMessageEvidence>> fetchMessageEvidence(
+    String reportId,
+  ) async => [];
+
+  @override
+  Future<List<RiskMessageEvidence>> attachMessageEvidence(
+    String reportId,
+    List<String> messageIds,
+  ) async => [];
 
   @override
   Future<List<RiskReport>> fetchReports() async => reports;

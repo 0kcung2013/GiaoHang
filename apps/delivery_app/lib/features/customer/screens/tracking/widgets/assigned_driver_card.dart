@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 import '../../../../../core/providers/customer_providers.dart';
+import '../../../../order_contact/models/order_contact_message.dart';
+import '../../../../order_contact/widgets/order_contact_chat_sheet.dart';
 import 'assigned_driver_detail_sheet.dart';
 import 'driver_card_actions.dart';
 
@@ -20,7 +23,7 @@ class AssignedDriverCard extends ConsumerWidget {
     final cached = driverAsync.valueOrNull;
 
     if (cached != null) {
-      return _DriverProfileCard(driver: cached);
+      return _DriverProfileCard(driver: cached, orderId: orderId);
     }
 
     return driverAsync.when(
@@ -30,16 +33,17 @@ class AssignedDriverCard extends ConsumerWidget {
         if (driver == null) {
           return const _DriverCardShell(child: _DriverWaitingMessage());
         }
-        return _DriverProfileCard(driver: driver);
+        return _DriverProfileCard(driver: driver, orderId: orderId);
       },
     );
   }
 }
 
 class _DriverProfileCard extends StatelessWidget {
-  const _DriverProfileCard({required this.driver});
+  const _DriverProfileCard({required this.driver, required this.orderId});
 
   final DriverModel driver;
+  final String orderId;
 
   @override
   Widget build(BuildContext context) {
@@ -50,13 +54,26 @@ class _DriverProfileCard extends StatelessWidget {
     final vehicleLine = driver.vehicleSummary;
     final phone = driver.phone?.trim();
     final hasPhone = phone != null && phone.isNotEmpty;
+    Future<void> openChat() => showOrderContactChatSheet(
+      context: context,
+      orderId: orderId,
+      currentUserId:
+          Supabase.instance.client.auth.currentUser?.id ?? 'customer-demo',
+      currentRole: OrderContactSenderRole.customer,
+      counterpartName: name,
+      stage: OrderContactStage.general,
+    );
 
     return _DriverCardShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           InkWell(
-            onTap: () => showAssignedDriverDetailSheet(context, driver),
+            onTap: () => showAssignedDriverDetailSheet(
+              context,
+              driver,
+              onChat: openChat,
+            ),
             borderRadius: AppRadius.md,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -149,10 +166,8 @@ class _DriverProfileCard extends StatelessWidget {
                   icon: Icons.chat_bubble_outline_rounded,
                   label: 'Nhắn tin',
                   filled: false,
-                  enabled: hasPhone,
-                  onTap: hasPhone
-                      ? () => launchDriverSms(context, phone)
-                      : null,
+                  enabled: true,
+                  onTap: openChat,
                 ),
               ),
             ],

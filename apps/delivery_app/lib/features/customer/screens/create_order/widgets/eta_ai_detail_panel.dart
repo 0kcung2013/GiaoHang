@@ -25,8 +25,8 @@ class _EtaAiDetailPanelState extends State<EtaAiDetailPanel> {
     return Semantics(
       button: true,
       label: applied
-          ? 'Chi tiết ETA AI, đã áp dụng mô hình ${eta.aiDatasetLabel}'
-          : 'Chi tiết ETA dự phòng, ${eta.aiFallbackReason}',
+          ? 'Cách ước tính thời gian giao hàng theo lộ trình và khung giờ'
+          : 'Cách ước tính thời gian giao hàng theo lộ trình',
       hint: _expanded ? 'Chạm để thu gọn' : 'Chạm để xem cách tính',
       child: Container(
         decoration: BoxDecoration(
@@ -59,9 +59,7 @@ class _EtaAiDetailPanelState extends State<EtaAiDetailPanel> {
                           borderRadius: AppRadius.sm,
                         ),
                         child: Icon(
-                          applied
-                              ? Icons.auto_awesome_rounded
-                              : Icons.shield_outlined,
+                          applied ? Icons.route_rounded : Icons.shield_outlined,
                           size: 18,
                           color: statusColor,
                         ),
@@ -73,8 +71,8 @@ class _EtaAiDetailPanelState extends State<EtaAiDetailPanel> {
                           children: [
                             Text(
                               applied
-                                  ? 'ETA có AI hiệu chỉnh'
-                                  : 'ETA dự phòng an toàn',
+                                  ? 'Ước tính thời gian giao'
+                                  : 'Thời gian giao dự kiến',
                               style: AppTextStyles.labelMedium.copyWith(
                                 color: AppColors.textPrimary,
                                 fontWeight: FontWeight.w800,
@@ -94,9 +92,8 @@ class _EtaAiDetailPanelState extends State<EtaAiDetailPanel> {
                                 Flexible(
                                   child: Text(
                                     applied
-                                        ? 'Đã áp dụng ${eta.aiDatasetLabel}'
-                                        : eta.aiFallbackReason ??
-                                              'Không áp dụng AI',
+                                        ? 'Dựa trên lộ trình và khung giờ giao hàng'
+                                        : 'Dựa trên lộ trình giao hàng',
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: AppTextStyles.labelSmall.copyWith(
@@ -150,9 +147,8 @@ class _EtaBreakdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final multiplier = eta.aiTrafficMultiplier;
-    final aiValue = eta.usedAiCorrection && multiplier != null
-        ? '+${eta.aiAdjustmentMinutes.toStringAsFixed(1)} phút · ×${multiplier.toStringAsFixed(2)}'
+    final adjustmentValue = eta.usedAiCorrection
+        ? '+${eta.aiAdjustmentMinutes.toStringAsFixed(1)} phút'
         : 'Không áp dụng';
 
     return Padding(
@@ -170,15 +166,15 @@ class _EtaBreakdown extends StatelessWidget {
           _DetailRow(
             icon: Icons.route_outlined,
             label: eta.usedRouteDuration
-                ? 'ETA nền từ OSRM'
-                : 'ETA nền khoảng cách',
+                ? 'Thời gian theo lộ trình'
+                : 'Thời gian theo quãng đường',
             value: '${eta.baselineTravelMinutes.toStringAsFixed(1)} phút',
           ),
           const SizedBox(height: AppSpacing.sm),
           _DetailRow(
-            icon: Icons.auto_awesome_rounded,
-            label: 'AI giao thông lịch sử',
-            value: aiValue,
+            icon: Icons.traffic_rounded,
+            label: 'Điều chỉnh theo khung giờ',
+            value: adjustmentValue,
             emphasized: eta.usedAiCorrection,
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -197,8 +193,8 @@ class _EtaBreakdown extends StatelessWidget {
             ),
             child: Text(
               eta.usedAiCorrection
-                  ? '${eta.aiDatasetScope} · Model ${eta.aiModelVersion}\nKhông phải dữ liệu giao thông realtime'
-                  : '${eta.aiFallbackReason}\nOSRM và quy tắc giờ cao điểm vẫn được giữ nguyên',
+                  ? 'Dựa trên lộ trình và dữ liệu giao thông theo khung giờ tại TP.HCM. Thời gian có thể thay đổi theo thực tế.'
+                  : 'Dựa trên lộ trình và tốc độ di chuyển trong đô thị. Thời gian có thể thay đổi theo thực tế.',
               style: AppTextStyles.labelSmall.copyWith(
                 color: AppColors.textSecondary,
                 height: 1.5,

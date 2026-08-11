@@ -3,12 +3,14 @@ import 'package:giaohang_design/giaohang_design.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/risk_report_repository.dart';
+import '../models/risk_message_evidence.dart';
 import '../models/risk_report.dart';
 import '../models/risk_report_policy.dart';
 import '../utils/risk_report_ui.dart';
 import '../widgets/risk_badge.dart';
 import '../widgets/risk_report_actions.dart';
 import '../widgets/risk_report_detail_content.dart';
+import '../widgets/risk_message_evidence_section.dart';
 
 class RiskReportDetailDialog extends StatefulWidget {
   const RiskReportDetailDialog({
@@ -30,13 +32,17 @@ class RiskReportDetailDialog extends StatefulWidget {
 
 class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
   List<RiskReportEvent>? _events;
+  List<RiskOrderMessage>? _orderMessages;
+  List<RiskMessageEvidence>? _messageEvidence;
   String? _error;
   bool _submitting = false;
+  bool _attachingEvidence = false;
 
   @override
   void initState() {
     super.initState();
     _loadEvents();
+    _loadMessageEvidence();
   }
 
   Future<void> _loadEvents() async {
@@ -45,6 +51,41 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
       if (mounted) setState(() => _events = events);
     } catch (_) {
       if (mounted) setState(() => _error = 'Không tải được lịch sử xử lý.');
+    }
+  }
+
+  Future<void> _loadMessageEvidence() async {
+    try {
+      final results = await Future.wait([
+        widget.repository.fetchOrderMessages(widget.report.orderId),
+        widget.repository.fetchMessageEvidence(widget.report.id),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _orderMessages = results[0] as List<RiskOrderMessage>;
+        _messageEvidence = results[1] as List<RiskMessageEvidence>;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Không tải được tin nhắn bằng chứng.');
+      }
+    }
+  }
+
+  Future<void> _attachMessageEvidence(List<String> messageIds) async {
+    setState(() => _attachingEvidence = true);
+    try {
+      final evidence = await widget.repository.attachMessageEvidence(
+        widget.report.id,
+        messageIds,
+      );
+      if (mounted) setState(() => _messageEvidence = evidence);
+    } on PostgrestException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Không thể gắn tin nhắn.');
+    } finally {
+      if (mounted) setState(() => _attachingEvidence = false);
     }
   }
 
@@ -155,6 +196,15 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
                           color: AppColors.textSecondary,
                         ),
                       ),
+                      const SizedBox(height: AppSpacing.xl),
+                      RiskMessageEvidenceSection(
+                        evidence: _messageEvidence ?? const [],
+                        availableMessages: _availableMessages,
+                        loading:
+                            _messageEvidence == null || _orderMessages == null,
+                        attaching: _attachingEvidence,
+                        onAttach: _attachMessageEvidence,
+                      ),
                       if ((report.resolution ?? '').isNotEmpty) ...[
                         const SizedBox(height: AppSpacing.xl),
                         RiskResolutionBlock(text: report.resolution!),
@@ -206,5 +256,15 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
         ),
       ),
     );
+  }
+
+  List<RiskOrderMessage> get _availableMessages {
+    final attachedIds = (_messageEvidence ?? const <RiskMessageEvidence>[])
+        .map((item) => item.sourceMessageId)
+        .whereType<String>()
+        .toSet();
+    return (_orderMessages ?? const <RiskOrderMessage>[])
+        .where((message) => !attachedIds.contains(message.id))
+        .toList();
   }
 }

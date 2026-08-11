@@ -58,7 +58,7 @@ class DeliveryEtaCalculator {
   static const double peakRouteFactor = 1.25;
   static const double minPlausibleSpeedKmh = 5;
   static const double maxPlausibleSpeedKmh = 55;
-  static const int handlingMinutes = 6;
+  static const int handlingMinutes = 4;
 
   static DeliveryEtaEstimate calculate({
     required double distanceMeters,

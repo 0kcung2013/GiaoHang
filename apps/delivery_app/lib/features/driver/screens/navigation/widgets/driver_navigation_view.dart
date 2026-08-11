@@ -21,7 +21,7 @@ class DriverNavigationView extends StatelessWidget {
     this.maneuverDistance,
     this.totalDistance,
     this.totalDuration,
-    this.onCallRecipient,
+    this.onContact,
   });
 
   final OrderModel order;
@@ -36,7 +36,7 @@ class DriverNavigationView extends StatelessWidget {
   final double? maneuverDistance;
   final double? totalDistance;
   final double? totalDuration;
-  final VoidCallback? onCallRecipient;
+  final VoidCallback? onContact;
 
   @override
   Widget build(BuildContext context) {
@@ -108,6 +108,7 @@ class DriverNavigationView extends StatelessWidget {
                 pickupConfirmed: pickupConfirmed,
                 isLoading: isUpdatingStatus,
                 onPrimaryAction: onPrimaryAction,
+                onContact: onContact,
                 remainingDistanceMeters: totalDistance,
                 remainingDurationSeconds: totalDuration,
               ),

@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../core/location/driver_location_producer_policy.dart';
 import '../../../../core/location/driver_foreground_location_service.dart';
@@ -20,6 +19,10 @@ import '../../../../core/services/osrm_service.dart';
 import '../../../../core/utils/delivery_map_utils.dart';
 import '../../../../core/utils/geo_utils.dart';
 import '../../../reviews/widgets/driver_rate_customer_sheet.dart';
+import '../../../order_contact/models/order_contact_message.dart';
+import '../../../order_contact/widgets/arrival_contact_sheet.dart';
+import '../../../order_contact/widgets/demo_call_sheet.dart';
+import '../../../order_contact/widgets/order_contact_chat_sheet.dart';
 import 'models/driver_arrival_policy.dart';
 import 'models/driver_delivery_workflow.dart';
 import 'utils/driver_navigation_route_logic.dart';
@@ -31,6 +34,7 @@ import 'widgets/driver_navigation_map.dart';
 import 'widgets/driver_navigation_view.dart';
 
 part 'driver_navigation_delivery_actions.dart';
+part 'driver_navigation_contact_actions.dart';
 
 class DriverNavigationScreen extends ConsumerStatefulWidget {
   final OrderModel order;
@@ -745,7 +749,9 @@ class _DriverNavigationScreenState
       onBack: () => Navigator.of(context).maybePop(),
       onFitMap: _fitMapBounds,
       onPrimaryAction: _handlePrimaryAction,
-      onCallRecipient: order.status == 'delivering' ? _callRecipient : null,
+      onContact: _arrivedAtTarget && !_pickupConfirmed
+          ? _openArrivalContact
+          : null,
       map: DriverNavigationMap(
         mapController: _mapController,
         order: order,

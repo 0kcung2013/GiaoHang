@@ -113,7 +113,7 @@ void main() {
     expect(quote.eta.aiModelVersion, 'hcm_utraffic_lgbm_v2_road_profile');
   });
 
-  testWidgets('quote card exposes an auditable AI ETA breakdown', (
+  testWidgets('quote card shows a customer-friendly ETA breakdown', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(375, 900));
@@ -162,21 +162,26 @@ void main() {
 
     expect(find.text('Giao hàng dự kiến'), findsOneWidget);
     expect(find.text(eta.rangeLabel), findsOneWidget);
-    expect(find.text('AI TP.HCM + OSRM'), findsOneWidget);
-    expect(find.text('ETA có AI hiệu chỉnh'), findsOneWidget);
-    expect(find.text('Đã áp dụng UTraffic TP.HCM'), findsOneWidget);
+    expect(find.text('Ước tính thời gian giao'), findsOneWidget);
+    expect(
+      find.text('Dựa trên lộ trình và khung giờ giao hàng'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('km đường bộ'), findsNothing);
+    expect(find.textContaining('Tìm tài xế tối đa'), findsNothing);
 
     await tester.tap(find.byKey(const Key('eta-ai-details-toggle')));
     await tester.pumpAndSettle();
 
-    expect(find.text('ETA nền từ OSRM'), findsOneWidget);
-    expect(find.text('AI giao thông lịch sử'), findsOneWidget);
+    expect(find.text('Thời gian theo lộ trình'), findsOneWidget);
+    expect(find.text('Điều chỉnh theo khung giờ'), findsOneWidget);
     expect(
-      find.textContaining('Model hcm_utraffic_lgbm_v2_road_profile'),
-      findsOneWidget,
+      find.text('×${eta.aiTrafficMultiplier!.toStringAsFixed(2)}'),
+      findsNothing,
     );
+    expect(find.text('+4 phút'), findsOneWidget);
     expect(
-      find.textContaining('Không phải dữ liệu giao thông realtime'),
+      find.textContaining('Thời gian có thể thay đổi theo thực tế'),
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
