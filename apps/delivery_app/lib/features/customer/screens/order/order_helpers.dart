@@ -83,6 +83,7 @@ String statusProgressDescription(String status) {
     'picking_up' => 'Tài xế đang đến điểm lấy hàng.',
     'delivering' => 'Đơn hàng đang trên đường giao đến bạn.',
     'delivered' => 'Đơn hàng đã được giao thành công.',
+    'risk_hold' => 'Đơn hàng đang tạm giữ để CSKH xử lý sự cố.',
     _ => 'Cập nhật gần nhất của đơn hàng.',
   };
 }
@@ -143,6 +144,11 @@ class OrderStatusView {
         label: 'Đang giao',
         color: AppColors.accent,
         icon: Icons.local_shipping_rounded,
+      ),
+      'risk_hold' => const OrderStatusView(
+        label: 'Tạm giữ xử lý sự cố',
+        color: AppColors.warning,
+        icon: Icons.pause_circle_outline_rounded,
       ),
       'delivered' => const OrderStatusView(
         label: 'Hoàn thành',

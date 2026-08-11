@@ -9,6 +9,7 @@ enum TrackingMapPhase {
     return switch (status) {
       'delivering' => TrackingMapPhase.toDelivery,
       'delivered' => TrackingMapPhase.completed,
+      'risk_hold' => TrackingMapPhase.toPickup,
       _ => TrackingMapPhase.toPickup,
     };
   }

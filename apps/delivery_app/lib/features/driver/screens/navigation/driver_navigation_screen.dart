@@ -23,6 +23,7 @@ import '../../../order_contact/models/order_contact_message.dart';
 import '../../../order_contact/widgets/arrival_contact_sheet.dart';
 import '../../../order_contact/widgets/demo_call_sheet.dart';
 import '../../../order_contact/widgets/order_contact_chat_sheet.dart';
+import '../../../risk_reports/data/risk_intervention_repository.dart';
 import 'models/driver_arrival_policy.dart';
 import 'models/driver_delivery_workflow.dart';
 import 'utils/driver_navigation_route_logic.dart';
@@ -77,6 +78,8 @@ class _DriverNavigationScreenState
 
   late final StateController<String?> _navigationOwner;
   late final DriverNavSessionsNotifier _navSessionsNotifier;
+  final RiskInterventionRepository _riskInterventionRepository =
+      SupabaseRiskInterventionRepository();
 
   void _updateUi(VoidCallback update) => setState(update);
 
@@ -752,6 +755,7 @@ class _DriverNavigationScreenState
       onContact: _arrivedAtTarget && !_pickupConfirmed
           ? _openArrivalContact
           : null,
+      riskInterventionRepository: _riskInterventionRepository,
       map: DriverNavigationMap(
         mapController: _mapController,
         order: order,

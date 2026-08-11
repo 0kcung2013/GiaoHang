@@ -14,6 +14,7 @@ String statusLabel(String status) {
     'delivering' => 'Đang giao',
     'delivered' => 'Hoàn thành',
     'cancelled' => 'Huỷ',
+    'risk_hold' => 'Tạm giữ xử lý sự cố',
     _ => 'Không rõ',
   };
 }
@@ -27,6 +28,7 @@ Color statusColor(String status) {
     'delivering' => AppColors.accent,
     'delivered' => AppColors.success,
     'cancelled' => AppColors.error,
+    'risk_hold' => AppColors.warning,
     _ => AppColors.textMuted,
   };
 }
@@ -40,6 +42,7 @@ IconData statusIcon(String status) {
     'delivering' => Icons.local_shipping_outlined,
     'delivered' => Icons.check_circle_rounded,
     'cancelled' => Icons.cancel_rounded,
+    'risk_hold' => Icons.pause_circle_outline_rounded,
     _ => Icons.help_outline_rounded,
   };
 }

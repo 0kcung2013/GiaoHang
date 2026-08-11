@@ -43,13 +43,20 @@ class _RiskReportsViewState extends State<RiskReportsView> {
 
   List<RiskReport> get _filteredReports {
     final normalizedQuery = _query.trim().toLowerCase();
-    return _reports.where((report) {
+    final filtered = _reports.where((report) {
       if (_severity != null && report.severity != _severity) return false;
       if (_status != null && report.status != _status) return false;
       if (normalizedQuery.isEmpty) return true;
       return report.title.toLowerCase().contains(normalizedQuery) ||
           report.order.trackingCode.toLowerCase().contains(normalizedQuery);
     }).toList();
+    filtered.sort((left, right) {
+      if (left.triageOverdue != right.triageOverdue) {
+        return left.triageOverdue ? -1 : 1;
+      }
+      return right.updatedAt.compareTo(left.updatedAt);
+    });
+    return filtered;
   }
 
   @override

@@ -10,7 +10,7 @@ class RiskReportStrings {
   static const noResults = 'Không có báo cáo phù hợp';
   static const loadError = 'Không thể tải báo cáo rủi ro.';
   static const retry = 'Thử lại';
-  static const takeOwnership = 'Nhận xử lý';
+  static const takeOwnership = 'Tiếp nhận báo cáo';
   static const assignedToYou = 'Bạn đang phụ trách';
   static const unassigned = 'Chưa phân công';
   static const evidenceTitle = 'Ảnh và vị trí';

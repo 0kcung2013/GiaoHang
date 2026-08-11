@@ -257,6 +257,8 @@ class OrderModel {
 
   static const assignmentWindow = Duration(minutes: 15);
 
+  bool get isRiskHeld => status == 'risk_hold';
+
   DateTime get assignmentDeadline =>
       assignmentExpiresAt ?? createdAt.add(assignmentWindow);
 

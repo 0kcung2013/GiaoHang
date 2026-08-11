@@ -9,6 +9,7 @@ import '../models/risk_report_policy.dart';
 import '../utils/risk_report_ui.dart';
 import '../widgets/risk_badge.dart';
 import '../widgets/risk_attachment_section.dart';
+import '../widgets/risk_intervention_panel.dart';
 import '../widgets/risk_report_actions.dart';
 import '../widgets/risk_report_detail_content.dart';
 import '../widgets/risk_message_evidence_section.dart';
@@ -36,6 +37,7 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
   List<RiskOrderMessage>? _orderMessages;
   List<RiskMessageEvidence>? _messageEvidence;
   List<RiskReportAttachmentView>? _attachments;
+  RiskIntervention? _intervention;
   String? _error;
   bool _submitting = false;
   bool _attachingEvidence = false;
@@ -46,6 +48,21 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
     _loadEvents();
     _loadMessageEvidence();
     _loadAttachments();
+    _loadIntervention();
+  }
+
+  Future<void> _loadIntervention() async {
+    final repository = widget.repository;
+    if (repository is! RiskInterventionCommandRepository) return;
+    final commands = repository as RiskInterventionCommandRepository;
+    try {
+      final intervention = await commands.fetchIntervention(widget.report.id);
+      if (mounted) setState(() => _intervention = intervention);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Không tải được trạng thái can thiệp.');
+      }
+    }
   }
 
   Future<void> _loadAttachments() async {
@@ -147,6 +164,31 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
     }
   }
 
+  Future<void> _runIntervention(
+    Future<void> Function(RiskInterventionCommandRepository commands) action, {
+    bool closeAfter = true,
+  }) async {
+    final repository = widget.repository;
+    if (repository is! RiskInterventionCommandRepository) return;
+    final commands = repository as RiskInterventionCommandRepository;
+    setState(() => _submitting = true);
+    try {
+      await action(commands);
+      if (!mounted) return;
+      if (closeAfter) {
+        Navigator.pop(context, true);
+      } else {
+        await _loadIntervention();
+      }
+    } on PostgrestException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Không thể cập nhật can thiệp đơn.');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final report = widget.report;
@@ -206,6 +248,37 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
                       ),
                       const SizedBox(height: AppSpacing.xl),
                       RiskOrderRoute(report: report),
+                      if (_intervention != null) ...[
+                        const SizedBox(height: AppSpacing.xl),
+                        RiskInterventionPanel(
+                          report: report,
+                          intervention: _intervention!,
+                          orderStatus: report.order.status,
+                          onHoldBeforePickup: () => _runIntervention(
+                            (commands) => commands.holdBeforePickup(report.id),
+                          ),
+                          onDecision: (decision, instruction) =>
+                              _runIntervention(
+                                (commands) => commands.decideOperation(
+                                  report.id,
+                                  decision,
+                                  instruction: instruction,
+                                ),
+                              ),
+                          onConfirmCustody: () => _runIntervention(
+                            (commands) =>
+                                commands.confirmCustodyResolved(report.id),
+                          ),
+                          onResumeOrder: () => _runIntervention(
+                            (commands) => commands.resumeHeldOrder(report.id),
+                          ),
+                          onAddNote: (body) => _runIntervention(
+                            (commands) =>
+                                commands.addInternalNote(report.id, body),
+                            closeAfter: false,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: AppSpacing.xl),
                       Text(
                         'Dấu hiệu và bằng chứng',

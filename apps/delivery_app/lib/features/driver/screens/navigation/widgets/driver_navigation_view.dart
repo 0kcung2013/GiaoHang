@@ -4,6 +4,8 @@ import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/services/osrm_service.dart';
 import '../../../../../core/utils/delivery_map_utils.dart';
+import '../../../../risk_reports/data/risk_intervention_repository.dart';
+import '../../../../risk_reports/widgets/driver_risk_instruction_card.dart';
 import 'driver_navigation_arrival_bar.dart';
 import 'driver_risk_action.dart';
 
@@ -23,6 +25,7 @@ class DriverNavigationView extends StatelessWidget {
     this.totalDistance,
     this.totalDuration,
     this.onContact,
+    this.riskInterventionRepository,
   });
 
   final OrderModel order;
@@ -38,6 +41,7 @@ class DriverNavigationView extends StatelessWidget {
   final double? totalDistance;
   final double? totalDuration;
   final VoidCallback? onContact;
+  final RiskInterventionRepository? riskInterventionRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -108,20 +112,31 @@ class DriverNavigationView extends StatelessWidget {
             bottom: 0,
             child: SafeArea(
               top: false,
-              child: DriverNavigationArrivalBar(
-                order: order,
-                arrivedAtTarget: arrivedAtTarget,
-                pickupConfirmed: pickupConfirmed,
-                isLoading: isUpdatingStatus,
-                onPrimaryAction: onPrimaryAction,
-                onContact: onContact,
-                remainingDistanceMeters: totalDistance,
-                remainingDurationSeconds: totalDuration,
-              ),
+              child: riskInterventionRepository == null
+                  ? _arrivalBar()
+                  : DriverRiskInstructionRegion(
+                      orderId: order.id,
+                      repository: riskInterventionRepository!,
+                      builder: (_, blocksDelivery) =>
+                          _arrivalBar(blocksDelivery: blocksDelivery),
+                    ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _arrivalBar({bool blocksDelivery = false}) {
+    return DriverNavigationArrivalBar(
+      order: order,
+      arrivedAtTarget: arrivedAtTarget,
+      pickupConfirmed: pickupConfirmed,
+      isLoading: isUpdatingStatus,
+      onPrimaryAction: blocksDelivery ? null : onPrimaryAction,
+      onContact: onContact,
+      remainingDistanceMeters: totalDistance,
+      remainingDurationSeconds: totalDuration,
     );
   }
 }
@@ -292,6 +307,7 @@ class _StatusPill extends StatelessWidget {
             'picking_up' => 'Đang lấy hàng',
             'delivering' => 'Đang giao hàng',
             'delivered' => 'Hoàn tất',
+            'risk_hold' => 'Tạm giữ xử lý sự cố',
             _ => 'Đang cập nhật',
           };
     return Container(

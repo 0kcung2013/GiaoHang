@@ -32,8 +32,25 @@ abstract interface class RiskReportAttachmentRepository {
   Future<List<RiskReportAttachmentView>> fetchAttachments(String reportId);
 }
 
+abstract interface class RiskInterventionCommandRepository {
+  Future<RiskIntervention?> fetchIntervention(String reportId);
+  Future<void> acceptReport(String reportId);
+  Future<void> holdBeforePickup(String reportId, {String? instruction});
+  Future<void> decideOperation(
+    String reportId,
+    RiskInterventionState decision, {
+    String? instruction,
+  });
+  Future<void> confirmCustodyResolved(String reportId, {String? note});
+  Future<void> resumeHeldOrder(String reportId);
+  Future<void> addInternalNote(String reportId, String body);
+}
+
 class SupabaseRiskReportRepository
-    implements RiskReportRepository, RiskReportAttachmentRepository {
+    implements
+        RiskReportRepository,
+        RiskReportAttachmentRepository,
+        RiskInterventionCommandRepository {
   SupabaseRiskReportRepository(this._client);
 
   final SupabaseClient _client;
@@ -58,6 +75,11 @@ class SupabaseRiskReportRepository
       full_name,
       role
     ),
+    intervention:risk_report_interventions!risk_report_interventions_risk_report_id_fkey(
+      decision_due_at,
+      escalated_at,
+      state
+    ),
     orders!risk_reports_order_id_fkey(
       tracking_code,
       status,
@@ -75,7 +97,25 @@ class SupabaseRiskReportRepository
         .limit(200);
     return List<Map<String, dynamic>>.from(
       rows,
-    ).map(RiskReport.fromJson).toList();
+    ).map(_mergeInterventionTriage).map(RiskReport.fromJson).toList();
+  }
+
+  Map<String, dynamic> _mergeInterventionTriage(Map<String, dynamic> row) {
+    final result = Map<String, dynamic>.of(row);
+    final rawIntervention = row['intervention'];
+    final Map<String, dynamic>? intervention = switch (rawIntervention) {
+      Map<String, dynamic>() => rawIntervention,
+      Map() => Map<String, dynamic>.from(rawIntervention),
+      List() when rawIntervention.isNotEmpty => Map<String, dynamic>.from(
+        rawIntervention.first as Map,
+      ),
+      _ => null,
+    };
+    if (intervention == null) return result;
+
+    result['triage_due_at'] ??= intervention['decision_due_at'];
+    result['escalated_at'] ??= intervention['escalated_at'];
+    return result;
   }
 
   @override
@@ -114,6 +154,69 @@ class SupabaseRiskReportRepository
       );
     }
     return result;
+  }
+
+  @override
+  Future<RiskIntervention?> fetchIntervention(String reportId) async {
+    final row = await _client
+        .from('risk_report_interventions')
+        .select()
+        .eq('risk_report_id', reportId)
+        .maybeSingle();
+    return row == null ? null : RiskIntervention.fromJson(row);
+  }
+
+  @override
+  Future<void> acceptReport(String reportId) async {
+    await _client.rpc('accept_risk_report', params: {'p_report_id': reportId});
+  }
+
+  @override
+  Future<void> holdBeforePickup(String reportId, {String? instruction}) async {
+    await _client.rpc(
+      'hold_risk_order_before_pickup',
+      params: {'p_report_id': reportId, 'p_instruction': instruction},
+    );
+  }
+
+  @override
+  Future<void> decideOperation(
+    String reportId,
+    RiskInterventionState decision, {
+    String? instruction,
+  }) async {
+    await _client.rpc(
+      'decide_risk_delivery_operation',
+      params: {
+        'p_report_id': reportId,
+        'p_decision': decision.databaseValue,
+        'p_instruction': instruction,
+      },
+    );
+  }
+
+  @override
+  Future<void> confirmCustodyResolved(String reportId, {String? note}) async {
+    await _client.rpc(
+      'confirm_risk_custody_resolved',
+      params: {'p_report_id': reportId, 'p_note': note},
+    );
+  }
+
+  @override
+  Future<void> resumeHeldOrder(String reportId) async {
+    await _client.rpc(
+      'resume_risk_held_order',
+      params: {'p_report_id': reportId},
+    );
+  }
+
+  @override
+  Future<void> addInternalNote(String reportId, String body) async {
+    await _client.rpc(
+      'add_risk_report_note',
+      params: {'p_report_id': reportId, 'p_body': body},
+    );
   }
 
   @override
@@ -196,14 +299,7 @@ class SupabaseRiskReportRepository
 
   @override
   Future<void> assignToMe(String reportId) async {
-    final actorId = _client.auth.currentUser?.id;
-    if (actorId == null) {
-      throw const RiskReportRepositoryException('Phiên đăng nhập đã hết hạn.');
-    }
-    await _client
-        .from('risk_reports')
-        .update({'assigned_to': actorId, 'updated_by': actorId})
-        .eq('id', reportId);
+    await acceptReport(reportId);
   }
 
   @override

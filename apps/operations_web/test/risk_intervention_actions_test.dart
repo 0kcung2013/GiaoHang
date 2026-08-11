@@ -1,0 +1,128 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:operations_web/features/risk_reports/models/risk_report.dart';
+import 'package:operations_web/features/risk_reports/widgets/risk_intervention_panel.dart';
+
+void main() {
+  testWidgets('acceptance is separate from pre-pickup hold', (tester) async {
+    var held = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RiskInterventionPanel(
+            report: _report(status: RiskStatus.open),
+            intervention: _intervention(RiskInterventionState.awaitingTriage),
+            orderStatus: 'assigned',
+            onHoldBeforePickup: () async => held = true,
+            onDecision: (_, _) async {},
+            onConfirmCustody: () async {},
+            onResumeOrder: () async {},
+            onAddNote: (_) async {},
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.text('Tiếp nhận báo cáo trước khi can thiệp đơn.'),
+      findsOneWidget,
+    );
+    expect(find.text('Giữ đơn & giải phóng tài xế'), findsNothing);
+    expect(held, isFalse);
+  });
+
+  testWidgets('assigned order can be explicitly held and release driver', (
+    tester,
+  ) async {
+    var held = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RiskInterventionPanel(
+            report: _report(),
+            intervention: _intervention(RiskInterventionState.awaitingTriage),
+            orderStatus: 'assigned',
+            onHoldBeforePickup: () async => held = true,
+            onDecision: (_, _) async {},
+            onConfirmCustody: () async {},
+            onResumeOrder: () async {},
+            onAddNote: (_) async {},
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Giữ đơn & giải phóng tài xế'));
+    await tester.pumpAndSettle();
+    expect(held, isTrue);
+  });
+
+  testWidgets('return decision requires a custom instruction', (tester) async {
+    RiskInterventionState? decision;
+    String? instruction;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RiskInterventionPanel(
+            report: _report(),
+            intervention: _intervention(RiskInterventionState.awaitingTriage),
+            orderStatus: 'delivering',
+            onHoldBeforePickup: () async {},
+            onDecision: (value, text) async {
+              decision = value;
+              instruction = text;
+            },
+            onConfirmCustody: () async {},
+            onResumeOrder: () async {},
+            onAddNote: (_) async {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Yêu cầu hoàn trả'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Xác nhận'));
+    await tester.pump();
+    expect(find.text('Vui lòng nhập hướng dẫn.'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('risk-operation-instruction')),
+      'Hoàn hàng tại kho trung tâm.',
+    );
+    await tester.tap(find.text('Xác nhận'));
+    await tester.pumpAndSettle();
+    expect(decision, RiskInterventionState.returnRequired);
+    expect(instruction, 'Hoàn hàng tại kho trung tâm.');
+  });
+}
+
+RiskReport _report({RiskStatus status = RiskStatus.investigating}) =>
+    RiskReport(
+      id: 'risk-1',
+      orderId: 'order-1',
+      reportedBy: 'customer-1',
+      assignedTo: 'staff-1',
+      category: RiskCategory.safety,
+      severity: RiskSeverity.medium,
+      status: status,
+      title: 'Vấn đề an toàn',
+      description: 'Khu vực giao hàng không an toàn.',
+      resolution: null,
+      createdAt: DateTime(2026),
+      updatedAt: DateTime(2026),
+      order: const RiskOrderSummary(
+        trackingCode: 'GH123',
+        status: 'delivering',
+        pickupAddress: 'Điểm lấy',
+        deliveryAddress: 'Điểm giao',
+      ),
+    );
+
+RiskIntervention _intervention(RiskInterventionState state) => RiskIntervention(
+  riskReportId: 'risk-1',
+  orderId: 'order-1',
+  state: state,
+  driverId: 'driver-1',
+  decisionDueAt: DateTime(2026),
+  instruction: null,
+  driverReleasedAt: null,
+);
