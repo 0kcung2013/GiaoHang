@@ -39,8 +39,13 @@ part 'driver_navigation_contact_actions.dart';
 
 class DriverNavigationScreen extends ConsumerStatefulWidget {
   final OrderModel order;
+  final RiskInterventionRepository? riskInterventionRepository;
 
-  const DriverNavigationScreen({super.key, required this.order});
+  const DriverNavigationScreen({
+    super.key,
+    required this.order,
+    this.riskInterventionRepository,
+  });
 
   @override
   ConsumerState<DriverNavigationScreen> createState() =>
@@ -78,8 +83,7 @@ class _DriverNavigationScreenState
 
   late final StateController<String?> _navigationOwner;
   late final DriverNavSessionsNotifier _navSessionsNotifier;
-  final RiskInterventionRepository _riskInterventionRepository =
-      SupabaseRiskInterventionRepository();
+  late final RiskInterventionRepository? _riskInterventionRepository;
 
   void _updateUi(VoidCallback update) => setState(update);
 
@@ -87,6 +91,8 @@ class _DriverNavigationScreenState
   void initState() {
     super.initState();
     _currentOrder = widget.order;
+    _riskInterventionRepository =
+        widget.riskInterventionRepository ?? _createRiskRepository();
     _navigationOwner = ref.read(activeDriverNavigationOrderProvider.notifier);
     _navSessionsNotifier = ref.read(driverNavSessionsProvider.notifier);
     _restoreNavSession();
@@ -100,6 +106,15 @@ class _DriverNavigationScreenState
       unawaited(_startForegroundLocationService());
       unawaited(_ensureInitialRoute());
     });
+  }
+
+  RiskInterventionRepository? _createRiskRepository() {
+    try {
+      return SupabaseRiskInterventionRepository();
+    } on AssertionError {
+      // Widget tests and isolated previews may mount without app bootstrap.
+      return null;
+    }
   }
 
   Future<void> _startForegroundLocationService() async {
