@@ -10,6 +10,7 @@ import '../../../../../core/widgets/order_cargo_info_block.dart';
 import '../../../../reviews/widgets/driver_rate_customer_sheet.dart';
 import '../../navigation/driver_navigation_screen.dart';
 import '../../navigation/widgets/driver_order_cancellation_guard.dart';
+import '../../navigation/widgets/driver_risk_action.dart';
 import '../utils/driver_home_formatters.dart';
 import 'driver_order_card_components.dart';
 
@@ -335,6 +336,10 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                         status: order.status,
                         onTap: _openNavigation,
                       ),
+                    ],
+                    if (!canAccept && (canContinueDelivery || isDelivered)) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      DriverRiskAction(order: order),
                     ],
                     if (isDelivered) ...[
                       const SizedBox(height: AppSpacing.lg),

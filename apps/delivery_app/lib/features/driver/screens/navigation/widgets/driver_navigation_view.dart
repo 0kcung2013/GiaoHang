@@ -5,6 +5,7 @@ import '../../../../../core/models/order_model.dart';
 import '../../../../../core/services/osrm_service.dart';
 import '../../../../../core/utils/delivery_map_utils.dart';
 import 'driver_navigation_arrival_bar.dart';
+import 'driver_risk_action.dart';
 
 class DriverNavigationView extends StatelessWidget {
   const DriverNavigationView({
@@ -90,6 +91,11 @@ class DriverNavigationView extends StatelessWidget {
                       duration: totalDuration,
                       arrivedAtTarget: arrivedAtTarget,
                       pickupConfirmed: pickupConfirmed,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: DriverRiskAction(order: order, dark: true),
                     ),
                   ],
                 ),

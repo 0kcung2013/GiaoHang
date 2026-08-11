@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../core/models/order_model.dart';
 
+export '../../../risk_reports/widgets/customer_tracking_risk_action.dart'
+    show CustomerTrackingRiskAction;
+
 class TimelineStep {
   const TimelineStep({
     required this.title,

@@ -13,6 +13,7 @@ import 'widgets/order_cancel_section.dart';
 import 'widgets/order_detail_activity.dart';
 import 'widgets/order_detail_header.dart';
 import 'widgets/order_detail_information.dart';
+import 'widgets/order_risk_report_section.dart';
 
 const orderDetailSheetKey = Key('order-detail-sheet');
 
@@ -140,6 +141,8 @@ class _OrderDetailSheetState extends ConsumerState<OrderDetailSheet> {
                     const SizedBox(height: AppSpacing.md),
                     OrderReviewSection(order: order),
                   ],
+                  const SizedBox(height: AppSpacing.md),
+                  OrderRiskReportSection(order: order),
                   if (canCancel || cancellationLockedReason != null) ...[
                     const SizedBox(height: AppSpacing.md),
                     OrderCancelSection(

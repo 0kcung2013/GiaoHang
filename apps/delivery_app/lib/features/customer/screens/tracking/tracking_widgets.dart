@@ -305,6 +305,10 @@ class _PackageInfoCard extends StatelessWidget {
             value: _paymentMethodLabel(order.paymentMethod),
           ),
           _InfoRow(label: 'Phí giao', value: _priceText(order), isLast: true),
+          const SizedBox(height: AppSpacing.md),
+          const Divider(color: AppColors.border, height: 1),
+          const SizedBox(height: AppSpacing.md),
+          CustomerTrackingRiskAction(order: order),
         ],
       ),
     );
