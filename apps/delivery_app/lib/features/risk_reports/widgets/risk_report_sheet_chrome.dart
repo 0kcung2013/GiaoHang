@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
 class RiskReportSheetHeader extends StatelessWidget {
-  const RiskReportSheetHeader({required this.step, required this.onClose, super.key});
+  const RiskReportSheetHeader({
+    required this.step,
+    required this.onClose,
+    super.key,
+  });
 
   final int step;
   final VoidCallback onClose;
@@ -29,7 +33,9 @@ class RiskReportSheetHeader extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
-              Expanded(child: Text('Báo cáo sự cố', style: AppTextStyles.headingLarge)),
+              Expanded(
+                child: Text('Báo cáo sự cố', style: AppTextStyles.headingLarge),
+              ),
               Semantics(
                 button: true,
                 label: 'Đóng',
@@ -39,7 +45,10 @@ class RiskReportSheetHeader extends StatelessWidget {
                   child: const SizedBox(
                     width: 48,
                     height: 48,
-                    child: Icon(Icons.close_rounded, color: AppColors.textSecondary),
+                    child: Icon(
+                      Icons.close_rounded,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ),
               ),
@@ -51,7 +60,9 @@ class RiskReportSheetHeader extends StatelessWidget {
               (index) => Expanded(
                 child: Container(
                   height: 4,
-                  margin: EdgeInsets.only(right: index == 2 ? 0 : AppSpacing.sm),
+                  margin: EdgeInsets.only(
+                    right: index == 2 ? 0 : AppSpacing.sm,
+                  ),
                   decoration: BoxDecoration(
                     color: index <= step ? AppColors.accent : AppColors.border,
                     borderRadius: AppRadius.full,
@@ -99,7 +110,9 @@ class RiskReportSheetFooter extends StatelessWidget {
               if (errorMessage != null) ...[
                 Text(
                   errorMessage!,
-                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.error,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
               ],
