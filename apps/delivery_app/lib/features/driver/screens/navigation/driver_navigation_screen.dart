@@ -17,7 +17,6 @@ import '../../../../core/providers/driver_nav_session_provider.dart';
 import '../../../../core/providers/location_providers.dart';
 import '../../../../core/services/osrm_service.dart';
 import '../../../../core/utils/delivery_map_utils.dart';
-import '../../../../core/utils/geo_utils.dart';
 import '../../../reviews/widgets/driver_rate_customer_sheet.dart';
 import '../../../order_contact/models/order_contact_message.dart';
 import '../../../order_contact/widgets/arrival_contact_sheet.dart';
@@ -477,15 +476,12 @@ class _DriverNavigationScreenState
       return;
     }
 
-    // Raw GPS nhận offset demo đúng một lần trước khi dùng cho UI, broadcast
-    // và persistence. Simulation/session/profile đã ở map coordinate space.
-    var published = source.ingestCoordinateSpace.shouldApplyDemoOffset
-        ? GeoUtils.applyTestDriverOffset(
-            email: Supabase.instance.client.auth.currentUser?.email,
-            lat: newPos.latitude,
-            lng: newPos.longitude,
-          )
-        : LatLng(newPos.latitude, newPos.longitude);
+    // Raw GPS theo mode của phiên; simulation/session/profile giữ map coords.
+    var published = source.resolveForPublishing(
+      locationMode: ref.read(driverLocationModeProvider),
+      email: Supabase.instance.client.auth.currentUser?.email,
+      position: newPos,
+    );
 
     // Snap lên polyline (nếu có) → marker không lệch vạch xanh / điểm L.
     if (_routePoints != null && _routePoints!.length >= 2) {

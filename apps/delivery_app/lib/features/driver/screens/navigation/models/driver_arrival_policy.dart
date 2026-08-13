@@ -1,31 +1,8 @@
-import '../../../../../core/location/driver_location_producer_policy.dart';
 import 'package:latlong2/latlong.dart';
 
-enum DriverPositionSource {
-  deviceGps,
-  browserGps,
-  serverProfile,
-  simulation,
-  restoredSession,
-  targetFallback,
-}
+import 'driver_position_source.dart';
 
-extension DriverPositionSourceRules on DriverPositionSource {
-  bool get canConfirmArrival =>
-      this == DriverPositionSource.deviceGps ||
-      this == DriverPositionSource.browserGps ||
-      this == DriverPositionSource.simulation;
-
-  LocationIngestCoordinateSpace get ingestCoordinateSpace => switch (this) {
-    DriverPositionSource.deviceGps ||
-    DriverPositionSource.browserGps => LocationIngestCoordinateSpace.rawGps,
-    DriverPositionSource.serverProfile ||
-    DriverPositionSource.simulation ||
-    DriverPositionSource.restoredSession ||
-    DriverPositionSource.targetFallback =>
-      LocationIngestCoordinateSpace.mapCoordinates,
-  };
-}
+export 'driver_position_source.dart';
 
 class DriverArrivalPolicy {
   const DriverArrivalPolicy._();

@@ -79,7 +79,9 @@ class DriverDashboardBody extends ConsumerWidget {
         final activeOrders = driverOrders.where(isActiveDriverOrder).toList();
         final showIdleBanner = !hasActiveOrder && visibleAvailable.isEmpty;
         final currentPosition = currentPositionAsync.valueOrNull;
+        final locationMode = ref.watch(driverLocationModeProvider);
         final dashboardPosition = resolveDriverDashboardPosition(
+          locationMode: locationMode,
           email: email,
           rawLat: currentPosition?.latitude,
           rawLng: currentPosition?.longitude,
