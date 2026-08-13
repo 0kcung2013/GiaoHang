@@ -4,12 +4,14 @@ import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import '../../../../core/location/driver_location_producer_policy.dart';
 import '../../../../core/providers/customer_providers.dart';
 import '../../../../core/providers/location_providers.dart';
 import '../../../../core/utils/geo_utils.dart';
 import 'driver_gps_debug_components.dart';
 import 'driver_gps_debug_map.dart';
 import 'driver_gps_debug_states.dart';
+import 'driver_gps_location_actions.dart';
 
 class DriverGpsDebugSheet extends ConsumerStatefulWidget {
   const DriverGpsDebugSheet({super.key});
@@ -21,7 +23,7 @@ class DriverGpsDebugSheet extends ConsumerStatefulWidget {
 
 class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
   bool _isLoading = true;
-  bool _isSyncing = false;
+  DriverLocationMode? _applyingMode;
   String? _error;
   String? _successMessage;
   String _email = '';
@@ -98,47 +100,82 @@ class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
     }
   }
 
-  Future<void> _syncPosition() async {
-    final gps = _gpsPosition;
-    final profileId = _driverProfileId;
+  Future<void> _applyLocationMode(DriverLocationMode mode) async {
     final currentUser = Supabase.instance.client.auth.currentUser;
-    if (gps == null || profileId == null || currentUser == null) return;
+    final profileId = _driverProfileId;
+    final loadedGps = _gpsPosition;
+    if (currentUser == null || profileId == null || loadedGps == null) return;
 
     setState(() {
-      _isSyncing = true;
+      _applyingMode = mode;
       _error = null;
       _successMessage = null;
     });
 
     try {
+      LatLng rawGps = loadedGps;
+      if (mode == DriverLocationMode.deviceGps) {
+        final position = await ref
+            .read(locationServiceProvider)
+            .getCurrentPosition();
+        if (position == null) {
+          throw const _GpsDebugException(
+            'Không lấy được GPS. Hãy bật dịch vụ vị trí và cấp quyền cho ứng dụng.',
+          );
+        }
+        rawGps = LatLng(position.latitude, position.longitude);
+      } else if (!GeoUtils.hasTestDriverOffset(currentUser.email)) {
+        throw const _GpsDebugException(
+          'Tài khoản này chưa có vị trí demo TP.HCM.',
+        );
+      }
+
+      final selected = mode.resolveRawGps(
+        email: currentUser.email,
+        lat: rawGps.latitude,
+        lng: rawGps.longitude,
+      );
+      final demo = DriverLocationMode.demoHcm.resolveRawGps(
+        email: currentUser.email,
+        lat: rawGps.latitude,
+        lng: rawGps.longitude,
+      );
+
       await ref
           .read(locationIngestServiceProvider)
           .ingest(
             driverProfileId: profileId,
-            lat: gps.latitude,
-            lng: gps.longitude,
+            lat: selected.latitude,
+            lng: selected.longitude,
             force: true,
             prioritySync: true,
+            coordinateSpace: LocationIngestCoordinateSpace.mapCoordinates,
           );
       final refreshed = await ref
           .read(driverServiceProvider)
           .getDriverByUserId(currentUser.id);
 
       if (!mounted) return;
+      ref.read(driverLocationModeProvider.notifier).state = mode;
       setState(() {
+        _gpsPosition = rawGps;
+        _demoPosition = demo;
         _storedPosition = _storedPoint(
           refreshed?.currentLat,
           refreshed?.currentLng,
         );
-        _isSyncing = false;
-        _successMessage = 'Đã đồng bộ vị trí lên hệ thống.';
+        _offsetMeters = _distance(rawGps, demo);
+        _successMessage = mode == DriverLocationMode.deviceGps
+            ? 'Đang dùng vị trí hiện tại để tính tuyến đường gần bạn.'
+            : 'Đã chuyển về vị trí demo TP.HCM của tài khoản.';
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _isSyncing = false;
-        _error = 'Không thể đồng bộ vị trí: ${_readableError(error)}';
+        _error = _readableError(error);
       });
+    } finally {
+      if (mounted) setState(() => _applyingMode = null);
     }
   }
 
@@ -210,7 +247,9 @@ class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
     final gps = _gpsPosition!;
     final demo = _demoPosition!;
     final stored = _storedPosition;
-    final storedDistance = stored == null ? null : _distance(stored, demo);
+    final locationMode = ref.watch(driverLocationModeProvider);
+    final expected = locationMode == DriverLocationMode.deviceGps ? gps : demo;
+    final storedDistance = stored == null ? null : _distance(stored, expected);
     final isStoredMatched = storedDistance != null && storedDistance <= 50;
 
     return Column(
@@ -218,6 +257,7 @@ class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         DriverGpsDemoBanner(
+          locationMode: locationMode,
           hasOffset: _hasOffset,
           isDemoAccount: GeoUtils.hasConfiguredTestDriverOffset(_email),
           offsetMeters: _offsetMeters,
@@ -242,10 +282,10 @@ class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
         DriverGpsCoordinateCard(
           icon: Icons.local_shipping_rounded,
           color: AppColors.accent,
-          title: 'Vị trí gửi lên hệ thống',
+          title: 'Vị trí demo TP.HCM',
           subtitle: _hasOffset
-              ? 'Đã áp offset riêng cho tài khoản demo'
-              : 'Không áp offset demo',
+              ? 'Tọa độ cố định riêng của tài khoản tài xế'
+              : 'Tài khoản này chưa có vị trí demo',
           position: demo,
         ),
         const SizedBox(height: AppSpacing.sm),
@@ -271,56 +311,19 @@ class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
           ),
         ],
         const SizedBox(height: AppSpacing.xl),
-        _buildActions(),
+        DriverGpsLocationActions(
+          applyingMode: _applyingMode,
+          canUseDemo: GeoUtils.hasTestDriverOffset(_email),
+          onUseDeviceGps: () =>
+              _applyLocationMode(DriverLocationMode.deviceGps),
+          onUseDemoHcm: () => _applyLocationMode(DriverLocationMode.demoHcm),
+        ),
         const SizedBox(height: AppSpacing.md),
         Text(
-          'Offset demo chỉ bật khi chạy debug và tự tắt trong bản release.',
+          'Bạn có thể chuyển giữa GPS hiện tại và điểm demo TP.HCM bất cứ lúc nào.',
           textAlign: TextAlign.center,
           style: AppTextStyles.bodySmall.copyWith(
             color: AppColors.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActions() {
-    return Row(
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: 50,
-            child: OutlinedButton.icon(
-              onPressed: _isSyncing ? null : _loadPosition,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Đo lại GPS'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.textPrimary,
-                side: const BorderSide(color: AppColors.border),
-                shape: RoundedRectangleBorder(borderRadius: AppRadius.full),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: SizedBox(
-            height: 50,
-            child: FilledButton.icon(
-              onPressed: _isSyncing ? null : _syncPosition,
-              icon: Icon(
-                _isSyncing
-                    ? Icons.hourglass_top_rounded
-                    : Icons.cloud_upload_rounded,
-              ),
-              label: Text(_isSyncing ? 'Đang lưu...' : 'Đồng bộ'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.accent,
-                foregroundColor: AppColors.textOnAccent,
-                disabledBackgroundColor: AppColors.accentLight,
-                shape: RoundedRectangleBorder(borderRadius: AppRadius.full),
-              ),
-            ),
           ),
         ),
       ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import '../../../../core/location/driver_location_producer_policy.dart';
 
 class DriverGpsSheetHeader extends StatelessWidget {
   const DriverGpsSheetHeader({super.key, required this.email});
@@ -85,29 +86,38 @@ class DriverGpsSheetHeader extends StatelessWidget {
 class DriverGpsDemoBanner extends StatelessWidget {
   const DriverGpsDemoBanner({
     super.key,
+    required this.locationMode,
     required this.hasOffset,
     required this.isDemoAccount,
     required this.offsetMeters,
   });
 
+  final DriverLocationMode locationMode;
   final bool hasOffset;
   final bool isDemoAccount;
   final double offsetMeters;
 
   @override
   Widget build(BuildContext context) {
-    final title = hasOffset
+    final isUsingDeviceGps = locationMode == DriverLocationMode.deviceGps;
+    final title = isUsingDeviceGps
+        ? 'Đang dùng vị trí hiện tại'
+        : hasOffset
         ? 'Chế độ demo đang bật'
         : isDemoAccount
         ? 'Offset demo đang tắt'
         : 'Đang dùng GPS thực tế';
-    final description = hasOffset
+    final description = isUsingDeviceGps
+        ? 'Tuyến đường và khoảng cách sẽ tính từ GPS thiết bị.'
+        : hasOffset
         ? 'Tài khoản này lệch ${(offsetMeters / 1000).toStringAsFixed(1)} km '
               'so với GPS của thiết bị.'
         : isDemoAccount
         ? 'Tài khoản demo hiện chưa được dịch chuyển vị trí.'
         : 'Tài khoản này không có offset vị trí.';
-    final color = hasOffset
+    final color = isUsingDeviceGps
+        ? AppColors.info
+        : hasOffset
         ? AppColors.accent
         : isDemoAccount
         ? AppColors.warning
@@ -124,7 +134,9 @@ class DriverGpsDemoBanner extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            hasOffset
+            isUsingDeviceGps
+                ? Icons.my_location_rounded
+                : hasOffset
                 ? Icons.compare_arrows_rounded
                 : Icons.location_on_rounded,
             color: color,
