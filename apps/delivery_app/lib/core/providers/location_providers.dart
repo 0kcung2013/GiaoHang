@@ -24,6 +24,10 @@ final currentPositionProvider = FutureProvider<Position?>((ref) async {
   return service.getCurrentPosition();
 });
 
+final driverLocationModeProvider = StateProvider<DriverLocationMode>(
+  (ref) => DriverLocationMode.demoHcm,
+);
+
 /// Order đang sở hữu quyền publish vị trí từ màn navigation.
 ///
 /// Khi có order active, GPS nền ở dashboard phải dừng để không ghi đè vị trí
@@ -37,6 +41,7 @@ final activeDriverNavigationOrderProvider = StateProvider<String?>(
 /// [driverId] = `drivers.id` (profile).
 final driverLocationStreamProvider = StreamProvider.autoDispose
     .family<Position, String>((ref, driverId) {
+      final locationMode = ref.watch(driverLocationModeProvider);
       final activeNavigationOrderId = ref.watch(
         activeDriverNavigationOrderProvider,
       );
@@ -66,6 +71,7 @@ final driverLocationStreamProvider = StreamProvider.autoDispose
             lng: position.longitude,
             heading: position.heading,
             speed: position.speed,
+            coordinateSpace: locationMode.rawGpsCoordinateSpace,
           );
         } finally {
           presenceSyncInFlight = false;
@@ -86,6 +92,7 @@ final driverLocationStreamProvider = StreamProvider.autoDispose
               lng: position.longitude,
               heading: position.heading,
               speed: position.speed,
+              coordinateSpace: locationMode.rawGpsCoordinateSpace,
             ),
           );
         },

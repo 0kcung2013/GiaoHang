@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
+import '../../../../../core/location/driver_location_producer_policy.dart';
 import '../../../../../core/providers/customer_providers.dart';
 import '../../../../../core/providers/location_providers.dart';
 import '../driver_home_strings.dart';
@@ -45,6 +46,7 @@ class _AvailabilityToggleCardState
         await ref
             .read(driverServiceProvider)
             .updateAvailability(widget.driver.id, true);
+        final locationMode = ref.read(driverLocationModeProvider);
         await ref
             .read(locationIngestServiceProvider)
             .ingest(
@@ -54,6 +56,7 @@ class _AvailabilityToggleCardState
               heading: position.heading,
               speed: position.speed,
               force: true,
+              coordinateSpace: locationMode.rawGpsCoordinateSpace,
             );
         ref.invalidate(currentPositionProvider);
       } else {
