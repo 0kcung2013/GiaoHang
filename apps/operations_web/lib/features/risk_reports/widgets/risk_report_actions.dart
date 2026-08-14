@@ -8,18 +8,24 @@ import '../utils/risk_report_ui.dart';
 class RiskReportActionBar extends StatelessWidget {
   const RiskReportActionBar({
     required this.assignedToMe,
+    required this.unassigned,
     required this.submitting,
     required this.transitions,
     required this.onAssign,
     required this.onTransition,
+    this.canTakeOver = false,
+    this.onTakeOver,
     super.key,
   });
 
   final bool assignedToMe;
+  final bool unassigned;
   final bool submitting;
   final List<RiskStatus> transitions;
   final VoidCallback onAssign;
   final ValueChanged<RiskStatus> onTransition;
+  final bool canTakeOver;
+  final VoidCallback? onTakeOver;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +39,7 @@ class RiskReportActionBar extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            if (!assignedToMe) ...[
+            if (!assignedToMe && unassigned) ...[
               OutlinedButton.icon(
                 onPressed: submitting ? null : onAssign,
                 icon: const Icon(Icons.person_add_alt_rounded),
@@ -41,7 +47,25 @@ class RiskReportActionBar extends StatelessWidget {
               ),
               const SizedBox(width: AppSpacing.sm),
             ],
-            for (var index = 0; index < transitions.length; index++) ...[
+            if (!assignedToMe && !unassigned && canTakeOver) ...[
+              OutlinedButton.icon(
+                key: const Key('takeover-risk-report-button'),
+                onPressed: submitting ? null : onTakeOver,
+                icon: const Icon(Icons.admin_panel_settings_outlined),
+                label: const Text('Admin tiếp quản'),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+            ] else if (!assignedToMe && !unassigned)
+              OutlinedButton.icon(
+                onPressed: null,
+                icon: const Icon(Icons.lock_person_outlined),
+                label: const Text(RiskReportStrings.assignedToOther),
+              ),
+            for (
+              var index = 0;
+              assignedToMe && index < transitions.length;
+              index++
+            ) ...[
               if (index > 0) const SizedBox(width: AppSpacing.sm),
               index == 0
                   ? FilledButton.icon(

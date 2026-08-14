@@ -1,12 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:operations_web/features/risk_reports/data/risk_report_repository.dart';
 import 'package:operations_web/features/risk_reports/models/risk_message_evidence.dart';
 import 'package:operations_web/features/risk_reports/models/risk_report.dart';
 import 'package:operations_web/features/risk_reports/screens/risk_reports_view.dart';
+import 'package:operations_web/features/risk_reports/widgets/risk_report_actions.dart';
 
 void main() {
   testWidgets('shows report metrics, filters and risk card', (tester) async {
+    tester.view.physicalSize = const Size(1200, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final repository = _FakeRiskReportRepository([_sampleReport]);
 
     await tester.pumpWidget(
@@ -23,6 +30,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Rủi ro hệ thống'), findsOneWidget);
+    expect(find.text('Tổng quan kiểm soát'), findsOneWidget);
+    expect(find.text('SLA phân loại'), findsOneWidget);
     expect(find.text('Địa chỉ nhận bất thường'), findsOneWidget);
     expect(find.text('GH-00001'), findsOneWidget);
     expect(find.text('Nghiêm trọng'), findsWidgets);
@@ -30,6 +39,58 @@ void main() {
     expect(find.text('Nguyễn An'), findsOneWidget);
     expect(find.text('Quá hạn phân loại'), findsOneWidget);
     expect(find.byKey(const Key('risk-search-field')), findsOneWidget);
+  });
+
+  testWidgets('mine queue only shows reports assigned to current staff', (
+    tester,
+  ) async {
+    final repository = _FakeRiskReportRepository([
+      _normalSortReport,
+      _assignedReport,
+    ]);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RiskReportsView(
+            isAdmin: false,
+            repository: repository,
+            currentUserId: 'staff-2',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Assigned report'), findsNothing);
+    await tester.tap(find.byKey(const Key('risk-queue-mine')));
+    await tester.pump();
+
+    expect(find.text('Assigned report'), findsOneWidget);
+    expect(find.text('Normal report'), findsNothing);
+  });
+
+  testWidgets('action bar requires ownership before status transitions', (
+    tester,
+  ) async {
+    var assigned = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RiskReportActionBar(
+            assignedToMe: false,
+            unassigned: true,
+            submitting: false,
+            transitions: const [RiskStatus.investigating],
+            onAssign: () => assigned = true,
+            onTransition: (_) => fail('Transition must stay locked.'),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Đang xác minh'), findsNothing);
+    await tester.tap(find.text('Nhận và bắt đầu xác minh'));
+    expect(assigned, isTrue);
   });
 
   testWidgets('prioritizes overdue triage reports in the queue', (
@@ -85,6 +146,33 @@ void main() {
 
     expect(find.text('Không có báo cáo phù hợp'), findsOneWidget);
   });
+
+  testWidgets('refreshes the queue when a realtime report change arrives', (
+    tester,
+  ) async {
+    final repository = _RealtimeRiskReportRepository([_sampleReport]);
+    addTearDown(repository.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RiskReportsView(
+            isAdmin: false,
+            repository: repository,
+            currentUserId: 'staff-2',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(repository.fetchCount, 1);
+
+    repository.reports.add(_normalSortReport);
+    repository.emitChange();
+    await tester.pumpAndSettle();
+
+    expect(repository.fetchCount, 2);
+  });
 }
 
 final _sampleReport = RiskReport(
@@ -104,6 +192,7 @@ final _sampleReport = RiskReport(
   reporterName: 'Nguyễn An',
   triageDueAt: DateTime(2026, 8, 1, 10, 10),
   escalatedAt: DateTime(2026, 8, 1, 10, 11),
+  interventionState: RiskInterventionState.awaitingTriage,
   order: const RiskOrderSummary(
     trackingCode: 'GH-00001',
     status: 'delivering',
@@ -149,8 +238,31 @@ final _overdueSortReport = RiskReport(
   updatedAt: DateTime(2026, 8, 1, 10, 5),
   triageDueAt: DateTime(2026, 8, 1, 10, 10),
   escalatedAt: DateTime(2026, 8, 1, 10, 11),
+  interventionState: RiskInterventionState.awaitingTriage,
   order: const RiskOrderSummary(
     trackingCode: 'GH-OVERDUE',
+    status: 'delivering',
+    pickupAddress: 'Pickup',
+    deliveryAddress: 'Delivery',
+  ),
+);
+
+final _assignedReport = RiskReport(
+  id: 'assigned-risk',
+  orderId: 'assigned-order',
+  reportedBy: 'customer-2',
+  assignedTo: 'staff-2',
+  assignedToName: 'CSKH Bình',
+  category: RiskCategory.contactIssue,
+  severity: RiskSeverity.medium,
+  status: RiskStatus.investigating,
+  title: 'Assigned report',
+  description: 'Owned by current staff.',
+  resolution: null,
+  createdAt: DateTime(2026, 8, 1, 9),
+  updatedAt: DateTime(2026, 8, 1, 9, 5),
+  order: const RiskOrderSummary(
+    trackingCode: 'GH-ASSIGNED',
     status: 'delivering',
     pickupAddress: 'Pickup',
     deliveryAddress: 'Delivery',
@@ -193,4 +305,24 @@ class _FakeRiskReportRepository implements RiskReportRepository {
 
   @override
   Future<List<RiskReport>> fetchReports() async => reports;
+}
+
+class _RealtimeRiskReportRepository extends _FakeRiskReportRepository
+    implements RiskReportChangesRepository {
+  _RealtimeRiskReportRepository(super.reports);
+
+  final _changes = StreamController<void>.broadcast();
+  int fetchCount = 0;
+
+  void emitChange() => _changes.add(null);
+  Future<void> dispose() => _changes.close();
+
+  @override
+  Stream<void> watchReportChanges() => _changes.stream;
+
+  @override
+  Future<List<RiskReport>> fetchReports() async {
+    fetchCount += 1;
+    return reports;
+  }
 }

@@ -1,5 +1,7 @@
 export 'package:giaohang_domain/giaohang_domain.dart'
     show
+        CaseMessage,
+        CaseMessageVisibility,
         RiskCategory,
         RiskEvidenceType,
         RiskIntervention,
@@ -9,6 +11,8 @@ export 'package:giaohang_domain/giaohang_domain.dart'
         RiskReportAttachment,
         RiskReportDraft,
         RiskReportEvent,
+        RiskReportNote,
         RiskReporterRole,
+        RiskScope,
         RiskSeverity,
         RiskStatus;

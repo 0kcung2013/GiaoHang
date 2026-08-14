@@ -17,6 +17,7 @@ class RiskReportFormState {
     this.descriptionError,
     this.photoError,
     this.isSubmitting = false,
+    this.submissionPhase,
     this.errorMessage,
     this.result,
   });
@@ -33,6 +34,7 @@ class RiskReportFormState {
   final String? descriptionError;
   final String? photoError;
   final bool isSubmitting;
+  final RiskReportSubmissionPhase? submissionPhase;
   final String? errorMessage;
   final RiskReportSubmissionResult? result;
 
@@ -49,6 +51,7 @@ class RiskReportFormState {
     String? descriptionError,
     String? photoError,
     bool? isSubmitting,
+    RiskReportSubmissionPhase? submissionPhase,
     String? errorMessage,
     RiskReportSubmissionResult? result,
     bool clearCategoryError = false,
@@ -56,6 +59,7 @@ class RiskReportFormState {
     bool clearPhotoError = false,
     bool clearErrorMessage = false,
     bool clearLocation = false,
+    bool clearSubmissionPhase = false,
   }) {
     return RiskReportFormState(
       step: step ?? this.step,
@@ -76,6 +80,9 @@ class RiskReportFormState {
           : descriptionError ?? this.descriptionError,
       photoError: clearPhotoError ? null : photoError ?? this.photoError,
       isSubmitting: isSubmitting ?? this.isSubmitting,
+      submissionPhase: clearSubmissionPhase
+          ? null
+          : submissionPhase ?? this.submissionPhase,
       errorMessage: clearErrorMessage
           ? null
           : errorMessage ?? this.errorMessage,
@@ -188,7 +195,13 @@ class RiskReportFormController extends ChangeNotifier {
       return null;
     }
 
-    _update(_state.copyWith(isSubmitting: true, clearErrorMessage: true));
+    _update(
+      _state.copyWith(
+        isSubmitting: true,
+        clearErrorMessage: true,
+        clearSubmissionPhase: true,
+      ),
+    );
     try {
       final result = await _repository.submit(
         ParticipantRiskReportDraft(
@@ -201,6 +214,9 @@ class RiskReportFormController extends ChangeNotifier {
           locationCapturedAt: _state.locationCapturedAt,
           messageIds: _state.messageIds,
         ),
+        onProgress: (phase) {
+          _update(_state.copyWith(submissionPhase: phase));
+        },
       );
       _update(_state.copyWith(result: result));
       return result;
@@ -215,7 +231,7 @@ class RiskReportFormController extends ChangeNotifier {
       );
       return null;
     } finally {
-      _update(_state.copyWith(isSubmitting: false));
+      _update(_state.copyWith(isSubmitting: false, clearSubmissionPhase: true));
     }
   }
 

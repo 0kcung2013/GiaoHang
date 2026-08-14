@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -9,10 +10,13 @@ import '../data/risk_report_repository.dart';
 import '../dialogs/create_risk_report_dialog.dart';
 import '../dialogs/risk_report_detail_dialog.dart';
 import '../models/risk_report.dart';
+import '../models/risk_queue_scope.dart';
 import '../widgets/risk_report_card.dart';
+import '../widgets/risk_admin_overview.dart';
 import '../widgets/risk_report_filters.dart';
 import '../widgets/risk_report_header.dart';
 import '../widgets/risk_report_states.dart';
+import '../widgets/risk_queue_tabs.dart';
 
 class RiskReportsView extends StatefulWidget {
   const RiskReportsView({
@@ -34,9 +38,12 @@ class _RiskReportsViewState extends State<RiskReportsView> {
   final _searchController = TextEditingController();
   late final RiskReportRepository _repository;
   late final String _currentUserId;
+  StreamSubscription<void>? _reportChangesSubscription;
   List<RiskReport> _reports = const [];
+  RiskDashboardMetrics? _dashboardMetrics;
   RiskSeverity? _severity;
   RiskStatus? _status;
+  RiskQueueScope _scope = RiskQueueScope.newReports;
   String _query = '';
   bool _loading = true;
   String? _error;
@@ -44,19 +51,46 @@ class _RiskReportsViewState extends State<RiskReportsView> {
   List<RiskReport> get _filteredReports {
     final normalizedQuery = _query.trim().toLowerCase();
     final filtered = _reports.where((report) {
+      if (!_matchesScope(report, _scope)) return false;
       if (_severity != null && report.severity != _severity) return false;
       if (_status != null && report.status != _status) return false;
       if (normalizedQuery.isEmpty) return true;
       return report.title.toLowerCase().contains(normalizedQuery) ||
-          report.order.trackingCode.toLowerCase().contains(normalizedQuery);
+          report.description.toLowerCase().contains(normalizedQuery) ||
+          report.order.trackingCode.toLowerCase().contains(normalizedQuery) ||
+          (report.component ?? '').toLowerCase().contains(normalizedQuery) ||
+          (report.reporterName ?? '').toLowerCase().contains(normalizedQuery) ||
+          (report.assignedToName ?? '').toLowerCase().contains(normalizedQuery);
     }).toList();
     filtered.sort((left, right) {
-      if (left.triageOverdue != right.triageOverdue) {
-        return left.triageOverdue ? -1 : 1;
+      final leftOverdue = left.responseOverdue || left.triageOverdue;
+      final rightOverdue = right.responseOverdue || right.triageOverdue;
+      if (leftOverdue != rightOverdue) {
+        return leftOverdue ? -1 : 1;
       }
       return right.updatedAt.compareTo(left.updatedAt);
     });
     return filtered;
+  }
+
+  bool _matchesScope(RiskReport report, RiskQueueScope scope) =>
+      switch (scope) {
+        RiskQueueScope.newReports =>
+          report.status == RiskStatus.open && report.assignedTo == null,
+        RiskQueueScope.overdue =>
+          report.responseOverdue || report.triageOverdue,
+        RiskQueueScope.mine =>
+          !report.status.isClosed && report.assignedTo == _currentUserId,
+        RiskQueueScope.waitingAdmin =>
+          !report.status.isClosed &&
+              (report.status == RiskStatus.waitingAdmin ||
+                  report.severity == RiskSeverity.critical),
+        RiskQueueScope.closed => report.status.isClosed,
+        RiskQueueScope.all => true,
+      };
+
+  int _countForScope(RiskQueueScope scope) {
+    return _reports.where((report) => _matchesScope(report, scope)).length;
   }
 
   @override
@@ -71,27 +105,54 @@ class _RiskReportsViewState extends State<RiskReportsView> {
       _currentUserId =
           widget.currentUserId ?? client.auth.currentUser?.id ?? '';
     }
+    _subscribeToReportChanges();
     _loadReports();
   }
 
   @override
   void dispose() {
+    unawaited(_reportChangesSubscription?.cancel());
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadReports() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  void _subscribeToReportChanges() {
+    final repository = _repository;
+    if (repository is! RiskReportChangesRepository) return;
+    final realtimeRepository = repository as RiskReportChangesRepository;
+    _reportChangesSubscription = realtimeRepository.watchReportChanges().listen(
+      (_) => _loadReports(showLoading: false),
+    );
+  }
+
+  Future<void> _loadReports({bool showLoading = true}) async {
+    if (showLoading) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final reports = await _repository.fetchReports();
-      if (mounted) setState(() => _reports = reports);
+      RiskDashboardMetrics? dashboardMetrics;
+      final repository = _repository;
+      if (widget.isAdmin && repository is RiskDashboardRepository) {
+        final dashboard = repository as RiskDashboardRepository;
+        dashboardMetrics = await dashboard.fetchDashboardMetrics();
+      }
+      if (mounted) {
+        setState(() {
+          _reports = reports;
+          _dashboardMetrics = dashboardMetrics;
+          _error = null;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() => _error = RiskReportStrings.loadError);
+      if (showLoading && mounted) {
+        setState(() => _error = RiskReportStrings.loadError);
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (showLoading && mounted) setState(() => _loading = false);
     }
   }
 
@@ -164,12 +225,27 @@ class _RiskReportsViewState extends State<RiskReportsView> {
                   ),
                 ),
               ),
+              if (widget.isAdmin)
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    16,
+                    horizontalPadding,
+                    0,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: RiskAdminOverview(
+                      reports: _reports,
+                      metrics: _dashboardMetrics,
+                    ),
+                  ),
+                ),
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(
                   horizontalPadding,
                   20,
                   horizontalPadding,
-                  16,
+                  12,
                 ),
                 sliver: SliverToBoxAdapter(
                   child: RiskReportFilters(
@@ -180,6 +256,21 @@ class _RiskReportsViewState extends State<RiskReportsView> {
                     onSeverityChanged: (value) =>
                         setState(() => _severity = value),
                     onStatusChanged: (value) => setState(() => _status = value),
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  horizontalPadding,
+                  0,
+                  horizontalPadding,
+                  16,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: RiskQueueTabs(
+                    value: _scope,
+                    countFor: _countForScope,
+                    onChanged: (value) => setState(() => _scope = value),
                   ),
                 ),
               ),

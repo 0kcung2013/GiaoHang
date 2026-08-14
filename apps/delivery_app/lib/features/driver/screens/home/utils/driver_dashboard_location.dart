@@ -15,11 +15,7 @@ LatLng? resolveDriverDashboardPosition({
   double? storedLng,
 }) {
   if (_isValid(rawLat, rawLng)) {
-    return locationMode.resolveRawGps(
-      email: email,
-      lat: rawLat!,
-      lng: rawLng!,
-    );
+    return locationMode.resolveRawGps(email: email, lat: rawLat!, lng: rawLng!);
   }
   if (_isValid(storedLat, storedLng)) {
     return LatLng(storedLat!, storedLng!);

@@ -8,6 +8,14 @@ void main() {
     '202608110001_manual_order_risk_reporting.sql',
   );
 
+  String allMigrationSql() => Directory('../../supabase/migrations')
+      .listSync()
+      .whereType<File>()
+      .where((file) => file.path.endsWith('.sql'))
+      .map((file) => file.readAsStringSync())
+      .join('\n')
+      .toLowerCase();
+
   test(
     'participant report command derives identity and restricts ownership',
     () {
@@ -40,7 +48,7 @@ void main() {
       );
       expect(
         sql,
-      contains("storage.foldername(photo_path))[2] <> p_report_id::text"),
+        contains("storage.foldername(photo_path))[2] <> p_report_id::text"),
       );
       expect(sql, contains('message.order_id = p_order_id'));
       expect(sql, contains('insert into public.risk_report_message_evidence'));
@@ -71,6 +79,28 @@ void main() {
         contains('create policy risk_message_evidence_participant_select'),
       );
       expect(sql, contains('report.reported_by = (select auth.uid())'));
+    },
+  );
+
+  test(
+    'uploader can read evidence metadata before attachment registration',
+    () {
+      final sql = allMigrationSql();
+      final policy = RegExp(
+        r'create policy risk_evidence_select_own_prefix[\s\S]*?;',
+      ).firstMatch(sql)?.group(0);
+
+      expect(policy, isNotNull);
+      expect(policy, contains('on storage.objects'));
+      expect(policy, contains('for select'));
+      expect(policy, contains('to authenticated'));
+      expect(policy, contains("bucket_id = 'risk-report-evidence'"));
+      expect(
+        policy,
+        contains("storage.foldername(name))[1] = (select auth.uid())::text"),
+      );
+      expect(policy, contains('owner_id = (select auth.uid())::text'));
+      expect(policy, isNot(contains('risk_report_attachments')));
     },
   );
 }

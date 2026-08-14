@@ -3,6 +3,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 
 import '../models/risk_report.dart';
 import '../utils/risk_report_ui.dart';
+import '../widgets/risk_scope_selector.dart';
 
 class CreateRiskReportDialog extends StatefulWidget {
   const CreateRiskReportDialog({super.key});
@@ -14,14 +15,17 @@ class CreateRiskReportDialog extends StatefulWidget {
 class _CreateRiskReportDialogState extends State<CreateRiskReportDialog> {
   final _formKey = GlobalKey<FormState>();
   final _trackingCode = TextEditingController();
+  final _component = TextEditingController();
   final _title = TextEditingController();
   final _description = TextEditingController();
   RiskCategory _category = RiskCategory.deliveryDelay;
   RiskSeverity _severity = RiskSeverity.medium;
+  RiskScope _scope = RiskScope.order;
 
   @override
   void dispose() {
     _trackingCode.dispose();
+    _component.dispose();
     _title.dispose();
     _description.dispose();
     super.dispose();
@@ -32,6 +36,8 @@ class _CreateRiskReportDialogState extends State<CreateRiskReportDialog> {
     Navigator.of(context).pop(
       RiskReportDraft(
         trackingCode: _trackingCode.text,
+        scope: _scope,
+        component: _scope == RiskScope.system ? _component.text : null,
         category: _category,
         severity: _severity,
         title: _title.text,
@@ -67,18 +73,42 @@ class _CreateRiskReportDialogState extends State<CreateRiskReportDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _Label(text: 'Mã vận đơn'),
+                        const _Label(text: 'Phạm vi sự cố'),
+                        const SizedBox(height: AppSpacing.sm),
+                        RiskScopeSelector(
+                          value: _scope,
+                          onChanged: (value) => setState(() {
+                            _scope = value;
+                            if (value == RiskScope.system) {
+                              _category = RiskCategory.system;
+                            }
+                          }),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        _Label(
+                          text: _scope == RiskScope.order
+                              ? 'Mã vận đơn'
+                              : 'Thành phần hệ thống',
+                        ),
                         const SizedBox(height: AppSpacing.sm),
                         TextFormField(
                           key: const Key('risk-tracking-code-field'),
-                          controller: _trackingCode,
+                          controller: _scope == RiskScope.order
+                              ? _trackingCode
+                              : _component,
                           textCapitalization: TextCapitalization.characters,
                           decoration: _decoration(
-                            hint: 'Ví dụ: GH-00001',
-                            icon: Icons.inventory_2_outlined,
+                            hint: _scope == RiskScope.order
+                                ? 'Ví dụ: GH-00001'
+                                : 'Ví dụ: Đăng nhập, Theo dõi, OSRM',
+                            icon: _scope == RiskScope.order
+                                ? Icons.inventory_2_outlined
+                                : Icons.dns_outlined,
                           ),
                           validator: (value) => (value?.trim().isEmpty ?? true)
-                              ? 'Vui lòng nhập mã vận đơn.'
+                              ? _scope == RiskScope.order
+                                    ? 'Vui lòng nhập mã vận đơn.'
+                                    : 'Vui lòng nhập thành phần bị ảnh hưởng.'
                               : null,
                         ),
                         const SizedBox(height: AppSpacing.lg),
@@ -251,7 +281,7 @@ class _DialogHeader extends StatelessWidget {
               children: [
                 Text('Báo cáo rủi ro', style: AppTextStyles.headingMedium),
                 Text(
-                  'Gắn bằng chứng với một đơn hàng',
+                  'Theo dõi sự cố theo đơn hoặc toàn hệ thống',
                   style: AppTextStyles.bodySmall.copyWith(
                     color: AppColors.textSecondary,
                   ),

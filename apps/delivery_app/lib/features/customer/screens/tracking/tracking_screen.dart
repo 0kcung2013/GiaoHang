@@ -12,7 +12,6 @@ import '../../../../core/models/order_status_log_model.dart';
 import '../../../../core/providers/customer_providers.dart';
 import '../../../../core/providers/location_providers.dart';
 import '../../../../core/services/osrm_service.dart';
-import '../../../../core/utils/delivery_map_utils.dart';
 import '../../../../core/utils/delivery_traffic_route_analyzer.dart';
 import '../../../../core/utils/text_encoding_utils.dart';
 import '../../../../core/widgets/delivery_map_markers.dart';
@@ -25,11 +24,13 @@ import '../order/order_helpers.dart';
 import 'utils/tracking_driver_position.dart';
 import 'utils/tracking_location_motion.dart';
 import 'utils/tracking_map_phase.dart';
+import 'utils/tracking_traffic_route.dart';
 import 'widgets/assigned_driver_card.dart';
 
 part 'tracking_widgets.dart';
 part 'tracking_helpers.dart';
 part 'widgets/tracking_map.dart';
+part 'widgets/tracking_map_canvas.dart';
 
 class TrackingScreen extends ConsumerStatefulWidget {
   const TrackingScreen({super.key, this.initialTrackingCode});

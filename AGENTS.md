@@ -132,6 +132,14 @@ Quan trọng: không thay đổi Supabase schema, RLS policies, migrations, Edge
 - When implementing features, report if any touched file exceeds 400 lines.
 - Before modifying a large file, propose a split plan first.
 
+## Verification / Test Scope
+
+- Chỉ chạy test và analyze tập trung cho feature, package hoặc file vừa sửa.
+- Không chạy toàn bộ test suite, build toàn app, hoặc kiểm tra end-to-end sau mỗi thay đổi nhỏ.
+- Gộp các thay đổi liên quan rồi mới chạy một lượt kiểm tra tập trung để tránh lặp lại thời gian khởi động Flutter.
+- Chỉ chạy full test suite hoặc build phát hành khi người dùng yêu cầu rõ, hoặc khi thay đổi có ảnh hưởng xuyên toàn hệ thống; nếu cần, báo trước lý do.
+- Khi báo cáo kết quả, nêu rõ những test đã chạy và phần nào chưa chạy.
+
 Recommended customer order structure:
 
 ```text

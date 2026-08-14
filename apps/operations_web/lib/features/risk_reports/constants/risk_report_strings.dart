@@ -10,10 +10,19 @@ class RiskReportStrings {
   static const noResults = 'Không có báo cáo phù hợp';
   static const loadError = 'Không thể tải báo cáo rủi ro.';
   static const retry = 'Thử lại';
-  static const takeOwnership = 'Tiếp nhận báo cáo';
+  static const takeOwnership = 'Nhận và bắt đầu xác minh';
   static const assignedToYou = 'Bạn đang phụ trách';
   static const unassigned = 'Chưa phân công';
+  static const assignedToOther = 'Đang do nhân viên khác phụ trách';
   static const evidenceTitle = 'Ảnh và vị trí';
   static const noAttachments = 'Không có ảnh hoặc vị trí đính kèm.';
   static const openMap = 'Mở bản đồ';
+  static const adminOverview = 'Tổng quan kiểm soát';
+  static const adminOverviewHint = 'Tối đa 200 báo cáo cập nhật gần nhất';
+  static const triageSla = 'SLA phân loại';
+  static const activeCritical = 'Nghiêm trọng đang mở';
+  static const awaitingDecision = 'Chờ quyết định vận hành';
+  static const closedRate = 'Tỷ lệ kết thúc';
+  static const categoryDistribution = 'Phân bố nhóm sự cố';
+  static const noCategoryData = 'Chưa có dữ liệu phân loại.';
 }

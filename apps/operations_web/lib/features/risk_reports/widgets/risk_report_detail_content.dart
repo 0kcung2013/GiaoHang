@@ -47,7 +47,7 @@ class RiskReportDetailHeader extends StatelessWidget {
                   style: AppTextStyles.headingMedium,
                 ),
                 Text(
-                  '${report.order.trackingCode} · '
+                  '${report.isSystemIncident ? 'Sự cố hệ thống' : report.order.trackingCode} · '
                   '${RiskReportUi.formatDateTime(report.createdAt)}',
                   style: AppTextStyles.bodySmall.copyWith(
                     color: AppColors.textSecondary,
@@ -73,6 +73,41 @@ class RiskOrderRoute extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (report.isSystemIncident) {
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.06),
+          borderRadius: AppRadius.lg,
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.dns_outlined, color: AppColors.primary),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Phạm vi toàn hệ thống',
+                    style: AppTextStyles.labelMedium,
+                  ),
+                  Text(
+                    report.component?.trim().isNotEmpty == true
+                        ? 'Thành phần: ${report.component}'
+                        : 'Chưa xác định thành phần bị ảnh hưởng',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(

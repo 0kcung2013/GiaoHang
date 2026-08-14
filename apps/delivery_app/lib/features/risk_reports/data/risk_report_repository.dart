@@ -1,5 +1,4 @@
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 import 'package:image/image.dart' as image_lib;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -37,8 +36,21 @@ class ParticipantRiskReportDraft {
 }
 
 abstract interface class ParticipantRiskReportRepository {
-  Future<RiskReportSubmissionResult> submit(ParticipantRiskReportDraft draft);
+  Future<RiskReportSubmissionResult> submit(
+    ParticipantRiskReportDraft draft, {
+    RiskReportProgressCallback? onProgress,
+  });
 }
+
+enum RiskReportSubmissionPhase {
+  checkingDuplicate,
+  processingImages,
+  uploadingImages,
+  sendingReport,
+}
+
+typedef RiskReportProgressCallback =
+    void Function(RiskReportSubmissionPhase phase);
 
 enum RiskReportErrorCode {
   unauthorized,
@@ -64,6 +76,8 @@ class RiskReportRepositoryException implements Exception {
 
 typedef _CurrentUserId = String? Function();
 typedef _CreateId = String Function();
+typedef _CheckDuplicate =
+    Future<bool> Function(String orderId, RiskCategory category);
 typedef _ProcessPhoto = Future<Uint8List> Function(Uint8List bytes);
 typedef _UploadEvidence = Future<void> Function(String path, Uint8List bytes);
 typedef _RemoveEvidence = Future<void> Function(List<String> paths);
@@ -76,6 +90,15 @@ class SupabaseParticipantRiskReportRepository
         currentUserId: () =>
             (client ?? Supabase.instance.client).auth.currentUser?.id,
         createId: const Uuid().v4,
+        checkDuplicate: (orderId, category) async {
+          return (client ?? Supabase.instance.client).rpc<bool>(
+            'has_active_participant_risk_report',
+            params: {
+              'p_order_id': orderId,
+              'p_category': category.databaseValue,
+            },
+          );
+        },
         processPhoto: _compressPhoto,
         upload: (path, bytes) async {
           await (client ?? Supabase.instance.client).storage
@@ -105,6 +128,7 @@ class SupabaseParticipantRiskReportRepository
   SupabaseParticipantRiskReportRepository.test({
     required String? Function() currentUserId,
     required String Function() createId,
+    required Future<bool> Function(String, RiskCategory) checkDuplicate,
     required Future<Uint8List> Function(Uint8List bytes) processPhoto,
     required Future<void> Function(String path, Uint8List bytes) upload,
     required Future<void> Function(List<String> paths) remove,
@@ -112,6 +136,7 @@ class SupabaseParticipantRiskReportRepository
   }) : this._(
          currentUserId: currentUserId,
          createId: createId,
+         checkDuplicate: checkDuplicate,
          processPhoto: processPhoto,
          upload: upload,
          remove: remove,
@@ -121,12 +146,14 @@ class SupabaseParticipantRiskReportRepository
   SupabaseParticipantRiskReportRepository._({
     required _CurrentUserId currentUserId,
     required _CreateId createId,
+    required _CheckDuplicate checkDuplicate,
     required _ProcessPhoto processPhoto,
     required _UploadEvidence upload,
     required _RemoveEvidence remove,
     required _InvokeCreate invokeCreate,
   }) : _currentUserId = currentUserId,
        _createId = createId,
+       _checkDuplicate = checkDuplicate,
        _processPhoto = processPhoto,
        _upload = upload,
        _remove = remove,
@@ -134,6 +161,7 @@ class SupabaseParticipantRiskReportRepository
 
   final _CurrentUserId _currentUserId;
   final _CreateId _createId;
+  final _CheckDuplicate _checkDuplicate;
   final _ProcessPhoto _processPhoto;
   final _UploadEvidence _upload;
   final _RemoveEvidence _remove;
@@ -141,8 +169,9 @@ class SupabaseParticipantRiskReportRepository
 
   @override
   Future<RiskReportSubmissionResult> submit(
-    ParticipantRiskReportDraft draft,
-  ) async {
+    ParticipantRiskReportDraft draft, {
+    RiskReportProgressCallback? onProgress,
+  }) async {
     final userId = _currentUserId();
     if (userId == null) {
       throw const RiskReportRepositoryException(
@@ -157,22 +186,60 @@ class SupabaseParticipantRiskReportRepository
       );
     }
 
-    final reportId = _createId();
-    final uploadedPaths = <String>[];
+    onProgress?.call(RiskReportSubmissionPhase.checkingDuplicate);
     try {
-      for (final photo in draft.photos) {
-        final fileId = _createId();
-        final path = '$userId/$reportId/$fileId.jpg';
-        final bytes = await _processPhoto(photo.bytes);
-        await _upload(path, bytes);
-        uploadedPaths.add(path);
+      if (await _checkDuplicate(draft.orderId, draft.category)) {
+        throw const RiskReportRepositoryException(
+          code: RiskReportErrorCode.duplicate,
+          userMessage: 'Sự cố này đã được báo cáo và đang được CSKH xử lý.',
+        );
       }
-    } catch (_) {
-      await _bestEffortCleanup(uploadedPaths);
-      throw const RiskReportRepositoryException(
-        code: RiskReportErrorCode.uploadFailed,
-        userMessage: 'Không thể tải ảnh lên. Vui lòng thử lại.',
-      );
+    } catch (error) {
+      throw _mapError(error);
+    }
+
+    final reportId = _createId();
+    var preparedPhotos = <_PreparedRiskPhoto>[];
+    if (draft.photos.isNotEmpty) {
+      onProgress?.call(RiskReportSubmissionPhase.processingImages);
+      try {
+        preparedPhotos = await _mapWithConcurrency(
+          draft.photos,
+          limit: 2,
+          convert: (photo, _) async => _PreparedRiskPhoto(
+            path: '$userId/$reportId/${_createId()}.jpg',
+            bytes: await _processPhoto(photo.bytes),
+          ),
+        );
+      } catch (error) {
+        if (error is RiskReportRepositoryException) rethrow;
+        throw const RiskReportRepositoryException(
+          code: RiskReportErrorCode.validation,
+          userMessage: 'Không thể xử lý ảnh đã chọn. Vui lòng chọn ảnh khác.',
+        );
+      }
+    }
+
+    final uploadedPaths = <String>[];
+    if (preparedPhotos.isNotEmpty) {
+      onProgress?.call(RiskReportSubmissionPhase.uploadingImages);
+      try {
+        await _mapWithConcurrency(
+          preparedPhotos,
+          limit: 2,
+          convert: (photo, _) async {
+            await _upload(photo.path, photo.bytes);
+            uploadedPaths.add(photo.path);
+            return photo.path;
+          },
+        );
+      } catch (_) {
+        await _bestEffortCleanup(uploadedPaths);
+        throw const RiskReportRepositoryException(
+          code: RiskReportErrorCode.uploadFailed,
+          userMessage: 'Không thể tải ảnh lên. Vui lòng thử lại.',
+        );
+      }
     }
 
     final submission = RiskReportSubmission(
@@ -186,6 +253,7 @@ class SupabaseParticipantRiskReportRepository
       locationCapturedAt: draft.locationCapturedAt,
       messageIds: draft.messageIds,
     );
+    onProgress?.call(RiskReportSubmissionPhase.sendingReport);
     try {
       final response = await _invokeCreate(submission.toRpcJson());
       return RiskReportSubmissionResult.fromJson(_firstRow(response));
@@ -244,20 +312,54 @@ class SupabaseParticipantRiskReportRepository
   }
 
   static Future<Uint8List> _compressPhoto(Uint8List bytes) async {
-    final decoded = image_lib.decodeImage(bytes);
-    if (decoded == null) {
-      throw const RiskReportRepositoryException(
-        code: RiskReportErrorCode.validation,
-        userMessage: 'Ảnh đã chọn không hợp lệ.',
-      );
-    }
-    final resized = decoded.width > 1600 || decoded.height > 1600
-        ? image_lib.copyResize(
-            decoded,
-            width: decoded.width >= decoded.height ? 1600 : null,
-            height: decoded.height > decoded.width ? 1600 : null,
-          )
-        : decoded;
-    return Uint8List.fromList(image_lib.encodeJpg(resized, quality: 82));
+    return compute(_compressRiskPhoto, bytes);
   }
+}
+
+class _PreparedRiskPhoto {
+  const _PreparedRiskPhoto({required this.path, required this.bytes});
+
+  final String path;
+  final Uint8List bytes;
+}
+
+Future<List<R>> _mapWithConcurrency<T, R>(
+  List<T> items, {
+  required int limit,
+  required Future<R> Function(T item, int index) convert,
+}) async {
+  if (items.isEmpty) return <R>[];
+
+  final results = List<R?>.filled(items.length, null);
+  var nextIndex = 0;
+
+  Future<void> worker() async {
+    while (nextIndex < items.length) {
+      final index = nextIndex;
+      nextIndex += 1;
+      results[index] = await convert(items[index], index);
+    }
+  }
+
+  final workerCount = items.length < limit ? items.length : limit;
+  await Future.wait(List.generate(workerCount, (_) => worker()));
+  return results.cast<R>();
+}
+
+Uint8List _compressRiskPhoto(Uint8List bytes) {
+  final decoded = image_lib.decodeImage(bytes);
+  if (decoded == null) {
+    throw const RiskReportRepositoryException(
+      code: RiskReportErrorCode.validation,
+      userMessage: 'Ảnh đã chọn không hợp lệ.',
+    );
+  }
+  final resized = decoded.width > 1600 || decoded.height > 1600
+      ? image_lib.copyResize(
+          decoded,
+          width: decoded.width >= decoded.height ? 1600 : null,
+          height: decoded.height > decoded.width ? 1600 : null,
+        )
+      : decoded;
+  return Uint8List.fromList(image_lib.encodeJpg(resized, quality: 82));
 }

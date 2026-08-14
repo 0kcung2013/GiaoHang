@@ -24,7 +24,9 @@ class RiskReportCard extends StatelessWidget {
     final assignedToMe = report.assignedTo == currentUserId;
     return Semantics(
       button: true,
-      label: 'Mở báo cáo ${report.title}, đơn ${report.order.trackingCode}',
+      label: report.isSystemIncident
+          ? 'Mở báo cáo hệ thống ${report.title}'
+          : 'Mở báo cáo ${report.title}, đơn ${report.order.trackingCode}',
       child: Material(
         color: AppColors.bgCard,
         borderRadius: AppRadius.lg,
@@ -93,14 +95,18 @@ class RiskReportCard extends StatelessWidget {
                           const SizedBox(height: AppSpacing.sm),
                           Row(
                             children: [
-                              const Icon(
-                                Icons.inventory_2_outlined,
+                              Icon(
+                                report.isSystemIncident
+                                    ? Icons.dns_outlined
+                                    : Icons.inventory_2_outlined,
                                 size: 16,
                                 color: AppColors.textSecondary,
                               ),
                               const SizedBox(width: AppSpacing.xs),
                               Text(
-                                report.order.trackingCode,
+                                report.isSystemIncident
+                                    ? (report.component ?? 'Toàn hệ thống')
+                                    : report.order.trackingCode,
                                 style: AppTextStyles.mono.copyWith(
                                   color: AppColors.primary,
                                 ),
@@ -142,9 +148,12 @@ class RiskReportCard extends StatelessWidget {
                                     color: AppColors.textSecondary,
                                   ),
                                 ),
-                              if (report.triageOverdue)
-                                const RiskBadge(
-                                  label: 'Quá hạn phân loại',
+                              if (report.responseOverdue ||
+                                  report.triageOverdue)
+                                RiskBadge(
+                                  label: report.responseOverdue
+                                      ? 'Quá hạn phản hồi'
+                                      : 'Quá hạn phân loại',
                                   color: AppColors.error,
                                   icon: Icons.timer_off_outlined,
                                 ),
@@ -176,7 +185,9 @@ class RiskReportCard extends StatelessWidget {
                                         ? RiskReportStrings.assignedToYou
                                         : report.assignedTo == null
                                         ? RiskReportStrings.unassigned
-                                        : 'Đã có người phụ trách',
+                                        : (report.assignedToName ??
+                                              RiskReportStrings
+                                                  .assignedToOther),
                                     style: AppTextStyles.bodySmall.copyWith(
                                       color: assignedToMe
                                           ? AppColors.success

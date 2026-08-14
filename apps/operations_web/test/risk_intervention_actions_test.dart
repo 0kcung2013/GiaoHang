@@ -53,6 +53,9 @@ void main() {
     );
     await tester.tap(find.text('Giữ đơn & giải phóng tài xế'));
     await tester.pumpAndSettle();
+    expect(held, isFalse);
+    await tester.tap(find.byKey(const Key('confirm-risk-operation')));
+    await tester.pumpAndSettle();
     expect(held, isTrue);
   });
 
@@ -92,6 +95,65 @@ void main() {
     await tester.pumpAndSettle();
     expect(decision, RiskInterventionState.returnRequired);
     expect(instruction, 'Hoàn hàng tại kho trung tâm.');
+  });
+
+  testWidgets('renders staff-only note history', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RiskInterventionPanel(
+            report: _report(),
+            intervention: _intervention(RiskInterventionState.continueDelivery),
+            orderStatus: 'delivering',
+            notes: [
+              RiskReportNote(
+                id: 'note-1',
+                riskReportId: 'risk-1',
+                authorId: 'staff-1',
+                body: 'Đã gọi xác minh với khách hàng.',
+                createdAt: DateTime(2026),
+                authorName: 'CSKH An',
+              ),
+            ],
+            onHoldBeforePickup: () async {},
+            onDecision: (_, _) async {},
+            onConfirmCustody: () async {},
+            onResumeOrder: () async {},
+            onAddNote: (_) async {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Đã gọi xác minh với khách hàng.'), findsOneWidget);
+    expect(find.textContaining('CSKH An'), findsOneWidget);
+  });
+
+  testWidgets('blocks intervention when another staff owns the report', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RiskInterventionPanel(
+            report: _report(),
+            intervention: _intervention(RiskInterventionState.awaitingTriage),
+            orderStatus: 'delivering',
+            canManage: false,
+            managementBlockedMessage: 'Hồ sơ đang do CSKH Bình phụ trách.',
+            onHoldBeforePickup: () async {},
+            onDecision: (_, _) async {},
+            onConfirmCustody: () async {},
+            onResumeOrder: () async {},
+            onAddNote: (_) async {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Hồ sơ đang do CSKH Bình phụ trách.'), findsOneWidget);
+    expect(find.text('Tiếp tục giao'), findsNothing);
+    expect(find.byKey(const Key('risk-internal-note')), findsNothing);
   });
 }
 

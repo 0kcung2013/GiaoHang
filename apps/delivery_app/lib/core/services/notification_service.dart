@@ -5,14 +5,24 @@ import '../models/notification_model.dart';
 
 /// Các type notification dùng trong app.
 ///
-/// Phải khớp CHECK constraint `notifications_type_check` trên Supabase:
-/// chỉ cho phép: `order_update`, `system`, `promotion`.
+/// Phải khớp CHECK constraint `notifications_type_check` trên Supabase.
 class NotificationTypes {
   NotificationTypes._();
 
   static const orderUpdate = 'order_update';
   static const system = 'system';
   static const promotion = 'promotion';
+  static const supportTicketCreated = 'support_ticket_created';
+  static const supportTicketAccepted = 'support_ticket_accepted';
+  static const supportTicketStatus = 'support_ticket_status';
+  static const supportTicketMessage = 'support_ticket_message';
+  static const supportTicketConverted = 'support_ticket_converted';
+  static const riskReportAccepted = 'risk_report_accepted';
+  static const riskReportStatus = 'risk_report_status';
+  static const riskReportMessage = 'risk_report_message';
+
+  static bool isCaseManagement(String value) =>
+      value.startsWith('support_ticket_') || value.startsWith('risk_report_');
 
   // Alias semantic — cùng map về order_update (DB constraint).
   static const orderNew = orderUpdate;

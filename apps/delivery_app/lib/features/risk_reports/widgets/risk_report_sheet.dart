@@ -21,6 +21,7 @@ Future<RiskReportSubmissionResult?> showRiskReportSheet(
   BuildContext context, {
   required OrderModel order,
   required RiskReporterRole role,
+  RiskCategory? initialCategory,
   ParticipantRiskReportRepository? repository,
 }) {
   return showModalBottomSheet<RiskReportSubmissionResult>(
@@ -32,6 +33,7 @@ Future<RiskReportSubmissionResult?> showRiskReportSheet(
     builder: (_) => RiskReportSheet(
       order: order,
       role: role,
+      initialCategory: initialCategory,
       repository: repository ?? SupabaseParticipantRiskReportRepository(),
     ),
   );
@@ -42,12 +44,14 @@ class RiskReportSheet extends StatefulWidget {
     required this.order,
     required this.role,
     required this.repository,
+    this.initialCategory,
     super.key,
   });
 
   final OrderModel order;
   final RiskReporterRole role;
   final ParticipantRiskReportRepository repository;
+  final RiskCategory? initialCategory;
 
   @override
   State<RiskReportSheet> createState() => _RiskReportSheetState();
@@ -64,7 +68,13 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
     _controller = RiskReportFormController(
       orderId: widget.order.id,
       repository: widget.repository,
-    )..addListener(_refresh);
+    );
+    final initialCategory = widget.initialCategory;
+    if (initialCategory != null) {
+      _controller.selectCategory(initialCategory);
+      _controller.next();
+    }
+    _controller.addListener(_refresh);
     _descriptionController = TextEditingController();
   }
 
@@ -120,6 +130,7 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
               RiskReportSheetFooter(
                 step: state.step,
                 submitting: state.isSubmitting,
+                submissionLabel: _submissionLabel(state.submissionPhase),
                 errorMessage: state.errorMessage,
                 onBack: _controller.back,
                 onPrimary: state.step < 2 ? _controller.next : _submit,
@@ -258,4 +269,12 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
   }
+
+  String _submissionLabel(RiskReportSubmissionPhase? phase) => switch (phase) {
+    RiskReportSubmissionPhase.checkingDuplicate => 'Đang kiểm tra báo cáo',
+    RiskReportSubmissionPhase.processingImages => 'Đang xử lý ảnh',
+    RiskReportSubmissionPhase.uploadingImages => 'Đang tải ảnh',
+    RiskReportSubmissionPhase.sendingReport => 'Đang gửi báo cáo',
+    null => 'Đang chuẩn bị báo cáo',
+  };
 }

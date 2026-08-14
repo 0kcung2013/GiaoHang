@@ -53,10 +53,10 @@ GoRouter createOperationsRouter() {
         return location == '/unauthorized' ? null : '/unauthorized';
       }
       if (location == '/' || location == '/login') {
-        return role == 'admin' ? '/admin-home' : '/support-home';
+        return role == 'admin' ? '/admin-home' : '/support-risk';
       }
       if (location.startsWith('/admin') && role != 'admin') {
-        return '/support-home';
+        return '/support-risk';
       }
       if (location.startsWith('/support') &&
           role != 'support' &&

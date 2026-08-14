@@ -11,7 +11,11 @@ void main() {
         isAdmin: false,
       );
 
-      expect(transitions, [RiskStatus.actionRequired]);
+      expect(transitions, [
+        RiskStatus.actionRequired,
+        RiskStatus.waitingCustomer,
+        RiskStatus.waitingAdmin,
+      ]);
     });
 
     test('admin can resolve or dismiss a critical report', () {
@@ -64,5 +68,27 @@ void main() {
     expect(report.category, RiskCategory.suspiciousAddress);
     expect(report.severity, RiskSeverity.high);
     expect(report.order.trackingCode, 'GH-00001');
+  });
+
+  test('RiskReport parses an orderless system incident', () {
+    final report = RiskReport.fromJson({
+      'id': 'report-system',
+      'order_id': null,
+      'reported_by': 'support-1',
+      'scope': 'system',
+      'component': 'Theo dõi đơn hàng',
+      'category': 'system',
+      'severity': 'critical',
+      'status': 'waiting_admin',
+      'title': 'Realtime gián đoạn',
+      'description': 'Không nhận được cập nhật vị trí tài xế.',
+      'created_at': '2026-08-12T10:00:00Z',
+      'updated_at': '2026-08-12T10:05:00Z',
+    });
+
+    expect(report.isSystemIncident, isTrue);
+    expect(report.orderId, isEmpty);
+    expect(report.component, 'Theo dõi đơn hàng');
+    expect(report.status, RiskStatus.waitingAdmin);
   });
 }

@@ -8,6 +8,7 @@ enum NotificationVisualKind {
   orderProgress,
   success,
   cancellation,
+  caseManagement,
   system,
   promotion,
 }
@@ -53,7 +54,9 @@ List<NotificationInboxItem> buildNotificationInbox(
 
   for (final notification in notifications) {
     final orderId = notification.orderId?.trim();
-    final key = orderId == null || orderId.isEmpty
+    final key = NotificationTypes.isCaseManagement(notification.type)
+        ? 'case:${notification.id}'
+        : orderId == null || orderId.isEmpty
         ? 'notification:${notification.id}'
         : 'order:$orderId';
     groups.putIfAbsent(key, () => <NotificationModel>[]).add(notification);
@@ -80,9 +83,17 @@ bool _isActionRequired(
   NotificationModel notification,
   NotificationAudience audience,
 ) {
-  if (audience != NotificationAudience.driver || notification.isRead) {
+  if (notification.isRead) {
     return false;
   }
+
+  if (audience == NotificationAudience.customer &&
+      NotificationTypes.isCaseManagement(notification.type)) {
+    final body = notification.body.toLowerCase();
+    return body.contains('chờ bạn phản hồi') ||
+        body.contains('bổ sung thông tin');
+  }
+  if (audience != NotificationAudience.driver) return false;
 
   final title = notification.title.toLowerCase();
   return title.contains('đơn hàng mới') ||
@@ -106,6 +117,8 @@ NotificationVisualKind _visualKindFor(NotificationModel notification) {
   }
 
   return switch (notification.type) {
+    final value when NotificationTypes.isCaseManagement(value) =>
+      NotificationVisualKind.caseManagement,
     NotificationTypes.system => NotificationVisualKind.system,
     NotificationTypes.promotion => NotificationVisualKind.promotion,
     _ => NotificationVisualKind.orderProgress,

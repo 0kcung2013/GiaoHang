@@ -6,7 +6,9 @@ import '../data/risk_intervention_repository.dart';
 
 bool riskInterventionBlocksDelivery(RiskIntervention? intervention) {
   return intervention?.state == RiskInterventionState.returnRequired ||
-      intervention?.state == RiskInterventionState.handoffRequired;
+      intervention?.state == RiskInterventionState.handoffRequired ||
+      intervention?.state == RiskInterventionState.heldBeforePickup ||
+      intervention?.state == RiskInterventionState.released;
 }
 
 class DriverRiskInstructionRegion extends StatelessWidget {
@@ -76,6 +78,19 @@ class _DriverRiskInstructionCardState extends State<DriverRiskInstructionCard> {
     final state = widget.intervention.state;
     final returnRequired = state == RiskInterventionState.returnRequired;
     final handoffRequired = state == RiskInterventionState.handoffRequired;
+    final driverReleased =
+        state == RiskInterventionState.heldBeforePickup ||
+        state == RiskInterventionState.released;
+    if (driverReleased) {
+      return _card(
+        icon: Icons.stop_circle_outlined,
+        title: state == RiskInterventionState.heldBeforePickup
+            ? 'Đơn đã được CSKH tạm giữ'
+            : 'Chuyến giao đã kết thúc với bạn',
+        body: 'Dừng thao tác giao hàng. Bạn có thể quay lại danh sách đơn.',
+        urgent: true,
+      );
+    }
     if (!returnRequired && !handoffRequired) {
       if (state != RiskInterventionState.awaitingTriage) {
         return const SizedBox.shrink();
@@ -175,11 +190,104 @@ class _DriverRiskInstructionCardState extends State<DriverRiskInstructionCard> {
   }
 
   Future<void> _confirm() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) =>
+          _DriverCustodyConfirmationDialog(state: widget.intervention.state),
+    );
+    if (confirmed != true || !mounted) return;
     setState(() => _submitting = true);
     try {
       await widget.onConfirmCustody();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Chưa thể xác nhận. Vui lòng kiểm tra mạng và thử lại.',
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+}
+
+class _DriverCustodyConfirmationDialog extends StatelessWidget {
+  const _DriverCustodyConfirmationDialog({required this.state});
+
+  final RiskInterventionState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final returning = state == RiskInterventionState.returnRequired;
+    final action = returning ? 'hoàn trả' : 'bàn giao';
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(AppSpacing.lg),
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 420),
+        padding: const EdgeInsets.all(AppSpacing.xl2),
+        decoration: const BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: AppRadius.xl,
+          boxShadow: AppShadow.elevated,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Icon(
+              Icons.inventory_2_outlined,
+              color: AppColors.accent,
+              size: 34,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Xác nhận đã $action hàng?',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.headingMedium,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Chỉ xác nhận khi người nhận đã tiếp nhận hàng. Thao tác này sẽ kết thúc trách nhiệm giữ hàng của bạn.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    child: const Text('Chưa hoàn tất'),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: FilledButton(
+                    key: const Key('confirm-driver-custody'),
+                    onPressed: () => Navigator.pop(context, true),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                      backgroundColor: AppColors.accent,
+                    ),
+                    child: const Text('Xác nhận'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

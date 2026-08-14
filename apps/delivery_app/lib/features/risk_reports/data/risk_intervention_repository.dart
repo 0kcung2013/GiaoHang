@@ -20,7 +20,9 @@ class SupabaseRiskInterventionRepository implements RiskInterventionRepository {
         .select()
         .eq('order_id', orderId)
         .limit(20);
-    return _selectCurrent(List<Map<String, dynamic>>.from(rows));
+    return selectCurrentRiskInterventionForDriver(
+      List<Map<String, dynamic>>.from(rows).map(RiskIntervention.fromJson),
+    );
   }
 
   @override
@@ -29,7 +31,11 @@ class SupabaseRiskInterventionRepository implements RiskInterventionRepository {
         .from('risk_report_interventions')
         .stream(primaryKey: ['risk_report_id'])
         .eq('order_id', orderId)
-        .map(_selectCurrent);
+        .map(
+          (rows) => selectCurrentRiskInterventionForDriver(
+            rows.map(RiskIntervention.fromJson),
+          ),
+        );
   }
 
   @override
@@ -39,22 +45,24 @@ class SupabaseRiskInterventionRepository implements RiskInterventionRepository {
       params: {'p_report_id': reportId, 'p_note': note},
     );
   }
-
-  static RiskIntervention? _selectCurrent(List<Map<String, dynamic>> rows) {
-    if (rows.isEmpty) return null;
-    final interventions = rows.map(RiskIntervention.fromJson).toList()
-      ..sort(
-        (left, right) =>
-            _priority(right.state).compareTo(_priority(left.state)),
-      );
-    return interventions.first;
-  }
-
-  static int _priority(RiskInterventionState state) => switch (state) {
-    RiskInterventionState.returnRequired ||
-    RiskInterventionState.handoffRequired => 3,
-    RiskInterventionState.awaitingTriage => 2,
-    RiskInterventionState.heldBeforePickup => 1,
-    _ => 0,
-  };
 }
+
+RiskIntervention? selectCurrentRiskInterventionForDriver(
+  Iterable<RiskIntervention> values,
+) {
+  final interventions = values.toList();
+  if (interventions.isEmpty) return null;
+  interventions.sort(
+    (left, right) =>
+        _driverPriority(right.state).compareTo(_driverPriority(left.state)),
+  );
+  return interventions.first;
+}
+
+int _driverPriority(RiskInterventionState state) => switch (state) {
+  RiskInterventionState.returnRequired ||
+  RiskInterventionState.handoffRequired => 5,
+  RiskInterventionState.heldBeforePickup || RiskInterventionState.released => 4,
+  RiskInterventionState.awaitingTriage => 2,
+  _ => 0,
+};

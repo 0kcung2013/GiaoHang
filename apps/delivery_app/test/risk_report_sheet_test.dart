@@ -140,9 +140,14 @@ class _FakeRepository implements ParticipantRiskReportRepository {
 
   @override
   Future<RiskReportSubmissionResult> submit(
-    ParticipantRiskReportDraft draft,
-  ) async {
+    ParticipantRiskReportDraft draft, {
+    RiskReportProgressCallback? onProgress,
+  }) async {
     submitCalls += 1;
+    onProgress?.call(RiskReportSubmissionPhase.checkingDuplicate);
+    onProgress?.call(RiskReportSubmissionPhase.processingImages);
+    onProgress?.call(RiskReportSubmissionPhase.uploadingImages);
+    onProgress?.call(RiskReportSubmissionPhase.sendingReport);
     return const RiskReportSubmissionResult(
       reportId: 'report-123',
       status: RiskStatus.open,

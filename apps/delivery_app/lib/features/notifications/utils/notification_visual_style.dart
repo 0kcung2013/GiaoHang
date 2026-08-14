@@ -28,6 +28,10 @@ NotificationVisualStyle notificationVisualStyle(NotificationVisualKind kind) {
       icon: Icons.cancel_rounded,
       color: AppColors.error,
     ),
+    NotificationVisualKind.caseManagement => const NotificationVisualStyle(
+      icon: Icons.support_agent_rounded,
+      color: AppColors.primary,
+    ),
     NotificationVisualKind.system => const NotificationVisualStyle(
       icon: Icons.settings_rounded,
       color: AppColors.textSecondary,

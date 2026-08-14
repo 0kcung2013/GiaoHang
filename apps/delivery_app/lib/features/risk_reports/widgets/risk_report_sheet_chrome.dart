@@ -81,6 +81,7 @@ class RiskReportSheetFooter extends StatelessWidget {
   const RiskReportSheetFooter({
     required this.step,
     required this.submitting,
+    required this.submissionLabel,
     required this.errorMessage,
     required this.onBack,
     required this.onPrimary,
@@ -89,6 +90,7 @@ class RiskReportSheetFooter extends StatelessWidget {
 
   final int step;
   final bool submitting;
+  final String submissionLabel;
   final String? errorMessage;
   final VoidCallback onBack;
   final VoidCallback onPrimary;
@@ -107,6 +109,40 @@ class RiskReportSheetFooter extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (submitting) ...[
+                Semantics(
+                  liveRegion: true,
+                  label: submissionLabel,
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.cloud_upload_outlined,
+                        size: 20,
+                        color: AppColors.accent,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          submissionLabel,
+                          style: AppTextStyles.labelMedium.copyWith(
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                const ClipRRect(
+                  borderRadius: AppRadius.full,
+                  child: LinearProgressIndicator(
+                    minHeight: 4,
+                    color: AppColors.accent,
+                    backgroundColor: AppColors.accentLight,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
               if (errorMessage != null) ...[
                 Text(
                   errorMessage!,
@@ -175,7 +211,7 @@ class _SheetButton extends StatelessWidget {
             border: secondary ? Border.all(color: AppColors.border) : null,
           ),
           child: Text(
-            loading ? 'Đang gửi…' : label,
+            loading ? 'Vui lòng chờ…' : label,
             style: AppTextStyles.labelLarge.copyWith(
               color: secondary ? AppColors.textPrimary : AppColors.textOnAccent,
             ),

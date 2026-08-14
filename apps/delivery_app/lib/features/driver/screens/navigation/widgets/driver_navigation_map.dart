@@ -5,9 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/utils/delivery_map_utils.dart';
-import '../../../../../core/utils/delivery_traffic_route_analyzer.dart';
 import '../../../../../core/widgets/delivery_map_markers.dart';
-import '../../../../../core/widgets/delivery_traffic_map_layer.dart';
 import '../utils/driver_navigation_motion.dart';
 
 class DriverNavigationMap extends StatefulWidget {
@@ -26,6 +24,10 @@ class DriverNavigationMap extends StatefulWidget {
   final List<LatLng>? routePoints;
   final LatLng? driverPosition;
 
+  static Polyline activeRoutePolyline(List<LatLng> points) {
+    return Polyline(points: points, color: AppColors.routeLine, strokeWidth: 7);
+  }
+
   @override
   State<DriverNavigationMap> createState() => _DriverNavigationMapState();
 }
@@ -39,7 +41,6 @@ class _DriverNavigationMapState extends State<DriverNavigationMap>
   LatLng? _motionStart;
   LatLng? _motionTarget;
   List<LatLng>? _remainingRoute;
-  List<DeliveryTrafficSegment> _trafficSegments = const [];
 
   @override
   void initState() {
@@ -49,7 +50,7 @@ class _DriverNavigationMapState extends State<DriverNavigationMap>
       vsync: this,
       duration: _markerMotionDuration,
     )..addListener(_onMarkerMotionTick);
-    _refreshRouteVisuals();
+    _refreshRemainingRoute();
   }
 
   @override
@@ -60,7 +61,7 @@ class _DriverNavigationMapState extends State<DriverNavigationMap>
       _animateDriverPosition(widget.driverPosition);
     }
     if (positionChanged || widget.routePoints != oldWidget.routePoints) {
-      _refreshRouteVisuals();
+      _refreshRemainingRoute();
     }
   }
 
@@ -72,16 +73,12 @@ class _DriverNavigationMapState extends State<DriverNavigationMap>
     super.dispose();
   }
 
-  void _refreshRouteVisuals() {
+  void _refreshRemainingRoute() {
     final route = widget.routePoints;
     final driver = widget.driverPosition;
     _remainingRoute = route != null && route.length >= 2 && driver != null
         ? DeliveryMapUtils.remainingRoute(fullRoute: route, current: driver)
         : route;
-    _trafficSegments = DeliveryTrafficRouteAnalyzer.analyze(
-      routePoints: _remainingRoute ?? const [],
-      quotedAt: DateTime.now(),
-    );
   }
 
   void _animateDriverPosition(LatLng? target) {
@@ -138,20 +135,11 @@ class _DriverNavigationMapState extends State<DriverNavigationMap>
               subdomains: const ['a', 'b', 'c'],
               maxNativeZoom: 19,
             ),
-            if (widget.routePoints != null && widget.routePoints!.length >= 2)
+            if (_remainingRoute != null && _remainingRoute!.length >= 2)
               PolylineLayer(
                 polylines: [
-                  Polyline(
-                    points: widget.routePoints!,
-                    color: AppColors.routeLine.withValues(alpha: 0.22),
-                    strokeWidth: 5,
-                  ),
+                  DriverNavigationMap.activeRoutePolyline(_remainingRoute!),
                 ],
-              ),
-            if (_trafficSegments.isNotEmpty)
-              DeliveryTrafficRouteLayer(
-                segments: _trafficSegments,
-                strokeWidth: 7,
               ),
             MarkerLayer(
               rotate: true,

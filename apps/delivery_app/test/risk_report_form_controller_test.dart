@@ -95,9 +95,12 @@ class _FakeRepository implements ParticipantRiskReportRepository {
 
   @override
   Future<RiskReportSubmissionResult> submit(
-    ParticipantRiskReportDraft draft,
-  ) async {
+    ParticipantRiskReportDraft draft, {
+    RiskReportProgressCallback? onProgress,
+  }) async {
     submitCalls += 1;
+    onProgress?.call(RiskReportSubmissionPhase.checkingDuplicate);
+    onProgress?.call(RiskReportSubmissionPhase.sendingReport);
     await Future<void>.delayed(const Duration(milliseconds: 5));
     if (failFirst && submitCalls == 1) {
       throw const RiskReportRepositoryException(

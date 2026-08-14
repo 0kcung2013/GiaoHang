@@ -12,11 +12,21 @@ class RiskReportPolicy {
       RiskStatus.open => [RiskStatus.investigating, RiskStatus.dismissed],
       RiskStatus.investigating => [
         RiskStatus.actionRequired,
+        RiskStatus.waitingCustomer,
+        RiskStatus.waitingAdmin,
         RiskStatus.resolved,
         RiskStatus.dismissed,
       ],
       RiskStatus.actionRequired => [
         RiskStatus.investigating,
+        RiskStatus.waitingCustomer,
+        RiskStatus.waitingAdmin,
+        RiskStatus.resolved,
+        RiskStatus.dismissed,
+      ],
+      RiskStatus.waitingCustomer || RiskStatus.waitingAdmin => [
+        RiskStatus.investigating,
+        RiskStatus.actionRequired,
         RiskStatus.resolved,
         RiskStatus.dismissed,
       ],

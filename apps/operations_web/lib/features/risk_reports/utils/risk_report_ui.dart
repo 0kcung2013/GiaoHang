@@ -55,6 +55,8 @@ class RiskReportUi {
     RiskStatus.open => 'Mới',
     RiskStatus.investigating => 'Đang xác minh',
     RiskStatus.actionRequired => 'Cần hành động',
+    RiskStatus.waitingCustomer => 'Chờ khách phản hồi',
+    RiskStatus.waitingAdmin => 'Chờ Admin',
     RiskStatus.resolved => 'Đã xử lý',
     RiskStatus.dismissed => 'Không rủi ro',
   };
@@ -63,6 +65,8 @@ class RiskReportUi {
     RiskStatus.open => AppColors.warning,
     RiskStatus.investigating => AppColors.info,
     RiskStatus.actionRequired => AppColors.accent,
+    RiskStatus.waitingCustomer => AppColors.warning,
+    RiskStatus.waitingAdmin => AppColors.error,
     RiskStatus.resolved => AppColors.success,
     RiskStatus.dismissed => AppColors.textSecondary,
   };
@@ -71,6 +75,8 @@ class RiskReportUi {
     RiskStatus.open => Icons.fiber_new_rounded,
     RiskStatus.investigating => Icons.manage_search_rounded,
     RiskStatus.actionRequired => Icons.task_alt_rounded,
+    RiskStatus.waitingCustomer => Icons.forum_outlined,
+    RiskStatus.waitingAdmin => Icons.admin_panel_settings_outlined,
     RiskStatus.resolved => Icons.check_circle_outline_rounded,
     RiskStatus.dismissed => Icons.remove_circle_outline_rounded,
   };
@@ -79,6 +85,8 @@ class RiskReportUi {
     'created' => 'Đã tạo báo cáo',
     'assigned' => 'Đã nhận xử lý',
     'status_changed' => 'Đã đổi trạng thái',
+    'message_added' => 'Đã thêm phản hồi',
+    'ticket_linked' => 'Đã liên kết yêu cầu hỗ trợ',
     _ => 'Đã cập nhật báo cáo',
   };
 
