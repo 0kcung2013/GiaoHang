@@ -1,4 +1,4 @@
-import 'package:delivery_app/features/customer/screens/create_order/utils/reverse_geocode_result.dart';
+import 'package:delivery_app/core/models/reverse_geocode_result.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

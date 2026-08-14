@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
@@ -7,6 +9,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../core/location/driver_location_producer_policy.dart';
 import '../../../../core/providers/customer_providers.dart';
 import '../../../../core/providers/location_providers.dart';
+import '../../../../core/services/reverse_geocoding_service.dart';
 import '../../../../core/utils/geo_utils.dart';
 import 'driver_gps_debug_components.dart';
 import 'driver_gps_debug_map.dart';
@@ -22,6 +25,14 @@ class DriverGpsDebugSheet extends ConsumerStatefulWidget {
 }
 
 class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
+  static const _loadingAddress = 'Đang xác định địa chỉ…';
+  static const _unknownAddress = 'Không xác định được địa chỉ';
+
+  final ReverseGeocodingService _reverseGeocodingService =
+      ReverseGeocodingService();
+  final Map<String, String> _addresses = {};
+  final Set<String> _pendingAddressKeys = {};
+
   bool _isLoading = true;
   DriverLocationMode? _applyingMode;
   String? _error;
@@ -39,6 +50,12 @@ class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadPosition());
+  }
+
+  @override
+  void dispose() {
+    _reverseGeocodingService.dispose();
+    super.dispose();
   }
 
   Future<void> _loadPosition() async {
@@ -80,6 +97,7 @@ class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
         lat: gps.latitude,
         lng: gps.longitude,
       );
+      final stored = _storedPoint(driver.currentLat, driver.currentLng);
 
       if (!mounted) return;
       setState(() {
@@ -87,10 +105,11 @@ class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
         _driverProfileId = driver.id;
         _gpsPosition = gps;
         _demoPosition = demo;
-        _storedPosition = _storedPoint(driver.currentLat, driver.currentLng);
+        _storedPosition = stored;
         _offsetMeters = _distance(gps, demo);
         _isLoading = false;
       });
+      unawaited(_resolveAddresses([gps, demo, stored]));
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -154,21 +173,20 @@ class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
       final refreshed = await ref
           .read(driverServiceProvider)
           .getDriverByUserId(currentUser.id);
+      final stored = _storedPoint(refreshed?.currentLat, refreshed?.currentLng);
 
       if (!mounted) return;
       ref.read(driverLocationModeProvider.notifier).state = mode;
       setState(() {
         _gpsPosition = rawGps;
         _demoPosition = demo;
-        _storedPosition = _storedPoint(
-          refreshed?.currentLat,
-          refreshed?.currentLng,
-        );
+        _storedPosition = stored;
         _offsetMeters = _distance(rawGps, demo);
         _successMessage = mode == DriverLocationMode.deviceGps
             ? 'Đang dùng vị trí hiện tại để tính tuyến đường gần bạn.'
             : 'Đã chuyển về vị trí demo TP.HCM của tài khoản.';
       });
+      unawaited(_resolveAddresses([rawGps, demo, stored]));
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -191,6 +209,45 @@ class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
       toLat: to.latitude,
       toLng: to.longitude,
     );
+  }
+
+  String _addressFor(LatLng? position) {
+    if (position == null) return _unknownAddress;
+    return _addresses[_addressKey(position)] ?? _loadingAddress;
+  }
+
+  String _addressKey(LatLng position) {
+    return '${position.latitude.toStringAsFixed(6)},'
+        '${position.longitude.toStringAsFixed(6)}';
+  }
+
+  Future<void> _resolveAddresses(Iterable<LatLng?> positions) async {
+    final uniquePositions = <String, LatLng>{};
+    for (final position in positions) {
+      if (position == null) continue;
+      uniquePositions.putIfAbsent(_addressKey(position), () => position);
+    }
+
+    for (final entry in uniquePositions.entries) {
+      if (_addresses.containsKey(entry.key) ||
+          !_pendingAddressKeys.add(entry.key)) {
+        continue;
+      }
+
+      var address = _unknownAddress;
+      try {
+        final result = await _reverseGeocodingService.resolve(entry.value);
+        final resolvedAddress = result.displayAddress.trim();
+        if (resolvedAddress.isNotEmpty) address = resolvedAddress;
+      } catch (_) {
+        address = _unknownAddress;
+      } finally {
+        _pendingAddressKeys.remove(entry.key);
+      }
+
+      _addresses[entry.key] = address;
+      if (mounted) setState(() {});
+    }
   }
 
   String _readableError(Object error) {
@@ -269,14 +326,14 @@ class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
           hasOffset: _hasOffset,
         ),
         const SizedBox(height: AppSpacing.lg),
-        Text('Đối chiếu tọa độ', style: AppTextStyles.headingSmall),
+        Text('Đối chiếu vị trí', style: AppTextStyles.headingSmall),
         const SizedBox(height: AppSpacing.sm),
         DriverGpsCoordinateCard(
           icon: Icons.my_location_rounded,
           color: AppColors.info,
           title: 'GPS thiết bị',
           subtitle: 'Vị trí thật do thiết bị cung cấp',
-          position: gps,
+          address: _addressFor(gps),
         ),
         const SizedBox(height: AppSpacing.sm),
         DriverGpsCoordinateCard(
@@ -286,13 +343,14 @@ class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
           subtitle: _hasOffset
               ? 'Tọa độ cố định riêng của tài khoản tài xế'
               : 'Tài khoản này chưa có vị trí demo',
-          position: demo,
+          address: _addressFor(demo),
         ),
         const SizedBox(height: AppSpacing.sm),
         DriverGpsStoredCard(
           position: stored,
           distanceMeters: storedDistance,
           isMatched: isStoredMatched,
+          address: _addressFor(stored),
         ),
         if (_error != null) ...[
           const SizedBox(height: AppSpacing.md),

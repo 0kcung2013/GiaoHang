@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
-import 'reverse_geocode_result.dart';
+import '../models/reverse_geocode_result.dart';
 
 class ReverseGeocodingService {
   ReverseGeocodingService({http.Client? client})

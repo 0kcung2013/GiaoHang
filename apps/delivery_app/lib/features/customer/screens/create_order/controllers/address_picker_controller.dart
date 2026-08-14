@@ -6,13 +6,13 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../../../core/models/recent_address_model.dart';
+import '../../../../../core/models/reverse_geocode_result.dart';
 import '../../../../../core/models/saved_address_model.dart';
+import '../../../../../core/services/reverse_geocoding_service.dart';
 import '../address_picker_strings.dart';
 import '../models/address_picker_result.dart';
 import '../utils/address_search_result.dart';
 import '../utils/address_search_service.dart';
-import '../utils/reverse_geocode_result.dart';
-import '../utils/reverse_geocoding_service.dart';
 
 part 'address_picker_selection.dart';
 

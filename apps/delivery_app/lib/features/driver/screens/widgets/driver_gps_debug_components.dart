@@ -173,14 +173,14 @@ class DriverGpsCoordinateCard extends StatelessWidget {
     required this.color,
     required this.title,
     required this.subtitle,
-    this.position,
+    required this.address,
   });
 
   final IconData icon;
   final Color color;
   final String title;
   final String subtitle;
-  final LatLng? position;
+  final String address;
 
   @override
   Widget build(BuildContext context) {
@@ -215,17 +215,15 @@ class DriverGpsCoordinateCard extends StatelessWidget {
                     color: AppColors.textSecondary,
                   ),
                 ),
-                if (position != null) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  SelectableText(
-                    '${position!.latitude.toStringAsFixed(6)}, '
-                    '${position!.longitude.toStringAsFixed(6)}',
-                    style: AppTextStyles.mono.copyWith(
-                      color: AppColors.textPrimary,
-                      fontSize: 12,
-                    ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  address,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textPrimary,
                   ),
-                ],
+                ),
               ],
             ),
           ),
@@ -241,11 +239,13 @@ class DriverGpsStoredCard extends StatelessWidget {
     required this.position,
     required this.distanceMeters,
     required this.isMatched,
+    required this.address,
   });
 
   final LatLng? position;
   final double? distanceMeters;
   final bool isMatched;
+  final String address;
 
   @override
   Widget build(BuildContext context) {
@@ -261,7 +261,7 @@ class DriverGpsStoredCard extends StatelessWidget {
       color: color,
       title: 'Đang lưu trên Supabase',
       subtitle: subtitle,
-      position: position,
+      address: address,
     );
   }
 

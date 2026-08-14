@@ -3,9 +3,9 @@ import 'package:flutter/services.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 
+import '../../../../../../core/models/reverse_geocode_result.dart';
 import '../../../../../../core/models/saved_address_model.dart';
 import '../../address_picker_strings.dart';
-import '../../utils/reverse_geocode_result.dart';
 import 'address_picker_states.dart';
 import 'save_address_section.dart';
 

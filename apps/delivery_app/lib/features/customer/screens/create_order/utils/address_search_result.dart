@@ -1,6 +1,6 @@
 import 'package:latlong2/latlong.dart';
 
-import 'reverse_geocode_result.dart';
+import '../../../../../core/models/reverse_geocode_result.dart';
 
 class AddressSearchResult {
   const AddressSearchResult({
