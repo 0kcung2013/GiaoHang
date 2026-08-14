@@ -39,16 +39,22 @@ Phase B **không nằm trong lần triển khai này**. Sau khi Phase A hoàn th
 
 ## Data architecture
 
-### Tables
+### Minimal-table decision
 
-- `driver_wallets`: một ví cho mỗi hồ sơ tài xế; `available_balance`, `held_balance`, `currency`, version và timestamps.
-- `wallet_transactions`: ledger append-only gồm top-up, hold, release, COD capture, platform-fee capture và prepaid earning credit; có `idempotency_key`, số dư sau giao dịch và liên kết order/top-up.
-- `wallet_topups`: yêu cầu nạp tiền VNPAY với `txn_ref` duy nhất, amount, trạng thái pending/succeeded/failed/expired, mã giao dịch VNPAY và timestamps.
-- `order_financials`: snapshot một-một theo order gồm payment mode, goods value, delivery fee, platform fee rate/amount, driver net earning, driver advance và receiver collection.
-- `order_settlements`: kết quả tài chính bất biến của cuốc, gồm kênh nhận tiền `wallet` hoặc `cash`, các thành phần tiền và thời điểm settlement.
-- `platform_fee_policies`: lịch sử policy append-only gồm rate, `effective_from`, người tạo và timestamps; policy hiệu lực mặc định là 15%.
+Supabase hiện có 24 bảng trong `public`, trong đó `spatial_ref_sys` là bảng hệ thống của PostGIS và 23 bảng còn lại là bảng nghiệp vụ. Không có bảng ví hoặc thanh toán cũ phù hợp để tái sử dụng. Phase A chỉ tạo **hai bảng mới**:
 
-Các trường tài chính hiện có trên `orders` tiếp tục được đọc để tương thích, nhưng `order_financials` là nguồn sự thật mới. `order_items.price` phải là giá trị hàng, không còn được gán bằng phí giao.
+- `driver_wallet_transactions`: dùng chung cho yêu cầu nạp VNPAY, top-up hoàn tất/thất bại, giữ tiền COD, giải phóng tiền giữ, capture tiền ứng, capture phí nền tảng và credit thu nhập prepaid. Bảng có `idempotency_key`, `provider_txn_ref`, `available_delta`, `held_delta`, liên kết order và metadata đối soát. Chỉ trạng thái của dòng yêu cầu top-up được chuyển từ `pending`; các hiệu ứng tiền đã hoàn tất không được sửa/xóa.
+- `system_settings`: cấu hình key/value tối giản, khởi tạo `platform_fee_rate_bps = 1500`, có `updated_by` và `updated_at`. Chỉ Admin cập nhật qua RPC có kiểm tra vai trò.
+
+Tái sử dụng bảng hiện có:
+
+- `orders` là nguồn snapshot tài chính của đơn, bổ sung `payment_mode`, `goods_value`, `platform_fee_rate_bps`, `platform_fee_amount`, `driver_net_earning`, `driver_advance_amount` và `receiver_collection_amount`.
+- `order_items.price` trở lại đúng nghĩa đơn giá hàng hóa. Dữ liệu lịch sử đang bị ghi bằng phí giao được chuẩn hóa về `0` vì không thể suy ra giá hàng thật.
+- `orders.delivery_fee` tiếp tục là toàn bộ phí giao; `orders.total_price` bằng `goods_value + delivery_fee`.
+- `orders.payment_method` tiếp tục mô tả kênh `cash/card/wallet`; `payment_mode` mới mô tả thời điểm `prepaid/cod`, tránh đổi nghĩa dữ liệu cũ.
+- `order_status_logs` chỉ lưu trạng thái vận chuyển, không dùng làm sổ tiền.
+
+Số dư khả dụng và số tiền đang giữ được tính từ tổng `available_delta`/`held_delta` của transaction `completed` qua RPC. Với quy mô hiện tại, cách này tránh bảng `driver_wallets` và vẫn bảo đảm tính đúng bằng khóa giao dịch theo tài xế. Thu nhập hôm nay tính từ snapshot các đơn đã giao, không trộn tiền mặt COD vào số dư ví.
 
 ### Atomic commands
 
@@ -56,15 +62,15 @@ Mọi thay đổi số dư chạy qua PostgreSQL RPC trong một transaction và
 
 Các command chính:
 
-- tạo top-up pending;
+- tạo top-up pending trong ledger;
 - xác nhận top-up idempotent từ VNPAY IPN;
 - nhận đơn và giữ tiền COD;
 - release khoản giữ khi hủy trước pickup;
 - capture tiền ứng khi pickup;
 - settle đơn prepaid/COD khi delivered;
-- Admin tạo policy phí mới có thời điểm hiệu lực; không sửa/xóa policy cũ.
+- Admin cập nhật `platform_fee_rate_bps`; mỗi đơn luôn snapshot mức phí tại lúc tạo.
 
-RLS cho phép tài xế chỉ đọc ví, top-up, transaction và settlement của chính mình. Customer chỉ đọc tài chính đơn do họ tạo. Support/Admin đọc theo vai trò; chỉ Admin được gọi command đổi phí. Không role client nào được sửa số dư trực tiếp.
+RLS cho phép tài xế chỉ đọc transaction của chính mình. Customer đọc tài chính qua đơn do họ tạo. Support/Admin đọc theo vai trò; chỉ Admin được gọi command đổi phí. Không role client nào được insert/update/delete ledger hay sửa cấu hình trực tiếp.
 
 ## VNPAY Sandbox integration
 
@@ -75,6 +81,28 @@ Ba Supabase Edge Functions được dùng:
 - `vnpay-wallet-return`: kiểm tra response để hiển thị trạng thái cho người dùng rồi deep-link về app; UI vẫn chờ trạng thái do IPN xác nhận, không tin Return URL để cộng tiền.
 
 `VNPAY_TMN_CODE` và `VNPAY_HASH_SECRET` chỉ lưu bằng Supabase secrets. Giá trị secret người dùng đã gửi không được ghi vào source, migration, log, test fixture hoặc tài liệu. Secret sandbox cần được rotate trước khi cấu hình.
+
+### Sandbox Return settlement fallback
+
+Môi trường Sandbox hiện không gọi IPN URL đã deploy, trong khi Return URL nhận
+được phản hồi thanh toán thành công. Để luồng demo không bị treo ở `pending`,
+Return Function được phép hoàn tất top-up với các điều kiện bắt buộc sau:
+
+- checksum HMAC-SHA512 hợp lệ;
+- `vnp_TmnCode` khớp cấu hình server;
+- transaction reference tồn tại và đang thuộc top-up VNPAY;
+- `vnp_Amount` khớp tuyệt đối với số tiền pending;
+- `vnp_ResponseCode` và `vnp_TransactionStatus` đều bằng `00`.
+
+Return và IPN gọi cùng RPC hoàn tất top-up nên unique/idempotency guard bảo đảm
+chỉ cộng tiền một lần dù hai callback đến đồng thời hoặc bị replay. IPN vẫn là
+luồng chuẩn cho production; fallback Return chỉ phục vụ Sandbox/demo và phải
+được tắt khi terminal VNPAY production đã đăng ký IPN URL.
+
+UI không hiển thị top-up `pending` như tiền đã nhận: giao dịch pending dùng màu
+trung tính, nhãn `Đang xử lý` và không có dấu cộng. Chỉ transaction `completed`
+mới hiển thị xanh và được cộng vào số dư khả dụng; `failed` hiển thị trạng thái
+thất bại màu đỏ.
 
 ## UI design
 
@@ -117,7 +145,7 @@ UI dùng `AppColors`, `AppTextStyles`, `AppSpacing`, `AppRadius`, semantic label
 - IPN lặp lại trả thành công nhưng không tạo transaction thứ hai.
 - Amount/TmnCode/checksum không khớp không thay đổi dữ liệu.
 - Số dư không được âm và `held_balance` không vượt tổng nguồn tiền hợp lệ.
-- Một order chỉ có một financial snapshot và một settlement thành công.
+- Một order giữ đúng một snapshot tài chính trực tiếp trên `orders`; unique idempotency key ngăn settlement hoặc top-up trùng.
 - Platform fee rate được snapshot khi tạo đơn; thay đổi cấu hình không làm đổi đơn cũ.
 - Nếu deep link/Return URL mất kết nối, app refresh top-up từ server; IPN vẫn là nguồn sự thật.
 
