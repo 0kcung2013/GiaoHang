@@ -5,11 +5,20 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/risk_report_strings.dart';
 import '../data/risk_report_repository.dart';
+import '../services/risk_location_address_service.dart';
+
+typedef RiskLocationAddressResolver =
+    Future<String> Function(double latitude, double longitude);
 
 class RiskAttachmentSection extends StatelessWidget {
-  const RiskAttachmentSection({required this.items, super.key});
+  const RiskAttachmentSection({
+    required this.items,
+    this.addressResolver,
+    super.key,
+  });
 
   final List<RiskReportAttachmentView>? items;
+  final RiskLocationAddressResolver? addressResolver;
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +38,12 @@ class RiskAttachmentSection extends StatelessWidget {
           Wrap(
             spacing: AppSpacing.md,
             runSpacing: AppSpacing.md,
-            children: items!.map(_AttachmentCard.new).toList(),
+            children: items!
+                .map(
+                  (item) =>
+                      _AttachmentCard(item, addressResolver: addressResolver),
+                )
+                .toList(),
           ),
       ],
     );
@@ -37,15 +51,19 @@ class RiskAttachmentSection extends StatelessWidget {
 }
 
 class _AttachmentCard extends StatelessWidget {
-  const _AttachmentCard(this.item);
+  const _AttachmentCard(this.item, {this.addressResolver});
 
   final RiskReportAttachmentView item;
+  final RiskLocationAddressResolver? addressResolver;
 
   @override
   Widget build(BuildContext context) {
     final attachment = item.attachment;
     if (attachment.evidenceType == RiskEvidenceType.location) {
-      return _LocationEvidence(attachment: attachment);
+      return _LocationEvidence(
+        attachment: attachment,
+        addressResolver: addressResolver,
+      );
     }
     return Container(
       width: 220,
@@ -80,15 +98,35 @@ class _AttachmentCard extends StatelessWidget {
   }
 }
 
-class _LocationEvidence extends StatelessWidget {
-  const _LocationEvidence({required this.attachment});
+class _LocationEvidence extends StatefulWidget {
+  const _LocationEvidence({required this.attachment, this.addressResolver});
 
   final RiskReportAttachment attachment;
+  final RiskLocationAddressResolver? addressResolver;
+
+  @override
+  State<_LocationEvidence> createState() => _LocationEvidenceState();
+}
+
+class _LocationEvidenceState extends State<_LocationEvidence> {
+  late final Future<String> _address;
+
+  @override
+  void initState() {
+    super.initState();
+    final latitude = widget.attachment.latitude!;
+    final longitude = widget.attachment.longitude!;
+    _address =
+        (widget.addressResolver ?? const RiskLocationAddressService().resolve)(
+          latitude,
+          longitude,
+        );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final latitude = attachment.latitude!;
-    final longitude = attachment.longitude!;
+    final latitude = widget.attachment.latitude!;
+    final longitude = widget.attachment.longitude!;
     return Container(
       width: 260,
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -105,9 +143,23 @@ class _LocationEvidence extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}',
-                  style: AppTextStyles.mono,
+                FutureBuilder<String>(
+                  future: _address,
+                  builder: (context, snapshot) => Text(
+                    snapshot.hasData
+                        ? snapshot.data!
+                        : snapshot.hasError
+                        ? RiskReportStrings.addressUnavailable
+                        : RiskReportStrings.resolvingAddress,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: snapshot.hasError
+                          ? AppColors.error
+                          : AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 InkWell(

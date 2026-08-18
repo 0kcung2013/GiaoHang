@@ -59,6 +59,8 @@ void main() {
     await tester.tap(
       find.text('Đã kiểm tra tình trạng bên ngoài của kiện hàng'),
     );
+    await tester.ensureVisible(find.text('Đã ứng 120.000đ cho người gửi'));
+    await tester.tap(find.text('Đã ứng 120.000đ cho người gửi'));
     await tester.pump();
 
     expect(_confirmButton(tester).onPressed, isNotNull);
@@ -96,6 +98,9 @@ OrderModel _pickupOrder() {
     deliveryFee: 30000,
     serviceType: 'standard',
     paymentMethod: 'cash',
+    codCollectionAmount: 120000,
+    driverAdvanceAmount: 120000,
+    receiverCollectionAmount: 150000,
     updatedAt: now,
   );
 }

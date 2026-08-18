@@ -17,22 +17,25 @@ class RiskReportDetailHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.border)),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl2,
+        AppSpacing.lg,
+        AppSpacing.lg,
+        AppSpacing.lg,
       ),
+      decoration: const BoxDecoration(color: AppColors.primary),
       child: Row(
         children: [
           Container(
             width: 44,
             height: 44,
             decoration: const BoxDecoration(
-              color: AppColors.accentLight,
+              color: AppColors.accent,
               borderRadius: AppRadius.md,
             ),
             child: const Icon(
               Icons.gpp_maybe_outlined,
-              color: AppColors.accent,
+              color: AppColors.textOnAccent,
             ),
           ),
           const SizedBox(width: AppSpacing.md),
@@ -44,13 +47,15 @@ class RiskReportDetailHeader extends StatelessWidget {
                   report.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.headingMedium,
+                  style: AppTextStyles.headingMedium.copyWith(
+                    color: AppColors.textOnDark,
+                  ),
                 ),
                 Text(
                   '${report.isSystemIncident ? 'Sự cố hệ thống' : report.order.trackingCode} · '
                   '${RiskReportUi.formatDateTime(report.createdAt)}',
                   style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AppColors.textOnDark.withValues(alpha: 0.62),
                   ),
                 ),
               ],
@@ -59,6 +64,7 @@ class RiskReportDetailHeader extends StatelessWidget {
           IconButton(
             tooltip: 'Đóng',
             onPressed: onClose,
+            color: AppColors.textOnDark,
             icon: const Icon(Icons.close_rounded),
           ),
         ],
@@ -111,7 +117,7 @@ class RiskOrderRoute extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.bgLight,
+        color: AppColors.bgCard,
         borderRadius: AppRadius.lg,
         border: Border.all(color: AppColors.border),
       ),

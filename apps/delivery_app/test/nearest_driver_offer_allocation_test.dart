@@ -68,7 +68,7 @@ void main() {
     },
   );
 
-  test('uses a five kilometer default assignment radius', () async {
+  test('uses a three kilometer default assignment radius', () async {
     late http.Request rpcRequest;
     final httpClient = MockClient((request) async {
       rpcRequest = request;
@@ -96,7 +96,7 @@ void main() {
     );
 
     final params = jsonDecode(rpcRequest.body) as Map<String, dynamic>;
-    expect(params['p_radius_meters'], 5000);
+    expect(params['p_radius_meters'], 3000);
   });
 
   test('prefers the nearer driver regardless of rating', () async {

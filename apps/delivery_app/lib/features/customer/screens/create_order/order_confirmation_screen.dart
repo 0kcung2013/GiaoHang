@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
-import '../../../../core/models/recent_address_model.dart';
 import '../../../../core/models/order_model.dart';
+import '../../../../core/models/order_finance.dart';
 import '../../../../core/providers/address_providers.dart';
 import '../../../../core/providers/customer_providers.dart';
+import 'services/order_confirmation_completion_service.dart';
 import 'utils/order_form_data.dart';
+import 'widgets/order_confirmation_app_bar.dart';
 import 'widgets/order_confirmation_content.dart';
 import 'widgets/order_confirmation_submit_bar.dart';
 
@@ -30,50 +32,15 @@ class _OrderConfirmationScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bgLight,
-      appBar: AppBar(
-        centerTitle: false,
-        titleSpacing: 0,
-        title: Text(
-          'Xác nhận đơn',
-          style: AppTextStyles.headingMedium.copyWith(
-            color: AppColors.textPrimary,
-          ),
-        ),
-        backgroundColor: AppColors.bgLight,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
-        actions: [
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.sm,
-            ),
-            decoration: const BoxDecoration(
-              color: AppColors.accentLight,
-              borderRadius: AppRadius.full,
-            ),
-            child: Text(
-              '3 / 3',
-              style: AppTextStyles.labelSmall.copyWith(
-                color: AppColors.accent,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          TextButton.icon(
-            onPressed: _isSubmitting ? null : () => context.pop(),
-            icon: const Icon(Icons.edit_outlined, size: 18),
-            label: const Text('Sửa'),
-            style: TextButton.styleFrom(foregroundColor: AppColors.accent),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-        ],
+      appBar: OrderConfirmationAppBar(
+        canEdit: !_isSubmitting,
+        onEdit: () => context.pop(),
       ),
       bottomNavigationBar: OrderConfirmationSubmitBar(
         isSubmitting: _isSubmitting,
         onSubmit: _submitOrder,
+        idleLabel: 'Xác nhận đặt đơn',
+        submittingLabel: 'Đang tạo đơn...',
       ),
       body: SafeArea(child: OrderConfirmationContent(data: widget.formData)),
     );
@@ -123,7 +90,7 @@ class _OrderConfirmationScreenState
         deliveryAddress: data.deliveryAddress.trim(),
         deliveryLat: data.deliveryLat,
         deliveryLng: data.deliveryLng,
-        totalPrice: data.totalPrice,
+        totalPrice: data.finance.totalPrice.toDouble(),
         note: data.combinedDriverNote.isEmpty ? null : data.combinedDriverNote,
         createdAt: now,
         trackingCode: '',
@@ -143,73 +110,29 @@ class _OrderConfirmationScreenState
         deliveryFee: data.deliveryFee,
         serviceType: 'standard',
         paymentMethod: data.paymentMethod,
+        paymentMode: data.paymentMode,
+        deliveryFeePayer: data.deliveryFeePayer,
+        paymentStatus: OrderPaymentStatus.notRequired,
+        goodsValue: data.goodsValue,
+        codCollectionAmount: data.codCollectionAmount,
+        platformFeeRateBps: 0,
+        platformFeeAmount: 0,
+        driverNetEarning: data.finance.driverNetEarning,
+        driverAdvanceAmount: data.finance.driverAdvanceAmount,
+        receiverCollectionAmount: data.finance.receiverCollectionAmount,
         statusNote: null,
         updatedAt: now,
       );
 
       final service = ref.read(customerOrderServiceProvider);
       final created = await service.createOrderWithTracking(order);
-      try {
-        await ref
-            .read(recentAddressServiceProvider)
-            .recordOrderAddresses(
-              userId: user.id,
-              pickup: RecentAddressModel(
-                id: '',
-                userId: user.id,
-                addressType: RecentAddressType.pickup,
-                formattedAddress: data.pickupFormattedAddress,
-                addressDetail: data.pickupAddressDetail,
-                deliveryNote: data.pickupDeliveryNote,
-                latitude: data.pickupLat,
-                longitude: data.pickupLng,
-                usageCount: 1,
-                lastUsedAt: now,
-              ),
-              delivery: RecentAddressModel(
-                id: '',
-                userId: user.id,
-                addressType: RecentAddressType.delivery,
-                formattedAddress: data.deliveryFormattedAddress,
-                addressDetail: data.deliveryAddressDetail,
-                deliveryNote: data.deliveryDeliveryNote,
-                latitude: data.deliveryLat,
-                longitude: data.deliveryLng,
-                usageCount: 1,
-                lastUsedAt: now,
-              ),
-            );
-        ref.invalidate(recentAddressesProvider(user.id));
-      } catch (error) {
-        debugPrint(
-          '[RecentAddress] record after order creation failed: $error',
-        );
-      }
-      final full =
-          await service.getOrderById(created.orderId) ??
-          order.copyWith(
-            id: created.orderId,
-            trackingCode: created.trackingCode,
-          );
-      await service.notifyAfterOrderCreated(full);
-
-      ref.invalidate(customerOrdersProvider);
-      ref.invalidate(recentOrdersProvider);
-      ref.invalidate(activeOrderProvider);
-
-      if (mounted) {
-        context.go(
-          '/customer/create-order/success',
-          extra: {
-            'orderId': created.orderId,
-            'trackingCode': created.trackingCode.isNotEmpty
-                ? created.trackingCode
-                : full.trackingCode,
-            'deliveryFee': data.deliveryFee,
-            'distanceKm': data.distanceKm,
-          },
-        );
-      }
+      await _finishCreatedOrder(
+        orderId: created.orderId,
+        trackingCode: created.trackingCode,
+        fallbackOrder: order,
+        userId: user.id,
+        addressTimestamp: now,
+      );
     } catch (error) {
       if (mounted) {
         _showSnackBar('Không thể tạo đơn hàng: $error', isError: true);
@@ -217,6 +140,45 @@ class _OrderConfirmationScreenState
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  Future<void> _finishCreatedOrder({
+    required String orderId,
+    required String trackingCode,
+    required OrderModel fallbackOrder,
+    required String userId,
+    required DateTime addressTimestamp,
+  }) async {
+    final service = ref.read(customerOrderServiceProvider);
+    final full =
+        await OrderConfirmationCompletionService(
+          orderService: service,
+          recentAddressService: ref.read(recentAddressServiceProvider),
+        ).complete(
+          orderId: orderId,
+          trackingCode: trackingCode,
+          fallbackOrder: fallbackOrder,
+          data: widget.formData,
+          userId: userId,
+          addressTimestamp: addressTimestamp,
+        );
+    ref.invalidate(recentAddressesProvider(userId));
+    ref.invalidate(customerOrdersProvider);
+    ref.invalidate(recentOrdersProvider);
+    ref.invalidate(activeOrderProvider);
+
+    if (!mounted) return;
+    context.go(
+      '/customer/create-order/success',
+      extra: {
+        'orderId': orderId,
+        'trackingCode': trackingCode.isNotEmpty
+            ? trackingCode
+            : full.trackingCode,
+        'deliveryFee': widget.formData.deliveryFee,
+        'distanceKm': widget.formData.distanceKm,
+      },
+    );
   }
 
   void _showSnackBar(String message, {bool isError = false}) {

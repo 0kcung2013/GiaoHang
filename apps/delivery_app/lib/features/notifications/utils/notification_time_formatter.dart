@@ -1,8 +1,10 @@
+import 'package:giaohang_domain/giaohang_domain.dart';
+
 import '../notification_strings.dart';
 
 String formatNotificationTime(DateTime dateTime, {DateTime? now}) {
-  final local = dateTime.toLocal();
-  final current = now?.toLocal() ?? DateTime.now();
+  final local = VietnamTime.toWallClock(dateTime);
+  final current = VietnamTime.now(clock: now);
   final difference = current.difference(local);
 
   if (difference.inMinutes < 1) return NotificationStrings.justNow;

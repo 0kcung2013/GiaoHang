@@ -93,6 +93,46 @@ void main() {
     expect(assigned, isTrue);
   });
 
+  testWidgets('action bar moves secondary transitions into an overflow menu', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(720, 240);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    RiskStatus? selected;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RiskReportActionBar(
+            assignedToMe: true,
+            unassigned: false,
+            submitting: false,
+            transitions: const [
+              RiskStatus.actionRequired,
+              RiskStatus.waitingCustomer,
+              RiskStatus.resolved,
+            ],
+            onAssign: () {},
+            onTransition: (status) => selected = status,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Cần hành động'), findsOneWidget);
+    expect(find.text('Chờ khách phản hồi'), findsNothing);
+    expect(find.text('Trạng thái khác'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('Trạng thái khác'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Chờ khách phản hồi'));
+    await tester.pumpAndSettle();
+    expect(selected, RiskStatus.waitingCustomer);
+  });
+
   testWidgets('prioritizes overdue triage reports in the queue', (
     tester,
   ) async {

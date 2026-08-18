@@ -18,99 +18,106 @@ class SupportTicketCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor = SupportTicketUi.statusColor(ticket.status);
     final priorityColor = SupportTicketUi.priorityColor(ticket.priority);
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.bgCard,
+    return Semantics(
+      button: true,
+      label: '${ticket.subject}, ${SupportTicketUi.statusLabel(ticket.status)}',
+      hint: 'Mở chi tiết yêu cầu hỗ trợ',
+      child: Material(
+        color: AppColors.bgCard,
+        shape: RoundedRectangleBorder(
           borderRadius: AppRadius.lg,
-          border: Border.all(color: AppColors.border),
-          boxShadow: AppShadow.subtle,
+          side: BorderSide(
+            color: ticket.responseOverdue
+                ? AppColors.error.withValues(alpha: 0.34)
+                : AppColors.border,
+          ),
         ),
         clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              child: SizedBox(width: 4, child: ColoredBox(color: statusColor)),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                AppSpacing.lg,
-                AppSpacing.lg,
-                AppSpacing.lg,
+        child: InkWell(
+          onTap: onTap,
+          mouseCursor: SystemMouseCursors.click,
+          hoverColor: AppColors.bgLight,
+          focusColor: AppColors.accentLight.withValues(alpha: 0.55),
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: SizedBox(
+                  width: 4,
+                  child: ColoredBox(color: statusColor),
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: statusColor.withValues(alpha: 0.09),
-                          borderRadius: AppRadius.md,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xl,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.09),
+                            borderRadius: AppRadius.md,
+                          ),
+                          child: Icon(
+                            SupportTicketUi.statusIcon(ticket.status),
+                            color: statusColor,
+                            size: 21,
+                          ),
                         ),
-                        child: Icon(
-                          SupportTicketUi.statusIcon(ticket.status),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                ticket.subject,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.headingSmall.copyWith(
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                SupportTicketUi.dateTimeLabel(ticket.updatedAt),
+                                style: AppTextStyles.labelSmall.copyWith(
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        _TicketStatusBadge(
+                          status: ticket.status,
                           color: statusColor,
-                          size: 21,
                         ),
-                      ),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              ticket.subject,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTextStyles.headingSmall.copyWith(
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(
-                              SupportTicketUi.dateTimeLabel(ticket.updatedAt),
-                              style: AppTextStyles.labelSmall.copyWith(
-                                color: AppColors.textMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      _TicketStatusBadge(
-                        status: ticket.status,
-                        color: statusColor,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    ticket.message,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.textSecondary,
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Container(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    decoration: BoxDecoration(
-                      color: AppColors.bgLight,
-                      borderRadius: AppRadius.md,
-                      border: Border.all(color: AppColors.border),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      ticket.message,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
                     ),
-                    child: Wrap(
+                    const SizedBox(height: AppSpacing.lg),
+                    const Divider(height: 1, color: AppColors.border),
+                    const SizedBox(height: AppSpacing.md),
+                    Wrap(
                       spacing: AppSpacing.lg,
                       runSpacing: AppSpacing.sm,
                       children: [
@@ -147,33 +154,33 @@ class SupportTicketCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                  ),
-                  if ((ticket.resolution ?? '').trim().isNotEmpty) ...[
-                    const SizedBox(height: AppSpacing.md),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(
-                          Icons.task_alt_rounded,
-                          color: AppColors.success,
-                          size: 20,
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            ticket.resolution!,
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: AppColors.textPrimary,
+                    if ((ticket.resolution ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.task_alt_rounded,
+                            color: AppColors.success,
+                            size: 20,
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              ticket.resolution!,
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: AppColors.textPrimary,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

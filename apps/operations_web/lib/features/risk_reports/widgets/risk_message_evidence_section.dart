@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:giaohang_domain/giaohang_domain.dart';
 
 import '../models/risk_message_evidence.dart';
 
@@ -311,6 +312,7 @@ class _EvidenceLoading extends StatelessWidget {
 
 String _formatDate(DateTime value) {
   String two(int number) => number.toString().padLeft(2, '0');
-  return '${two(value.hour)}:${two(value.minute)} · '
-      '${two(value.day)}/${two(value.month)}/${value.year}';
+  final vietnam = VietnamTime.toWallClock(value);
+  return '${two(vietnam.hour)}:${two(vietnam.minute)} · '
+      '${two(vietnam.day)}/${two(vietnam.month)}/${vietnam.year}';
 }

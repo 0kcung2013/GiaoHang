@@ -85,7 +85,7 @@ void main() {
   test('returns Redis candidates ordered only by distance', () {
     final source = redisFunction.readAsStringSync();
 
-    expect(source, contains('body.radius_meters ?? 5000'));
+    expect(source, contains('body.radius_meters ?? 3000'));
     expect(source, contains('Math.min(radius, 50000)'));
     expect(source, isNot(contains('nearestDistance + 100')));
     expect(source, isNot(contains('Number(right.rating)')));
@@ -124,10 +124,7 @@ void main() {
   test('keeps the final assignment RPC authorization customer-only', () {
     final sql = customerOnlyAssignmentMigration.readAsStringSync();
 
-    expect(
-      sql,
-      contains('v_actor_id IS DISTINCT FROM v_order.customer_id'),
-    );
+    expect(sql, contains('v_actor_id IS DISTINCT FROM v_order.customer_id'));
     expect(sql, isNot(contains('v_actor_is_rejected_driver')));
     expect(sql, isNot(contains('p_driver_user_id')));
     expect(sql, contains('candidate.distance_meters ASC'));

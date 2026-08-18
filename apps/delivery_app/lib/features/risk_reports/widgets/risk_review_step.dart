@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
 import '../utils/risk_report_options.dart';
+import '../utils/risk_report_strings.dart';
 
 class RiskReviewStep extends StatelessWidget {
   const RiskReviewStep({
@@ -10,6 +11,7 @@ class RiskReviewStep extends StatelessWidget {
     required this.description,
     required this.photoCount,
     required this.hasLocation,
+    required this.locationAddress,
     required this.messageCount,
     super.key,
   });
@@ -19,6 +21,7 @@ class RiskReviewStep extends StatelessWidget {
   final String description;
   final int photoCount;
   final bool hasLocation;
+  final String? locationAddress;
   final int messageCount;
 
   @override
@@ -53,6 +56,13 @@ class RiskReviewStep extends StatelessWidget {
               Text('Mô tả', style: AppTextStyles.labelMedium),
               const SizedBox(height: AppSpacing.xs),
               Text(description, style: AppTextStyles.bodyMedium),
+              if (hasLocation) ...[
+                const Divider(height: AppSpacing.xl2, color: AppColors.border),
+                _SummaryRow(
+                  label: RiskReportStrings.locationSummaryLabel,
+                  value: locationAddress ?? RiskReportStrings.locationResolving,
+                ),
+              ],
               const Divider(height: AppSpacing.xl2, color: AppColors.border),
               Wrap(
                 spacing: AppSpacing.sm,

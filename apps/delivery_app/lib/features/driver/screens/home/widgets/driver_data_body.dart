@@ -88,11 +88,23 @@ class DriverDashboardBody extends ConsumerWidget {
           storedLat: driver.currentLat,
           storedLng: driver.currentLng,
         );
-        final pickupDistancesMeters = _pickupDistances(
-          orders: [...visibleAvailable, ...activeOrders],
-          originLat: dashboardPosition?.latitude,
-          originLng: dashboardPosition?.longitude,
+        final offerPosition = resolveDriverOfferPosition(
+          dashboardPosition: dashboardPosition,
+          storedLat: driver.currentLat,
+          storedLng: driver.currentLng,
         );
+        final pickupDistancesMeters = <String, double>{
+          ..._pickupDistances(
+            orders: visibleAvailable,
+            originLat: offerPosition?.latitude,
+            originLng: offerPosition?.longitude,
+          ),
+          ..._pickupDistances(
+            orders: activeOrders,
+            originLat: dashboardPosition?.latitude,
+            originLng: dashboardPosition?.longitude,
+          ),
+        };
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,

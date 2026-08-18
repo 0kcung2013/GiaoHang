@@ -2,6 +2,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../../core/utils/delivery_eta_calculator.dart';
 import '../../../../../core/utils/delivery_pricing_policy.dart';
+import '../../../../../core/models/order_finance.dart';
 
 class OrderFormData {
   final String pickupAddress;
@@ -26,6 +27,9 @@ class OrderFormData {
   final String itemDescription;
   final XFile? cargoImage;
   final String paymentMethod;
+  final DeliveryFeePayer deliveryFeePayer;
+  final int goodsValue;
+  final int codCollectionAmount;
   final double deliveryFee;
   final double totalPrice;
   final double distanceMeters;
@@ -57,6 +61,9 @@ class OrderFormData {
     required this.itemDescription,
     required this.cargoImage,
     required this.paymentMethod,
+    required this.deliveryFeePayer,
+    required this.goodsValue,
+    required this.codCollectionAmount,
     required this.deliveryFee,
     required this.totalPrice,
     required this.distanceMeters,
@@ -67,6 +74,15 @@ class OrderFormData {
   });
 
   double get distanceKm => distanceMeters / 1000;
+
+  OrderFinance get finance => OrderFinance.calculate(
+    deliveryFeePayer: deliveryFeePayer,
+    goodsValue: goodsValue,
+    codCollectionAmount: codCollectionAmount,
+    deliveryFee: deliveryFee.round(),
+  );
+
+  OrderPaymentMode get paymentMode => finance.paymentMode;
 
   String get combinedDriverNote {
     final parts = <String>[

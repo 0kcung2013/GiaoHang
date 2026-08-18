@@ -63,7 +63,7 @@ class _SupportCaseConversationState extends State<SupportCaseConversation> {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.bgLight,
+        color: AppColors.bgCard,
         borderRadius: AppRadius.lg,
         border: Border.all(color: AppColors.border),
       ),
@@ -73,7 +73,29 @@ class _SupportCaseConversationState extends State<SupportCaseConversation> {
           Text('Trao đổi hồ sơ', style: AppTextStyles.headingSmall),
           const SizedBox(height: AppSpacing.md),
           if (widget.messages == null)
-            const Center(child: CircularProgressIndicator())
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: const BoxDecoration(
+                color: AppColors.bgLight,
+                borderRadius: AppRadius.md,
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.hourglass_top_rounded,
+                    size: 18,
+                    color: AppColors.textMuted,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    'Đang tải trao đổi...',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            )
           else if (widget.messages!.isEmpty)
             Text(
               'Chưa có trao đổi.',

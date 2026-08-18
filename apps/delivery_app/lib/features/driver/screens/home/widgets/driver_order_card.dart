@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/providers/customer_providers.dart';
 import '../../../../../core/providers/driver_nav_session_provider.dart';
+import '../../../../../core/providers/driver_wallet_providers.dart';
+import '../../../../../core/utils/money_formatter.dart';
 import '../../../../../core/utils/order_cargo_utils.dart';
 import '../../../../../core/widgets/order_cargo_info_block.dart';
 import '../../../../reviews/widgets/driver_rate_customer_sheet.dart';
@@ -12,7 +15,9 @@ import '../../navigation/driver_navigation_screen.dart';
 import '../../navigation/widgets/driver_order_cancellation_guard.dart';
 import '../../navigation/widgets/driver_risk_action.dart';
 import '../utils/driver_home_formatters.dart';
+import 'driver_offer_countdown.dart';
 import 'driver_order_card_components.dart';
+import 'driver_order_finance_panel.dart';
 
 /// Card đơn hàng dùng chung cho Tổng quan và danh sách đơn của tài xế.
 ///
@@ -197,6 +202,14 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
     final reviewAsync = isDelivered
         ? ref.watch(driverCustomerReviewProvider(order.id))
         : null;
+    final walletBalance = canAccept
+        ? ref.watch(driverWalletSummaryProvider).valueOrNull?.availableBalance
+        : null;
+    final requiredBalance = order.driverAdvanceAmount;
+    final missingBalance = requiredBalance > 0 && walletBalance != null
+        ? (requiredBalance - walletBalance).clamp(0, requiredBalance)
+        : 0;
+    final walletInsufficient = missingBalance > 0;
 
     return Material(
       color: Colors.transparent,
@@ -284,6 +297,11 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                       OrderCargoInfoBlock(order: order, compact: true),
                     ],
                     const SizedBox(height: AppSpacing.md),
+                    DriverOrderFinancePanel(
+                      order: order,
+                      availableBalance: walletBalance,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
                     Wrap(
                       spacing: AppSpacing.sm,
                       runSpacing: AppSpacing.sm,
@@ -310,6 +328,10 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                         ),
                       ],
                     ),
+                    if (canAccept && order.offerExpiresAt != null) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      DriverOfferCountdown(expiresAt: order.offerExpiresAt!),
+                    ],
                     if (canAccept) ...[
                       const SizedBox(height: AppSpacing.lg),
                       Row(
@@ -317,7 +339,18 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                           Expanded(
                             child: DriverAcceptOrderButton(
                               isLoading: _isAccepting,
-                              onTap: _isAccepting ? null : _acceptOrder,
+                              label: walletInsufficient
+                                  ? 'Nạp ${formatVnd(missingBalance)}'
+                                  : 'Nhận đơn',
+                              icon: walletInsufficient
+                                  ? Icons.add_card_rounded
+                                  : Icons.check_circle_rounded,
+                              onTap: _isAccepting
+                                  ? null
+                                  : walletInsufficient
+                                  ? () =>
+                                        context.go('/driver-home?tab=earnings')
+                                  : _acceptOrder,
                             ),
                           ),
                           const SizedBox(width: AppSpacing.sm),

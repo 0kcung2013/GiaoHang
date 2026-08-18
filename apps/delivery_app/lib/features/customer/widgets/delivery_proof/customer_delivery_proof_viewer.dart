@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:giaohang_domain/giaohang_domain.dart';
 import '../../../../core/models/delivery_proof_model.dart';
 
 typedef CustomerProofImageBuilder =
@@ -127,7 +128,7 @@ Future<void> showCustomerDeliveryProofViewer({
 }
 
 String formatDeliveryProofCapturedAt(DateTime value) {
-  final local = value.toLocal();
+  final local = VietnamTime.toWallClock(value);
   String twoDigits(int number) => number.toString().padLeft(2, '0');
   return '${twoDigits(local.hour)}:${twoDigits(local.minute)} · '
       '${twoDigits(local.day)}/${twoDigits(local.month)}/${local.year}';

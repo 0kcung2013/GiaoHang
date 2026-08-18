@@ -23,5 +23,18 @@ LatLng? resolveDriverDashboardPosition({
   return null;
 }
 
+/// Khoảng cách của đơn chờ phải dùng đúng vị trí server đã dùng để phân đơn.
+/// Chỉ fallback về vị trí dashboard khi hồ sơ tài xế chưa có tọa độ đã lưu.
+LatLng? resolveDriverOfferPosition({
+  required LatLng? dashboardPosition,
+  double? storedLat,
+  double? storedLng,
+}) {
+  if (_isValid(storedLat, storedLng)) {
+    return LatLng(storedLat!, storedLng!);
+  }
+  return dashboardPosition;
+}
+
 bool _isValid(double? lat, double? lng) =>
     lat != null && lng != null && (lat != 0 || lng != 0);

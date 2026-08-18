@@ -80,6 +80,48 @@ void main() {
     expect(result?.reportId, 'report-2');
     expect(controller.state.result, same(result));
   });
+
+  test('freezes the initial driver location in the submitted report', () async {
+    final repository = _FakeRepository();
+    final controller = RiskReportFormController(
+      orderId: 'order-1',
+      repository: repository,
+      initialLatitude: 11.0308,
+      initialLongitude: 106.62202,
+    );
+    controller.selectCategory(RiskCategory.safety);
+    controller.next();
+    controller.setDescription('Receiver is unavailable at delivery point.');
+    controller.next();
+
+    await controller.submit();
+
+    expect(repository.lastDraft?.latitude, 11.0308);
+    expect(repository.lastDraft?.longitude, 106.62202);
+    expect(repository.lastDraft?.locationCapturedAt, isNotNull);
+  });
+
+  test('driver report cannot continue without sharing current location', () {
+    final controller = RiskReportFormController(
+      orderId: 'order-1',
+      repository: _FakeRepository(),
+      requireLocation: true,
+    );
+    controller.selectCategory(RiskCategory.safety);
+    expect(controller.next(), isTrue);
+    controller.setDescription('Khách không nghe máy tại điểm giao hàng.');
+
+    expect(controller.next(), isFalse);
+    expect(controller.state.locationError, isNotNull);
+
+    controller.setLocation(
+      latitude: 10.821,
+      longitude: 106.721,
+      address: '123 Đường DX 124, Tân An, Thành phố Hồ Chí Minh',
+    );
+    expect(controller.next(), isTrue);
+    expect(controller.state.locationAddress, contains('Đường DX 124'));
+  });
 }
 
 RiskPhotoInput _photo(int index) => RiskPhotoInput(
@@ -92,6 +134,7 @@ class _FakeRepository implements ParticipantRiskReportRepository {
 
   final bool failFirst;
   int submitCalls = 0;
+  ParticipantRiskReportDraft? lastDraft;
 
   @override
   Future<RiskReportSubmissionResult> submit(
@@ -99,6 +142,7 @@ class _FakeRepository implements ParticipantRiskReportRepository {
     RiskReportProgressCallback? onProgress,
   }) async {
     submitCalls += 1;
+    lastDraft = draft;
     onProgress?.call(RiskReportSubmissionPhase.checkingDuplicate);
     onProgress?.call(RiskReportSubmissionPhase.sendingReport);
     await Future<void>.delayed(const Duration(milliseconds: 5));

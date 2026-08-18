@@ -31,123 +31,152 @@ class SupportTicketHeader extends StatelessWidget {
         .where((item) => item.status == SupportTicketStatus.resolved)
         .length;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final title = Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  SupportTicketStrings.ticketsTitle,
-                  style: AppTextStyles.headingLarge.copyWith(
-                    color: AppColors.textPrimary,
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        borderRadius: AppRadius.xl,
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadow.subtle,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl2),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final title = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      SupportTicketStrings.ticketsTitle,
+                      style: AppTextStyles.headingLarge.copyWith(
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      SupportTicketStrings.ticketsSubtitle,
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                );
+                final action = SizedBox(
+                  height: 48,
+                  child: FilledButton.icon(
+                    key: const Key('create-support-ticket-button'),
+                    onPressed: onCreate,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.accent,
+                      foregroundColor: AppColors.textOnAccent,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: AppRadius.md,
+                      ),
+                      textStyle: AppTextStyles.labelLarge,
+                    ),
+                    icon: const Icon(Icons.add_comment_rounded),
+                    label: const Text(SupportTicketStrings.createTicket),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  SupportTicketStrings.ticketsSubtitle,
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
+                );
+                if (constraints.maxWidth < 620) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      title,
+                      const SizedBox(height: AppSpacing.lg),
+                      action,
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: title),
+                    const SizedBox(width: AppSpacing.lg),
+                    action,
+                  ],
+                );
+              },
+            ),
+          ),
+          const Divider(height: 1, color: AppColors.border),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
+            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 680;
+                final metrics = [
+                  _TicketMetric(
+                    label: 'Đang mở',
+                    value: open,
+                    icon: Icons.inbox_rounded,
+                    color: AppColors.info,
                   ),
-                ),
-              ],
-            );
-            final action = SizedBox(
-              height: 48,
-              child: FilledButton.icon(
-                key: const Key('create-support-ticket-button'),
-                onPressed: onCreate,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  foregroundColor: AppColors.textOnAccent,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: AppRadius.md,
+                  _TicketMetric(
+                    label: 'Ưu tiên cao',
+                    value: high,
+                    icon: Icons.priority_high_rounded,
+                    color: AppColors.error,
                   ),
-                  textStyle: AppTextStyles.labelLarge,
-                ),
-                icon: const Icon(Icons.add_comment_rounded),
-                label: const Text(SupportTicketStrings.createTicket),
-              ),
-            );
-            if (constraints.maxWidth < 560) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  title,
-                  const SizedBox(height: AppSpacing.lg),
-                  action,
-                ],
-              );
-            }
-            return Row(
-              children: [
-                Expanded(child: title),
-                const SizedBox(width: AppSpacing.lg),
-                action,
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: AppSpacing.xl2),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final columns = constraints.maxWidth >= 900 ? 4 : 2;
-            final width =
-                (constraints.maxWidth - (columns - 1) * AppSpacing.md) /
-                columns;
-            return Wrap(
-              spacing: AppSpacing.md,
-              runSpacing: AppSpacing.md,
-              children: [
-                _TicketMetric(
-                  width: width,
-                  label: 'Đang mở',
-                  value: open,
-                  icon: Icons.inbox_rounded,
-                  color: AppColors.info,
-                ),
-                _TicketMetric(
-                  width: width,
-                  label: 'Ưu tiên cao',
-                  value: high,
-                  icon: Icons.priority_high_rounded,
-                  color: AppColors.error,
-                ),
-                _TicketMetric(
-                  width: width,
-                  label: 'Đang xử lý',
-                  value: processing,
-                  icon: Icons.pending_actions_rounded,
-                  color: AppColors.warning,
-                ),
-                _TicketMetric(
-                  width: width,
-                  label: 'Đã xử lý',
-                  value: resolved,
-                  icon: Icons.task_alt_rounded,
-                  color: AppColors.success,
-                ),
-              ],
-            );
-          },
-        ),
-      ],
+                  _TicketMetric(
+                    label: 'Đang xử lý',
+                    value: processing,
+                    icon: Icons.pending_actions_rounded,
+                    color: AppColors.warning,
+                  ),
+                  _TicketMetric(
+                    label: 'Đã xử lý',
+                    value: resolved,
+                    icon: Icons.task_alt_rounded,
+                    color: AppColors.success,
+                  ),
+                ];
+                if (compact) {
+                  final width = (constraints.maxWidth - AppSpacing.sm) / 2;
+                  return Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.sm,
+                    children: metrics
+                        .map((metric) => SizedBox(width: width, child: metric))
+                        .toList(),
+                  );
+                }
+                return Row(
+                  children: [
+                    for (var index = 0; index < metrics.length; index++) ...[
+                      Expanded(child: metrics[index]),
+                      if (index < metrics.length - 1)
+                        const SizedBox(
+                          height: 36,
+                          child: VerticalDivider(
+                            width: AppSpacing.xl2,
+                            color: AppColors.border,
+                          ),
+                        ),
+                    ],
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _TicketMetric extends StatelessWidget {
   const _TicketMetric({
-    required this.width,
     required this.label,
     required this.value,
     required this.icon,
     required this.color,
   });
 
-  final double width;
   final String label;
   final int value;
   final IconData icon;
@@ -155,25 +184,21 @@ class _TicketMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: AppRadius.lg,
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppShadow.subtle,
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
       ),
       child: Row(
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.09),
               borderRadius: AppRadius.md,
             ),
-            child: Icon(icon, color: color, size: 21),
+            child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
@@ -182,8 +207,9 @@ class _TicketMetric extends StatelessWidget {
               children: [
                 Text(
                   '$value',
-                  style: AppTextStyles.headingMedium.copyWith(
+                  style: AppTextStyles.headingSmall.copyWith(
                     color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 Text(

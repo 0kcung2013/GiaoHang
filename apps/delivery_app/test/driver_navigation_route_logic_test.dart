@@ -21,5 +21,16 @@ void main() {
 
       expect(rotation, closeTo(270, 0.5));
     });
+
+    test('keeps the driver low while the return route stays ahead', () {
+      final plan = DriverNavigationRouteLogic.navigationCameraPlan(
+        driverPosition: const LatLng(10, 106),
+        routePoints: const [LatLng(10, 106), LatLng(10, 106.002)],
+      );
+
+      expect(plan.rotation, closeTo(270, 0.5));
+      expect(plan.zoom, DriverNavigationRouteLogic.navigationZoom);
+      expect(plan.driverOffset.dy, greaterThan(0));
+    });
   });
 }

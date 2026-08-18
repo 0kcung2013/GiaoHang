@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:giaohang_domain/giaohang_domain.dart';
 
 import '../../../../../../core/models/recent_address_model.dart';
 import '../../../../../../core/providers/address_providers.dart';
@@ -167,8 +168,8 @@ class RecentAddressesTab extends ConsumerWidget {
   }
 
   String _relativeTime(DateTime value) {
-    final now = DateTime.now();
-    final local = value.toLocal();
+    final now = VietnamTime.now();
+    final local = VietnamTime.toWallClock(value);
     final today = DateTime(now.year, now.month, now.day);
     final date = DateTime(local.year, local.month, local.day);
     final days = today.difference(date).inDays;

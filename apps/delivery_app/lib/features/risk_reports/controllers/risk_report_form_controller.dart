@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
 import '../data/risk_report_repository.dart';
+import '../utils/risk_report_strings.dart';
 
 class RiskReportFormState {
   const RiskReportFormState({
@@ -12,10 +13,12 @@ class RiskReportFormState {
     this.latitude,
     this.longitude,
     this.locationCapturedAt,
+    this.locationAddress,
     this.messageIds = const [],
     this.categoryError,
     this.descriptionError,
     this.photoError,
+    this.locationError,
     this.isSubmitting = false,
     this.submissionPhase,
     this.errorMessage,
@@ -29,10 +32,12 @@ class RiskReportFormState {
   final double? latitude;
   final double? longitude;
   final DateTime? locationCapturedAt;
+  final String? locationAddress;
   final List<String> messageIds;
   final String? categoryError;
   final String? descriptionError;
   final String? photoError;
+  final String? locationError;
   final bool isSubmitting;
   final RiskReportSubmissionPhase? submissionPhase;
   final String? errorMessage;
@@ -46,10 +51,12 @@ class RiskReportFormState {
     double? latitude,
     double? longitude,
     DateTime? locationCapturedAt,
+    String? locationAddress,
     List<String>? messageIds,
     String? categoryError,
     String? descriptionError,
     String? photoError,
+    String? locationError,
     bool? isSubmitting,
     RiskReportSubmissionPhase? submissionPhase,
     String? errorMessage,
@@ -57,6 +64,7 @@ class RiskReportFormState {
     bool clearCategoryError = false,
     bool clearDescriptionError = false,
     bool clearPhotoError = false,
+    bool clearLocationError = false,
     bool clearErrorMessage = false,
     bool clearLocation = false,
     bool clearSubmissionPhase = false,
@@ -71,6 +79,9 @@ class RiskReportFormState {
       locationCapturedAt: clearLocation
           ? null
           : locationCapturedAt ?? this.locationCapturedAt,
+      locationAddress: clearLocation
+          ? null
+          : locationAddress ?? this.locationAddress,
       messageIds: messageIds ?? this.messageIds,
       categoryError: clearCategoryError
           ? null
@@ -79,6 +90,9 @@ class RiskReportFormState {
           ? null
           : descriptionError ?? this.descriptionError,
       photoError: clearPhotoError ? null : photoError ?? this.photoError,
+      locationError: clearLocationError
+          ? null
+          : locationError ?? this.locationError,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       submissionPhase: clearSubmissionPhase
           ? null
@@ -95,11 +109,22 @@ class RiskReportFormController extends ChangeNotifier {
   RiskReportFormController({
     required this.orderId,
     required ParticipantRiskReportRepository repository,
-  }) : _repository = repository;
+    double? initialLatitude,
+    double? initialLongitude,
+    this.requireLocation = false,
+  }) : _repository = repository,
+       _state = initialLatitude != null && initialLongitude != null
+           ? RiskReportFormState(
+               latitude: initialLatitude,
+               longitude: initialLongitude,
+               locationCapturedAt: DateTime.now(),
+             )
+           : const RiskReportFormState();
 
   final String orderId;
   final ParticipantRiskReportRepository _repository;
-  RiskReportFormState _state = const RiskReportFormState();
+  final bool requireLocation;
+  RiskReportFormState _state;
   Future<RiskReportSubmissionResult?>? _inFlight;
 
   RiskReportFormState get state => _state;
@@ -122,12 +147,16 @@ class RiskReportFormController extends ChangeNotifier {
     required double latitude,
     required double longitude,
     DateTime? capturedAt,
+    String? address,
   }) {
     _update(
       _state.copyWith(
         latitude: latitude,
         longitude: longitude,
-        locationCapturedAt: capturedAt ?? DateTime.now(),
+        locationCapturedAt:
+            capturedAt ?? _state.locationCapturedAt ?? DateTime.now(),
+        locationAddress: address,
+        clearLocationError: true,
       ),
     );
   }
@@ -146,7 +175,10 @@ class RiskReportFormController extends ChangeNotifier {
     if (_state.step == 1) {
       final descriptionValid = _state.description.trim().length >= 10;
       final photosValid = _state.photos.length <= 5;
-      if (!descriptionValid || !photosValid) {
+      final locationValid =
+          !requireLocation ||
+          (_state.latitude != null && _state.longitude != null);
+      if (!descriptionValid || !photosValid || !locationValid) {
         _update(
           _state.copyWith(
             descriptionError: descriptionValid
@@ -155,8 +187,12 @@ class RiskReportFormController extends ChangeNotifier {
             photoError: photosValid
                 ? null
                 : 'Bạn chỉ có thể chọn tối đa 5 ảnh.',
+            locationError: locationValid
+                ? null
+                : RiskReportStrings.locationRequired,
             clearDescriptionError: descriptionValid,
             clearPhotoError: photosValid,
+            clearLocationError: locationValid,
           ),
         );
         return false;
@@ -183,13 +219,22 @@ class RiskReportFormController extends ChangeNotifier {
 
   Future<RiskReportSubmissionResult?> _submitOnce() async {
     final category = _state.category;
-    if (category == null || _state.description.trim().length < 10) {
+    final locationValid =
+        !requireLocation ||
+        (_state.latitude != null && _state.longitude != null);
+    if (category == null ||
+        _state.description.trim().length < 10 ||
+        !locationValid) {
       _update(
         _state.copyWith(
           categoryError: category == null ? 'Vui lòng chọn loại sự cố.' : null,
           descriptionError: _state.description.trim().length < 10
               ? 'Mô tả cần có ít nhất 10 ký tự.'
               : null,
+          locationError: locationValid
+              ? null
+              : RiskReportStrings.locationRequired,
+          clearLocationError: locationValid,
         ),
       );
       return null;

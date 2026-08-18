@@ -12,6 +12,7 @@ import '../../notifications/models/notification_inbox_item.dart';
 import '../../notifications/widgets/notification_bell_button.dart';
 import 'account/driver_account_screen.dart';
 import 'earnings/driver_earnings_screen.dart';
+import 'free_pick/driver_free_pick_screen.dart';
 import 'home/home_screen.dart';
 import 'home/utils/driver_home_formatters.dart';
 import 'orders/driver_orders_screen.dart';
@@ -29,30 +30,32 @@ class DriverShellScreen extends ConsumerStatefulWidget {
 }
 
 class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
-  static const _tabs = [
-    DriverHomeScreen(),
-    DriverOrdersScreen(),
-    DriverEarningsScreen(),
-    DriverAccountScreen(),
+  static const _titles = [
+    'Tổng quan',
+    'Đơn hàng',
+    'Ví Tài Xế',
+    'Tài khoản',
+    'FreePick',
   ];
 
-  static const _titles = ['Tổng quan', 'Đơn hàng', 'Thu nhập', 'Tài khoản'];
-
   late int _currentIndex;
+  late bool _hasOpenedFreePick;
   String? _lastHandledCancellationEventId;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialTab.clamp(0, _tabs.length - 1);
+    _currentIndex = widget.initialTab.clamp(0, _titles.length - 1);
+    _hasOpenedFreePick = _currentIndex == 4;
   }
 
   @override
   void didUpdateWidget(covariant DriverShellScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialTab != widget.initialTab) {
-      _currentIndex = widget.initialTab.clamp(0, _tabs.length - 1);
+      _currentIndex = widget.initialTab.clamp(0, _titles.length - 1);
+      if (_currentIndex == 4) _hasOpenedFreePick = true;
     }
   }
 
@@ -140,13 +143,28 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
       ),
       drawer: DriverDrawer(
         currentIndex: _currentIndex,
-        onNavigate: (index) => setState(() => _currentIndex = index),
+        onNavigate: (index) => setState(() {
+          _currentIndex = index;
+          if (index == 4) _hasOpenedFreePick = true;
+        }),
       ),
       body: SafeArea(
         bottom: false,
         child: Stack(
           children: [
-            IndexedStack(index: _currentIndex, children: _tabs),
+            IndexedStack(
+              index: _currentIndex,
+              children: [
+                const DriverHomeScreen(),
+                const DriverOrdersScreen(),
+                const DriverEarningsScreen(),
+                const DriverAccountScreen(),
+                if (_hasOpenedFreePick)
+                  const DriverFreePickScreen()
+                else
+                  const SizedBox.shrink(),
+              ],
+            ),
             if (currentUser != null)
               DriverActiveDeliveryLocationTracker(
                 userId: currentUser.id,

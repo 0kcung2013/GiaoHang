@@ -113,12 +113,26 @@ class RiskOrderSummary {
     required this.status,
     required this.pickupAddress,
     required this.deliveryAddress,
+    this.customerId,
+    this.driverId,
+    this.pickupLat,
+    this.pickupLng,
+    this.deliveryLat,
+    this.deliveryLng,
+    this.deliveryFee = 0,
   });
 
   final String trackingCode;
   final String status;
   final String pickupAddress;
   final String deliveryAddress;
+  final String? customerId;
+  final String? driverId;
+  final double? pickupLat;
+  final double? pickupLng;
+  final double? deliveryLat;
+  final double? deliveryLng;
+  final int deliveryFee;
 
   factory RiskOrderSummary.fromJson(Map<String, dynamic> json) {
     return RiskOrderSummary(
@@ -126,6 +140,13 @@ class RiskOrderSummary {
       status: json['status']?.toString() ?? '',
       pickupAddress: json['pickup_address']?.toString() ?? '',
       deliveryAddress: json['delivery_address']?.toString() ?? '',
+      customerId: json['customer_id']?.toString(),
+      driverId: json['driver_id']?.toString(),
+      pickupLat: _optionalDouble(json['pickup_lat']),
+      pickupLng: _optionalDouble(json['pickup_lng']),
+      deliveryLat: _optionalDouble(json['delivery_lat']),
+      deliveryLng: _optionalDouble(json['delivery_lng']),
+      deliveryFee: (json['delivery_fee'] as num?)?.round() ?? 0,
     );
   }
 
@@ -134,6 +155,13 @@ class RiskOrderSummary {
     'status': status,
     'pickup_address': pickupAddress,
     'delivery_address': deliveryAddress,
+    'customer_id': customerId,
+    'driver_id': driverId,
+    'pickup_lat': pickupLat,
+    'pickup_lng': pickupLng,
+    'delivery_lat': deliveryLat,
+    'delivery_lng': deliveryLng,
+    'delivery_fee': deliveryFee,
   };
 }
 

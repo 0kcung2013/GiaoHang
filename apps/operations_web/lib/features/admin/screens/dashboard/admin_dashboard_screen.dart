@@ -190,7 +190,7 @@ class _StatGrid extends StatelessWidget {
               icon: Icons.payments_outlined,
               label: 'Doanh thu',
               value: stats?['total_revenue'] != null
-                  ? '${(stats!['total_revenue'] as num).toStringAsFixed(0)}đ'
+                  ? formatVnd(stats!['total_revenue'] as num)
                   : null,
               color: AppColors.success,
               loading: loading,

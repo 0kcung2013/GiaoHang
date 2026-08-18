@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
+import '../../../../../core/utils/money_formatter.dart';
 import '../models/driver_delivery_workflow.dart';
 import 'driver_proof_photo_field.dart';
 
@@ -56,15 +57,16 @@ class _DriverDeliveryConfirmationSheetState
   List<String> get _checklist {
     return switch (widget.action) {
       DriverDeliveryAction.startPickupJourney => const [],
-      DriverDeliveryAction.confirmPickup => const [
+      DriverDeliveryAction.confirmPickup => [
         'Đã nhận đúng kiện hàng của đơn này',
         'Đã kiểm tra tình trạng bên ngoài của kiện hàng',
+        if (widget.order.driverAdvanceAmount > 0)
+          'Đã ứng ${formatVnd(widget.order.driverAdvanceAmount)} cho người gửi',
       ],
       DriverDeliveryAction.startDelivery => const [],
       DriverDeliveryAction.confirmDelivery => [
         'Đã giao đúng người nhận hoặc người được ủy quyền',
-        if (widget.order.paymentMethod == 'cash')
-          'Đã hoàn tất thu hộ và đối soát tiền mặt',
+        'Đã thu ${formatVnd(widget.order.receiverCollectionAmount)} từ người nhận',
       ],
       DriverDeliveryAction.none => const [],
     };
@@ -171,6 +173,9 @@ class _DriverDeliveryConfirmationSheetState
                         foregroundColor: AppColors.textSecondary,
                         side: const BorderSide(color: AppColors.border),
                         minimumSize: const Size.fromHeight(52),
+                        textStyle: AppTextStyles.labelMedium.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: AppRadius.full,
                         ),
@@ -196,6 +201,9 @@ class _DriverDeliveryConfirmationSheetState
                         disabledBackgroundColor: AppColors.border,
                         foregroundColor: AppColors.textOnAccent,
                         minimumSize: const Size.fromHeight(52),
+                        textStyle: AppTextStyles.labelMedium.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: AppRadius.full,
                         ),

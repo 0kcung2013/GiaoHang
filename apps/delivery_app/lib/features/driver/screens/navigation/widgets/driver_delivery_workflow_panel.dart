@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/utils/delivery_map_utils.dart';
+import '../../../widgets/driver_swipe_action.dart';
 import '../models/driver_delivery_workflow.dart';
+import '../utils/driver_navigation_strings.dart';
 
 class DriverDeliveryWorkflowPanel extends StatelessWidget {
   const DriverDeliveryWorkflowPanel({
@@ -133,40 +135,15 @@ class DriverDeliveryWorkflowPanel extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
             if (workflow.requiresArrival && !arrivedAtTarget)
-              const _LocationGuardHint(),
+              const _ProofLocationHint(),
             if (workflow.requiresArrival && !arrivedAtTarget)
               const SizedBox(height: AppSpacing.sm),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: FilledButton.icon(
-                onPressed: actionEnabled ? onPrimaryAction : null,
-                icon: isLoading
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.textOnAccent,
-                        ),
-                      )
-                    : Icon(workflow.primaryIcon, size: 20),
-                label: Text(
-                  isLoading ? 'Đang cập nhật...' : workflow.primaryLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: workflow.accent,
-                  foregroundColor: AppColors.textOnAccent,
-                  disabledBackgroundColor: AppColors.border,
-                  disabledForegroundColor: AppColors.textMuted,
-                  shape: RoundedRectangleBorder(borderRadius: AppRadius.full),
-                  textStyle: AppTextStyles.labelLarge.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
+            DriverSwipeAction(
+              label: workflow.primaryLabel,
+              accent: workflow.accent,
+              icon: workflow.primaryIcon,
+              loading: isLoading,
+              onCompleted: actionEnabled ? onPrimaryAction : null,
             ),
           ],
         ),
@@ -349,8 +326,8 @@ class _DestinationCard extends StatelessWidget {
   }
 }
 
-class _LocationGuardHint extends StatelessWidget {
-  const _LocationGuardHint();
+class _ProofLocationHint extends StatelessWidget {
+  const _ProofLocationHint();
 
   @override
   Widget build(BuildContext context) {
@@ -364,8 +341,7 @@ class _LocationGuardHint extends StatelessWidget {
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Text(
-            'Xác nhận sẽ mở khi bạn đến trong phạm vi '
-            '${DriverDeliveryWorkflow.arrivalRadiusMeters.toStringAsFixed(0)} m.',
+            DriverNavigationStrings.swipeProofHint,
             style: AppTextStyles.labelSmall.copyWith(
               color: AppColors.textSecondary,
               fontWeight: FontWeight.w600,

@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:giaohang_domain/giaohang_domain.dart'
+    show OrderReturn, ReturnApprovalDraft;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../returns/data/support_order_return_repository.dart';
+import '../../returns/dialogs/support_return_approval_dialog.dart';
+import '../../returns/services/return_route_quote_service.dart';
+import '../../returns/widgets/support_return_progress.dart';
 import '../dialogs/risk_operation_dialogs.dart';
 import '../models/risk_report.dart';
-import 'risk_note_history.dart';
+import 'risk_internal_notes_section.dart';
 
 typedef RiskDecisionCallback =
     Future<void> Function(RiskInterventionState decision, String? instruction);
@@ -15,6 +22,7 @@ class RiskInterventionPanel extends StatefulWidget {
     required this.orderStatus,
     required this.onHoldBeforePickup,
     required this.onDecision,
+    this.onApproveReturn,
     required this.onConfirmCustody,
     required this.onResumeOrder,
     required this.onAddNote,
@@ -29,6 +37,7 @@ class RiskInterventionPanel extends StatefulWidget {
   final String orderStatus;
   final Future<void> Function() onHoldBeforePickup;
   final RiskDecisionCallback onDecision;
+  final Future<void> Function(ReturnApprovalDraft draft)? onApproveReturn;
   final Future<void> Function() onConfirmCustody;
   final Future<void> Function() onResumeOrder;
   final Future<void> Function(String body) onAddNote;
@@ -41,67 +50,76 @@ class RiskInterventionPanel extends StatefulWidget {
 }
 
 class _RiskInterventionPanelState extends State<RiskInterventionPanel> {
-  final _noteController = TextEditingController();
   bool _busy = false;
-  String? _noteError;
-
-  @override
-  void dispose() {
-    _noteController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.bgLight,
+        color: AppColors.bgCard,
         borderRadius: AppRadius.lg,
         border: Border.all(color: AppColors.border),
+        boxShadow: AppShadow.subtle,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.alt_route_rounded, color: AppColors.primary),
-              const SizedBox(width: AppSpacing.sm),
-              Text('Can thiệp vận hành', style: AppTextStyles.headingSmall),
+              Container(
+                width: 40,
+                height: 40,
+                decoration: const BoxDecoration(
+                  color: AppColors.accentLight,
+                  borderRadius: AppRadius.md,
+                ),
+                child: const Icon(
+                  Icons.alt_route_rounded,
+                  size: 21,
+                  color: AppColors.accent,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Can thiệp vận hành',
+                      style: AppTextStyles.headingSmall,
+                    ),
+                    Text(
+                      'Quyết định luồng giao và lưu thông tin xử lý',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
+          const SizedBox(height: AppSpacing.lg),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.bgLight,
+              borderRadius: AppRadius.md,
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _operationalActions(context),
+            ),
+          ),
           const SizedBox(height: AppSpacing.md),
-          ..._operationalActions(context),
-          const Divider(height: AppSpacing.xl3, color: AppColors.border),
-          Text('Ghi chú nội bộ', style: AppTextStyles.labelMedium),
-          const SizedBox(height: AppSpacing.sm),
-          RiskNoteHistory(notes: widget.notes),
-          if (widget.canManage) ...[
-            const SizedBox(height: AppSpacing.sm),
-            TextField(
-              key: const Key('risk-internal-note'),
-              controller: _noteController,
-              minLines: 2,
-              maxLines: 4,
-              decoration: InputDecoration(
-                hintText: 'Thông tin chỉ CSKH và Admin nhìn thấy',
-                errorText: _noteError,
-                filled: true,
-                fillColor: AppColors.bgCard,
-                border: const OutlineInputBorder(borderRadius: AppRadius.md),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Align(
-              alignment: Alignment.centerRight,
-              child: _PanelButton(
-                label: 'Lưu ghi chú',
-                icon: Icons.note_add_outlined,
-                onTap: _busy ? null : _addNote,
-                secondary: true,
-              ),
-            ),
-          ],
+          RiskInternalNotesSection(
+            notes: widget.notes,
+            canManage: widget.canManage,
+            onAddNote: widget.onAddNote,
+          ),
         ],
       ),
     );
@@ -146,11 +164,7 @@ class _RiskInterventionPanelState extends State<RiskInterventionPanel> {
                 label: 'Yêu cầu hoàn trả',
                 icon: Icons.keyboard_return_rounded,
                 secondary: true,
-                onTap: _busy
-                    ? null
-                    : () => _requestInstruction(
-                        RiskInterventionState.returnRequired,
-                      ),
+                onTap: _busy ? null : _requestReturn,
               ),
               _PanelButton(
                 label: 'Yêu cầu bàn giao',
@@ -174,8 +188,20 @@ class _RiskInterventionPanelState extends State<RiskInterventionPanel> {
         const _InfoText('Đơn tiếp tục bình thường khi chưa có lệnh giữ.'),
       ];
     }
-    if (intervention.state == RiskInterventionState.returnRequired ||
-        intervention.state == RiskInterventionState.handoffRequired) {
+    if (intervention.state == RiskInterventionState.returnRequired) {
+      return [
+        StreamBuilder<OrderReturn?>(
+          stream: SupportOrderReturnRepository(
+            Supabase.instance.client,
+          ).watchForOrder(widget.report.orderId),
+          builder: (context, snapshot) => SupportReturnProgress(
+            mission: snapshot.data,
+            fallbackInstruction: intervention.instruction,
+          ),
+        ),
+      ];
+    }
+    if (intervention.state == RiskInterventionState.handoffRequired) {
       return [
         _InfoText(intervention.instruction ?? 'Đang chờ xử lý hàng hóa.'),
         const SizedBox(height: AppSpacing.sm),
@@ -207,6 +233,21 @@ class _RiskInterventionPanelState extends State<RiskInterventionPanel> {
     );
     if (instruction == null || !mounted) return;
     await _run(() => widget.onDecision(decision, instruction));
+  }
+
+  Future<void> _requestReturn() async {
+    final callback = widget.onApproveReturn;
+    if (callback == null) {
+      await _requestInstruction(RiskInterventionState.returnRequired);
+      return;
+    }
+    final draft = await showSupportReturnApprovalDialog(
+      context: context,
+      report: widget.report,
+      quoteService: ReturnRouteQuoteService(Supabase.instance.client),
+    );
+    if (draft == null || !mounted) return;
+    await _run(() => callback(draft));
   }
 
   Future<void> _confirmHoldBeforePickup() async {
@@ -258,19 +299,6 @@ class _RiskInterventionPanelState extends State<RiskInterventionPanel> {
       icon: Icons.restart_alt_rounded,
     );
     if (confirmed && mounted) await _run(widget.onResumeOrder);
-  }
-
-  Future<void> _addNote() async {
-    final body = _noteController.text.trim();
-    if (body.length < 3) {
-      setState(() => _noteError = 'Ghi chú cần ít nhất 3 ký tự.');
-      return;
-    }
-    await _run(() => widget.onAddNote(body));
-    if (mounted) {
-      _noteController.clear();
-      setState(() => _noteError = null);
-    }
   }
 
   Future<void> _run(Future<void> Function() action) async {

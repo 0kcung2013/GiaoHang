@@ -7,7 +7,12 @@ class RiskReportPolicy {
     required RiskStatus status,
     required RiskSeverity severity,
     required bool isAdmin,
+    RiskInterventionState? interventionState,
   }) {
+    if (interventionState == RiskInterventionState.returnRequired) {
+      return const [];
+    }
+
     final transitions = switch (status) {
       RiskStatus.open => [RiskStatus.investigating, RiskStatus.dismissed],
       RiskStatus.investigating => [

@@ -161,7 +161,7 @@ class LocationIngestService {
           'lng': lng,
           'heading': ?heading,
           'speed': ?speed,
-          'client_ts': DateTime.now().toIso8601String(),
+          'client_ts': DateTime.now().toUtc().toIso8601String(),
         },
       );
       if (res.status >= 200 && res.status < 300) {

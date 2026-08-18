@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'create_order_form_sections.dart';
 import 'demo_autofill_button.dart';
+import 'order_finance_details_section.dart';
 import 'sender_contact_section.dart';
 
 class CreateOrderBody extends StatelessWidget {
@@ -24,6 +25,7 @@ class CreateOrderBody extends StatelessWidget {
     required this.onPickGallery,
     required this.onRemoveImage,
     required this.onAutofillDemo,
+    required this.codCollectionController,
     this.trafficDemoRouteCard,
   });
 
@@ -42,6 +44,7 @@ class CreateOrderBody extends StatelessWidget {
   final VoidCallback onPickGallery;
   final VoidCallback onRemoveImage;
   final VoidCallback onAutofillDemo;
+  final TextEditingController codCollectionController;
   final Widget? trafficDemoRouteCard;
 
   @override
@@ -86,6 +89,10 @@ class CreateOrderBody extends StatelessWidget {
                     itemCategory: itemCategory,
                     requiredText: requiredText,
                     onCategoryChanged: onCategoryChanged,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  OrderFinanceDetailsSection(
+                    codCollectionController: codCollectionController,
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   CreateOrderPhotosSection(

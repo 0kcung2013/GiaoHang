@@ -55,7 +55,7 @@ class DriverService {
           .from(_driversTable)
           .update({
             'is_available': isAvailable,
-            'updated_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
           })
           .eq('id', driverId);
     } catch (error) {
@@ -99,7 +99,7 @@ class DriverService {
         'heading': heading,
         'speed': speed,
         'is_active': isActive,
-        'created_at': DateTime.now().toIso8601String(),
+        'created_at': DateTime.now().toUtc().toIso8601String(),
       });
     } catch (error) {
       throw Exception('Failed to insert location history: $error');

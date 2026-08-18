@@ -24,6 +24,8 @@ class DriverNavigationView extends StatelessWidget {
     this.maneuverDistance,
     this.totalDistance,
     this.totalDuration,
+    this.driverLatitude,
+    this.driverLongitude,
     this.onContact,
     this.riskInterventionRepository,
   });
@@ -40,6 +42,8 @@ class DriverNavigationView extends StatelessWidget {
   final double? maneuverDistance;
   final double? totalDistance;
   final double? totalDuration;
+  final double? driverLatitude;
+  final double? driverLongitude;
   final VoidCallback? onContact;
   final RiskInterventionRepository? riskInterventionRepository;
 
@@ -99,7 +103,12 @@ class DriverNavigationView extends StatelessWidget {
                     const SizedBox(height: AppSpacing.sm),
                     Align(
                       alignment: Alignment.centerRight,
-                      child: DriverRiskAction(order: order, dark: true),
+                      child: DriverRiskAction(
+                        order: order,
+                        initialLatitude: driverLatitude,
+                        initialLongitude: driverLongitude,
+                        dark: true,
+                      ),
                     ),
                   ],
                 ),
@@ -115,7 +124,7 @@ class DriverNavigationView extends StatelessWidget {
               child: riskInterventionRepository == null
                   ? _arrivalBar()
                   : DriverRiskInstructionRegion(
-                      orderId: order.id,
+                      order: order,
                       repository: riskInterventionRepository!,
                       builder: (_, blocksDelivery) =>
                           _arrivalBar(blocksDelivery: blocksDelivery),

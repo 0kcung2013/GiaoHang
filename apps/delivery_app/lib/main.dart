@@ -3,12 +3,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_config/giaohang_config.dart';
 import 'core/location/driver_foreground_location_service.dart';
+import 'core/location/driver_location_mode_store.dart';
+import 'core/providers/location_providers.dart';
 import 'core/router.dart';
 
 void main() async {
@@ -36,18 +37,9 @@ void main() async {
     anonKey: SupabaseConstants.supabaseAnonKey,
   );
 
-  final prefs = await SharedPreferences.getInstance();
-  final onboardingDone = prefs.getBool('onboarding_done') ?? false;
   final user = Supabase.instance.client.auth.currentUser;
-
-  String initialLocation;
-  if (user != null) {
-    initialLocation = '/';
-  } else if (onboardingDone) {
-    initialLocation = '/login';
-  } else {
-    initialLocation = '/onboarding';
-  }
+  final initialLocation = user == null ? '/login' : '/';
+  final driverLocationMode = await DriverLocationModeStore().load();
 
   // DevicePreview trên điện thoại thật làm lệch/chặn touch → form login không bấm được.
   // Chỉ bật khi debug trên web / desktop.
@@ -60,6 +52,9 @@ void main() async {
 
   runApp(
     ProviderScope(
+      overrides: [
+        driverLocationModeProvider.overrideWith((ref) => driverLocationMode),
+      ],
       child: useDevicePreview
           ? DevicePreview(
               enabled: true,

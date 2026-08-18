@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import '../../../../core/location/driver_location_mode_store.dart';
 import '../../../../core/location/driver_location_producer_policy.dart';
 import '../../../../core/providers/customer_providers.dart';
 import '../../../../core/providers/location_providers.dart';
@@ -174,6 +175,13 @@ class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
           .read(driverServiceProvider)
           .getDriverByUserId(currentUser.id);
       final stored = _storedPoint(refreshed?.currentLat, refreshed?.currentLng);
+      if (stored == null || _distance(stored, selected) > 50) {
+        throw const _GpsDebugException(
+          'Chưa đồng bộ được vị trí đã chọn lên máy chủ. Chế độ GPS chưa thay đổi, vui lòng thử lại.',
+        );
+      }
+
+      await DriverLocationModeStore().save(mode);
 
       if (!mounted) return;
       ref.read(driverLocationModeProvider.notifier).state = mode;

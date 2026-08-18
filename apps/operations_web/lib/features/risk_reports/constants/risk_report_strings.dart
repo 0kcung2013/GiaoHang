@@ -14,9 +14,13 @@ class RiskReportStrings {
   static const assignedToYou = 'Bạn đang phụ trách';
   static const unassigned = 'Chưa phân công';
   static const assignedToOther = 'Đang do nhân viên khác phụ trách';
+  static const returnStatusLocked =
+      'Trạng thái được khóa khi tài xế đang hoàn hàng';
   static const evidenceTitle = 'Ảnh và vị trí';
   static const noAttachments = 'Không có ảnh hoặc vị trí đính kèm.';
   static const openMap = 'Mở bản đồ';
+  static const resolvingAddress = 'Đang xác định địa chỉ...';
+  static const addressUnavailable = 'Chưa thể xác định địa chỉ cụ thể';
   static const adminOverview = 'Tổng quan kiểm soát';
   static const adminOverviewHint = 'Tối đa 200 báo cáo cập nhật gần nhất';
   static const triageSla = 'SLA phân loại';

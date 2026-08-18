@@ -147,8 +147,15 @@ class SupabaseRiskReportRepository
     orders!risk_reports_order_id_fkey(
       tracking_code,
       status,
+      customer_id,
+      driver_id,
       pickup_address,
-      delivery_address
+      pickup_lat,
+      pickup_lng,
+      delivery_address,
+      delivery_lat,
+      delivery_lng,
+      delivery_fee
     )
   ''';
 

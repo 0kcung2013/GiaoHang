@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:giaohang_domain/giaohang_domain.dart';
 
 class AdminOrdersScreen extends StatefulWidget {
   const AdminOrdersScreen({super.key});
@@ -60,6 +61,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
     'picking_up' => AppColors.accent,
     'delivering' => AppColors.accent,
     'delivered' => AppColors.success,
+    'return_approved' || 'returning' => AppColors.warning,
+    'returned' => AppColors.success,
     'cancelled' => AppColors.error,
     _ => AppColors.textMuted,
   };
@@ -71,6 +74,9 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
     'picking_up' => 'Đang lấy hàng',
     'delivering' => 'Đang giao',
     'delivered' => 'Đã giao',
+    'return_approved' => 'Đã duyệt hoàn',
+    'returning' => 'Đang hoàn hàng',
+    'returned' => 'Đã hoàn hàng',
     'cancelled' => 'Đã hủy',
     _ => status,
   };
@@ -270,7 +276,7 @@ class _OrderCard extends StatelessWidget {
             Align(
               alignment: Alignment.centerRight,
               child: Text(
-                '${(order['total_price'] as num?)?.toStringAsFixed(0) ?? '0'}đ',
+                formatVnd((order['total_price'] as num?) ?? 0),
                 style: AppTextStyles.headingSmall.copyWith(
                   color: AppColors.primary,
                 ),

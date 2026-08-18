@@ -121,6 +121,9 @@ String _statusLabel(String status) => switch (status) {
   'picking_up' => 'Đang lấy hàng',
   'delivering' => 'Đang giao',
   'delivered' => 'Đã giao',
+  'return_approved' => 'Đã duyệt hoàn',
+  'returning' => 'Đang hoàn hàng',
+  'returned' => 'Đã hoàn hàng',
   'cancelled' => 'Đã huỷ',
   _ => 'Đang cập nhật',
 };
@@ -130,6 +133,8 @@ Color _statusColor(String status) => switch (status) {
   'confirmed' || 'assigned' => AppColors.info,
   'picking_up' || 'delivering' => AppColors.accent,
   'delivered' => AppColors.success,
+  'return_approved' || 'returning' => AppColors.warning,
+  'returned' => AppColors.success,
   'cancelled' => AppColors.error,
   _ => AppColors.textSecondary,
 };
@@ -141,6 +146,8 @@ IconData _statusIcon(String status) => switch (status) {
   'picking_up' => Icons.inventory_2_outlined,
   'delivering' => Icons.local_shipping_outlined,
   'delivered' => Icons.check_rounded,
+  'return_approved' || 'returning' => Icons.keyboard_return_rounded,
+  'returned' => Icons.assignment_turned_in_rounded,
   'cancelled' => Icons.close_rounded,
   _ => Icons.more_horiz_rounded,
 };

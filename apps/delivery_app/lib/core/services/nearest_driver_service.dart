@@ -27,7 +27,7 @@ class NearestDriverService {
   final AssignableDriverLoader? _assignableDriverLoader;
   final DateTime Function() _now;
 
-  static const double radiusMeters = 5000;
+  static const double radiusMeters = 3000;
   static const Duration locationFreshness = Duration(minutes: 3);
   static const int _maxCandidates = 50;
 

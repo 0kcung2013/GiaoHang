@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:giaohang_domain/giaohang_domain.dart' show ReturnApprovalDraft;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/risk_report_repository.dart';
+import '../../returns/data/support_order_return_repository.dart';
 import '../models/risk_message_evidence.dart';
 import '../models/risk_report.dart';
 import '../models/risk_report_policy.dart';
@@ -250,6 +252,23 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
     }
   }
 
+  Future<void> _approveReturn(ReturnApprovalDraft draft) async {
+    setState(() => _submitting = true);
+    try {
+      await SupportOrderReturnRepository(
+        Supabase.instance.client,
+      ).approve(draft);
+      if (!mounted) return;
+      await _loadIntervention();
+    } on PostgrestException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Không thể phê duyệt hoàn đơn.');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final report = widget.report;
@@ -257,7 +276,10 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
       status: report.status,
       severity: report.severity,
       isAdmin: widget.isAdmin,
+      interventionState: _intervention?.state,
     );
+    final statusLocked =
+        _intervention?.state == RiskInterventionState.returnRequired;
     final criticalRestricted =
         report.severity == RiskSeverity.critical && !widget.isAdmin;
     final screen = MediaQuery.sizeOf(context);
@@ -267,12 +289,13 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
       backgroundColor: Colors.transparent,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: 820,
+          maxWidth: 880,
           maxHeight: screen.height - AppSpacing.xl3,
         ),
         child: Material(
-          color: AppColors.bgCard,
+          color: AppColors.bgLight,
           borderRadius: AppRadius.xl,
+          elevation: 0,
           clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
@@ -309,6 +332,7 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
                       instruction: instruction,
                     ),
                   ),
+                  onApproveReturn: _approveReturn,
                   onConfirmCustody: () => _runIntervention(
                     (commands) => commands.confirmCustodyResolved(report.id),
                   ),
@@ -326,6 +350,7 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
                 unassigned: report.assignedTo == null,
                 submitting: _submitting,
                 transitions: transitions,
+                statusLocked: statusLocked,
                 onAssign: _assignToMe,
                 canTakeOver:
                     widget.isAdmin &&

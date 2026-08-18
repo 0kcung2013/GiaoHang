@@ -19,6 +19,11 @@ class DriverContinueDeliveryButton extends StatelessWidget {
       'assigned' => ('Mở quy trình giao hàng', Icons.route_rounded),
       'picking_up' => ('Tiếp tục đến điểm lấy', Icons.storefront_rounded),
       'delivering' => ('Tiếp tục giao hàng', Icons.local_shipping_rounded),
+      'return_approved' => (
+        'Mở nhiệm vụ hoàn hàng',
+        Icons.keyboard_return_rounded,
+      ),
+      'returning' => ('Tiếp tục hoàn hàng', Icons.navigation_rounded),
       _ => ('Xem hành trình', Icons.route_rounded),
     };
     return Material(
@@ -147,10 +152,14 @@ class DriverAcceptOrderButton extends StatelessWidget {
     super.key,
     required this.isLoading,
     required this.onTap,
+    this.label = 'Nhận đơn',
+    this.icon = Icons.check_circle_rounded,
   });
 
   final bool isLoading;
   final VoidCallback? onTap;
+  final String label;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -180,15 +189,11 @@ class DriverAcceptOrderButton extends StatelessWidget {
                   ),
                 )
               else
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: AppColors.textOnAccent,
-                  size: 17,
-                ),
+                Icon(icon, color: AppColors.textOnAccent, size: 17),
               const SizedBox(width: AppSpacing.xs),
               Flexible(
                 child: Text(
-                  isLoading ? 'Đang nhận...' : 'Nhận đơn',
+                  isLoading ? 'Đang nhận...' : label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.labelSmall.copyWith(

@@ -105,5 +105,13 @@ void main() {
       expect(restoredSyncIndex, lessThan(movementIndex));
       expect(source, contains('forceSync: true'));
     });
+
+    test('restores the confirmed pickup step before delivery starts', () {
+      final source = File(
+        'lib/features/driver/screens/navigation/driver_navigation_screen.dart',
+      ).readAsStringSync();
+
+      expect(source, contains('_pickupConfirmed = saved.pickupConfirmed;'));
+    });
   });
 }

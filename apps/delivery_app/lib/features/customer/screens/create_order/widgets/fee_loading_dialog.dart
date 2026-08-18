@@ -3,7 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
 class FeeLoadingDialog extends StatelessWidget {
-  const FeeLoadingDialog({super.key});
+  const FeeLoadingDialog({
+    super.key,
+    this.title = 'Đang tính quãng đường',
+    this.message = 'Phí giao hàng sẽ được hiển thị trước khi bạn xác nhận.',
+    this.icon = Icons.route_rounded,
+  });
+
+  final String title;
+  final String message;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -24,11 +33,11 @@ class FeeLoadingDialog extends StatelessWidget {
                 color: AppColors.accentLight,
                 borderRadius: AppRadius.md,
               ),
-              child: const Icon(Icons.route_rounded, color: AppColors.accent),
+              child: Icon(icon, color: AppColors.accent),
             ),
             const SizedBox(height: AppSpacing.lg),
             Text(
-              'Đang tính quãng đường',
+              title,
               style: AppTextStyles.headingSmall.copyWith(
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.w700,
@@ -36,7 +45,7 @@ class FeeLoadingDialog extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              'Phí giao hàng sẽ được hiển thị trước khi bạn xác nhận.',
+              message,
               style: AppTextStyles.bodySmall.copyWith(
                 color: AppColors.textSecondary,
                 height: 1.45,

@@ -422,7 +422,7 @@ class RealtimeService {
         payload: {
           'lat': lat,
           'lng': lng,
-          'ts': DateTime.now().toIso8601String(),
+          'ts': DateTime.now().toUtc().toIso8601String(),
         },
       );
     } catch (e) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
 import '../data/risk_report_repository.dart';
+import '../utils/risk_report_strings.dart';
 
 class RiskEvidenceStep extends StatelessWidget {
   const RiskEvidenceStep({
@@ -9,9 +10,12 @@ class RiskEvidenceStep extends StatelessWidget {
     required this.photos,
     required this.latitude,
     required this.longitude,
+    required this.locationAddress,
+    required this.locationRequired,
     required this.messageCount,
     required this.descriptionError,
     required this.photoError,
+    required this.locationError,
     required this.onDescriptionChanged,
     required this.onPickPhotos,
     required this.onCaptureLocation,
@@ -23,9 +27,12 @@ class RiskEvidenceStep extends StatelessWidget {
   final List<RiskPhotoInput> photos;
   final double? latitude;
   final double? longitude;
+  final String? locationAddress;
+  final bool locationRequired;
   final int messageCount;
   final String? descriptionError;
   final String? photoError;
+  final String? locationError;
   final ValueChanged<String> onDescriptionChanged;
   final VoidCallback onPickPhotos;
   final VoidCallback onCaptureLocation;
@@ -97,11 +104,21 @@ class RiskEvidenceStep extends StatelessWidget {
           icon: Icons.my_location_rounded,
           label: 'Gửi vị trí hiện tại',
           value: latitude == null || longitude == null
-              ? 'Không bắt buộc'
-              : '${latitude!.toStringAsFixed(5)}, ${longitude!.toStringAsFixed(5)}',
+              ? locationRequired
+                    ? RiskReportStrings.locationRequiredShort
+                    : 'Không bắt buộc'
+              : locationAddress ?? RiskReportStrings.locationResolving,
           onTap: onCaptureLocation,
           complete: latitude != null && longitude != null,
         ),
+        if (locationError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.xs),
+            child: Text(
+              locationError!,
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
+            ),
+          ),
         const SizedBox(height: AppSpacing.sm),
         _EvidenceAction(
           icon: Icons.chat_bubble_outline_rounded,

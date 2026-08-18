@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/order_model.dart';
+import '../models/order_submission_payload.dart';
 
 typedef CustomerOrderRpcInvoker =
     Future<dynamic> Function(String functionName, Map<String, dynamic> params);
@@ -23,30 +24,13 @@ class CustomerOrderCommandService {
 
   Future<CreatedCustomerOrder> createOrder(OrderModel order) async {
     try {
-      final response = await _rpcInvoker('create_customer_order', {
-        'p_pickup_address': order.pickupAddress,
-        'p_pickup_lat': order.pickupLat,
-        'p_pickup_lng': order.pickupLng,
-        'p_delivery_address': order.deliveryAddress,
-        'p_delivery_lat': order.deliveryLat,
-        'p_delivery_lng': order.deliveryLng,
-        'p_total_price': order.totalPrice,
-        'p_note': order.note,
-        'p_estimated_pickup_at': _dateTimeParam(order.estimatedPickupAt),
-        'p_estimated_delivery_at': _dateTimeParam(order.estimatedDeliveryAt),
-        'p_recipient_name': order.recipientName,
-        'p_recipient_phone': order.recipientPhone,
-        'p_delivery_fee': order.deliveryFee,
-        'p_service_type': _normalizeServiceType(order.serviceType),
-        'p_payment_method': order.paymentMethod,
-        'p_item_name': order.itemName,
-        'p_item_category': order.itemCategory,
-        'p_item_description': order.itemDescription,
-        'p_item_image_url': order.itemImageUrl,
-        'p_item_quantity': 1,
-        'p_item_price': order.deliveryFee,
+      final payload = buildOrderSubmissionPayload(
+        order.copyWith(serviceType: _normalizeServiceType(order.serviceType)),
+      );
+      final response = await _rpcInvoker('create_customer_order_v2', {
+        'p_order_payload': payload,
       });
-      final row = _singleResultRow(response, 'create_customer_order');
+      final row = _singleResultRow(response, 'create_customer_order_v2');
 
       return CreatedCustomerOrder(
         orderId: _requiredString(row, 'order_id'),
@@ -129,10 +113,6 @@ class CustomerOrderCommandService {
   static String? _optionalString(Map<String, dynamic> row, String field) {
     final value = row[field]?.toString().trim();
     return value == null || value.isEmpty ? null : value;
-  }
-
-  static String? _dateTimeParam(DateTime? value) {
-    return value?.toUtc().toIso8601String();
   }
 
   static String _normalizeServiceType(String value) {

@@ -7,10 +7,14 @@ class OrderConfirmationSubmitBar extends StatelessWidget {
     super.key,
     required this.isSubmitting,
     required this.onSubmit,
+    this.idleLabel = 'Xác nhận đặt đơn',
+    this.submittingLabel = 'Đang tạo đơn...',
   });
 
   final bool isSubmitting;
   final VoidCallback onSubmit;
+  final String idleLabel;
+  final String submittingLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +46,7 @@ class OrderConfirmationSubmitBar extends StatelessWidget {
                     ),
                   )
                 : const Icon(Icons.check_circle_rounded, size: 20),
-            label: Text(isSubmitting ? 'Đang tạo đơn...' : 'Xác nhận đặt đơn'),
+            label: Text(isSubmitting ? submittingLabel : idleLabel),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.accent,
               foregroundColor: AppColors.textOnAccent,

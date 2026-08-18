@@ -13,6 +13,7 @@ class RiskReportActionBar extends StatelessWidget {
     required this.transitions,
     required this.onAssign,
     required this.onTransition,
+    this.statusLocked = false,
     this.canTakeOver = false,
     this.onTakeOver,
     super.key,
@@ -24,68 +25,254 @@ class RiskReportActionBar extends StatelessWidget {
   final List<RiskStatus> transitions;
   final VoidCallback onAssign;
   final ValueChanged<RiskStatus> onTransition;
+  final bool statusLocked;
   final bool canTakeOver;
   final VoidCallback? onTakeOver;
 
   @override
   Widget build(BuildContext context) {
+    final primaryTransition = assignedToMe && transitions.isNotEmpty
+        ? transitions.first
+        : null;
+    final secondaryTransitions = assignedToMe && transitions.length > 1
+        ? transitions.skip(1).toList()
+        : const <RiskStatus>[];
+
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: const BoxDecoration(
-        color: AppColors.bgLight,
-        border: Border(top: BorderSide(color: AppColors.border)),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl2,
+        AppSpacing.md,
+        AppSpacing.xl2,
+        AppSpacing.lg,
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            if (!assignedToMe && unassigned) ...[
-              OutlinedButton.icon(
-                onPressed: submitting ? null : onAssign,
-                icon: const Icon(Icons.person_add_alt_rounded),
-                label: const Text(RiskReportStrings.takeOwnership),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-            ],
-            if (!assignedToMe && !unassigned && canTakeOver) ...[
-              OutlinedButton.icon(
-                key: const Key('takeover-risk-report-button'),
-                onPressed: submitting ? null : onTakeOver,
-                icon: const Icon(Icons.admin_panel_settings_outlined),
-                label: const Text('Admin tiếp quản'),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-            ] else if (!assignedToMe && !unassigned)
-              OutlinedButton.icon(
-                onPressed: null,
-                icon: const Icon(Icons.lock_person_outlined),
-                label: const Text(RiskReportStrings.assignedToOther),
-              ),
-            for (
-              var index = 0;
-              assignedToMe && index < transitions.length;
-              index++
-            ) ...[
-              if (index > 0) const SizedBox(width: AppSpacing.sm),
-              index == 0
-                  ? FilledButton.icon(
-                      onPressed: submitting
-                          ? null
-                          : () => onTransition(transitions[index]),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                      ),
-                      icon: Icon(RiskReportUi.statusIcon(transitions[index])),
-                      label: Text(RiskReportUi.statusLabel(transitions[index])),
-                    )
-                  : OutlinedButton(
-                      onPressed: submitting
-                          ? null
-                          : () => onTransition(transitions[index]),
-                      child: Text(RiskReportUi.statusLabel(transitions[index])),
+      decoration: const BoxDecoration(
+        color: AppColors.bgCard,
+        border: Border(top: BorderSide(color: AppColors.border)),
+        boxShadow: AppShadow.subtle,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 760;
+          final compactMenu = constraints.maxWidth < 440;
+          final controls = Row(
+            mainAxisSize: compact ? MainAxisSize.max : MainAxisSize.min,
+            children: [
+              if (!assignedToMe && unassigned)
+                Flexible(
+                  fit: compact ? FlexFit.tight : FlexFit.loose,
+                  child: FilledButton.icon(
+                    onPressed: submitting ? null : onAssign,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.textOnDark,
                     ),
+                    icon: const Icon(Icons.person_add_alt_rounded),
+                    label: const Text(RiskReportStrings.takeOwnership),
+                  ),
+                )
+              else if (!assignedToMe && !unassigned && canTakeOver)
+                Flexible(
+                  fit: compact ? FlexFit.tight : FlexFit.loose,
+                  child: FilledButton.icon(
+                    key: const Key('takeover-risk-report-button'),
+                    onPressed: submitting ? null : onTakeOver,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.textOnDark,
+                    ),
+                    icon: const Icon(Icons.admin_panel_settings_outlined),
+                    label: const Text('Admin tiếp quản'),
+                  ),
+                )
+              else if (!assignedToMe && !unassigned)
+                Flexible(
+                  fit: compact ? FlexFit.tight : FlexFit.loose,
+                  child: OutlinedButton.icon(
+                    onPressed: null,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                    ),
+                    icon: const Icon(Icons.lock_person_outlined),
+                    label: const Text(RiskReportStrings.assignedToOther),
+                  ),
+                )
+              else if (statusLocked)
+                Flexible(
+                  fit: compact ? FlexFit.tight : FlexFit.loose,
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 48),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                      vertical: AppSpacing.sm,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentLight,
+                      borderRadius: AppRadius.md,
+                      border: Border.all(color: AppColors.accent),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.lock_clock_outlined,
+                          size: 20,
+                          color: AppColors.accent,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Flexible(
+                          child: Text(
+                            RiskReportStrings.returnStatusLocked,
+                            style: AppTextStyles.labelMedium.copyWith(
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else if (primaryTransition != null) ...[
+                Flexible(
+                  fit: compact ? FlexFit.tight : FlexFit.loose,
+                  child: FilledButton.icon(
+                    onPressed: submitting
+                        ? null
+                        : () => onTransition(primaryTransition),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.textOnDark,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xl,
+                      ),
+                    ),
+                    icon: Icon(RiskReportUi.statusIcon(primaryTransition)),
+                    label: Text(RiskReportUi.statusLabel(primaryTransition)),
+                  ),
+                ),
+                if (secondaryTransitions.isNotEmpty) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  _MoreStatusMenu(
+                    transitions: secondaryTransitions,
+                    enabled: !submitting,
+                    compact: compactMenu,
+                    onSelected: onTransition,
+                  ),
+                ],
+              ],
             ],
-          ],
+          );
+
+          if (compact) return controls;
+          return Row(
+            children: [
+              const Icon(
+                Icons.change_circle_outlined,
+                size: 20,
+                color: AppColors.textMuted,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  assignedToMe
+                      ? statusLocked
+                            ? RiskReportStrings.returnStatusLocked
+                            : 'Chọn bước xử lý tiếp theo'
+                      : 'Quyền xử lý hồ sơ',
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.lg),
+              controls,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _MoreStatusMenu extends StatelessWidget {
+  const _MoreStatusMenu({
+    required this.transitions,
+    required this.enabled,
+    required this.compact,
+    required this.onSelected,
+  });
+
+  final List<RiskStatus> transitions;
+  final bool enabled;
+  final bool compact;
+  final ValueChanged<RiskStatus> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<RiskStatus>(
+      enabled: enabled,
+      tooltip: 'Các trạng thái khác',
+      onSelected: onSelected,
+      itemBuilder: (context) => transitions
+          .map(
+            (status) => PopupMenuItem(
+              value: status,
+              height: 48,
+              child: Row(
+                children: [
+                  Icon(
+                    RiskReportUi.statusIcon(status),
+                    size: 19,
+                    color: RiskReportUi.statusColor(status),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(
+                      RiskReportUi.statusLabel(status),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.labelMedium,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+          .toList(),
+      child: AnimatedOpacity(
+        opacity: enabled ? 1 : 0.45,
+        duration: AppDuration.fast,
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: AppRadius.md,
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.more_horiz_rounded,
+                size: 20,
+                color: AppColors.textSecondary,
+              ),
+              if (!compact) ...[
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  'Trạng thái khác',
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

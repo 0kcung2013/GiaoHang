@@ -3,9 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
 class CreateOrderAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const CreateOrderAppBar({super.key, this.onBack});
+  const CreateOrderAppBar({
+    super.key,
+    this.onBack,
+    required this.stepLabel,
+    required this.sectionLabel,
+  });
 
   final VoidCallback? onBack;
+  final String stepLabel;
+  final String sectionLabel;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -52,7 +59,7 @@ class CreateOrderAppBar extends StatelessWidget implements PreferredSizeWidget {
             borderRadius: AppRadius.full,
           ),
           child: Text(
-            '2 / 3',
+            stepLabel,
             style: AppTextStyles.labelSmall.copyWith(
               color: AppColors.accent,
               fontWeight: FontWeight.w800,
@@ -80,7 +87,7 @@ class CreateOrderAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
               const SizedBox(width: AppSpacing.xs),
               Text(
-                'Thông tin',
+                sectionLabel,
                 style: AppTextStyles.labelSmall.copyWith(
                   color: AppColors.accent,
                   fontWeight: FontWeight.w800,

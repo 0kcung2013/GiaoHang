@@ -12,6 +12,7 @@ import '../models/review_model.dart';
 import '../models/user_model.dart';
 import '../location/location_ingest_service.dart';
 import '../services/customer_order_service.dart';
+import '../services/customer_order_payment_service.dart';
 import '../services/cargo_image_service.dart';
 import '../services/delivery_proof_service.dart';
 import '../services/driver_service.dart';
@@ -33,6 +34,11 @@ final customerOrderServiceProvider = Provider<CustomerOrderService>((ref) {
     realtimeService: ref.watch(realtimeServiceProvider),
   );
 });
+
+final customerOrderPaymentServiceProvider =
+    Provider<CustomerOrderPaymentService>((ref) {
+      return CustomerOrderPaymentService();
+    });
 
 final cargoImageServiceProvider = Provider<CargoImageService>((ref) {
   return CargoImageService();

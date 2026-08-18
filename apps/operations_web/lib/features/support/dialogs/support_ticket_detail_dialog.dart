@@ -154,79 +154,83 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
       backgroundColor: Colors.transparent,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: 780,
+          maxWidth: 860,
           maxHeight: screen.height - AppSpacing.xl3,
         ),
         child: Material(
           color: AppColors.bgCard,
           borderRadius: AppRadius.xl,
+          elevation: 0,
           clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
               SupportTicketDetailHeader(ticket: ticket),
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(AppSpacing.xl2),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Wrap(
-                        spacing: AppSpacing.sm,
-                        runSpacing: AppSpacing.sm,
-                        children: [
-                          SupportTicketBadge(
-                            icon: SupportTicketUi.statusIcon(ticket.status),
-                            label: SupportTicketUi.statusLabel(ticket.status),
-                            color: statusColor,
-                          ),
-                          SupportTicketBadge(
-                            icon: Icons.flag_outlined,
-                            label:
-                                'Ưu tiên ${SupportTicketUi.priorityLabel(ticket.priority)}',
-                            color: SupportTicketUi.priorityColor(
-                              ticket.priority,
+                child: ColoredBox(
+                  color: AppColors.bgLight,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(AppSpacing.xl2),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Wrap(
+                          spacing: AppSpacing.sm,
+                          runSpacing: AppSpacing.sm,
+                          children: [
+                            SupportTicketBadge(
+                              icon: SupportTicketUi.statusIcon(ticket.status),
+                              label: SupportTicketUi.statusLabel(ticket.status),
+                              color: statusColor,
                             ),
+                            SupportTicketBadge(
+                              icon: Icons.flag_outlined,
+                              label:
+                                  'Ưu tiên ${SupportTicketUi.priorityLabel(ticket.priority)}',
+                              color: SupportTicketUi.priorityColor(
+                                ticket.priority,
+                              ),
+                            ),
+                            if (ticket.responseOverdue)
+                              const SupportTicketBadge(
+                                icon: Icons.timer_off_outlined,
+                                label: 'Quá hạn phản hồi',
+                                color: AppColors.error,
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        SupportTicketContext(ticket: ticket),
+                        const SizedBox(height: AppSpacing.lg),
+                        SupportContentBlock(
+                          title: 'Nội dung ban đầu',
+                          body: ticket.message,
+                        ),
+                        if ((ticket.resolution ?? '').trim().isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          SupportContentBlock(
+                            title: 'Kết luận',
+                            body: ticket.resolution!,
+                            color: AppColors.success,
                           ),
-                          if (ticket.responseOverdue)
-                            const SupportTicketBadge(
-                              icon: Icons.timer_off_outlined,
-                              label: 'Quá hạn phản hồi',
+                        ],
+                        const SizedBox(height: AppSpacing.xl),
+                        SupportCaseConversation(
+                          messages: _messages,
+                          currentUserId: widget.currentUserId,
+                          canReply: _assignedToMe && !ticket.status.isClosed,
+                          onSend: _sendMessage,
+                        ),
+                        if (_error != null) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          Text(
+                            _error!,
+                            style: AppTextStyles.bodySmall.copyWith(
                               color: AppColors.error,
                             ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      SupportTicketContext(ticket: ticket),
-                      const SizedBox(height: AppSpacing.lg),
-                      SupportContentBlock(
-                        title: 'Nội dung ban đầu',
-                        body: ticket.message,
-                      ),
-                      if ((ticket.resolution ?? '').trim().isNotEmpty) ...[
-                        const SizedBox(height: AppSpacing.md),
-                        SupportContentBlock(
-                          title: 'Kết luận',
-                          body: ticket.resolution!,
-                          color: AppColors.success,
-                        ),
-                      ],
-                      const SizedBox(height: AppSpacing.xl),
-                      SupportCaseConversation(
-                        messages: _messages,
-                        currentUserId: widget.currentUserId,
-                        canReply: _assignedToMe && !ticket.status.isClosed,
-                        onSend: _sendMessage,
-                      ),
-                      if (_error != null) ...[
-                        const SizedBox(height: AppSpacing.md),
-                        Text(
-                          _error!,
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.error,
                           ),
-                        ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -273,7 +277,7 @@ class _Actions extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(AppSpacing.lg),
     decoration: const BoxDecoration(
-      color: AppColors.bgLight,
+      color: AppColors.bgCard,
       border: Border(top: BorderSide(color: AppColors.border)),
     ),
     child: SingleChildScrollView(
@@ -284,6 +288,10 @@ class _Actions extends StatelessWidget {
             FilledButton.icon(
               key: const Key('accept-support-ticket'),
               onPressed: busy ? null : onAccept,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.accent,
+                foregroundColor: AppColors.textOnAccent,
+              ),
               icon: const Icon(Icons.person_add_alt_rounded),
               label: const Text('Nhận xử lý'),
             )

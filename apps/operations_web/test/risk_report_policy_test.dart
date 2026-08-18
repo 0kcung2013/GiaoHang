@@ -41,6 +41,17 @@ void main() {
         [RiskStatus.investigating],
       );
     });
+
+    test('locks manual status transitions while an order return is active', () {
+      final transitions = RiskReportPolicy.allowedTransitions(
+        status: RiskStatus.actionRequired,
+        severity: RiskSeverity.medium,
+        isAdmin: false,
+        interventionState: RiskInterventionState.returnRequired,
+      );
+
+      expect(transitions, isEmpty);
+    });
   });
 
   test('RiskReport parses nested order data', () {

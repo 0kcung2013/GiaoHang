@@ -6,10 +6,12 @@ class SubmitOrderButton extends StatelessWidget {
   const SubmitOrderButton({
     super.key,
     required this.label,
+    required this.subtitle,
     required this.onPressed,
   });
 
   final String label;
+  final String subtitle;
   final VoidCallback onPressed;
 
   @override
@@ -78,7 +80,7 @@ class SubmitOrderButton extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              'Kiểm tra thông tin trước khi đặt',
+                              subtitle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: AppTextStyles.labelSmall.copyWith(

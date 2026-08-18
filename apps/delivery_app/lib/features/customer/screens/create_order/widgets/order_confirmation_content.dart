@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/utils/order_cargo_utils.dart';
-import '../utils/create_order_formatters.dart';
 import '../utils/order_form_data.dart';
 import 'confirmation_components.dart';
 import 'delivery_quote_card.dart';
+import 'order_finance_summary.dart';
 
 class OrderConfirmationContent extends StatelessWidget {
   const OrderConfirmationContent({super.key, required this.data});
@@ -32,7 +32,7 @@ class OrderConfirmationContent extends StatelessWidget {
         const SizedBox(height: AppSpacing.xl3),
         _CargoCard(data: data),
         const SizedBox(height: AppSpacing.xl3),
-        _PaymentCard(paymentMethod: data.paymentMethod),
+        OrderFinanceSummary(data: data),
       ],
     );
   }
@@ -56,7 +56,7 @@ class _ConfirmationIntro extends StatelessWidget {
             borderRadius: AppRadius.sm,
           ),
           child: Text(
-            'BƯỚC 2 / 2',
+            'BƯỚC 3 / 3',
             style: AppTextStyles.labelSmall.copyWith(
               color: AppColors.accent,
               fontWeight: FontWeight.w800,
@@ -74,7 +74,7 @@ class _ConfirmationIntro extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          'Xem lại thông tin và tổng phí trước khi gửi đơn đến tài xế.',
+          'Xem lại tiền thu hộ và phí giao trước khi gửi đơn.',
           style: AppTextStyles.bodyMedium.copyWith(
             color: AppColors.textSecondary,
             height: 1.5,
@@ -343,29 +343,6 @@ class _CargoCard extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-class _PaymentCard extends StatelessWidget {
-  const _PaymentCard({required this.paymentMethod});
-
-  final String paymentMethod;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: AppColors.border.withValues(alpha: 0.9)),
-        ),
-      ),
-      child: ConfirmationInfoRow(
-        icon: Icons.account_balance_wallet_outlined,
-        label: 'Thanh toán',
-        value: paymentMethodLabel(paymentMethod),
-      ),
     );
   }
 }

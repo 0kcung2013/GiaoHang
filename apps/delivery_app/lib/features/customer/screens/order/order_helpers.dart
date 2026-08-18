@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:giaohang_domain/giaohang_domain.dart';
 import '../../../../core/models/order_model.dart';
 
 export '../../../risk_reports/widgets/customer_tracking_risk_action.dart'
@@ -83,6 +84,9 @@ String statusProgressDescription(String status) {
     'picking_up' => 'Tài xế đang đến điểm lấy hàng.',
     'delivering' => 'Đơn hàng đang trên đường giao đến bạn.',
     'delivered' => 'Đơn hàng đã được giao thành công.',
+    'return_approved' => 'CSKH đã duyệt lộ trình hoàn hàng.',
+    'returning' => 'Tài xế đang đưa hàng về điểm hoàn.',
+    'returned' => 'Kiện hàng đã được hoàn tất.',
     'risk_hold' => 'Đơn hàng đang tạm giữ để CSKH xử lý sự cố.',
     _ => 'Cập nhật gần nhất của đơn hàng.',
   };
@@ -93,18 +97,25 @@ bool shouldShowAssignedDriverForOrder(OrderModel order) {
   if (driverId != null && driverId.isNotEmpty) return true;
 
   return switch (order.status) {
-    'assigned' || 'picking_up' || 'delivering' || 'delivered' => true,
+    'assigned' ||
+    'picking_up' ||
+    'delivering' ||
+    'delivered' ||
+    'return_approved' ||
+    'returning' ||
+    'returned' => true,
     _ => false,
   };
 }
 
 String formatOrderDateTime(DateTime value) {
   String twoDigits(int number) => number.toString().padLeft(2, '0');
-  final hour = twoDigits(value.hour);
-  final minute = twoDigits(value.minute);
-  final day = twoDigits(value.day);
-  final month = twoDigits(value.month);
-  return '$hour:$minute · $day/$month/${value.year}';
+  final vietnam = VietnamTime.toWallClock(value);
+  final hour = twoDigits(vietnam.hour);
+  final minute = twoDigits(vietnam.minute);
+  final day = twoDigits(vietnam.day);
+  final month = twoDigits(vietnam.month);
+  return '$hour:$minute · $day/$month/${vietnam.year}';
 }
 
 class OrderStatusView {
@@ -149,6 +160,21 @@ class OrderStatusView {
         label: 'Tạm giữ xử lý sự cố',
         color: AppColors.warning,
         icon: Icons.pause_circle_outline_rounded,
+      ),
+      'return_approved' => const OrderStatusView(
+        label: 'Đã duyệt hoàn',
+        color: AppColors.warning,
+        icon: Icons.keyboard_return_rounded,
+      ),
+      'returning' => const OrderStatusView(
+        label: 'Đang hoàn hàng',
+        color: AppColors.warning,
+        icon: Icons.navigation_rounded,
+      ),
+      'returned' => const OrderStatusView(
+        label: 'Đã hoàn hàng',
+        color: AppColors.success,
+        icon: Icons.assignment_turned_in_rounded,
       ),
       'delivered' => const OrderStatusView(
         label: 'Hoàn thành',

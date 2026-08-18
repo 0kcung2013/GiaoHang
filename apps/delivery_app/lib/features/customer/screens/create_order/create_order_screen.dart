@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -11,17 +9,22 @@ import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../core/models/recent_address_model.dart';
 import '../../../../core/providers/location_providers.dart';
 import '../../../../core/utils/delivery_fee_calculator.dart';
-import '../../../../core/utils/geo_utils.dart';
 import '../../../../core/utils/order_cargo_utils.dart';
-import 'utils/order_form_data.dart';
-import 'utils/sender_contact_loader.dart';
 import 'utils/vietnam_phone_input.dart';
 import 'models/traffic_demo_scenario.dart';
+import 'controllers/create_order_confirmation_controller.dart';
+import 'controllers/order_finance_form_controller.dart';
+import 'controllers/order_map_picker_controller.dart';
+import 'controllers/order_quote_controller.dart';
+import 'utils/create_order_feedback.dart';
+import 'utils/order_cargo_picker.dart';
+import 'utils/order_form_validators.dart';
 import 'widgets/create_order_app_bar.dart';
 import 'widgets/create_order_body.dart';
 import 'widgets/fee_loading_dialog.dart';
 import 'widgets/map_picker_sheet.dart';
 import 'widgets/order_location_step.dart';
+import 'widgets/order_quote_step.dart';
 import 'widgets/submit_order_button.dart';
 import 'widgets/traffic_demo_route_selector.dart';
 
@@ -41,8 +44,8 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   final _noteController = TextEditingController();
   final _itemNameController = TextEditingController();
   final _itemDescriptionController = TextEditingController();
+  final _financeController = OrderFinanceFormController();
 
-  static const _serviceType = 'standard';
   String _itemCategory = cargoCategories.first;
   XFile? _cargoImage;
 
@@ -53,6 +56,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   MapPickerResult? _pickupSelection;
   MapPickerResult? _deliverySelection;
   TrafficDemoScenario? _trafficDemoScenario;
+  DeliveryFeeEstimate? _quote;
   var _step = 0;
 
   Position? _currentPosition;
@@ -77,6 +81,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
     ]) {
       controller.dispose();
     }
+    _financeController.dispose();
     super.dispose();
   }
 
@@ -96,42 +101,25 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   }
 
   Future<void> _openMapPicker(String type) async {
-    LatLng initialPos;
-    if (type == 'pickup' && _pickupLat != 0) {
-      initialPos = LatLng(_pickupLat, _pickupLng);
-    } else if (type == 'delivery' && _deliveryLat != 0) {
-      initialPos = LatLng(_deliveryLat, _deliveryLng);
-    } else {
-      Position? pos = _currentPosition;
-      pos ??= await ref.read(locationServiceProvider).getCurrentPosition();
-      if (pos != null) {
-        initialPos = LatLng(pos.latitude, pos.longitude);
-        _currentPosition = pos;
-      } else {
-        _showSnackBar(
-          'Không thể định vị vị trí hiện tại. Vui lòng chọn vị trí trên bản đồ.',
-          isError: true,
-        );
-        initialPos = const LatLng(10.762622, 106.660172);
-      }
-    }
-
-    if (!mounted) return;
-    final result = await showModalBottomSheet<MapPickerResult>(
+    final isPickup = type == 'pickup';
+    final outcome = await const OrderMapPickerController().pick(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => MapPickerSheet(
-        initialPosition: initialPos,
-        addressType: type == 'pickup'
-            ? RecentAddressType.pickup
-            : RecentAddressType.delivery,
-        initialSelection: type == 'pickup'
-            ? _pickupSelection
-            : _deliverySelection,
-      ),
+      addressType: isPickup
+          ? RecentAddressType.pickup
+          : RecentAddressType.delivery,
+      currentSelection: isPickup ? _pickupSelection : _deliverySelection,
+      currentPosition: _currentPosition,
+      locate: () => ref.read(locationServiceProvider).getCurrentPosition(),
     );
-
+    if (!mounted) return;
+    _currentPosition = outcome.currentPosition;
+    if (outcome.usedFallback) {
+      _showSnackBar(
+        'Không thể định vị vị trí hiện tại. Vui lòng chọn vị trí trên bản đồ.',
+        isError: true,
+      );
+    }
+    final result = outcome.selection;
     if (!mounted || result == null) return;
 
     final address = result.address;
@@ -140,7 +128,8 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
 
     setState(() {
       _trafficDemoScenario = null;
-      if (type == 'pickup') {
+      _quote = null;
+      if (isPickup) {
         _pickupSelection = result;
         _pickupLat = lat;
         _pickupLng = lng;
@@ -157,6 +146,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   void _applyTrafficDemoScenario(TrafficDemoScenario scenario) {
     setState(() {
       _trafficDemoScenario = scenario;
+      _quote = null;
       _pickupLat = scenario.pickup.latitude;
       _pickupLng = scenario.pickup.longitude;
       _deliveryLat = scenario.delivery.latitude;
@@ -177,60 +167,14 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       _deliveryAddressController.text = scenario.deliveryAddress;
     });
     _showSnackBar(
-      'Đã điền tuyến AI mẫu. Nhấn “Xem giá và tiếp tục” để test ETA.',
+      'Đã điền tuyến AI mẫu. Nhấn “Xem giá giao hàng” để test ETA.',
     );
   }
 
   bool get _hasPickupPin => _pickupLat != 0 && _pickupLng != 0;
   bool get _hasDeliveryPin => _deliveryLat != 0 && _deliveryLng != 0;
 
-  void _goToInformation() {
-    if (!_hasPickupPin || !_hasDeliveryPin) return;
-    setState(() => _step = 1);
-  }
-
-  Future<void> _goToConfirmation() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    if (!_hasPickupPin) {
-      _showSnackBar(
-        'Vui lòng chọn điểm lấy hàng trên bản đồ (nút map).',
-        isError: true,
-      );
-      return;
-    }
-    if (!_hasDeliveryPin) {
-      _showSnackBar(
-        'Vui lòng chọn điểm giao hàng trên bản đồ (nút map).',
-        isError: true,
-      );
-      return;
-    }
-
-    final distM = GeoUtils.distanceMeters(
-      fromLat: _pickupLat,
-      fromLng: _pickupLng,
-      toLat: _deliveryLat,
-      toLng: _deliveryLng,
-    );
-    if (distM < 50) {
-      _showSnackBar(
-        'Điểm lấy và điểm giao quá gần nhau. Vui lòng kiểm tra lại.',
-        isError: true,
-      );
-      return;
-    }
-
-    late final SenderContactData sender;
-    try {
-      sender = await loadSenderContact(ref);
-    } on SenderContactException catch (error) {
-      if (mounted) _showSnackBar(error.message, isError: true);
-      return;
-    }
-    if (!mounted) return;
-
-    // Loading nhẹ khi tính phí / OSRM
+  Future<void> _goToQuote() async {
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -238,18 +182,48 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
     );
 
     try {
-      final estimate = await DeliveryFeeCalculator.estimate(
+      final quote = await OrderQuoteController().calculate(
         pickupLat: _pickupLat,
         pickupLng: _pickupLng,
         deliveryLat: _deliveryLat,
         deliveryLng: _deliveryLng,
-        serviceType: _serviceType,
       );
-
       if (!mounted) return;
-      Navigator.of(context).pop(); // đóng loading
+      Navigator.of(context).pop();
+      setState(() {
+        _quote = quote;
+        _step = 1;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      _showSnackBar('Không tính được phí giao hàng: $error', isError: true);
+    }
+  }
 
-      final formData = OrderFormData(
+  void _goToInformation() => setState(() => _step = 2);
+
+  Future<void> _goToConfirmation() async {
+    if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    final quote = _quote;
+    if (quote == null) {
+      _showSnackBar('Vui lòng xem phí giao hàng trước.', isError: true);
+      setState(() => _step = 0);
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const FeeLoadingDialog(
+        title: 'Đang chuẩn bị đơn',
+        message: 'Đang kiểm tra thông tin trước khi xác nhận.',
+        icon: Icons.fact_check_outlined,
+      ),
+    );
+
+    try {
+      final formData = await CreateOrderConfirmationController(ref).prepare(
         pickupAddress: _pickupAddressController.text.trim(),
         pickupFormattedAddress:
             _pickupSelection?.formattedAddress ??
@@ -266,8 +240,6 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         deliveryDeliveryNote: _deliverySelection?.deliveryNote ?? '',
         deliveryLat: _deliveryLat,
         deliveryLng: _deliveryLng,
-        senderName: sender.name,
-        senderPhone: sender.phone,
         recipientName: _recipientNameController.text.trim(),
         recipientPhone: _recipientPhoneController.text.trim(),
         note: _noteController.text.trim(),
@@ -275,70 +247,33 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         itemCategory: _itemCategory,
         itemDescription: _itemDescriptionController.text.trim(),
         cargoImage: _cargoImage,
-        paymentMethod: 'cash',
-        deliveryFee: estimate.deliveryFee,
-        totalPrice: estimate.totalPrice,
-        distanceMeters: estimate.distanceMeters,
-        durationSeconds: estimate.durationSeconds,
-        distanceSource: estimate.source,
-        feeBreakdown: estimate.feeBreakdown,
-        deliveryEta: estimate.eta,
+        codCollectionAmount: _financeController.codCollectionAmount,
+        quote: quote,
       );
 
       if (!mounted) return;
+      Navigator.of(context).pop();
       context.push('/customer/create-order/confirm', extra: formData);
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop();
-        _showSnackBar('Không tính được phí giao hàng: $e', isError: true);
+        _showSnackBar('Không thể chuẩn bị đơn hàng: $e', isError: true);
       }
     }
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: AppTextStyles.bodyMedium.copyWith(
-            color: AppColors.textOnAccent,
-          ),
-        ),
-        backgroundColor: isError ? AppColors.error : AppColors.success,
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(AppSpacing.lg),
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
-      ),
-    );
+    showCreateOrderSnackBar(context, message, isError: isError);
   }
 
   Future<void> _pickCargoImage(ImageSource source) async {
     try {
-      final picker = ImagePicker();
-      final image = await picker.pickImage(
-        source: kIsWeb ? ImageSource.gallery : source,
-        maxWidth: 1600,
-        imageQuality: 82,
-      );
-
-      if (image == null) return;
-
-      if (!mounted) return;
+      final image = await pickOrderCargoImage(source);
+      if (!mounted || image == null) return;
       setState(() => _cargoImage = image);
-    } on PlatformException catch (_) {
-      if (!mounted) return;
-      _showSnackBar(
-        'Không thể mở thư viện ảnh. Vui lòng kiểm tra quyền truy cập ảnh.',
-        isError: true,
-      );
-    } catch (_) {
-      if (!mounted) return;
-      _showSnackBar('Không thể chọn ảnh. Vui lòng thử lại.', isError: true);
+    } on OrderCargoPickerException catch (error) {
+      if (mounted) _showSnackBar(error.message, isError: true);
     }
-  }
-
-  void _removeCargoImage() {
-    setState(() => _cargoImage = null);
   }
 
   void _autofillDemoData() {
@@ -348,6 +283,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       _noteController.text = 'Gọi trước khi giao hàng.';
       _itemNameController.text = 'Hộp bánh sinh nhật';
       _itemDescriptionController.text = 'Hàng dễ vỡ, vui lòng giữ thẳng.';
+      _financeController.codCollectionController.text = '350000';
       _itemCategory = cargoCategories.first;
     });
     _showSnackBar('Đã điền dữ liệu demo.');
@@ -360,16 +296,34 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       _currentPosition?.longitude ?? 106.660172,
     );
     final isLocationStep = _step == 0;
+    final quote = _quote;
     return Scaffold(
       backgroundColor: AppColors.bgLight,
       appBar: isLocationStep
           ? null
-          : CreateOrderAppBar(onBack: () => setState(() => _step = 0)),
+          : CreateOrderAppBar(
+              onBack: () => setState(() => _step -= 1),
+              stepLabel: '${_step + 1} / 3',
+              sectionLabel: switch (_step) {
+                1 => 'Báo giá',
+                _ => 'Thông tin',
+              },
+            ),
       bottomNavigationBar: isLocationStep
           ? null
           : SubmitOrderButton(
-              label: 'Xem giá và tiếp tục',
-              onPressed: _goToConfirmation,
+              label: switch (_step) {
+                1 => 'Nhập thông tin đơn',
+                _ => 'Kiểm tra đơn hàng',
+              },
+              subtitle: switch (_step) {
+                1 => 'Thêm người nhận và kiện hàng',
+                _ => 'Xem lại COD và tổng tiền',
+              },
+              onPressed: switch (_step) {
+                1 => _goToInformation,
+                _ => _goToConfirmation,
+              },
             ),
       body: isLocationStep
           ? OrderLocationStep(
@@ -382,55 +336,41 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
               deliveryAddress: _deliveryAddressController.text,
               onPickPickup: () => _openMapPicker('pickup'),
               onPickDelivery: () => _openMapPicker('delivery'),
-              onContinue: _goToInformation,
+              onContinue: _goToQuote,
               sampleRoutes: TrafficDemoRouteSelector(
                 selectedId: _trafficDemoScenario?.id,
                 onApply: _applyTrafficDemoScenario,
               ),
             )
           : SafeArea(
-              child: CreateOrderBody(
-                formKey: _formKey,
-                recipientNameController: _recipientNameController,
-                recipientPhoneController: _recipientPhoneController,
-                noteController: _noteController,
-                itemNameController: _itemNameController,
-                itemDescriptionController: _itemDescriptionController,
-                itemCategory: _itemCategory,
-                cargoImage: _cargoImage,
-                requiredText: _requiredText,
-                validatePhone: _validatePhone,
-                onCategoryChanged: (value) =>
-                    setState(() => _itemCategory = value),
-                onPickCamera: () => _pickCargoImage(ImageSource.camera),
-                onPickGallery: () => _pickCargoImage(ImageSource.gallery),
-                onRemoveImage: _removeCargoImage,
-                onAutofillDemo: _autofillDemoData,
-              ),
+              child: switch (_step) {
+                1 => OrderQuoteStep(
+                  quote: quote!,
+                  pickupAddress: _pickupAddressController.text,
+                  deliveryAddress: _deliveryAddressController.text,
+                ),
+                _ => CreateOrderBody(
+                  formKey: _formKey,
+                  recipientNameController: _recipientNameController,
+                  recipientPhoneController: _recipientPhoneController,
+                  noteController: _noteController,
+                  itemNameController: _itemNameController,
+                  itemDescriptionController: _itemDescriptionController,
+                  itemCategory: _itemCategory,
+                  cargoImage: _cargoImage,
+                  requiredText: requiredOrderText,
+                  validatePhone: validateVietnamPhone,
+                  onCategoryChanged: (value) =>
+                      setState(() => _itemCategory = value),
+                  onPickCamera: () => _pickCargoImage(ImageSource.camera),
+                  onPickGallery: () => _pickCargoImage(ImageSource.gallery),
+                  onRemoveImage: () => setState(() => _cargoImage = null),
+                  onAutofillDemo: _autofillDemoData,
+                  codCollectionController:
+                      _financeController.codCollectionController,
+                ),
+              },
             ),
     );
-  }
-
-  // Retained for validation compatibility with saved address entry points.
-  // ignore: unused_element
-  String? Function(String?) _requiredAddress(String message) {
-    return (value) {
-      if (value == null || value.trim().isEmpty) return message;
-      if (value.trim().length < 6) {
-        return 'Địa chỉ cần rõ hơn để tài xế có thể tìm thấy.';
-      }
-      return null;
-    };
-  }
-
-  String? Function(String?) _requiredText(String message) {
-    return (value) {
-      if (value == null || value.trim().isEmpty) return message;
-      return null;
-    };
-  }
-
-  String? _validatePhone(String? value) {
-    return validateVietnamPhone(value);
   }
 }

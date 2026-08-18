@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:giaohang_domain/giaohang_domain.dart';
 import '../../../../../core/models/order_model.dart';
 
 // ─── Status helpers ────────────────────────────────────────────────────────
@@ -13,6 +14,9 @@ String statusLabel(String status) {
     'picking_up' => 'Đến lấy hàng',
     'delivering' => 'Đang giao',
     'delivered' => 'Hoàn thành',
+    'return_approved' => 'Chờ hoàn hàng',
+    'returning' => 'Đang hoàn hàng',
+    'returned' => 'Đã hoàn hàng',
     'cancelled' => 'Huỷ',
     'risk_hold' => 'Tạm giữ xử lý sự cố',
     _ => 'Không rõ',
@@ -27,6 +31,8 @@ Color statusColor(String status) {
     'picking_up' => AppColors.accent,
     'delivering' => AppColors.accent,
     'delivered' => AppColors.success,
+    'return_approved' || 'returning' => AppColors.warning,
+    'returned' => AppColors.success,
     'cancelled' => AppColors.error,
     'risk_hold' => AppColors.warning,
     _ => AppColors.textMuted,
@@ -41,6 +47,8 @@ IconData statusIcon(String status) {
     'picking_up' => Icons.storefront_rounded,
     'delivering' => Icons.local_shipping_outlined,
     'delivered' => Icons.check_circle_rounded,
+    'return_approved' || 'returning' => Icons.keyboard_return_rounded,
+    'returned' => Icons.assignment_turned_in_rounded,
     'cancelled' => Icons.cancel_rounded,
     'risk_hold' => Icons.pause_circle_outline_rounded,
     _ => Icons.help_outline_rounded,
@@ -52,7 +60,9 @@ IconData statusIcon(String status) {
 bool isActiveDriverOrder(OrderModel order) {
   return order.status == 'assigned' ||
       order.status == 'picking_up' ||
-      order.status == 'delivering';
+      order.status == 'delivering' ||
+      order.status == 'return_approved' ||
+      order.status == 'returning';
 }
 
 bool isAvailableOrder(OrderModel order) {
@@ -69,14 +79,14 @@ String displayOrderCode(OrderModel order) {
 String priceText(OrderModel order) {
   final amount = order.totalPrice ?? order.deliveryFee;
   if (amount <= 0) return 'Chưa tính phí';
-  return '${amount.toStringAsFixed(0)}đ';
+  return formatVnd(amount);
 }
 
 String createdTimeText(OrderModel order) {
   final createdAt = order.createdAt;
   if (createdAt.millisecondsSinceEpoch == 0) return 'Chưa có thời gian';
 
-  final local = createdAt.toLocal();
+  final local = VietnamTime.toWallClock(createdAt);
   final day = local.day.toString().padLeft(2, '0');
   final month = local.month.toString().padLeft(2, '0');
   final hour = local.hour.toString().padLeft(2, '0');

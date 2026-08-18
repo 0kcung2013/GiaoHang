@@ -436,7 +436,7 @@ class _LocationControlSheet extends StatelessWidget {
                 borderRadius: AppRadius.full,
                 child: Center(
                   child: Text(
-                    'Tiếp tục',
+                    'Xem giá giao hàng',
                     style: AppTextStyles.labelLarge.copyWith(
                       color: onContinue == null
                           ? AppColors.textMuted

@@ -13,6 +13,9 @@ class SupportTicketFilters extends StatelessWidget {
     required this.onSearchChanged,
     required this.onStatusChanged,
     required this.onPriorityChanged,
+    required this.resultCount,
+    required this.totalCount,
+    required this.onClearFilters,
     super.key,
   });
 
@@ -22,105 +25,156 @@ class SupportTicketFilters extends StatelessWidget {
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<SupportTicketStatus?> onStatusChanged;
   final ValueChanged<SupportTicketPriority?> onPriorityChanged;
+  final int resultCount;
+  final int totalCount;
+  final VoidCallback onClearFilters;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.bgCard,
         borderRadius: AppRadius.lg,
         border: Border.all(color: AppColors.border),
-        boxShadow: AppShadow.subtle,
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final search = TextField(
-            key: const Key('support-ticket-search'),
-            controller: searchController,
-            onChanged: onSearchChanged,
-            style: AppTextStyles.bodyMedium,
-            decoration: InputDecoration(
-              hintText: SupportTicketStrings.searchHint,
-              hintStyle: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textMuted,
-              ),
-              prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: searchController.text.isEmpty
-                  ? null
-                  : IconButton(
-                      tooltip: 'Xóa tìm kiếm',
-                      onPressed: () {
-                        searchController.clear();
-                        onSearchChanged('');
-                      },
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-              filled: true,
-              fillColor: AppColors.bgLight,
-              border: const OutlineInputBorder(
-                borderRadius: AppRadius.md,
-                borderSide: BorderSide(color: AppColors.border),
-              ),
-              enabledBorder: const OutlineInputBorder(
-                borderRadius: AppRadius.md,
-                borderSide: BorderSide(color: AppColors.border),
-              ),
-              focusedBorder: const OutlineInputBorder(
-                borderRadius: AppRadius.md,
-                borderSide: BorderSide(
-                  color: AppColors.borderFocus,
-                  width: 1.5,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Hàng chờ xử lý',
+                  style: AppTextStyles.headingSmall.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ),
-            ),
-          );
-          final statusMenu = _TicketFilterMenu<SupportTicketStatus>(
-            label: status == null
-                ? SupportTicketStrings.allStatuses
-                : SupportTicketUi.statusLabel(status!),
-            icon: Icons.tune_rounded,
-            value: status,
-            items: SupportTicketStatus.values,
-            itemLabel: SupportTicketUi.statusLabel,
-            onChanged: onStatusChanged,
-          );
-          final priorityMenu = _TicketFilterMenu<SupportTicketPriority>(
-            label: priority == null
-                ? SupportTicketStrings.allPriorities
-                : SupportTicketUi.priorityLabel(priority!),
-            icon: Icons.flag_outlined,
-            value: priority,
-            items: SupportTicketPriority.values,
-            itemLabel: SupportTicketUi.priorityLabel,
-            onChanged: onPriorityChanged,
-          );
-
-          if (constraints.maxWidth < 760) {
-            return Column(
-              children: [
-                search,
-                const SizedBox(height: AppSpacing.sm),
-                Row(
-                  children: [
-                    Expanded(child: statusMenu),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(child: priorityMenu),
-                  ],
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xs,
+                ),
+                decoration: const BoxDecoration(
+                  color: AppColors.bgLight,
+                  borderRadius: AppRadius.full,
+                ),
+                child: Text(
+                  '$resultCount/$totalCount yêu cầu',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+              if (searchController.text.isNotEmpty ||
+                  status != null ||
+                  priority != null) ...[
+                const SizedBox(width: AppSpacing.sm),
+                TextButton.icon(
+                  onPressed: onClearFilters,
+                  icon: const Icon(Icons.filter_alt_off_rounded, size: 18),
+                  label: const Text('Xóa lọc'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.textSecondary,
+                    minimumSize: const Size(48, 40),
+                    textStyle: AppTextStyles.labelMedium,
+                  ),
                 ),
               ],
-            );
-          }
-          return Row(
-            children: [
-              Expanded(child: search),
-              const SizedBox(width: AppSpacing.sm),
-              SizedBox(width: 180, child: statusMenu),
-              const SizedBox(width: AppSpacing.sm),
-              SizedBox(width: 180, child: priorityMenu),
             ],
-          );
-        },
+          ),
+          const SizedBox(height: AppSpacing.md),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final search = TextField(
+                key: const Key('support-ticket-search'),
+                controller: searchController,
+                onChanged: onSearchChanged,
+                style: AppTextStyles.bodyMedium,
+                decoration: InputDecoration(
+                  hintText: SupportTicketStrings.searchHint,
+                  hintStyle: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: searchController.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Xóa tìm kiếm',
+                          onPressed: () {
+                            searchController.clear();
+                            onSearchChanged('');
+                          },
+                          icon: const Icon(Icons.close_rounded),
+                        ),
+                  filled: true,
+                  fillColor: AppColors.bgLight,
+                  border: const OutlineInputBorder(
+                    borderRadius: AppRadius.md,
+                    borderSide: BorderSide(color: AppColors.border),
+                  ),
+                  enabledBorder: const OutlineInputBorder(
+                    borderRadius: AppRadius.md,
+                    borderSide: BorderSide(color: AppColors.border),
+                  ),
+                  focusedBorder: const OutlineInputBorder(
+                    borderRadius: AppRadius.md,
+                    borderSide: BorderSide(
+                      color: AppColors.borderFocus,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              );
+              final statusMenu = _TicketFilterMenu<SupportTicketStatus>(
+                label: status == null
+                    ? SupportTicketStrings.allStatuses
+                    : SupportTicketUi.statusLabel(status!),
+                icon: Icons.tune_rounded,
+                value: status,
+                items: SupportTicketStatus.values,
+                itemLabel: SupportTicketUi.statusLabel,
+                onChanged: onStatusChanged,
+              );
+              final priorityMenu = _TicketFilterMenu<SupportTicketPriority>(
+                label: priority == null
+                    ? SupportTicketStrings.allPriorities
+                    : SupportTicketUi.priorityLabel(priority!),
+                icon: Icons.flag_outlined,
+                value: priority,
+                items: SupportTicketPriority.values,
+                itemLabel: SupportTicketUi.priorityLabel,
+                onChanged: onPriorityChanged,
+              );
+
+              if (constraints.maxWidth < 760) {
+                return Column(
+                  children: [
+                    search,
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      children: [
+                        Expanded(child: statusMenu),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(child: priorityMenu),
+                      ],
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: search),
+                  const SizedBox(width: AppSpacing.sm),
+                  SizedBox(width: 180, child: statusMenu),
+                  const SizedBox(width: AppSpacing.sm),
+                  SizedBox(width: 180, child: priorityMenu),
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }

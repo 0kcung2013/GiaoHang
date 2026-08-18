@@ -164,6 +164,15 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
       );
   }
 
+  void _clearFilters() {
+    _searchController.clear();
+    setState(() {
+      _query = '';
+      _status = null;
+      _priority = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return SupportWorkspaceScaffold(
@@ -172,7 +181,7 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
         builder: (context, constraints) {
           final horizontalPadding = math.max(
             AppSpacing.screenH,
-            (constraints.maxWidth - 1180) / 2,
+            (constraints.maxWidth - 1200) / 2,
           );
           final filtered = _filteredTickets;
           return RefreshIndicator(
@@ -206,6 +215,9 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
                       searchController: _searchController,
                       status: _status,
                       priority: _priority,
+                      resultCount: filtered.length,
+                      totalCount: _tickets.length,
+                      onClearFilters: _clearFilters,
                       onSearchChanged: (value) =>
                           setState(() => _query = value),
                       onStatusChanged: (value) =>

@@ -38,13 +38,7 @@ class CustomerOrderService {
            ),
        _driverOrderService =
            driverOrderService ??
-           DriverOrderService(
-             client: client ?? Supabase.instance.client,
-             nearestDriverService:
-                 nearestDriverService ?? NearestDriverService(client: client),
-             notificationService:
-                 notificationService ?? NotificationService(client: client),
-           ),
+           DriverOrderService(client: client ?? Supabase.instance.client),
        _realtimeService = realtimeService ?? RealtimeService(client: client);
 
   final SupabaseClient _supabase;
@@ -189,7 +183,6 @@ class CustomerOrderService {
       orderId: order.id,
       orderCode: code,
     );
-    await _driverOrderService.notifyDriverAfterOrderCreated(order);
   }
 
   /// Chuyển đơn cho tài xế khác: thêm [driverUserId] vào rejected_by

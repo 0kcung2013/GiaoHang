@@ -68,24 +68,34 @@ class DriverNavigationRouteLogic {
       deliveryLat: order.deliveryLat,
       deliveryLng: order.deliveryLng,
     );
+    followRouteCamera(
+      controller: controller,
+      driverPosition: driverPosition,
+      routePoints: routePoints,
+      fallbackTarget: target,
+    );
+  }
+
+  static void followRouteCamera({
+    required MapController controller,
+    required LatLng driverPosition,
+    required List<LatLng>? routePoints,
+    required LatLng fallbackTarget,
+  }) {
     final cameraRoute = routePoints != null && routePoints.length >= 2
         ? routePoints
-        : [driverPosition, target];
-    final rotation = navigationRotationDegrees(
+        : [driverPosition, fallbackTarget];
+    final plan = navigationCameraPlan(
       driverPosition: driverPosition,
       routePoints: cameraRoute,
     );
 
     try {
-      controller.rotate(rotation);
-      controller.move(
-        driverPosition,
-        navigationZoom,
-        offset: navigationDriverOffset,
-      );
+      controller.rotate(plan.rotation);
+      controller.move(driverPosition, plan.zoom, offset: plan.driverOffset);
     } catch (_) {
       try {
-        controller.move(driverPosition, navigationZoom);
+        controller.move(driverPosition, plan.zoom);
       } catch (_) {}
     }
   }
@@ -159,6 +169,21 @@ class DriverNavigationRouteLogic {
     if (lookAhead == null) return 0;
     final bearing = const Distance().bearing(driverPosition, lookAhead);
     return normalizeBearing(-bearing);
+  }
+
+  static ({double rotation, double zoom, Offset driverOffset})
+  navigationCameraPlan({
+    required LatLng driverPosition,
+    required List<LatLng> routePoints,
+  }) {
+    return (
+      rotation: navigationRotationDegrees(
+        driverPosition: driverPosition,
+        routePoints: routePoints,
+      ),
+      zoom: navigationZoom,
+      driverOffset: navigationDriverOffset,
+    );
   }
 
   static LatLng? _lookAheadPoint({

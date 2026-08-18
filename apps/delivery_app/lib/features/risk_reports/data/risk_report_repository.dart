@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
-import 'package:image/image.dart' as image_lib;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
+import '../utils/risk_photo_processor.dart';
+
 const _evidenceBucket = 'risk-report-evidence';
+const _requestTimeout = Duration(seconds: 20);
+const _photoProcessingTimeout = Duration(seconds: 30);
 
 class RiskPhotoInput {
   const RiskPhotoInput({required this.fileName, required this.bytes});
@@ -99,7 +102,7 @@ class SupabaseParticipantRiskReportRepository
             },
           );
         },
-        processPhoto: _compressPhoto,
+        processPhoto: prepareRiskPhotoForUpload,
         upload: (path, bytes) async {
           await (client ?? Supabase.instance.client).storage
               .from(_evidenceBucket)
@@ -187,8 +190,12 @@ class SupabaseParticipantRiskReportRepository
     }
 
     onProgress?.call(RiskReportSubmissionPhase.checkingDuplicate);
+    await Future<void>.delayed(Duration.zero);
     try {
-      if (await _checkDuplicate(draft.orderId, draft.category)) {
+      if (await _checkDuplicate(
+        draft.orderId,
+        draft.category,
+      ).timeout(_requestTimeout)) {
         throw const RiskReportRepositoryException(
           code: RiskReportErrorCode.duplicate,
           userMessage: 'Sự cố này đã được báo cáo và đang được CSKH xử lý.',
@@ -202,13 +209,16 @@ class SupabaseParticipantRiskReportRepository
     var preparedPhotos = <_PreparedRiskPhoto>[];
     if (draft.photos.isNotEmpty) {
       onProgress?.call(RiskReportSubmissionPhase.processingImages);
+      await Future<void>.delayed(Duration.zero);
       try {
         preparedPhotos = await _mapWithConcurrency(
           draft.photos,
           limit: 2,
           convert: (photo, _) async => _PreparedRiskPhoto(
             path: '$userId/$reportId/${_createId()}.jpg',
-            bytes: await _processPhoto(photo.bytes),
+            bytes: await _processPhoto(
+              photo.bytes,
+            ).timeout(_photoProcessingTimeout),
           ),
         );
       } catch (error) {
@@ -223,12 +233,13 @@ class SupabaseParticipantRiskReportRepository
     final uploadedPaths = <String>[];
     if (preparedPhotos.isNotEmpty) {
       onProgress?.call(RiskReportSubmissionPhase.uploadingImages);
+      await Future<void>.delayed(Duration.zero);
       try {
         await _mapWithConcurrency(
           preparedPhotos,
           limit: 2,
           convert: (photo, _) async {
-            await _upload(photo.path, photo.bytes);
+            await _upload(photo.path, photo.bytes).timeout(_requestTimeout);
             uploadedPaths.add(photo.path);
             return photo.path;
           },
@@ -254,8 +265,11 @@ class SupabaseParticipantRiskReportRepository
       messageIds: draft.messageIds,
     );
     onProgress?.call(RiskReportSubmissionPhase.sendingReport);
+    await Future<void>.delayed(Duration.zero);
     try {
-      final response = await _invokeCreate(submission.toRpcJson());
+      final response = await _invokeCreate(
+        submission.toRpcJson(),
+      ).timeout(_requestTimeout);
       return RiskReportSubmissionResult.fromJson(_firstRow(response));
     } catch (error) {
       await _bestEffortCleanup(uploadedPaths);
@@ -286,6 +300,13 @@ class SupabaseParticipantRiskReportRepository
   static RiskReportRepositoryException _mapError(Object error) {
     if (error is RiskReportRepositoryException) return error;
     if (error is PostgrestException) {
+      if (error.message.contains('DRIVER_REPORT_AFTER_DELIVERY')) {
+        return const RiskReportRepositoryException(
+          code: RiskReportErrorCode.validation,
+          userMessage:
+              'Đơn đã xác nhận giao thành công. Tài xế chịu trách nhiệm với lần xác nhận này và không thể báo giao thất bại.',
+        );
+      }
       return switch (error.code) {
         '23505' => const RiskReportRepositoryException(
           code: RiskReportErrorCode.duplicate,
@@ -309,10 +330,6 @@ class SupabaseParticipantRiskReportRepository
       code: RiskReportErrorCode.network,
       userMessage: 'Chưa thể gửi báo cáo. Vui lòng thử lại.',
     );
-  }
-
-  static Future<Uint8List> _compressPhoto(Uint8List bytes) async {
-    return compute(_compressRiskPhoto, bytes);
   }
 }
 
@@ -344,22 +361,4 @@ Future<List<R>> _mapWithConcurrency<T, R>(
   final workerCount = items.length < limit ? items.length : limit;
   await Future.wait(List.generate(workerCount, (_) => worker()));
   return results.cast<R>();
-}
-
-Uint8List _compressRiskPhoto(Uint8List bytes) {
-  final decoded = image_lib.decodeImage(bytes);
-  if (decoded == null) {
-    throw const RiskReportRepositoryException(
-      code: RiskReportErrorCode.validation,
-      userMessage: 'Ảnh đã chọn không hợp lệ.',
-    );
-  }
-  final resized = decoded.width > 1600 || decoded.height > 1600
-      ? image_lib.copyResize(
-          decoded,
-          width: decoded.width >= decoded.height ? 1600 : null,
-          height: decoded.height > decoded.width ? 1600 : null,
-        )
-      : decoded;
-  return Uint8List.fromList(image_lib.encodeJpg(resized, quality: 82));
 }

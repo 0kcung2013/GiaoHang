@@ -43,4 +43,14 @@ void main() {
 
     expect(position, const LatLng(21.0285, 105.8542));
   });
+
+  test('uses the server matching position for an incoming offer distance', () {
+    final position = resolveDriverOfferPosition(
+      dashboardPosition: const LatLng(10.7790, 106.6765),
+      storedLat: 11.0308203237526,
+      storedLng: 106.622019716328,
+    );
+
+    expect(position, const LatLng(11.0308203237526, 106.622019716328));
+  });
 }

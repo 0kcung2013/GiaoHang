@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import 'driver_arrival_policy.dart';
+import '../utils/driver_navigation_strings.dart';
 
 enum DriverDeliveryAction {
   startPickupJourney,
@@ -16,7 +17,10 @@ extension DriverDeliveryActionRules on DriverDeliveryAction {
       this == DriverDeliveryAction.confirmPickup ||
       this == DriverDeliveryAction.confirmDelivery;
 
-  bool get advancesOrderStatusImmediately => this != DriverDeliveryAction.none;
+  bool get advancesOrderStatusImmediately =>
+      this == DriverDeliveryAction.startPickupJourney ||
+      this == DriverDeliveryAction.startDelivery ||
+      this == DriverDeliveryAction.confirmDelivery;
 }
 
 class DriverDeliveryWorkflow {
@@ -46,8 +50,7 @@ class DriverDeliveryWorkflow {
       DriverArrivalPolicy.arrivalRadiusMeters;
 
   bool canPerform({required bool arrivedAtTarget}) {
-    return action != DriverDeliveryAction.none &&
-        (!requiresArrival || arrivedAtTarget);
+    return action != DriverDeliveryAction.none;
   }
 
   static DriverDeliveryWorkflow fromStatus(
@@ -60,7 +63,7 @@ class DriverDeliveryWorkflow {
         eyebrow: 'CHỜ BẮT ĐẦU GIAO',
         title: 'Đã nhận hàng',
         description: 'GPS đang tạm dừng. Bắt đầu khi bạn sẵn sàng.',
-        primaryLabel: 'Bắt đầu giao hàng',
+        primaryLabel: DriverNavigationStrings.swipeStartDelivery,
         primaryIcon: Icons.local_shipping_rounded,
         accent: AppColors.accent,
         action: DriverDeliveryAction.startDelivery,
@@ -75,7 +78,7 @@ class DriverDeliveryWorkflow {
         title: 'Sẵn sàng đến điểm lấy',
         description:
             'Kiểm tra thông tin đơn và bắt đầu hành trình khi bạn đã sẵn sàng.',
-        primaryLabel: 'Bắt đầu đến điểm lấy',
+        primaryLabel: DriverNavigationStrings.swipeStartPickup,
         primaryIcon: Icons.navigation_rounded,
         accent: AppColors.accent,
         action: DriverDeliveryAction.startPickupJourney,
@@ -87,7 +90,7 @@ class DriverDeliveryWorkflow {
         title: 'Di chuyển đến người gửi',
         description:
             'Chỉ xác nhận nhận hàng sau khi đã kiểm tra đúng kiện và tình trạng.',
-        primaryLabel: 'Xác nhận đã nhận hàng',
+        primaryLabel: DriverNavigationStrings.swipeConfirmPickup,
         primaryIcon: Icons.inventory_2_rounded,
         accent: AppColors.markerPickup,
         action: DriverDeliveryAction.confirmPickup,
@@ -99,7 +102,7 @@ class DriverDeliveryWorkflow {
         title: 'Giao hàng đến người nhận',
         description:
             'Đối chiếu người nhận và thanh toán trước khi hoàn tất đơn.',
-        primaryLabel: 'Xác nhận giao thành công',
+        primaryLabel: DriverNavigationStrings.swipeConfirmDelivery,
         primaryIcon: Icons.check_circle_rounded,
         accent: AppColors.success,
         action: DriverDeliveryAction.confirmDelivery,

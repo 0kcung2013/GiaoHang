@@ -37,6 +37,42 @@ void main() {
     expect(find.text('Không liên lạc được khách'), findsNothing);
     expect(find.text('Kiểm tra thanh toán COD'), findsOneWidget);
   });
+
+  testWidgets('support workspace stays usable on a narrow viewport', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SupportHomeScreen(
+          repository: _FakeSupportTicketRepository(),
+          currentUserId: 'support-1',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('CSKH'), findsOneWidget);
+    expect(
+      find.byKey(const Key('create-support-ticket-button')),
+      findsOneWidget,
+    );
+    expect(find.text('Hàng chờ xử lý'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.enterText(
+      find.byKey(const Key('support-ticket-search')),
+      'thanh toán',
+    );
+    await tester.pump();
+
+    expect(find.text('Xóa lọc'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _FakeSupportTicketRepository implements SupportTicketRepository {

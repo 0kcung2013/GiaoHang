@@ -220,9 +220,8 @@ class _DriverNavigationScreenState
     _hasRestoredNavigationPosition = true;
     // Chỉ giữ cờ arrived nếu cùng chặng (tránh kẹt banner chặng cũ).
     if (saved.status == _currentOrder.status) {
-      // Từ phiên bản luồng mới, proof lấy hàng chuyển đơn sang `delivering`
-      // ngay lập tức. Bỏ cờ session cũ để không quay lại bước "chờ giao".
-      _pickupConfirmed = false;
+      // Giữ bước trung gian "đã nhận" để tài xế chủ động gạt bắt đầu giao.
+      _pickupConfirmed = saved.pickupConfirmed;
       _arrivedAtTarget = saved.arrivedAtTarget;
       _simRouteIndex = saved.simRouteIndex;
     } else {
@@ -755,6 +754,8 @@ class _DriverNavigationScreenState
       order: order,
       totalDistance: _totalDistance,
       totalDuration: _totalDuration,
+      driverLatitude: _driverPos?.latitude,
+      driverLongitude: _driverPos?.longitude,
       arrivedAtTarget: _arrivedAtTarget,
       pickupConfirmed: _pickupConfirmed,
       isUpdatingStatus: _isUpdatingStatus,

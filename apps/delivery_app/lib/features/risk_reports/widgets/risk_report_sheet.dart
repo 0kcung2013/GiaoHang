@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -5,12 +6,15 @@ import 'package:geolocator/geolocator.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/models/order_model.dart';
+import '../../../core/services/reverse_geocoding_service.dart';
 import '../controllers/risk_report_form_controller.dart';
 import '../data/risk_report_repository.dart';
 import '../utils/risk_report_options.dart';
+import '../utils/risk_report_strings.dart';
 import 'risk_evidence_step.dart';
 import 'risk_message_picker_sheet.dart';
 import 'risk_reason_step.dart';
@@ -22,6 +26,8 @@ Future<RiskReportSubmissionResult?> showRiskReportSheet(
   required OrderModel order,
   required RiskReporterRole role,
   RiskCategory? initialCategory,
+  double? initialLatitude,
+  double? initialLongitude,
   ParticipantRiskReportRepository? repository,
 }) {
   return showModalBottomSheet<RiskReportSubmissionResult>(
@@ -34,6 +40,8 @@ Future<RiskReportSubmissionResult?> showRiskReportSheet(
       order: order,
       role: role,
       initialCategory: initialCategory,
+      initialLatitude: initialLatitude,
+      initialLongitude: initialLongitude,
       repository: repository ?? SupabaseParticipantRiskReportRepository(),
     ),
   );
@@ -45,6 +53,8 @@ class RiskReportSheet extends StatefulWidget {
     required this.role,
     required this.repository,
     this.initialCategory,
+    this.initialLatitude,
+    this.initialLongitude,
     super.key,
   });
 
@@ -52,6 +62,8 @@ class RiskReportSheet extends StatefulWidget {
   final RiskReporterRole role;
   final ParticipantRiskReportRepository repository;
   final RiskCategory? initialCategory;
+  final double? initialLatitude;
+  final double? initialLongitude;
 
   @override
   State<RiskReportSheet> createState() => _RiskReportSheetState();
@@ -60,6 +72,8 @@ class RiskReportSheet extends StatefulWidget {
 class _RiskReportSheetState extends State<RiskReportSheet> {
   late final RiskReportFormController _controller;
   late final TextEditingController _descriptionController;
+  final ReverseGeocodingService _reverseGeocodingService =
+      ReverseGeocodingService();
   bool _loadingEvidence = false;
 
   @override
@@ -68,6 +82,9 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
     _controller = RiskReportFormController(
       orderId: widget.order.id,
       repository: widget.repository,
+      initialLatitude: widget.initialLatitude,
+      initialLongitude: widget.initialLongitude,
+      requireLocation: widget.role == RiskReporterRole.driver,
     );
     final initialCategory = widget.initialCategory;
     if (initialCategory != null) {
@@ -76,6 +93,11 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
     }
     _controller.addListener(_refresh);
     _descriptionController = TextEditingController();
+    final latitude = widget.initialLatitude;
+    final longitude = widget.initialLongitude;
+    if (latitude != null && longitude != null) {
+      unawaited(_resolveLocationAddress(latitude, longitude));
+    }
   }
 
   @override
@@ -83,6 +105,7 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
     _controller.removeListener(_refresh);
     _controller.dispose();
     _descriptionController.dispose();
+    _reverseGeocodingService.dispose();
     super.dispose();
   }
 
@@ -157,9 +180,12 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
         photos: state.photos,
         latitude: state.latitude,
         longitude: state.longitude,
+        locationAddress: state.locationAddress,
+        locationRequired: widget.role == RiskReporterRole.driver,
         messageCount: state.messageIds.length,
         descriptionError: state.descriptionError,
         photoError: state.photoError,
+        locationError: state.locationError,
         onDescriptionChanged: _controller.setDescription,
         onPickPhotos: _pickPhotos,
         onCaptureLocation: _captureLocation,
@@ -172,6 +198,7 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
       description: state.description,
       photoCount: state.photos.length,
       hasLocation: state.latitude != null,
+      locationAddress: state.locationAddress,
       messageCount: state.messageIds.length,
     );
   }
@@ -186,7 +213,9 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
         return;
       }
       final files = await ImagePicker().pickMultiImage(
-        imageQuality: 92,
+        imageQuality: 82,
+        maxWidth: 1600,
+        maxHeight: 1600,
         limit: remaining,
       );
       final additions = <RiskPhotoInput>[];
@@ -216,18 +245,58 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        _showMessage('Bạn chưa cấp quyền vị trí.');
+        _showMessage(RiskReportStrings.locationPermissionDenied);
         return;
       }
-      final position = await Geolocator.getCurrentPosition();
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
       _controller.setLocation(
         latitude: position.latitude,
         longitude: position.longitude,
+        capturedAt: position.timestamp,
+        address: RiskReportStrings.locationResolving,
+      );
+      await _resolveLocationAddress(
+        position.latitude,
+        position.longitude,
+        showFailure: true,
       );
     } catch (_) {
-      _showMessage('Chưa thể lấy vị trí hiện tại.');
+      _showMessage(RiskReportStrings.locationUnavailable);
     } finally {
       if (mounted) setState(() => _loadingEvidence = false);
+    }
+  }
+
+  Future<void> _resolveLocationAddress(
+    double latitude,
+    double longitude, {
+    bool showFailure = false,
+  }) async {
+    try {
+      final result = await _reverseGeocodingService.resolve(
+        LatLng(latitude, longitude),
+      );
+      if (!mounted) return;
+      _controller.setLocation(
+        latitude: latitude,
+        longitude: longitude,
+        address: result.displayAddress,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      _controller.setLocation(
+        latitude: latitude,
+        longitude: longitude,
+        address: RiskReportStrings.locationShared,
+      );
+      if (showFailure) {
+        _showMessage(RiskReportStrings.locationAddressUnavailable);
+      }
     }
   }
 

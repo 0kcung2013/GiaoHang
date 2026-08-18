@@ -86,6 +86,65 @@ void main() {
     });
   });
 
+  group('OrderModel driver offer', () {
+    final createdAt = DateTime.utc(2026, 8, 14, 8);
+    final assignmentDeadline = createdAt.add(const Duration(minutes: 15));
+    final offerDeadline = createdAt.add(const Duration(seconds: 45));
+
+    test('parses persisted offer fields returned by Supabase', () {
+      final order = OrderModel.fromJson({
+        ..._order(createdAt: createdAt).toJson(),
+        'offered_driver_id': 'driver-1',
+        'offer_expires_at': offerDeadline.toIso8601String(),
+      });
+
+      expect(order.offeredDriverId, 'driver-1');
+      expect(order.offerExpiresAt, offerDeadline);
+    });
+
+    test('only exposes a live offer to its matching driver', () {
+      final order = _order(
+        createdAt: createdAt,
+        assignmentExpiresAt: assignmentDeadline,
+        offeredDriverId: 'driver-1',
+        offerExpiresAt: offerDeadline,
+      );
+      final beforeDeadline = offerDeadline.subtract(const Duration(seconds: 1));
+
+      expect(order.isOfferedToDriverAt('driver-1', beforeDeadline), isTrue);
+      expect(order.isOfferedToDriverAt('driver-2', beforeDeadline), isFalse);
+    });
+
+    test('expires the driver offer exactly at its server deadline', () {
+      final order = _order(
+        createdAt: createdAt,
+        assignmentExpiresAt: assignmentDeadline,
+        offeredDriverId: 'driver-1',
+        offerExpiresAt: offerDeadline,
+      );
+
+      expect(order.isOfferedToDriverAt('driver-1', offerDeadline), isFalse);
+    });
+
+    test('never exposes an offer after the global assignment timeout', () {
+      final order = _order(
+        createdAt: createdAt,
+        assignmentExpiresAt: assignmentDeadline,
+        assignmentTimedOutAt: assignmentDeadline,
+        offeredDriverId: 'driver-1',
+        offerExpiresAt: offerDeadline,
+      );
+
+      expect(
+        order.isOfferedToDriverAt(
+          'driver-1',
+          createdAt.add(const Duration(seconds: 10)),
+        ),
+        isFalse,
+      );
+    });
+  });
+
   group('OrderAssignmentStatusCard', () {
     testWidgets('shows a live countdown while waiting for a driver', (
       tester,
@@ -146,6 +205,8 @@ OrderModel _order({
   String? driverId,
   DateTime? assignmentExpiresAt,
   DateTime? assignmentTimedOutAt,
+  String? offeredDriverId,
+  DateTime? offerExpiresAt,
 }) {
   return OrderModel(
     id: 'order-1',
@@ -162,6 +223,8 @@ OrderModel _order({
     trackingCode: 'GH-00001',
     assignmentExpiresAt: assignmentExpiresAt,
     assignmentTimedOutAt: assignmentTimedOutAt,
+    offeredDriverId: offeredDriverId,
+    offerExpiresAt: offerExpiresAt,
     deliveryFee: 30000,
     serviceType: 'standard',
     paymentMethod: 'cash',

@@ -1,10 +1,29 @@
 import 'dart:typed_data';
 
 import 'package:delivery_app/features/risk_reports/data/risk_report_repository.dart';
+import 'package:delivery_app/features/risk_reports/utils/risk_photo_processor.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
+  test('web uploads picker-resized bytes without CPU image decoding', () async {
+    final bytes = Uint8List.fromList([1, 2, 3]);
+    var decoderCalled = false;
+
+    final prepared = await prepareRiskPhotoForUpload(
+      bytes,
+      isWeb: true,
+      nativeProcessor: (value) async {
+        decoderCalled = true;
+        return value;
+      },
+    );
+
+    expect(prepared, same(bytes));
+    expect(decoderCalled, isFalse);
+  });
+
   test('uploads to own report prefix and sends no severity', () async {
     final uploaded = <String>[];
     Map<String, dynamic>? rpcParams;
@@ -189,4 +208,39 @@ void main() {
     expect(maxActiveUploads, 2);
     expect(phases, RiskReportSubmissionPhase.values);
   });
+
+  test(
+    'explains that a driver cannot report an already delivered order',
+    () async {
+      final repository = SupabaseParticipantRiskReportRepository.test(
+        currentUserId: () => 'driver-1',
+        createId: () => 'report-1',
+        checkDuplicate: (_, _) async => false,
+        processPhoto: (bytes) async => bytes,
+        upload: (_, _) async {},
+        remove: (_) async {},
+        invokeCreate: (_) => throw const PostgrestException(
+          message: 'DRIVER_REPORT_AFTER_DELIVERY',
+          code: '23514',
+        ),
+      );
+
+      await expectLater(
+        repository.submit(
+          const ParticipantRiskReportDraft(
+            orderId: 'order-1',
+            category: RiskCategory.contactIssue,
+            description: 'Không liên lạc được với người nhận hàng.',
+          ),
+        ),
+        throwsA(
+          isA<RiskReportRepositoryException>().having(
+            (error) => error.userMessage,
+            'userMessage',
+            contains('đã xác nhận giao thành công'),
+          ),
+        ),
+      );
+    },
+  );
 }

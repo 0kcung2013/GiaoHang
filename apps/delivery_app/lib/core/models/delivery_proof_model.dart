@@ -1,6 +1,7 @@
 enum DeliveryProofStage {
   pickup('pickup'),
-  delivery('delivery');
+  delivery('delivery'),
+  returnHandoff('return');
 
   const DeliveryProofStage(this.value);
 
@@ -33,9 +34,10 @@ class DeliveryProofModel {
       id: json['id']?.toString() ?? '',
       orderId: json['order_id']?.toString() ?? '',
       driverId: json['driver_id']?.toString() ?? '',
-      stage: json['stage'] == DeliveryProofStage.delivery.value
-          ? DeliveryProofStage.delivery
-          : DeliveryProofStage.pickup,
+      stage: DeliveryProofStage.values.firstWhere(
+        (stage) => stage.value == json['stage']?.toString(),
+        orElse: () => DeliveryProofStage.pickup,
+      ),
       storagePath: json['storage_path']?.toString() ?? '',
       capturedAt:
           DateTime.tryParse(json['captured_at']?.toString() ?? '') ??

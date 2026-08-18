@@ -75,7 +75,7 @@ class OrderAssignmentService {
       }
     } catch (error) {
       final message = error.toString().replaceAll('Exception: ', '');
-      throw Exception(_acceptOrderErrorMessage(message));
+      throw Exception(acceptOrderErrorMessage(message));
     }
   }
 
@@ -186,7 +186,17 @@ class OrderAssignmentService {
     return null;
   }
 
-  String _acceptOrderErrorMessage(String message) {
+  static String acceptOrderErrorMessage(String message) {
+    if (message.contains('INSUFFICIENT_WALLET_BALANCE')) {
+      return 'Số dư ví chưa đủ để ứng đơn này. Hãy nạp thêm rồi thử lại.';
+    }
+    if (message.contains('OFFER_EXPIRED')) {
+      return 'Lời mời nhận đơn đã hết hạn. '
+          'Hệ thống đang tìm tài xế khác.';
+    }
+    if (message.contains('ORDER_NOT_OFFERED_TO_DRIVER')) {
+      return 'Đơn hàng không còn được đề xuất cho bạn.';
+    }
     if (message.contains('ASSIGNMENT_EXPIRED')) {
       return 'Đã hết thời gian nhận đơn. '
           'Đơn hàng đang chờ khách tìm lại tài xế.';

@@ -88,8 +88,14 @@ class DriverDrawer extends StatelessWidget {
               onTap: () => _navigate(context, 1),
             ),
             _DrawerItem(
-              icon: Icons.payments_rounded,
-              label: 'Thu nhập',
+              icon: Icons.map_rounded,
+              label: 'FreePick',
+              active: currentIndex == 4,
+              onTap: () => _navigate(context, 4),
+            ),
+            _DrawerItem(
+              icon: Icons.account_balance_wallet_rounded,
+              label: 'Ví Tài Xế',
               active: currentIndex == 2,
               onTap: () => _navigate(context, 2),
             ),

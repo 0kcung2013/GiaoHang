@@ -12,7 +12,6 @@ import '../features/customer/screens/create_order/order_confirmation_screen.dart
 import '../features/customer/screens/create_order/order_success_screen.dart';
 import '../features/customer/screens/home/home_screen.dart';
 import '../features/driver/screens/driver_shell_screen.dart';
-import '../features/onboarding/screens/onboarding/onboarding_screen.dart';
 import '../features/auth/screens/operations_required_screen.dart';
 import '../features/auth/screens/unsupported_role_screen.dart';
 
@@ -62,7 +61,6 @@ GoRouter createRouter({required String initialLocation}) {
       final location = state.matchedLocation;
       final publicRoute =
           location == '/login' ||
-          location == '/onboarding' ||
           location == '/driver-auth' ||
           location == '/register' ||
           location == '/driver-pending';
@@ -72,9 +70,7 @@ GoRouter createRouter({required String initialLocation}) {
       if (uri.contains('code=') || uri.contains('access_token=')) return null;
 
       if (loggedIn) {
-        if (location == '/' ||
-            location == '/login' ||
-            location == '/onboarding') {
+        if (location == '/' || location == '/login') {
           final result = await supabase
               .from('users')
               .select('role')
@@ -130,7 +126,6 @@ GoRouter createRouter({required String initialLocation}) {
     },
     routes: [
       GoRoute(path: '/', builder: (_, _) => const SizedBox.shrink()),
-      GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingScreen()),
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(path: '/register', builder: (_, _) => const RegisterScreen()),
       GoRoute(

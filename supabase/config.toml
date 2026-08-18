@@ -10,3 +10,18 @@ verify_jwt = true
 
 [functions.find-nearest-drivers-redis]
 verify_jwt = true
+
+[functions.vnpay-create-wallet-topup]
+verify_jwt = true
+
+[functions.vnpay-wallet-ipn]
+verify_jwt = false
+
+[functions.vnpay-wallet-return]
+verify_jwt = false
+
+[functions.vnpay-create-order-payment]
+verify_jwt = true
+
+[functions.vnpay-order-return]
+verify_jwt = false

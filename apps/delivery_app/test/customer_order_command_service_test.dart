@@ -1,4 +1,5 @@
 import 'package:delivery_app/core/models/order_model.dart';
+import 'package:delivery_app/core/models/order_finance.dart';
 import 'package:delivery_app/core/services/customer_order_command_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -20,29 +21,30 @@ void main() {
       expect(result.orderId, 'order-1');
       expect(result.trackingCode, '10001');
       expect(calls, hasLength(1));
-      expect(calls.single.functionName, 'create_customer_order');
+      expect(calls.single.functionName, 'create_customer_order_v2');
       expect(calls.single.params, {
-        'p_pickup_address': 'Điểm lấy',
-        'p_pickup_lat': 10.1,
-        'p_pickup_lng': 106.1,
-        'p_delivery_address': 'Điểm giao',
-        'p_delivery_lat': 10.2,
-        'p_delivery_lng': 106.2,
-        'p_total_price': 20000.0,
-        'p_note': 'Gọi trước',
-        'p_estimated_pickup_at': '2026-07-30T09:00:00.000Z',
-        'p_estimated_delivery_at': '2026-07-30T10:00:00.000Z',
-        'p_recipient_name': 'Nguyễn Văn A',
-        'p_recipient_phone': '0900000000',
-        'p_delivery_fee': 18000.0,
-        'p_service_type': 'express',
-        'p_payment_method': 'cash',
-        'p_item_name': 'Hồ sơ',
-        'p_item_category': 'document',
-        'p_item_description': 'Không gấp',
-        'p_item_image_url': 'https://example.com/item.jpg',
-        'p_item_quantity': 1,
-        'p_item_price': 18000.0,
+        'p_order_payload': {
+          'pickup_address': 'Điểm lấy',
+          'pickup_lat': 10.1,
+          'pickup_lng': 106.1,
+          'delivery_address': 'Điểm giao',
+          'delivery_lat': 10.2,
+          'delivery_lng': 106.2,
+          'note': 'Gọi trước',
+          'estimated_pickup_at': '2026-07-30T09:00:00.000Z',
+          'estimated_delivery_at': '2026-07-30T10:00:00.000Z',
+          'recipient_name': 'Nguyễn Văn A',
+          'recipient_phone': '0900000000',
+          'delivery_fee': 18000.0,
+          'service_type': 'express',
+          'item_name': 'Hồ sơ',
+          'item_category': 'document',
+          'item_description': 'Không gấp',
+          'item_image_url': 'https://example.com/item.jpg',
+          'goods_value': 120000,
+          'cod_collection_amount': 120000,
+          'delivery_fee_payer': 'recipient',
+        },
       });
       expect(calls.single.params, isNot(contains('p_customer_id')));
     });
@@ -121,6 +123,16 @@ OrderModel _order() {
     deliveryFee: 18000,
     serviceType: 'express',
     paymentMethod: 'cash',
+    paymentMode: OrderPaymentMode.cod,
+    deliveryFeePayer: DeliveryFeePayer.recipient,
+    paymentStatus: OrderPaymentStatus.notRequired,
+    goodsValue: 120000,
+    codCollectionAmount: 120000,
+    platformFeeRateBps: 1500,
+    platformFeeAmount: 2700,
+    driverNetEarning: 15300,
+    driverAdvanceAmount: 120000,
+    receiverCollectionAmount: 138000,
     updatedAt: DateTime.utc(2026, 7, 30, 8),
   );
 }

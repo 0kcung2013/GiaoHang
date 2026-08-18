@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
-
-import '../models/risk_report.dart';
+import 'package:giaohang_domain/giaohang_domain.dart';
 
 class RiskReportUi {
   const RiskReportUi._();
@@ -92,7 +91,8 @@ class RiskReportUi {
 
   static String formatDateTime(DateTime value) {
     String two(int number) => number.toString().padLeft(2, '0');
-    return '${two(value.day)}/${two(value.month)}/${value.year} · '
-        '${two(value.hour)}:${two(value.minute)}';
+    final vietnam = VietnamTime.toWallClock(value);
+    return '${two(vietnam.day)}/${two(vietnam.month)}/${vietnam.year} · '
+        '${two(vietnam.hour)}:${two(vietnam.minute)}';
   }
 }

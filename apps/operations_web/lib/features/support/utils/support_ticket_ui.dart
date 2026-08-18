@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
-
-import '../models/support_ticket.dart';
+import 'package:giaohang_domain/giaohang_domain.dart';
 
 abstract final class SupportTicketUi {
   static String statusLabel(SupportTicketStatus status) => switch (status) {
@@ -51,7 +50,7 @@ abstract final class SupportTicketUi {
   }
 
   static String dateTimeLabel(DateTime value) {
-    final local = value.toLocal();
+    final local = VietnamTime.toWallClock(value);
     String twoDigits(int number) => number.toString().padLeft(2, '0');
     return '${twoDigits(local.hour)}:${twoDigits(local.minute)} · '
         '${twoDigits(local.day)}/${twoDigits(local.month)}/${local.year}';

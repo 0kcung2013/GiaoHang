@@ -13,4 +13,11 @@ class DriverHomeStrings {
   static const bannerOfflineSubtitle = 'Bật trực tuyến khi bạn sẵn sàng.';
   static const bannerSemanticLabel =
       'Minh họa tài xế kiểm tra lộ trình bên xe máy có thùng và kiện hàng.';
+
+  static const offerCountdownLabel = 'Thời gian nhận đơn';
+  static const offerAutoTransferHint = 'Hết giờ sẽ tự chuyển tài xế khác';
+  static const offerExpiredLabel = 'Đang chuyển tài xế khác…';
+
+  static String offerCountdownSemantic(int seconds) =>
+      'Còn $seconds giây để nhận đơn. Hết giờ hệ thống tự chuyển tài xế khác.';
 }

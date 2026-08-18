@@ -1,4 +1,5 @@
 import 'package:delivery_app/core/services/osrm_service.dart';
+import 'package:delivery_app/core/models/order_finance.dart';
 import 'package:delivery_app/core/utils/delivery_eta_calculator.dart';
 import 'package:delivery_app/core/utils/delivery_fee_calculator.dart';
 import 'package:delivery_app/core/utils/delivery_pricing_policy.dart';
@@ -138,6 +139,9 @@ void main() {
       itemDescription: '',
       cargoImage: null,
       paymentMethod: 'cash',
+      deliveryFeePayer: DeliveryFeePayer.recipient,
+      goodsValue: 0,
+      codCollectionAmount: 0,
       deliveryFee: fee.total,
       totalPrice: fee.total,
       distanceMeters: 9000,

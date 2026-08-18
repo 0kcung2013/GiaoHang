@@ -1,9 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:operations_web/features/risk_reports/models/risk_report.dart';
+import 'package:operations_web/features/risk_reports/widgets/risk_report_actions.dart';
 import 'package:operations_web/features/risk_reports/widgets/risk_intervention_panel.dart';
 
 void main() {
+  testWidgets('locks manual report status while driver is returning cargo', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RiskReportActionBar(
+            assignedToMe: true,
+            unassigned: false,
+            submitting: false,
+            statusLocked: true,
+            transitions: const [RiskStatus.investigating],
+            onAssign: () {},
+            onTransition: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.text('Trạng thái được khóa khi tài xế đang hoàn hàng'),
+      findsWidgets,
+    );
+    expect(find.text('Đang xác minh'), findsNothing);
+  });
+
   testWidgets('acceptance is separate from pre-pickup hold', (tester) async {
     var held = false;
     await tester.pumpWidget(
@@ -127,6 +154,32 @@ void main() {
 
     expect(find.text('Đã gọi xác minh với khách hàng.'), findsOneWidget);
     expect(find.textContaining('CSKH An'), findsOneWidget);
+  });
+
+  testWidgets('keeps an empty note composer collapsed until requested', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RiskInterventionPanel(
+            report: _report(),
+            intervention: _intervention(RiskInterventionState.continueDelivery),
+            orderStatus: 'delivering',
+            onHoldBeforePickup: () async {},
+            onDecision: (_, _) async {},
+            onConfirmCustody: () async {},
+            onResumeOrder: () async {},
+            onAddNote: (_) async {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const Key('risk-internal-note')), findsNothing);
+    await tester.tap(find.text('Ghi chú nội bộ'));
+    await tester.pump();
+    expect(find.byKey(const Key('risk-internal-note')), findsOneWidget);
   });
 
   testWidgets('blocks intervention when another staff owns the report', (

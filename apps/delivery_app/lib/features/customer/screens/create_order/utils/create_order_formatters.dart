@@ -19,7 +19,8 @@ String formatDeliveryFee(double? fee) {
 
 String paymentMethodLabel(String value) {
   return switch (value) {
-    'cash' => 'COD / Tiền mặt',
-    _ => 'COD / Tiền mặt',
+    'vnpay' => 'Thanh toán qua VNPAY',
+    'cash' => 'Thanh toán khi nhận hàng',
+    _ => 'Thanh toán khi nhận hàng',
   };
 }

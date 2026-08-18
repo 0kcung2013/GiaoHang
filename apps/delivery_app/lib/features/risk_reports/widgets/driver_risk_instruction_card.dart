@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
+import '../../../core/models/order_model.dart';
+import '../../returns/data/order_return_repository.dart';
+import '../../returns/driver_return_navigation_screen.dart';
+import '../../returns/widgets/driver_return_mission_card.dart';
 import '../data/risk_intervention_repository.dart';
 
 bool riskInterventionBlocksDelivery(RiskIntervention? intervention) {
@@ -13,26 +17,45 @@ bool riskInterventionBlocksDelivery(RiskIntervention? intervention) {
 
 class DriverRiskInstructionRegion extends StatelessWidget {
   const DriverRiskInstructionRegion({
-    required this.orderId,
     required this.repository,
     required this.builder,
+    this.order,
+    this.orderId,
+    this.orderReturnRepository,
     super.key,
-  });
+  }) : assert(order != null || orderId != null);
 
-  final String orderId;
+  final OrderModel? order;
+  final String? orderId;
   final RiskInterventionRepository repository;
+  final OrderReturnRepository? orderReturnRepository;
   final Widget Function(BuildContext context, bool blocksDelivery) builder;
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<RiskIntervention?>(
-      stream: repository.watchForOrder(orderId),
+      stream: repository.watchForOrder(order?.id ?? orderId!),
       builder: (context, snapshot) {
         final intervention = snapshot.data;
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (intervention != null)
+            if (intervention?.state == RiskInterventionState.returnRequired &&
+                order != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  0,
+                  AppSpacing.lg,
+                  AppSpacing.sm,
+                ),
+                child: _ReturnMissionRegion(
+                  order: order!,
+                  repository:
+                      orderReturnRepository ?? _createReturnRepository(),
+                ),
+              )
+            else if (intervention != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.lg,
@@ -49,6 +72,49 @@ class DriverRiskInstructionRegion extends StatelessWidget {
               ),
             builder(context, riskInterventionBlocksDelivery(intervention)),
           ],
+        );
+      },
+    );
+  }
+
+  OrderReturnRepository? _createReturnRepository() {
+    try {
+      return SupabaseOrderReturnRepository();
+    } on AssertionError {
+      return null;
+    }
+  }
+}
+
+class _ReturnMissionRegion extends StatelessWidget {
+  const _ReturnMissionRegion({required this.order, this.repository});
+
+  final OrderModel order;
+  final OrderReturnRepository? repository;
+
+  @override
+  Widget build(BuildContext context) {
+    final source = repository;
+    if (source == null) {
+      return const DriverReturnMissionCard(mission: null, onOpen: null);
+    }
+    return StreamBuilder<OrderReturn?>(
+      stream: source.watchForOrder(order.id),
+      builder: (context, snapshot) {
+        final mission = snapshot.data;
+        return DriverReturnMissionCard(
+          mission: mission,
+          onOpen: mission == null
+              ? null
+              : () => Navigator.of(context).push<bool>(
+                  MaterialPageRoute(
+                    builder: (_) => DriverReturnNavigationScreen(
+                      order: order,
+                      mission: mission,
+                      repository: source,
+                    ),
+                  ),
+                ),
         );
       },
     );
@@ -112,9 +178,7 @@ class _DriverRiskInstructionCardState extends State<DriverRiskInstructionCard> {
       body:
           widget.intervention.instruction ?? 'Liên hệ CSKH để được hướng dẫn.',
       urgent: true,
-      actionLabel: returnRequired
-          ? 'Đã hoàn tất hoàn trả'
-          : 'Đã hoàn tất bàn giao',
+      actionLabel: returnRequired ? null : 'Đã hoàn tất bàn giao',
     );
   }
 

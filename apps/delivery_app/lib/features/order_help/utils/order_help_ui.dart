@@ -65,7 +65,8 @@ abstract final class OrderHelpUi {
 
   static String dateTime(DateTime value) {
     String two(int number) => number.toString().padLeft(2, '0');
-    return '${two(value.day)}/${two(value.month)}/${value.year} · '
-        '${two(value.hour)}:${two(value.minute)}';
+    final vietnam = VietnamTime.toWallClock(value);
+    return '${two(vietnam.day)}/${two(vietnam.month)}/${vietnam.year} · '
+        '${two(vietnam.hour)}:${two(vietnam.minute)}';
   }
 }

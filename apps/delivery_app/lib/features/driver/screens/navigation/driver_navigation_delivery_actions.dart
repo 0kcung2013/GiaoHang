@@ -8,15 +8,6 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
       pickupConfirmed: _pickupConfirmed,
     );
 
-    if (!workflow.canPerform(arrivedAtTarget: _arrivedAtTarget)) {
-      _showWorkflowMessage(
-        'Bạn cần đến trong phạm vi '
-        '${DriverDeliveryWorkflow.arrivalRadiusMeters.toStringAsFixed(0)} m '
-        'trước khi xác nhận.',
-      );
-      return;
-    }
-
     if (workflow.action == DriverDeliveryAction.startDelivery) {
       await _startDelivery();
       return;

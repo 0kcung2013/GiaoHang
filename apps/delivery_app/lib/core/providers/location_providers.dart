@@ -25,7 +25,7 @@ final currentPositionProvider = FutureProvider<Position?>((ref) async {
 });
 
 final driverLocationModeProvider = StateProvider<DriverLocationMode>(
-  (ref) => DriverLocationMode.demoHcm,
+  (ref) => DriverLocationMode.deviceGps,
 );
 
 /// Order đang sở hữu quyền publish vị trí từ màn navigation.

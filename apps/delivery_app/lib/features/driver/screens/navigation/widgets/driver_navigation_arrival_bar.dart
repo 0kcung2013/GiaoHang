@@ -4,6 +4,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/utils/delivery_map_utils.dart';
+import '../../../widgets/driver_swipe_action.dart';
 import '../models/driver_delivery_workflow.dart';
 
 /// Thanh tác vụ gọn cho màn điều hướng: map luôn được ưu tiên diện tích.
@@ -35,8 +36,10 @@ class DriverNavigationArrivalBar extends StatelessWidget {
       order.status,
       pickupConfirmed: pickupConfirmed,
     );
-    final canConfirm = workflow.canPerform(arrivedAtTarget: arrivedAtTarget);
-    final enabled = canConfirm && !isLoading;
+    final enabled =
+        workflow.canPerform(arrivedAtTarget: arrivedAtTarget) &&
+        !isLoading &&
+        onPrimaryAction != null;
     final progress = pickupConfirmed
         ? 'Sẵn sàng giao hàng'
         : arrivedAtTarget
@@ -57,95 +60,80 @@ class DriverNavigationArrivalBar extends StatelessWidget {
         border: Border.all(color: AppColors.textOnDark.withValues(alpha: 0.1)),
         boxShadow: AppShadow.elevated,
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: workflow.accent.withValues(alpha: 0.18),
-              borderRadius: AppRadius.md,
-            ),
-            child: Icon(workflow.primaryIcon, color: workflow.accent, size: 24),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  workflow.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.labelMedium.copyWith(
-                    color: AppColors.textOnDark,
-                    fontWeight: FontWeight.w800,
-                  ),
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: workflow.accent.withValues(alpha: 0.18),
+                  borderRadius: AppRadius.md,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  progress,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.textOnDark.withValues(alpha: 0.72),
-                    letterSpacing: 0,
+                child: Icon(
+                  workflow.primaryIcon,
+                  color: workflow.accent,
+                  size: 23,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      workflow.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.labelMedium.copyWith(
+                        color: AppColors.textOnDark,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      progress,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: AppColors.textOnDark.withValues(alpha: 0.72),
+                        letterSpacing: 0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (onContact != null) ...[
+                const SizedBox(width: AppSpacing.sm),
+                Material(
+                  color: AppColors.bgDarkCard,
+                  borderRadius: AppRadius.full,
+                  clipBehavior: Clip.antiAlias,
+                  child: IconButton(
+                    onPressed: onContact,
+                    tooltip: 'Liên hệ',
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size(44, 44),
+                      foregroundColor: AppColors.info,
+                    ),
+                    icon: const Icon(Icons.forum_rounded, size: 21),
                   ),
                 ),
               ],
-            ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.sm),
-          if (onContact != null) ...[
-            Material(
-              color: AppColors.bgDarkCard,
-              borderRadius: AppRadius.full,
-              clipBehavior: Clip.antiAlias,
-              child: IconButton(
-                onPressed: onContact,
-                tooltip: 'Liên hệ',
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(48, 48),
-                  foregroundColor: AppColors.info,
-                ),
-                icon: const Icon(Icons.forum_rounded, size: 21),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-          ],
-          Material(
-            color: enabled ? workflow.accent : AppColors.bgDarkCard,
-            borderRadius: AppRadius.full,
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: enabled ? onPrimaryAction : null,
-              borderRadius: AppRadius.full,
-              child: SizedBox(
-                height: 48,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                  ),
-                  child: Center(
-                    child: isLoading
-                        ? const Icon(
-                            Icons.more_horiz_rounded,
-                            color: AppColors.textOnAccent,
-                          )
-                        : Icon(
-                            enabled
-                                ? workflow.primaryIcon
-                                : Icons.lock_outline_rounded,
-                            size: 21,
-                            color: enabled
-                                ? AppColors.textOnAccent
-                                : AppColors.textMuted,
-                          ),
-                  ),
-                ),
-              ),
-            ),
+          const SizedBox(height: AppSpacing.sm),
+          DriverSwipeAction(
+            key: const Key('driver-navigation-primary-action'),
+            label: workflow.primaryLabel,
+            accent: workflow.accent,
+            icon: workflow.primaryIcon,
+            loading: isLoading,
+            dark: true,
+            onCompleted: enabled ? onPrimaryAction : null,
           ),
         ],
       ),

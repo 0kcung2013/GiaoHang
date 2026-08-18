@@ -10,7 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
 void main() {
-  testWidgets('return instruction blocks delivery until custody confirmation', (
+  testWidgets('return instruction cannot use legacy custody confirmation', (
     tester,
   ) async {
     var confirmed = false;
@@ -27,12 +27,9 @@ void main() {
 
     expect(find.text('CSKH yêu cầu hoàn trả hàng'), findsOneWidget);
     expect(find.text('Hoàn hàng tại kho trung tâm.'), findsOneWidget);
-    await tester.tap(find.text('Đã hoàn tất hoàn trả'));
-    await tester.pumpAndSettle();
+    expect(find.text('Đã hoàn tất hoàn trả'), findsNothing);
+    expect(find.byKey(const Key('confirm-driver-custody')), findsNothing);
     expect(confirmed, isFalse);
-    await tester.tap(find.byKey(const Key('confirm-driver-custody')));
-    await tester.pumpAndSettle();
-    expect(confirmed, isTrue);
   });
 
   testWidgets('released intervention blocks stale delivery controls', (

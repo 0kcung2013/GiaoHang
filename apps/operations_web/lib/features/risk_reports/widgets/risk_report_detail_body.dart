@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:giaohang_domain/giaohang_domain.dart' show ReturnApprovalDraft;
 
 import '../data/risk_report_repository.dart';
 import '../models/risk_message_evidence.dart';
@@ -32,6 +33,7 @@ class RiskReportDetailBody extends StatelessWidget {
     required this.error,
     required this.onHoldBeforePickup,
     required this.onDecision,
+    required this.onApproveReturn,
     required this.onConfirmCustody,
     required this.onResumeOrder,
     required this.onAddNote,
@@ -56,6 +58,7 @@ class RiskReportDetailBody extends StatelessWidget {
   final String? error;
   final Future<void> Function() onHoldBeforePickup;
   final RiskDecisionCallback onDecision;
+  final Future<void> Function(ReturnApprovalDraft draft) onApproveReturn;
   final Future<void> Function() onConfirmCustody;
   final Future<void> Function() onResumeOrder;
   final Future<void> Function(String body) onAddNote;
@@ -103,6 +106,7 @@ class RiskReportDetailBody extends StatelessWidget {
               notes: notes,
               onHoldBeforePickup: onHoldBeforePickup,
               onDecision: onDecision,
+              onApproveReturn: onApproveReturn,
               onConfirmCustody: onConfirmCustody,
               onResumeOrder: onResumeOrder,
               onAddNote: onAddNote,

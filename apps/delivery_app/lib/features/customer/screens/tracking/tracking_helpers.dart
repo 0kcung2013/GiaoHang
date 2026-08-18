@@ -116,11 +116,12 @@ DateTime _bestStatusTime(OrderModel order) {
 
 String _formatOrderDateTime(DateTime value) {
   String twoDigits(int number) => number.toString().padLeft(2, '0');
-  final hour = twoDigits(value.hour);
-  final minute = twoDigits(value.minute);
-  final day = twoDigits(value.day);
-  final month = twoDigits(value.month);
-  return '$hour:$minute · $day/$month/${value.year}';
+  final vietnam = VietnamTime.toWallClock(value);
+  final hour = twoDigits(vietnam.hour);
+  final minute = twoDigits(vietnam.minute);
+  final day = twoDigits(vietnam.day);
+  final month = twoDigits(vietnam.month);
+  return '$hour:$minute · $day/$month/${vietnam.year}';
 }
 
 String _statusLabel(String status) {
@@ -131,6 +132,9 @@ String _statusLabel(String status) {
     'picking_up' => 'Tài xế đang lấy hàng',
     'delivering' => 'Đang giao đến bạn',
     'delivered' => 'Giao hàng thành công',
+    'return_approved' => 'Đã duyệt hoàn hàng',
+    'returning' => 'Tài xế đang hoàn hàng',
+    'returned' => 'Đã hoàn hàng',
     'cancelled' => 'Đã huỷ',
     'assignment_timeout' => 'Chưa có tài xế',
     _ => 'Không rõ',
@@ -149,6 +153,9 @@ String _statusDescription(String status, bool done) {
     'picking_up' => 'Tài xế đang lấy hàng từ điểm gửi.',
     'delivering' => 'Tài xế đang mang hàng đến địa chỉ giao.',
     'delivered' => 'Đơn hàng đã được giao thành công.',
+    'return_approved' => 'CSKH đã xác nhận điểm hoàn và chi phí.',
+    'returning' => 'Tài xế đang đưa kiện hàng về điểm hoàn.',
+    'returned' => 'Kiện hàng đã được bên nhận hoàn tiếp nhận.',
     'cancelled' => 'Đơn hàng đã bị huỷ.',
     'assignment_timeout' => 'Chưa có tài xế nhận đơn trong thời gian quy định.',
     _ => 'Trạng thái đơn hàng đã được cập nhật.',
@@ -180,7 +187,7 @@ String _paymentMethodLabel(String value) {
 String _priceText(OrderModel order) {
   final amount = order.totalPrice ?? order.deliveryFee;
   if (amount <= 0) return 'Chưa tính phí';
-  return '${amount.toStringAsFixed(0)}đ';
+  return formatVnd(amount);
 }
 
 String _joinNonEmpty(List<String?> values) {
@@ -196,6 +203,9 @@ const List<String> _statusOrder = [
   'assigned',
   'picking_up',
   'delivering',
+  'return_approved',
+  'returning',
+  'returned',
   'delivered',
 ];
 
