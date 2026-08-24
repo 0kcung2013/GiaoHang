@@ -3,12 +3,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
+import '../profile_changes/data/admin_driver_media_resolver.dart';
+import '../profile_changes/widgets/admin_driver_media_preview.dart';
 
 /// Bottom sheet admin xem KYC + duyệt / từ chối kèm lý do.
 Future<void> showAdminDriverKycSheet({
   required BuildContext context,
   required DriverModel driver,
   required VoidCallback onChanged,
+  AdminDriverMediaResolver? mediaResolver,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -18,15 +21,24 @@ Future<void> showAdminDriverKycSheet({
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (_) => _AdminDriverKycSheet(driver: driver, onChanged: onChanged),
+    builder: (_) => _AdminDriverKycSheet(
+      driver: driver,
+      onChanged: onChanged,
+      mediaResolver: mediaResolver ?? SupabaseAdminDriverMediaResolver(),
+    ),
   );
 }
 
 class _AdminDriverKycSheet extends StatefulWidget {
-  const _AdminDriverKycSheet({required this.driver, required this.onChanged});
+  const _AdminDriverKycSheet({
+    required this.driver,
+    required this.onChanged,
+    required this.mediaResolver,
+  });
 
   final DriverModel driver;
   final VoidCallback onChanged;
+  final AdminDriverMediaResolver mediaResolver;
 
   @override
   State<_AdminDriverKycSheet> createState() => _AdminDriverKycSheetState();
@@ -202,10 +214,34 @@ class _AdminDriverKycSheetState extends State<_AdminDriverKycSheet> {
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.sm,
               children: [
-                _KycImageThumb(label: 'CCCD trước', url: d.idCardFrontUrl),
-                _KycImageThumb(label: 'CCCD sau', url: d.idCardBackUrl),
-                _KycImageThumb(label: 'GPLX', url: d.driverLicenseUrl),
-                _KycImageThumb(label: 'Ảnh xe', url: d.vehiclePhotoUrl),
+                AdminDriverMediaPreview(
+                  label: 'CCCD trước',
+                  storedValue: d.idCardFrontUrl,
+                  resolver: widget.mediaResolver,
+                  width: 112,
+                  height: 96,
+                ),
+                AdminDriverMediaPreview(
+                  label: 'CCCD sau',
+                  storedValue: d.idCardBackUrl,
+                  resolver: widget.mediaResolver,
+                  width: 112,
+                  height: 96,
+                ),
+                AdminDriverMediaPreview(
+                  label: 'GPLX',
+                  storedValue: d.driverLicenseUrl,
+                  resolver: widget.mediaResolver,
+                  width: 112,
+                  height: 96,
+                ),
+                AdminDriverMediaPreview(
+                  label: 'Ảnh xe',
+                  storedValue: d.vehiclePhotoUrl,
+                  resolver: widget.mediaResolver,
+                  width: 112,
+                  height: 96,
+                ),
               ],
             ),
             if (isPending) ...[
@@ -237,7 +273,7 @@ class _AdminDriverKycSheetState extends State<_AdminDriverKycSheet> {
                       onPressed: _busy ? null : _approve,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.success,
-                        foregroundColor: Colors.white,
+                        foregroundColor: AppColors.textOnAccent,
                         minimumSize: const Size.fromHeight(48),
                         elevation: 0,
                       ),
@@ -272,73 +308,6 @@ class _InfoLine extends StatelessWidget {
       child: Text(
         '$label: ${value == null || value!.trim().isEmpty ? '—' : value}',
         style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
-      ),
-    );
-  }
-}
-
-class _KycImageThumb extends StatelessWidget {
-  const _KycImageThumb({required this.label, this.url});
-  final String label;
-  final String? url;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasUrl = url != null && url!.trim().isNotEmpty;
-    return InkWell(
-      onTap: !hasUrl
-          ? null
-          : () {
-              showDialog<void>(
-                context: context,
-                builder: (ctx) => Dialog(
-                  child: InteractiveViewer(
-                    child: Image.network(url!, fit: BoxFit.contain),
-                  ),
-                ),
-              );
-            },
-      child: Container(
-        width: 96,
-        height: 96,
-        decoration: BoxDecoration(
-          color: AppColors.bgLight,
-          borderRadius: AppRadius.sm,
-          border: Border.all(color: AppColors.border),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: hasUrl
-            ? Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.network(url!, fit: BoxFit.cover),
-                  Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Container(
-                      width: double.infinity,
-                      color: Colors.black54,
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Text(
-                        label,
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.labelSmall.copyWith(
-                          color: Colors.white,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              )
-            : Center(
-                child: Text(
-                  'Chưa có\n$label',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.textMuted,
-                  ),
-                ),
-              ),
       ),
     );
   }
