@@ -16,14 +16,19 @@ class DriverService {
   final Map<String, String?> _debugEmailByUserId = <String, String?>{};
 
   static const String _driversTable = 'drivers';
-  static const String _ordersTable = 'orders';
   static const String _locationsTable = 'driver_locations';
+
+  static const String driverOperationalSelection =
+      'id, user_id, vehicle_type, license_plate, is_available, current_lat, '
+      'current_lng, updated_at, total_deliveries, approval_status, '
+      'vehicle_brand_model, vehicle_color, verified_at, submitted_at, '
+      'location_updated_at';
 
   Future<DriverModel?> getDriverById(String driverId) async {
     try {
       final response = await _supabase
           .from(_driversTable)
-          .select()
+          .select(driverOperationalSelection)
           .eq('id', driverId)
           .maybeSingle();
 
@@ -35,17 +40,18 @@ class DriverService {
   }
 
   Future<DriverModel?> getDriverByUserId(String userId) async {
+    if (_supabase.auth.currentUser?.id != userId) return null;
+    return getMyDriverAccountProfile();
+  }
+
+  Future<DriverModel?> getMyDriverAccountProfile() async {
     try {
-      final response = await _supabase
-          .from(_driversTable)
-          .select()
-          .eq('user_id', userId)
-          .maybeSingle();
+      final response = await _supabase.rpc('get_my_driver_account_profile');
 
       if (response == null) return null;
-      return DriverModel.fromJson(response);
+      return DriverModel.fromJson(Map<String, dynamic>.from(response as Map));
     } catch (error) {
-      throw Exception('Failed to load driver by user id: $error');
+      throw Exception('Failed to load my driver account profile: $error');
     }
   }
 
@@ -123,7 +129,7 @@ class DriverService {
     }
   }
 
-  /// Profile tài xế cho khách (tracking): ưu tiên RPC public, fallback join thủ công.
+  /// Profile tài xế cho khách (tracking) chỉ đi qua RPC theo đơn hàng.
   Future<DriverModel?> getPublicDriverForOrder(String orderId) async {
     if (orderId.trim().isEmpty) return null;
 
@@ -136,11 +142,13 @@ class DriverService {
         final map = Map<String, dynamic>.from(rpcResult as Map);
         return _hydrateDebugDemoEmail(DriverModel.fromPublicProfileJson(map));
       }
-    } catch (_) {
-      // RPC chưa deploy hoặc auth/policy — fallback client join.
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('[DriverService] public order profile failed: $error');
+      }
     }
 
-    return _getDriverForOrderFallback(orderId);
+    return null;
   }
 
   Future<DriverModel?> getDriverForOrder(String orderId) async {
@@ -179,52 +187,5 @@ class DriverService {
     final email = user?['email']?.toString();
     _debugEmailByUserId[userId] = email;
     return email;
-  }
-
-  Future<DriverModel?> _getDriverForOrderFallback(String orderId) async {
-    try {
-      final order = await _supabase
-          .from(_ordersTable)
-          .select('driver_id')
-          .eq('id', orderId)
-          .maybeSingle();
-
-      if (order == null) return null;
-
-      final driverUserId = order['driver_id']?.toString();
-      if (driverUserId == null || driverUserId.isEmpty) {
-        return null;
-      }
-
-      final response = await _supabase
-          .from(_driversTable)
-          .select()
-          .eq('user_id', driverUserId)
-          .maybeSingle();
-
-      if (response == null) return null;
-
-      final driverMap = Map<String, dynamic>.from(response as Map);
-      try {
-        final user = await _supabase
-            .from('users')
-            .select('full_name, phone, avatar_url, email, created_at')
-            .eq('id', driverUserId)
-            .maybeSingle();
-        if (user != null) {
-          driverMap['full_name'] = user['full_name'];
-          driverMap['phone'] = user['phone'];
-          driverMap['avatar_url'] = user['avatar_url'];
-          driverMap['email'] = user['email'];
-          driverMap['member_since'] = user['created_at'];
-        }
-      } catch (_) {
-        // RLS may block reading other users; card still shows vehicle fields.
-      }
-
-      return DriverModel.fromJson(driverMap);
-    } catch (error) {
-      throw Exception('Failed to load assigned driver for order: $error');
-    }
   }
 }

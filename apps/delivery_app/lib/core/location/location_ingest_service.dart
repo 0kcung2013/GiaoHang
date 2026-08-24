@@ -298,25 +298,29 @@ class LocationIngestService {
     }
 
     try {
-      if (driverProfileId != null && driverProfileId.isNotEmpty) {
-        final row = await _supabase
-            .from('drivers')
-            .select('id, user_id')
-            .eq('id', driverProfileId)
-            .maybeSingle();
-        if (row == null) return null;
-        _cachedProfileId = row['id']?.toString();
-        _cachedProfileUserId = row['user_id']?.toString();
-      } else if (driverUserId != null && driverUserId.isNotEmpty) {
-        final row = await _supabase
-            .from('drivers')
-            .select('id, user_id')
-            .eq('user_id', driverUserId)
-            .maybeSingle();
-        if (row == null) return null;
-        _cachedProfileId = row['id']?.toString();
-        _cachedProfileUserId = row['user_id']?.toString();
+      final response = await _supabase.rpc('get_my_driver_account_profile');
+      if (response is! Map) return null;
+      final row = Map<String, dynamic>.from(response);
+      final resolvedProfileId = row['id']?.toString();
+      final resolvedUserId = row['user_id']?.toString();
+      if (resolvedProfileId == null ||
+          resolvedProfileId.isEmpty ||
+          resolvedUserId == null ||
+          resolvedUserId.isEmpty) {
+        return null;
       }
+      if (driverProfileId != null &&
+          driverProfileId.isNotEmpty &&
+          driverProfileId != resolvedProfileId) {
+        return null;
+      }
+      if (driverUserId != null &&
+          driverUserId.isNotEmpty &&
+          driverUserId != resolvedUserId) {
+        return null;
+      }
+      _cachedProfileId = resolvedProfileId;
+      _cachedProfileUserId = resolvedUserId;
       if (_cachedProfileId == null || _cachedProfileUserId == null) {
         return null;
       }

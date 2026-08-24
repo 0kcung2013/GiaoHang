@@ -26,7 +26,7 @@ class ReturnRouteQuote {
 typedef ReturnIncidentOriginLoader =
     Future<(double, double)?> Function(String riskReportId);
 typedef ReturnCurrentDriverOriginLoader =
-    Future<(double, double)?> Function(String driverUserId);
+    Future<(double, double)?> Function(String riskReportId);
 
 class ReturnRouteQuoteService {
   ReturnRouteQuoteService(
@@ -58,13 +58,12 @@ class ReturnRouteQuoteService {
       // Báo cáo cũ có thể chưa lưu vị trí; dùng GPS hồ sơ làm fallback.
     }
 
-    final driverId = order.driverId;
     (double, double)? currentDriverOrigin;
-    if (incidentOrigin == null && driverId != null && driverId.isNotEmpty) {
+    if (incidentOrigin == null) {
       try {
         currentDriverOrigin =
             await (_currentDriverOriginLoader ?? _loadCurrentDriverOrigin)(
-              driverId,
+              riskReportId,
             );
       } catch (_) {
         // Điểm giao vẫn giữ CSKH hoạt động khi GPS hồ sơ lỗi.
@@ -111,15 +110,16 @@ class ReturnRouteQuoteService {
   }
 
   Future<(double, double)?> _loadCurrentDriverOrigin(
-    String driverUserId,
+    String riskReportId,
   ) async {
-    final row = await _client
-        .from('drivers')
-        .select('current_lat,current_lng')
-        .eq('user_id', driverUserId)
-        .maybeSingle();
-    final lat = (row?['current_lat'] as num?)?.toDouble();
-    final lng = (row?['current_lng'] as num?)?.toDouble();
+    final response = await _client.rpc(
+      'get_support_return_driver_origin',
+      params: {'p_risk_report_id': riskReportId},
+    );
+    if (response is! Map) return null;
+    final row = Map<String, dynamic>.from(response);
+    final lat = (row['current_lat'] as num?)?.toDouble();
+    final lng = (row['current_lng'] as num?)?.toDouble();
     if (!_validCoordinates(lat, lng)) return null;
     return (lat!, lng!);
   }

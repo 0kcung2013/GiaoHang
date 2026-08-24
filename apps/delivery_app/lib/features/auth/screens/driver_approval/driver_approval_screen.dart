@@ -30,11 +30,11 @@ class _DriverApprovalScreenState extends State<DriverApprovalScreen> {
     }
 
     try {
-      final result = await _supabase
-          .from('drivers')
-          .select('approval_status, rejection_reason')
-          .eq('user_id', user.id)
-          .single();
+      final response = await _supabase.rpc('get_my_driver_account_profile');
+      if (response is! Map) {
+        throw StateError('Không tìm thấy hồ sơ tài xế.');
+      }
+      final result = Map<String, dynamic>.from(response);
 
       final status = result['approval_status'] as String? ?? 'pending';
       final reason = result['rejection_reason']?.toString();

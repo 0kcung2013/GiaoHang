@@ -31,17 +31,11 @@ class _AuthStateNotifier extends ChangeNotifier {
   }
 }
 
-Future<String?> _fetchDriverApproval(
-  SupabaseClient supabase,
-  String userId,
-) async {
+Future<String?> _fetchDriverApproval(SupabaseClient supabase) async {
   try {
-    final result = await supabase
-        .from('drivers')
-        .select('approval_status')
-        .eq('user_id', userId)
-        .single();
-    return result['approval_status'] as String?;
+    final result = await supabase.rpc('get_my_driver_account_profile');
+    if (result is! Map) return null;
+    return result['approval_status']?.toString();
   } catch (_) {
     return null;
   }
@@ -81,7 +75,7 @@ GoRouter createRouter({required String initialLocation}) {
             case 'admin':
               return '/operations-required';
             case 'driver':
-              final approval = await _fetchDriverApproval(supabase, user.id);
+              final approval = await _fetchDriverApproval(supabase);
               if (approval != 'approved') return '/driver-pending';
               return '/driver-home';
             case 'support':
@@ -104,7 +98,7 @@ GoRouter createRouter({required String initialLocation}) {
           }
 
           if (location != '/driver-pending') {
-            final approval = await _fetchDriverApproval(supabase, user.id);
+            final approval = await _fetchDriverApproval(supabase);
             if (approval != 'approved') return '/driver-pending';
           }
         }
