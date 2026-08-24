@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:giaohang_domain/giaohang_domain.dart';
 import 'package:operations_web/features/admin/screens/drivers/profile_changes/data/admin_driver_media_resolver.dart';
 import 'package:operations_web/features/admin/screens/drivers/profile_changes/data/admin_driver_profile_change_repository.dart';
@@ -44,13 +45,25 @@ class FakeAdminDriverProfileChangeRepository
   final List<DriverProfileChangeRequest> requests;
   int approveCount = 0;
   int rejectCount = 0;
+  int fetchCount = 0;
   String? lastRejectionReason;
+  final _changes = StreamController<void>.broadcast();
 
   @override
-  Future<List<DriverProfileChangeRequest>> fetchPending() async => requests;
+  Future<List<DriverProfileChangeRequest>> fetchPending() async {
+    fetchCount++;
+    return requests;
+  }
 
   @override
-  Stream<void> watchChanges() => const Stream.empty();
+  Stream<void> watchChanges() async* {
+    yield null;
+    yield* _changes.stream;
+  }
+
+  void emitChange() => _changes.add(null);
+
+  Future<void> dispose() => _changes.close();
 
   @override
   Future<void> approve(DriverProfileChangeRequest request) async {

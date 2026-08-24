@@ -62,4 +62,26 @@ void main() {
 
     expect(repository.approveCount, 1);
   });
+
+  testWidgets('realtime table change refreshes the queue once', (tester) async {
+    final repository = FakeAdminDriverProfileChangeRepository(
+      requests: [pendingRequestFixture()],
+    );
+    await tester.pumpWidget(
+      testApp(
+        AdminDriverProfileChangeQueue(
+          repository: repository,
+          mediaResolver: FakeAdminDriverMediaResolver(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(repository.fetchCount, 1);
+
+    repository.emitChange();
+    await tester.pumpAndSettle();
+
+    expect(repository.fetchCount, 2);
+    await repository.dispose();
+  });
 }

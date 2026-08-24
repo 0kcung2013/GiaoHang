@@ -11,7 +11,16 @@ final driverProfileChangeRepositoryProvider =
 
 final currentDriverProfileChangeProvider =
     StreamProvider.autoDispose<DriverProfileChangeRequest?>((ref) {
-      return ref.watch(driverProfileChangeRepositoryProvider).watchLatest();
+      final changes = ref
+          .watch(driverProfileChangeRepositoryProvider)
+          .watchLatest();
+      return changes.map((request) {
+        if (request?.status == DriverProfileChangeStatus.approved ||
+            request?.status == DriverProfileChangeStatus.conflicted) {
+          ref.invalidate(currentDriverAccountProfileProvider);
+        }
+        return request;
+      });
     });
 
 final currentDriverAccountProfileProvider =
