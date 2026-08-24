@@ -1,28 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
-import '../../../../core/services/auth_service.dart';
+import 'package:giaohang_domain/giaohang_domain.dart';
 
-class DriverAccountScreen extends StatefulWidget {
+import '../../../../core/services/auth_service.dart';
+import '../home/widgets/driver_home_layout.dart';
+import 'dialogs/driver_profile_change_request_sheet.dart';
+import 'models/driver_account_view_data.dart';
+import 'providers/driver_profile_change_providers.dart';
+import 'utils/driver_account_strings.dart';
+import 'widgets/driver_account_logout_sheet.dart';
+import 'widgets/driver_account_profile_hero.dart';
+import 'widgets/driver_account_sections.dart';
+import 'widgets/driver_profile_change_action.dart';
+import 'widgets/driver_profile_change_status_card.dart';
+
+class DriverAccountScreen extends ConsumerStatefulWidget {
   const DriverAccountScreen({super.key});
 
   @override
-  State<DriverAccountScreen> createState() => _DriverAccountScreenState();
+  ConsumerState<DriverAccountScreen> createState() =>
+      _DriverAccountScreenState();
 }
 
-class _DriverAccountScreenState extends State<DriverAccountScreen> {
+class _DriverAccountScreenState extends ConsumerState<DriverAccountScreen> {
   bool _isSigningOut = false;
 
   Future<void> _confirmAndSignOut() async {
     if (_isSigningOut) return;
-
-    final confirmed = await showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const _LogoutSheet(),
-    );
-
-    if (confirmed != true || !mounted) return;
+    final confirmed = await showDriverAccountLogoutSheet(context);
+    if (!confirmed || !mounted) return;
 
     setState(() => _isSigningOut = true);
     try {
@@ -31,269 +40,185 @@ class _DriverAccountScreenState extends State<DriverAccountScreen> {
       if (!mounted) return;
       setState(() => _isSigningOut = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Khong the dang xuat. Vui long thu lai.'),
+        SnackBar(
+          content: const Text(DriverAccountStrings.signOutError),
+          backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.md),
         ),
       );
     }
   }
 
+  Future<void> _refresh() async {
+    ref.invalidate(currentDriverAccountProfileProvider);
+    ref.invalidate(currentDriverProfileChangeProvider);
+    await ref.read(currentDriverAccountProfileProvider.future);
+  }
+
+  Future<void> _openProfileChange(
+    DriverAccountViewData profile, {
+    DriverProfileChangeRequest? request,
+  }) async {
+    await showDriverProfileChangeRequestSheet(
+      context,
+      profile: profile,
+      repository: ref.read(driverProfileChangeRepositoryProvider),
+      request: request,
+    );
+    ref.invalidate(currentDriverProfileChangeProvider);
+    ref.invalidate(currentDriverAccountProfileProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = Supabase.instance.client.auth.currentUser;
+
+    return ColoredBox(
+      color: AppColors.bgLight,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final layout = DriverHomeLayout.fromWidth(constraints.maxWidth);
+          if (user == null) return _SignedOutState(layout: layout);
+
+          final driverAsync = ref.watch(currentDriverAccountProfileProvider);
+          final requestAsync = ref.watch(currentDriverProfileChangeProvider);
+          final data = DriverAccountViewData.from(
+            user: user,
+            driver: driverAsync.valueOrNull,
+          );
+
+          return RefreshIndicator(
+            color: AppColors.accent,
+            backgroundColor: AppColors.bgCard,
+            onRefresh: _refresh,
+            child: SingleChildScrollView(
+              key: const PageStorageKey<String>('driver-account-scroll'),
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              padding: EdgeInsets.fromLTRB(
+                layout.horizontalPadding,
+                layout.topPadding,
+                layout.horizontalPadding,
+                AppSpacing.xl4,
+              ),
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 680),
+                  child: Column(
+                    children: [
+                      DriverAccountProfileHero(
+                        data: data,
+                        isLoading: driverAsync.isLoading,
+                      ),
+                      if (driverAsync.hasError) ...[
+                        const SizedBox(height: AppSpacing.md),
+                        DriverAccountLoadNotice(
+                          onRetry: () => ref.invalidate(
+                            currentDriverAccountProfileProvider,
+                          ),
+                        ),
+                      ],
+                      SizedBox(height: layout.sectionGap),
+                      DriverVehicleCard(data: data),
+                      SizedBox(height: layout.sectionGap),
+                      DriverVerificationCard(data: data),
+                      SizedBox(height: layout.sectionGap),
+                      DriverContactCard(data: data),
+                      if (requestAsync.valueOrNull case final request?) ...[
+                        SizedBox(height: layout.sectionGap),
+                        DriverProfileChangeStatusCard(
+                          request: request,
+                          onView: () =>
+                              _openProfileChange(data, request: request),
+                        ),
+                      ],
+                      SizedBox(height: layout.sectionGap),
+                      DriverProfileChangeAction(
+                        request: requestAsync.valueOrNull,
+                        onCreate: () => _openProfileChange(data),
+                        onView: (request) =>
+                            _openProfileChange(data, request: request),
+                      ),
+                      const SizedBox(height: AppSpacing.xl2),
+                      DriverAccountLogoutButton(
+                        isSigningOut: _isSigningOut,
+                        onTap: _isSigningOut ? null : _confirmAndSignOut,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _SignedOutState extends StatelessWidget {
+  const _SignedOutState({required this.layout});
+
+  final DriverHomeLayout layout;
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenH,
-        AppSpacing.xl2,
-        AppSpacing.screenH,
-        AppSpacing.xl2,
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(
+        layout.horizontalPadding,
+        layout.topPadding,
+        layout.horizontalPadding,
+        AppSpacing.xl4,
       ),
-      child: Center(
+      child: Align(
+        alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Tai khoan tai xe',
-                style: AppTextStyles.headingLarge.copyWith(
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl2),
-              _AccountCard(
-                child: Column(
-                  children: const [
-                    _AccountRow(
-                      icon: Icons.person_outline_rounded,
-                      title: 'Ho so tai xe',
-                      subtitle: 'Thong tin ca nhan va phuong tien',
-                    ),
-                    Divider(height: 1, color: AppColors.border),
-                    _AccountRow(
-                      icon: Icons.settings_outlined,
-                      title: 'Cai dat',
-                      subtitle: 'Tuy chinh thong bao va trang thai',
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              _LogoutButton(
-                isSigningOut: _isSigningOut,
-                onTap: _isSigningOut ? null : _confirmAndSignOut,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AccountCard extends StatelessWidget {
-  final Widget child;
-
-  const _AccountCard({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: AppRadius.lg,
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppShadow.subtle,
-      ),
-      child: ClipRRect(borderRadius: AppRadius.lg, child: child),
-    );
-  }
-}
-
-class _AccountRow extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  const _AccountRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.info, size: 24),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
+          constraints: const BoxConstraints(maxWidth: 680),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.xl2),
+            decoration: BoxDecoration(
+              color: AppColors.bgCard,
+              borderRadius: AppRadius.xl,
+              border: Border.all(color: AppColors.border),
+              boxShadow: AppShadow.subtle,
+            ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: AppColors.warning.withValues(alpha: 0.1),
+                    borderRadius: AppRadius.lg,
+                  ),
+                  child: const Icon(
+                    Icons.lock_person_outlined,
+                    color: AppColors.warning,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
                 Text(
-                  title,
-                  style: AppTextStyles.labelLarge.copyWith(
+                  DriverAccountStrings.loginRequired,
+                  textAlign: TextAlign.center,
+                  style: AppTextStyles.headingSmall.copyWith(
                     color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  DriverAccountStrings.loginRequiredMessage,
+                  textAlign: TextAlign.center,
                   style: AppTextStyles.bodySmall.copyWith(
                     color: AppColors.textSecondary,
                   ),
                 ),
               ],
-            ),
-          ),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: AppColors.textMuted,
-            size: 20,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LogoutButton extends StatelessWidget {
-  final bool isSigningOut;
-  final VoidCallback? onTap;
-
-  const _LogoutButton({required this.isSigningOut, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return _AccountCard(
-      child: Material(
-        color: AppColors.bgCard,
-        child: InkWell(
-          onTap: onTap,
-          splashColor: AppColors.error.withValues(alpha: 0.08),
-          highlightColor: Colors.transparent,
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Row(
-              children: [
-                const Icon(Icons.logout_rounded, color: AppColors.error),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(
-                    'Dang xuat',
-                    style: AppTextStyles.labelLarge.copyWith(
-                      color: AppColors.error,
-                    ),
-                  ),
-                ),
-                if (isSigningOut)
-                  const Icon(
-                    Icons.sync_rounded,
-                    color: AppColors.error,
-                    size: 18,
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LogoutSheet extends StatelessWidget {
-  const _LogoutSheet();
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Container(
-        margin: const EdgeInsets.all(AppSpacing.lg),
-        padding: const EdgeInsets.all(AppSpacing.xl2),
-        decoration: BoxDecoration(
-          color: AppColors.bgCard,
-          borderRadius: AppRadius.xl,
-          boxShadow: AppShadow.elevated,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Dang xuat?',
-              style: AppTextStyles.headingMedium.copyWith(
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              'Ban co chac muon dang xuat khoi tai khoan tai xe nay khong?',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xl2),
-            Row(
-              children: [
-                Expanded(
-                  child: _SheetActionButton(
-                    label: 'Huy',
-                    foregroundColor: AppColors.textPrimary,
-                    backgroundColor: AppColors.bgLight,
-                    onTap: () => Navigator.of(context).pop(false),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: _SheetActionButton(
-                    label: 'Dang xuat',
-                    foregroundColor: AppColors.textOnAccent,
-                    backgroundColor: AppColors.error,
-                    onTap: () => Navigator.of(context).pop(true),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SheetActionButton extends StatelessWidget {
-  final String label;
-  final Color foregroundColor;
-  final Color backgroundColor;
-  final VoidCallback onTap;
-
-  const _SheetActionButton({
-    required this.label,
-    required this.foregroundColor,
-    required this.backgroundColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 48,
-      child: Material(
-        color: backgroundColor,
-        borderRadius: AppRadius.full,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: AppRadius.full,
-          child: Center(
-            child: Text(
-              label,
-              style: AppTextStyles.labelLarge.copyWith(color: foregroundColor),
             ),
           ),
         ),

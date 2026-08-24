@@ -18,6 +18,12 @@ class DriverAccountViewData {
     required this.hasIdentityCard,
     required this.hasDriverLicense,
     required this.hasVehiclePhoto,
+    this.idCardNumber,
+    this.idCardFrontUrl,
+    this.idCardBackUrl,
+    this.driverLicenseNumber,
+    this.driverLicenseUrl,
+    this.vehiclePhotoUrl,
   });
 
   final String driverId;
@@ -35,6 +41,12 @@ class DriverAccountViewData {
   final bool hasIdentityCard;
   final bool hasDriverLicense;
   final bool hasVehiclePhoto;
+  final String? idCardNumber;
+  final String? idCardFrontUrl;
+  final String? idCardBackUrl;
+  final String? driverLicenseNumber;
+  final String? driverLicenseUrl;
+  final String? vehiclePhotoUrl;
 
   String get initials {
     final parts = name
@@ -90,6 +102,12 @@ class DriverAccountViewData {
           _hasValue(driver?.driverLicenseNumber) ||
           _hasValue(driver?.driverLicenseUrl),
       hasVehiclePhoto: _hasValue(driver?.vehiclePhotoUrl),
+      idCardNumber: _nonEmpty(driver?.idCardNumber),
+      idCardFrontUrl: _nonEmpty(driver?.idCardFrontUrl),
+      idCardBackUrl: _nonEmpty(driver?.idCardBackUrl),
+      driverLicenseNumber: _nonEmpty(driver?.driverLicenseNumber),
+      driverLicenseUrl: _nonEmpty(driver?.driverLicenseUrl),
+      vehiclePhotoUrl: _nonEmpty(driver?.vehiclePhotoUrl),
     );
   }
 
@@ -102,4 +120,9 @@ class DriverAccountViewData {
   }
 
   static bool _hasValue(String? value) => value?.trim().isNotEmpty == true;
+
+  static String? _nonEmpty(String? value) {
+    final normalized = value?.trim();
+    return normalized == null || normalized.isEmpty ? null : normalized;
+  }
 }
