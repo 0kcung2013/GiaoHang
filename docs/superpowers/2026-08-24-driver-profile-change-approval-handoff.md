@@ -45,7 +45,8 @@ Date: 2026-08-24
 
 ## Not applied or claimed
 
-- Migrations were not applied to a local, development, or production Supabase database in this session.
+- On 2026-08-25, local verification was attempted with Supabase CLI `2.109.1`. The CLI profile-file regression was bypassed without losing the existing profile, but Docker Desktop's Linux engine repeatedly returned HTTP 500. No local reset or migration application started.
+- Migrations were not applied to a local, development, or production Supabase database.
 - The Edge Function was not deployed.
 - The authenticated Driver A/Driver B/Admin/Support/anonymous SQL matrix was not executed because schema application needs separate environment approval.
 - Supabase security/performance advisors were not rerun after deployment because no deployment occurred.
