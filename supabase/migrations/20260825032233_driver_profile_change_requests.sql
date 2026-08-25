@@ -30,7 +30,7 @@ CREATE TABLE public.driver_profile_change_requests (
     OR (
       jsonb_typeof(current_snapshot) = 'object'
       AND jsonb_typeof(requested_changes) = 'object'
-      AND jsonb_object_length(requested_changes) > 0
+      AND requested_changes <> '{}'::jsonb
       AND char_length(btrim(reason)) BETWEEN 3 AND 1000
     )
   ),
