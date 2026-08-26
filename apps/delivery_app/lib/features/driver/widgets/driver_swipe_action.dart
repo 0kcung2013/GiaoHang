@@ -32,6 +32,7 @@ class DriverSwipeAction extends StatefulWidget {
 class _DriverSwipeActionState extends State<DriverSwipeAction> {
   static const _height = 56.0;
   static const _padding = 4.0;
+  static const _darkEndPadding = AppSpacing.sm;
   static const _thumbSize = 48.0;
   static const _completionThreshold = 0.72;
 
@@ -109,9 +110,11 @@ class _DriverSwipeActionState extends State<DriverSwipeAction> {
       onTap: _enabled ? _activateFromSemantics : null,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final travel = (constraints.maxWidth - _thumbSize - _padding * 2)
-              .clamp(0.0, double.infinity)
-              .toDouble();
+          final endPadding = widget.dark ? _darkEndPadding : _padding;
+          final travel =
+              (constraints.maxWidth - _thumbSize - _padding - endPadding)
+                  .clamp(0.0, double.infinity)
+                  .toDouble();
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
             onHorizontalDragUpdate: _enabled
@@ -120,7 +123,10 @@ class _DriverSwipeActionState extends State<DriverSwipeAction> {
             onHorizontalDragEnd: _enabled ? (_) => _endDrag() : null,
             onHorizontalDragCancel: _enabled ? _endDrag : null,
             child: AnimatedContainer(
+              key: const Key('driver-swipe-track'),
               duration: AppDuration.fast,
+              clipBehavior: Clip.antiAlias,
+              width: double.infinity,
               height: _height,
               decoration: BoxDecoration(
                 color: _enabled
@@ -168,6 +174,7 @@ class _DriverSwipeActionState extends State<DriverSwipeAction> {
                     left: _padding + travel * _progress,
                     top: _padding,
                     child: DecoratedBox(
+                      key: const Key('driver-swipe-thumb'),
                       decoration: BoxDecoration(
                         color: _enabled ? widget.accent : AppColors.bgCard,
                         borderRadius: AppRadius.full,

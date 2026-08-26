@@ -6,6 +6,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/services/free_pick_service.dart';
+import '../utils/free_pick_radius.dart';
 
 class FreePickMapCanvas extends StatelessWidget {
   const FreePickMapCanvas({
@@ -20,7 +21,8 @@ class FreePickMapCanvas extends StatelessWidget {
     this.showBaseMap = true,
   });
 
-  static const serviceRadiusMeters = 3000.0;
+  static const serviceRadiusMeters = freePickRadiusMeters;
+  static const overviewZoom = 13.0;
   static const fallbackCenter = LatLng(10.7769, 106.7009);
 
   final MapController? mapController;
@@ -40,7 +42,7 @@ class FreePickMapCanvas extends StatelessWidget {
           mapController: mapController,
           options: MapOptions(
             initialCenter: driverPosition ?? fallbackCenter,
-            initialZoom: 13,
+            initialZoom: overviewZoom,
             minZoom: 8,
             maxZoom: 19,
             onMapReady: () => _emitViewport(mapController),
@@ -75,7 +77,7 @@ class FreePickMapCanvas extends StatelessWidget {
             MarkerLayer(
               markers: [
                 if (driverPosition != null) _driverMarker(driverPosition!),
-                ...orders.map(_orderMarker),
+                ..._visibleOrders.map(_orderMarker),
               ],
             ),
             if (showBaseMap)
@@ -98,7 +100,7 @@ class FreePickMapCanvas extends StatelessWidget {
             message: 'Về vị trí hiện tại',
             child: Semantics(
               button: true,
-              label: 'Về vị trí hiện tại và xem bán kính 3 km',
+              label: 'Về vị trí hiện tại và xem vùng tự động 2 km',
               child: Material(
                 color: AppColors.info,
                 shape: const CircleBorder(),
@@ -150,7 +152,7 @@ class FreePickMapCanvas extends StatelessWidget {
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Text(
-                      'Bán kính tự động 3 km',
+                      'Vùng tự động 2 km',
                       style: AppTextStyles.labelSmall.copyWith(
                         color: AppColors.textPrimary,
                         fontWeight: FontWeight.w700,
@@ -182,18 +184,24 @@ class FreePickMapCanvas extends StatelessWidget {
     final selected = order.id == selectedOrderId;
     return Marker(
       point: LatLng(order.pickupLat, order.pickupLng),
-      width: selected ? 54 : 46,
-      height: selected ? 54 : 46,
+      width: selected ? 56 : 48,
+      height: selected ? 56 : 48,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () => onOrderSelected(order),
-        child: _MapPin(
-          icon: Icons.inventory_2_rounded,
+        child: _OrderDot(
+          key: ValueKey('free-pick-order-marker-${order.id}'),
+          selected: selected,
           color: selected ? AppColors.accent : AppColors.markerPickup,
-          semanticLabel: 'Chọn đơn ${order.trackingCode}',
+          semanticLabel: selected
+              ? 'Đang xem đơn ${order.trackingCode}'
+              : 'Chọn đơn ${order.trackingCode}',
         ),
       ),
     );
   }
+
+  Iterable<OrderModel> get _visibleOrders => orders;
 
   void _emitViewport(MapController? controller) {
     if (controller == null) return;
@@ -207,6 +215,51 @@ class FreePickMapCanvas extends StatelessWidget {
         west: bounds.west,
         north: bounds.north,
         east: bounds.east,
+      ),
+    );
+  }
+}
+
+class _OrderDot extends StatelessWidget {
+  const _OrderDot({
+    super.key,
+    required this.selected,
+    required this.color,
+    required this.semanticLabel,
+  });
+
+  final bool selected;
+  final Color color;
+  final String semanticLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: semanticLabel,
+      child: Center(
+        child: AnimatedContainer(
+          duration: AppDuration.fast,
+          width: selected ? 38 : 26,
+          height: selected ? 38 : 26,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: AppColors.bgCard,
+              width: selected ? 4 : 3,
+            ),
+            boxShadow: selected ? AppShadow.accentGlow : AppShadow.card,
+          ),
+          child: selected
+              ? const Icon(
+                  Icons.inventory_2_rounded,
+                  size: 17,
+                  color: AppColors.textOnAccent,
+                )
+              : null,
+        ),
       ),
     );
   }

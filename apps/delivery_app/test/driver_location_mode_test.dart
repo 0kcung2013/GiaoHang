@@ -6,13 +6,13 @@ import 'package:latlong2/latlong.dart';
 
 void main() {
   group('DriverLocationMode', () {
-    test('defaults the app session to the existing TP.HCM demo mode', () {
+    test('defaults the app session to device GPS', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
       expect(
         container.read(driverLocationModeProvider),
-        DriverLocationMode.demoHcm,
+        DriverLocationMode.deviceGps,
       );
     });
 

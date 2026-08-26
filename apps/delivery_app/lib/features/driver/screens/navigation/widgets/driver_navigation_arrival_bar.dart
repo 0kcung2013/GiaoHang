@@ -6,6 +6,7 @@ import '../../../../../core/models/order_model.dart';
 import '../../../../../core/utils/delivery_map_utils.dart';
 import '../../../widgets/driver_swipe_action.dart';
 import '../models/driver_delivery_workflow.dart';
+import '../utils/driver_navigation_strings.dart';
 
 /// Thanh tác vụ gọn cho màn điều hướng: map luôn được ưu tiên diện tích.
 class DriverNavigationArrivalBar extends StatelessWidget {
@@ -40,6 +41,9 @@ class DriverNavigationArrivalBar extends StatelessWidget {
         workflow.canPerform(arrivedAtTarget: arrivedAtTarget) &&
         !isLoading &&
         onPrimaryAction != null;
+    final actionLabel = workflow.requiresArrival && !arrivedAtTarget
+        ? DriverNavigationStrings.arriveToConfirm
+        : workflow.primaryLabel;
     final progress = pickupConfirmed
         ? 'Sẵn sàng giao hàng'
         : arrivedAtTarget
@@ -128,7 +132,7 @@ class DriverNavigationArrivalBar extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           DriverSwipeAction(
             key: const Key('driver-navigation-primary-action'),
-            label: workflow.primaryLabel,
+            label: actionLabel,
             accent: workflow.accent,
             icon: workflow.primaryIcon,
             loading: isLoading,

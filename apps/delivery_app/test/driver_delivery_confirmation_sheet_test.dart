@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:delivery_app/core/models/order_model.dart';
 import 'package:delivery_app/features/driver/screens/navigation/models/driver_delivery_workflow.dart';
 import 'package:delivery_app/features/driver/screens/navigation/widgets/driver_delivery_confirmation_sheet.dart';
+import 'package:delivery_app/core/services/delivery_proof_watermark_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
@@ -28,11 +29,24 @@ void main() {
                       context: context,
                       action: DriverDeliveryAction.confirmPickup,
                       order: _pickupOrder(),
+                      locationProvider: () => const DeliveryProofLocation(
+                        latitude: 10.773,
+                        longitude: 106.703,
+                      ),
                       capturePhoto: () async => XFile.fromData(
                         pngBytes,
                         name: 'proof.png',
                         mimeType: 'image/png',
                       ),
+                      resolveAddress: (_) async =>
+                          '12 Nguyễn Huệ, Quận 1, Hồ Chí Minh',
+                      watermarkPhoto:
+                          ({
+                            required source,
+                            required capturedAt,
+                            required location,
+                            required address,
+                          }) async => source,
                     );
                   },
                   child: const Text('Mở xác nhận'),
@@ -59,16 +73,17 @@ void main() {
     await tester.tap(
       find.text('Đã kiểm tra tình trạng bên ngoài của kiện hàng'),
     );
-    await tester.ensureVisible(find.text('Đã ứng 120.000đ cho người gửi'));
-    await tester.tap(find.text('Đã ứng 120.000đ cho người gửi'));
     await tester.pump();
 
+    expect(find.textContaining('Đã ứng'), findsNothing);
     expect(_confirmButton(tester).onPressed, isNotNull);
     await tester.ensureVisible(find.text('Đã nhận hàng'));
     await tester.tap(find.text('Đã nhận hàng'));
     await tester.pumpAndSettle();
 
-    expect(result?.proofImage, isNotNull);
+    expect(result?.proof?.image, isNotNull);
+    expect(result?.proof?.location.latitude, 10.773);
+    expect(result?.proof?.address, '12 Nguyễn Huệ, Quận 1, Hồ Chí Minh');
   });
 }
 

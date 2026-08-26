@@ -1,34 +1,38 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import '../../../core/services/delivery_proof_watermark_service.dart';
 import '../../driver/screens/navigation/widgets/driver_proof_photo_field.dart';
 
 class DriverReturnConfirmationResult {
   const DriverReturnConfirmationResult({
     required this.receiverName,
-    required this.proofImage,
+    required this.proof,
     this.note,
   });
 
   final String receiverName;
-  final XFile proofImage;
+  final DeliveryProofCapture proof;
   final String? note;
 }
 
 Future<DriverReturnConfirmationResult?> showDriverReturnConfirmationSheet(
-  BuildContext context,
-) {
+  BuildContext context, {
+  required DeliveryProofLocationProvider locationProvider,
+}) {
   return showModalBottomSheet<DriverReturnConfirmationResult>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => const _DriverReturnConfirmationSheet(),
+    builder: (_) =>
+        _DriverReturnConfirmationSheet(locationProvider: locationProvider),
   );
 }
 
 class _DriverReturnConfirmationSheet extends StatefulWidget {
-  const _DriverReturnConfirmationSheet();
+  const _DriverReturnConfirmationSheet({required this.locationProvider});
+
+  final DeliveryProofLocationProvider locationProvider;
 
   @override
   State<_DriverReturnConfirmationSheet> createState() =>
@@ -39,7 +43,7 @@ class _DriverReturnConfirmationSheetState
     extends State<_DriverReturnConfirmationSheet> {
   final _receiverController = TextEditingController();
   final _noteController = TextEditingController();
-  XFile? _photo;
+  DeliveryProofCapture? _proof;
   bool _checked = false;
   String? _error;
 
@@ -104,7 +108,8 @@ class _DriverReturnConfirmationSheetState
               const SizedBox(height: AppSpacing.lg),
               DriverProofPhotoField(
                 accent: AppColors.warning,
-                onChanged: (photo) => setState(() => _photo = photo),
+                locationProvider: widget.locationProvider,
+                onChanged: (proof) => setState(() => _proof = proof),
               ),
               const SizedBox(height: AppSpacing.md),
               CheckboxListTile(
@@ -159,7 +164,7 @@ class _DriverReturnConfirmationSheetState
 
   void _submit() {
     final receiver = _receiverController.text.trim();
-    if (receiver.length < 2 || _photo == null || !_checked) {
+    if (receiver.length < 2 || _proof == null || !_checked) {
       setState(
         () => _error = 'Nhập người nhận, chụp ảnh và xác nhận bàn giao.',
       );
@@ -169,7 +174,7 @@ class _DriverReturnConfirmationSheetState
       context,
       DriverReturnConfirmationResult(
         receiverName: receiver,
-        proofImage: _photo!,
+        proof: _proof!,
         note: _noteController.text.trim().isEmpty
             ? null
             : _noteController.text.trim(),

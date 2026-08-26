@@ -10,11 +10,19 @@ import '../../home/widgets/driver_state_widgets.dart';
 import '../utils/driver_order_filter.dart';
 import 'driver_orders_filter_bar.dart';
 import 'driver_orders_list.dart';
+import 'driver_orders_overview.dart';
 
 class DriverOrdersBody extends ConsumerStatefulWidget {
   final String userId;
+  final EdgeInsets contentPadding;
+  final double maxContentWidth;
 
-  const DriverOrdersBody({super.key, required this.userId});
+  const DriverOrdersBody({
+    super.key,
+    required this.userId,
+    required this.contentPadding,
+    required this.maxContentWidth,
+  });
 
   @override
   ConsumerState<DriverOrdersBody> createState() => _DriverOrdersBodyState();
@@ -25,23 +33,31 @@ class _DriverOrdersBodyState extends ConsumerState<DriverOrdersBody> {
 
   @override
   Widget build(BuildContext context) {
-    _debugLog('authUser=${widget.userId} selectedFilter=$_selectedFilter');
+    _debugLog(
+      () => 'authUser=${widget.userId} selectedFilter=$_selectedFilter',
+    );
     final driverAsync = ref.watch(driverByUserIdProvider(widget.userId));
     final availableOrdersAsync = ref.watch(
       availableOrdersProvider(widget.userId),
     );
 
     return driverAsync.when(
-      loading: () => const DriverLoadingState(),
-      error: (_, _) => DriverErrorState(
-        onRetry: () {
-          ref.invalidate(driverByUserIdProvider(widget.userId));
-          ref.invalidate(availableOrdersProvider(widget.userId));
-        },
+      loading: () => _scrollState(const DriverLoadingState()),
+      error: (_, _) => _scrollState(
+        DriverErrorState(
+          onRetry: () {
+            ref.invalidate(driverByUserIdProvider(widget.userId));
+            ref.invalidate(availableOrdersProvider(widget.userId));
+          },
+        ),
       ),
       data: (driver) {
-        if (driver == null) return const MissingDriverProfileState();
-        _debugLog('driverProfile id=${driver.id} userId=${driver.userId}');
+        if (driver == null) {
+          return _scrollState(const MissingDriverProfileState());
+        }
+        _debugLog(
+          () => 'driverProfile id=${driver.id} userId=${driver.userId}',
+        );
 
         final driverOrdersAsync = ref.watch(
           driverOrdersProvider(driver.userId),
@@ -51,18 +67,21 @@ class _DriverOrdersBodyState extends ConsumerState<DriverOrdersBody> {
         final hasError =
             availableOrdersAsync.hasError || driverOrdersAsync.hasError;
 
-        if (isLoading) return const DriverLoadingState();
+        if (isLoading) return _scrollState(const DriverLoadingState());
 
         if (hasError) {
           _debugLog(
-            'providerError available=${availableOrdersAsync.error} '
-            'driverOrders=${driverOrdersAsync.error}',
+            () =>
+                'providerError available=${availableOrdersAsync.error} '
+                'driverOrders=${driverOrdersAsync.error}',
           );
-          return DriverErrorState(
-            onRetry: () {
-              ref.invalidate(availableOrdersProvider(widget.userId));
-              ref.invalidate(driverOrdersProvider(driver.userId));
-            },
+          return _scrollState(
+            DriverErrorState(
+              onRetry: () {
+                ref.invalidate(availableOrdersProvider(widget.userId));
+                ref.invalidate(driverOrdersProvider(driver.userId));
+              },
+            ),
           );
         }
 
@@ -86,8 +105,8 @@ class _DriverOrdersBodyState extends ConsumerState<DriverOrdersBody> {
           _selectedFilter = visibleFilters.first;
         }
 
-        final counts = {
-          for (final filter in visibleFilters)
+        final allCounts = {
+          for (final filter in DriverOrderFilter.values)
             filter: filter
                 .filter(
                   availableOrders: availableOrders,
@@ -100,37 +119,68 @@ class _DriverOrdersBodyState extends ConsumerState<DriverOrdersBody> {
           driverOrders: driverOrders,
         );
         _debugLog(
-          'counts available=${availableOrders.length} '
-          'driver=${driverOrders.length} visible=${visibleOrders.length} '
-          'visibleOrders=${visibleOrders.map((order) => '${order.id}:${order.status}:${order.driverId ?? 'null'}').join(',')}',
+          () =>
+              'counts available=${availableOrders.length} '
+              'driver=${driverOrders.length} visible=${visibleOrders.length}',
         );
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            DriverOrdersFilterBar(
-              filters: visibleFilters,
-              selectedFilter: _selectedFilter,
-              counts: counts,
-              onChanged: (filter) => setState(() => _selectedFilter = filter),
-            ),
-            const SizedBox(height: AppSpacing.xl2),
-            DriverOrdersList(
-              filter: _selectedFilter,
-              orders: visibleOrders,
-              acceptDriverId: _selectedFilter == DriverOrderFilter.available
-                  ? driver.userId
-                  : null,
-            ),
-          ],
+        return DriverOrdersList(
+          filter: _selectedFilter,
+          orders: visibleOrders,
+          acceptDriverId: _selectedFilter == DriverOrderFilter.available
+              ? driver.userId
+              : null,
+          contentPadding: widget.contentPadding,
+          maxContentWidth: widget.maxContentWidth,
+          header: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DriverOrdersOverview(
+                isAvailable: driver.isAvailable,
+                hasActiveOrder: hasActiveOrder,
+                availableCount: allCounts[DriverOrderFilter.available] ?? 0,
+                activeCount: allCounts[DriverOrderFilter.active] ?? 0,
+                completedCount: allCounts[DriverOrderFilter.completed] ?? 0,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              DriverOrdersFilterBar(
+                filters: visibleFilters,
+                selectedFilter: _selectedFilter,
+                counts: allCounts,
+                onChanged: (filter) => setState(() => _selectedFilter = filter),
+              ),
+            ],
+          ),
         );
       },
     );
   }
 
-  void _debugLog(String message) {
+  Widget _scrollState(Widget child) {
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
+      slivers: [
+        SliverPadding(
+          padding: widget.contentPadding,
+          sliver: SliverToBoxAdapter(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: widget.maxContentWidth),
+                child: child,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _debugLog(String Function() message) {
     if (kDebugMode) {
-      debugPrint('[DriverOrders] $message');
+      debugPrint('[DriverOrders] ${message()}');
     }
   }
 }

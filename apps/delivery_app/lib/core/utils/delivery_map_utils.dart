@@ -58,17 +58,46 @@ class DeliveryMapUtils {
     double maxSnapMeters = 120,
   }) {
     if (fullRoute.isEmpty) return current;
+    if (fullRoute.length == 1) {
+      final onlyPoint = fullRoute.first;
+      final distance = _distance.as(LengthUnit.Meter, current, onlyPoint);
+      return distance <= maxSnapMeters ? onlyPoint : current;
+    }
+
     var best = fullRoute.first;
     var bestDist = double.infinity;
-    for (final p in fullRoute) {
-      final d = _distance.as(LengthUnit.Meter, current, p);
+    for (var i = 0; i < fullRoute.length - 1; i++) {
+      final candidate = _closestPointOnSegment(
+        current,
+        fullRoute[i],
+        fullRoute[i + 1],
+      );
+      final d = _distance.as(LengthUnit.Meter, current, candidate);
       if (d < bestDist) {
         bestDist = d;
-        best = p;
+        best = candidate;
       }
     }
     if (bestDist <= maxSnapMeters) return best;
     return current;
+  }
+
+  static LatLng _closestPointOnSegment(LatLng point, LatLng start, LatLng end) {
+    final deltaLat = end.latitude - start.latitude;
+    final deltaLng = end.longitude - start.longitude;
+    final segmentLengthSquared =
+        deltaLat * deltaLat + deltaLng * deltaLng;
+    if (segmentLengthSquared == 0) return start;
+
+    final progress =
+        ((point.latitude - start.latitude) * deltaLat +
+            (point.longitude - start.longitude) * deltaLng) /
+        segmentLengthSquared;
+    final clampedProgress = progress.clamp(0.0, 1.0).toDouble();
+    return LatLng(
+      start.latitude + deltaLat * clampedProgress,
+      start.longitude + deltaLng * clampedProgress,
+    );
   }
 
   /// Ước lượng mét còn lại trên polyline remaining.

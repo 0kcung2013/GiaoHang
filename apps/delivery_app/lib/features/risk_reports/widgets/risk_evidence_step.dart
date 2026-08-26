@@ -40,6 +40,8 @@ class RiskEvidenceStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasLocation = latitude != null && longitude != null;
+    final locationLocked = locationRequired && hasLocation;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -103,13 +105,18 @@ class RiskEvidenceStep extends StatelessWidget {
         _EvidenceAction(
           icon: Icons.my_location_rounded,
           label: 'Gửi vị trí hiện tại',
-          value: latitude == null || longitude == null
+          value: !hasLocation
               ? locationRequired
                     ? RiskReportStrings.locationRequiredShort
                     : 'Không bắt buộc'
               : locationAddress ?? RiskReportStrings.locationResolving,
-          onTap: onCaptureLocation,
-          complete: latitude != null && longitude != null,
+          onTap: locationLocked ? null : onCaptureLocation,
+          complete: hasLocation,
+          muted: locationLocked,
+          semanticsKey: const ValueKey('risk-required-location-action'),
+          semanticsLabel: locationLocked
+              ? 'Vị trí hiện tại bắt buộc, đã tự động đính kèm'
+              : null,
         ),
         if (locationError != null)
           Padding(
@@ -141,58 +148,86 @@ class _EvidenceAction extends StatelessWidget {
     required this.value,
     required this.onTap,
     this.complete = false,
+    this.muted = false,
+    this.semanticsKey,
+    this.semanticsLabel,
   });
 
   final IconData icon;
   final String label;
   final String value;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool complete;
+  final bool muted;
+  final Key? semanticsKey;
+  final String? semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.bgCard,
-      borderRadius: AppRadius.md,
-      child: InkWell(
-        onTap: onTap,
+    final foreground = muted ? AppColors.textMuted : AppColors.primary;
+    return Semantics(
+      key: semanticsKey,
+      button: !muted,
+      enabled: !muted,
+      label: semanticsLabel,
+      child: Material(
+        color: muted ? AppColors.bgLight : AppColors.bgCard,
         borderRadius: AppRadius.md,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 58),
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm,
-          ),
-          decoration: BoxDecoration(
-            borderRadius: AppRadius.md,
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: AppColors.primary, size: 22),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(child: Text(label, style: AppTextStyles.labelMedium)),
-              const SizedBox(width: AppSpacing.sm),
-              Flexible(
-                child: Text(
-                  value,
-                  textAlign: TextAlign.end,
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: complete
-                        ? AppColors.success
-                        : AppColors.textSecondary,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: AppRadius.md,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 58),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              borderRadius: AppRadius.md,
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: foreground, size: 22),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: AppTextStyles.labelMedium.copyWith(
+                      color: muted ? AppColors.textMuted : null,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              Icon(
-                complete
-                    ? Icons.check_circle_rounded
-                    : Icons.chevron_right_rounded,
-                color: complete ? AppColors.success : AppColors.textMuted,
-                size: 20,
-              ),
-            ],
+                const SizedBox(width: AppSpacing.sm),
+                Flexible(
+                  child: Text(
+                    value,
+                    textAlign: TextAlign.end,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: muted
+                          ? AppColors.textMuted
+                          : complete
+                          ? AppColors.success
+                          : AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Icon(
+                  muted
+                      ? Icons.lock_rounded
+                      : complete
+                      ? Icons.check_circle_rounded
+                      : Icons.chevron_right_rounded,
+                  color: muted
+                      ? AppColors.textMuted
+                      : complete
+                      ? AppColors.success
+                      : AppColors.textMuted,
+                  size: 20,
+                ),
+              ],
+            ),
           ),
         ),
       ),

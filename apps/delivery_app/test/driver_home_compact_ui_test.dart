@@ -6,6 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('new online offer takes priority over the wallet modal', () {
+    expect(shouldShowOnlineWalletNotice(null), isTrue);
+    expect(shouldShowOnlineWalletNotice(''), isTrue);
+    expect(shouldShowOnlineWalletNotice('order-1'), isFalse);
+  });
+
   testWidgets('availability control only shows status and switch', (
     tester,
   ) async {

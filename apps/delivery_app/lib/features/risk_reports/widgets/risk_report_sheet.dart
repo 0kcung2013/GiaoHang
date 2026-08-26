@@ -97,6 +97,10 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
     final longitude = widget.initialLongitude;
     if (latitude != null && longitude != null) {
       unawaited(_resolveLocationAddress(latitude, longitude));
+    } else if (widget.role == RiskReporterRole.driver) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_captureLocation());
+      });
     }
   }
 

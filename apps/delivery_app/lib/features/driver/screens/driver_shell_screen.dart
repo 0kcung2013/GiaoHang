@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../core/location/driver_foreground_location_service.dart';
+import '../../../core/models/order_model.dart';
 import '../../../core/providers/customer_providers.dart';
 import '../../notifications/models/notification_inbox_item.dart';
 import '../../notifications/widgets/notification_bell_button.dart';
@@ -15,9 +16,11 @@ import 'earnings/driver_earnings_screen.dart';
 import 'free_pick/driver_free_pick_screen.dart';
 import 'home/home_screen.dart';
 import 'home/utils/driver_home_formatters.dart';
+import 'home/widgets/driver_incoming_offer_overlay.dart';
 import 'orders/driver_orders_screen.dart';
 import 'widgets/driver_drawer.dart';
 import 'widgets/driver_active_delivery_location_tracker.dart';
+import 'widgets/driver_cold_start_gate.dart';
 import 'widgets/driver_gps_debug_dialog.dart';
 
 class DriverShellScreen extends ConsumerStatefulWidget {
@@ -39,6 +42,7 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
   ];
 
   late int _currentIndex;
+  late bool _hasOpenedEarnings;
   late bool _hasOpenedFreePick;
   String? _lastHandledCancellationEventId;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -47,6 +51,7 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialTab.clamp(0, _titles.length - 1);
+    _hasOpenedEarnings = _currentIndex == 2;
     _hasOpenedFreePick = _currentIndex == 4;
   }
 
@@ -55,6 +60,7 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialTab != widget.initialTab) {
       _currentIndex = widget.initialTab.clamp(0, _titles.length - 1);
+      if (_currentIndex == 2) _hasOpenedEarnings = true;
       if (_currentIndex == 4) _hasOpenedFreePick = true;
     }
   }
@@ -62,6 +68,14 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
   @override
   Widget build(BuildContext context) {
     final currentUser = Supabase.instance.client.auth.currentUser;
+    final availableOffers = currentUser == null
+        ? const <OrderModel>[]
+        : ref.watch(availableOrdersProvider(currentUser.id)).valueOrNull ??
+              const <OrderModel>[];
+    final incomingOffer = selectIncomingOfferForTab(
+      tabIndex: _currentIndex,
+      offers: availableOffers,
+    );
 
     if (currentUser != null) {
       ref.watch(driverCancelledOrderRealtimeProvider(currentUser.id));
@@ -85,94 +99,121 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
       });
     }
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: const Color(0xFFFFFAF6),
-      appBar: AppBar(
-        leading: Padding(
-          padding: const EdgeInsets.only(left: AppSpacing.sm),
-          child: IconButton(
-            icon: const Icon(Icons.menu_rounded),
-            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-          ),
-        ),
-        titleSpacing: AppSpacing.sm,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: AppColors.accent,
-                shape: BoxShape.circle,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Scaffold(
+          key: _scaffoldKey,
+          backgroundColor: const Color(0xFFFFFAF6),
+          appBar: AppBar(
+            leading: Padding(
+              padding: const EdgeInsets.only(left: AppSpacing.sm),
+              child: IconButton(
+                icon: const Icon(Icons.menu_rounded),
+                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
               ),
             ),
-            const SizedBox(width: AppSpacing.sm),
-            Text(
-              _titles[_currentIndex],
-              style: AppTextStyles.headingMedium.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppColors.bgCard,
-        surfaceTintColor: AppColors.bgCard,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        iconTheme: const IconThemeData(color: AppColors.accent),
-        actions: [
-          if (kDebugMode)
-            IconButton(
-              tooltip: 'Kiểm tra vị trí',
-              onPressed: _showGpsDebugSheet,
-              icon: const Icon(Icons.my_location_rounded),
-            ),
-          const NotificationBellButton(audience: NotificationAudience.driver),
-          const SizedBox(width: AppSpacing.sm),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: ColoredBox(
-            color: AppColors.accentLight,
-            child: const SizedBox(height: 1),
-          ),
-        ),
-      ),
-      drawer: DriverDrawer(
-        currentIndex: _currentIndex,
-        onNavigate: (index) => setState(() {
-          _currentIndex = index;
-          if (index == 4) _hasOpenedFreePick = true;
-        }),
-      ),
-      body: SafeArea(
-        bottom: false,
-        child: Stack(
-          children: [
-            IndexedStack(
-              index: _currentIndex,
+            titleSpacing: AppSpacing.sm,
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const DriverHomeScreen(),
-                const DriverOrdersScreen(),
-                const DriverEarningsScreen(),
-                const DriverAccountScreen(),
-                if (_hasOpenedFreePick)
-                  const DriverFreePickScreen()
-                else
-                  const SizedBox.shrink(),
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: AppColors.accent,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  _titles[_currentIndex],
+                  style: AppTextStyles.headingMedium.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ],
             ),
-            if (currentUser != null)
-              DriverActiveDeliveryLocationTracker(
-                userId: currentUser.id,
-                email: currentUser.email,
+            backgroundColor: AppColors.bgCard,
+            surfaceTintColor: AppColors.bgCard,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            iconTheme: const IconThemeData(color: AppColors.accent),
+            actions: [
+              if (kDebugMode)
+                IconButton(
+                  tooltip: 'Kiểm tra vị trí',
+                  onPressed: _showGpsDebugSheet,
+                  icon: const Icon(Icons.my_location_rounded),
+                ),
+              const NotificationBellButton(
+                audience: NotificationAudience.driver,
               ),
+              const SizedBox(width: AppSpacing.sm),
+            ],
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(1),
+              child: ColoredBox(
+                color: AppColors.accentLight,
+                child: const SizedBox(height: 1),
+              ),
+            ),
+          ),
+          drawer: DriverDrawer(
+            currentIndex: _currentIndex,
+            onNavigate: (index) => setState(() {
+              _currentIndex = index;
+              if (index == 2) _hasOpenedEarnings = true;
+              if (index == 4) _hasOpenedFreePick = true;
+            }),
+          ),
+          body: SafeArea(
+            bottom: false,
+            child: currentUser == null
+                ? _buildDriverContent(currentUser)
+                : DriverColdStartGate(
+                    userId: currentUser.id,
+                    child: _buildDriverContent(currentUser),
+                  ),
+          ),
+        ),
+        if (currentUser != null && incomingOffer != null)
+          Positioned.fill(
+            child: DriverIncomingOfferOverlay(
+              order: incomingOffer,
+              driverUserId: currentUser.id,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDriverContent(User? currentUser) {
+    return Stack(
+      children: [
+        IndexedStack(
+          index: _currentIndex,
+          children: [
+            const DriverHomeScreen(),
+            const DriverOrdersScreen(),
+            if (_hasOpenedEarnings)
+              const DriverEarningsScreen()
+            else
+              const SizedBox.shrink(),
+            const DriverAccountScreen(),
+            if (_hasOpenedFreePick)
+              const DriverFreePickScreen()
+            else
+              const SizedBox.shrink(),
           ],
         ),
-      ),
+        if (currentUser != null)
+          DriverActiveDeliveryLocationTracker(
+            userId: currentUser.id,
+            email: currentUser.email,
+          ),
+      ],
     );
   }
 

@@ -25,7 +25,17 @@ extension _DriverReturnNavigationActions on _DriverReturnNavigationScreenState {
   }
 
   Future<void> _completeReturn() async {
-    final result = await showDriverReturnConfirmationSheet(context);
+    final result = await showDriverReturnConfirmationSheet(
+      context,
+      locationProvider: () {
+        final position = _position;
+        if (position == null) return null;
+        return DeliveryProofLocation(
+          latitude: position.latitude,
+          longitude: position.longitude,
+        );
+      },
+    );
     if (result == null || !mounted) return;
     _updateUi(() => _submitting = true);
     try {
@@ -50,9 +60,10 @@ extension _DriverReturnNavigationActions on _DriverReturnNavigationScreenState {
         orderId: widget.order.id,
         driverId: _mission.driverId,
         stage: DeliveryProofStage.returnHandoff,
-        image: result.proofImage,
-        capturedLat: currentPoint.latitude,
-        capturedLng: currentPoint.longitude,
+        image: result.proof.image,
+        capturedAt: result.proof.capturedAt,
+        capturedLat: result.proof.location.latitude,
+        capturedLng: result.proof.location.longitude,
       );
       final mission = await widget.repository.confirmReturn(
         orderId: widget.order.id,

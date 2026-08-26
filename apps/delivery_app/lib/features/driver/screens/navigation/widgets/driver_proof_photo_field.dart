@@ -2,8 +2,11 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import '../../../../../core/services/reverse_geocoding_service.dart';
+import '../../../../../core/services/delivery_proof_watermark_service.dart';
 
 typedef CaptureProofPhoto = Future<XFile?> Function();
 
@@ -12,12 +15,18 @@ class DriverProofPhotoField extends StatefulWidget {
     super.key,
     required this.accent,
     required this.onChanged,
+    required this.locationProvider,
     this.capturePhoto,
+    this.resolveAddress,
+    this.watermarkPhoto,
   });
 
   final Color accent;
-  final ValueChanged<XFile?> onChanged;
+  final ValueChanged<DeliveryProofCapture?> onChanged;
+  final DeliveryProofLocationProvider locationProvider;
   final CaptureProofPhoto? capturePhoto;
+  final DeliveryProofAddressResolver? resolveAddress;
+  final DeliveryProofWatermarker? watermarkPhoto;
 
   @override
   State<DriverProofPhotoField> createState() => _DriverProofPhotoFieldState();
@@ -41,10 +50,51 @@ class _DriverProofPhotoFieldState extends State<DriverProofPhotoField> {
           );
       if (photo == null) return;
 
-      final bytes = await photo.readAsBytes();
+      final location = widget.locationProvider();
+      if (location == null) {
+        throw const _ProofLocationUnavailable();
+      }
+      final capturedAt = DateTime.now();
+      final address = await _resolveAddress(location);
+      final stampedPhoto =
+          await (widget.watermarkPhoto ??
+              const DeliveryProofWatermarkService().apply)(
+            source: photo,
+            capturedAt: capturedAt,
+            location: location,
+            address: address,
+          );
+      final bytes = await stampedPhoto.readAsBytes();
       if (!mounted) return;
       setState(() => _previewBytes = bytes);
-      widget.onChanged(photo);
+      widget.onChanged(
+        DeliveryProofCapture(
+          image: stampedPhoto,
+          capturedAt: capturedAt,
+          location: location,
+          address: address,
+        ),
+      );
+    } on _ProofLocationUnavailable {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Chưa xác định được GPS. Vui lòng bật vị trí rồi chụp lại.',
+          ),
+          backgroundColor: AppColors.warning,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on DeliveryProofWatermarkException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -59,6 +109,31 @@ class _DriverProofPhotoFieldState extends State<DriverProofPhotoField> {
     } finally {
       if (mounted) setState(() => _isCapturing = false);
     }
+  }
+
+  Future<String> _resolveAddress(DeliveryProofLocation location) async {
+    try {
+      final injectedResolver = widget.resolveAddress;
+      if (injectedResolver != null) {
+        final address = await injectedResolver(location);
+        if (address?.trim().isNotEmpty == true) return address!.trim();
+      } else {
+        final service = ReverseGeocodingService();
+        try {
+          final result = await service.resolve(
+            LatLng(location.latitude, location.longitude),
+          );
+          if (result.displayAddress.trim().isNotEmpty) {
+            return result.displayAddress.trim();
+          }
+        } finally {
+          service.dispose();
+        }
+      }
+    } catch (_) {
+      // GPS remains authoritative when the public geocoder is unavailable.
+    }
+    return 'Không xác định được địa chỉ';
   }
 
   @override
@@ -154,12 +229,16 @@ class _DriverProofPhotoFieldState extends State<DriverProofPhotoField> {
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          'Ảnh được lưu riêng tư và gắn với đơn hàng này.',
+          'Thời gian, GPS và địa chỉ được đóng dấu trực tiếp trong ảnh.',
           style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
         ),
       ],
     );
   }
+}
+
+class _ProofLocationUnavailable implements Exception {
+  const _ProofLocationUnavailable();
 }
 
 class _EmptyPhotoState extends StatelessWidget {

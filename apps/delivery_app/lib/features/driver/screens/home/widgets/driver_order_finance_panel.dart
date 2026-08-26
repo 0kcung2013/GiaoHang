@@ -153,11 +153,16 @@ class DriverOrderFinancePanel extends StatelessWidget {
               ],
             ),
           ),
-          Text(
-            'Thực nhận ${formatVnd(order.driverNetEarning)}',
-            style: AppTextStyles.labelSmall.copyWith(
-              color: AppColors.success,
-              fontWeight: FontWeight.w800,
+          Flexible(
+            child: Text(
+              'Thực nhận ${formatVnd(order.driverNetEarning)}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.success,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],

@@ -9,11 +9,13 @@ final driverWalletServiceProvider = Provider<DriverWalletService>((ref) {
 
 final driverWalletSummaryProvider =
     FutureProvider.autoDispose<DriverWalletSummary>((ref) {
+      ref.watch(driverWalletChangesProvider);
       return ref.watch(driverWalletServiceProvider).getSummary();
     });
 
 final driverWalletTransactionsProvider =
     FutureProvider.autoDispose<List<DriverWalletTransaction>>((ref) {
+      ref.watch(driverWalletChangesProvider);
       return ref.watch(driverWalletServiceProvider).getTransactions(limit: 100);
     });
 

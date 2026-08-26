@@ -85,7 +85,7 @@ void main() {
   test('returns Redis candidates ordered only by distance', () {
     final source = redisFunction.readAsStringSync();
 
-    expect(source, contains('body.radius_meters ?? 3000'));
+    expect(source, contains('body.radius_meters ?? 2000'));
     expect(source, contains('Math.min(radius, 50000)'));
     expect(source, isNot(contains('nearestDistance + 100')));
     expect(source, isNot(contains('Number(right.rating)')));

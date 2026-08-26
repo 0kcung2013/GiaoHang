@@ -15,6 +15,7 @@ import '../../navigation/driver_navigation_screen.dart';
 import '../../navigation/widgets/driver_order_cancellation_guard.dart';
 import '../../navigation/widgets/driver_risk_action.dart';
 import '../utils/driver_home_formatters.dart';
+import '../utils/driver_order_distance.dart';
 import 'driver_offer_countdown.dart';
 import 'driver_order_card_components.dart';
 import 'driver_order_finance_panel.dart';
@@ -210,6 +211,10 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
         ? (requiredBalance - walletBalance).clamp(0, requiredBalance)
         : 0;
     final walletInsufficient = missingBalance > 0;
+    final totalDistance = totalOrderDistanceFromPickup(
+      order: order,
+      pickupDistanceMeters: widget.pickupDistanceMeters,
+    );
 
     return Material(
       color: Colors.transparent,
@@ -306,12 +311,10 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                       spacing: AppSpacing.sm,
                       runSpacing: AppSpacing.sm,
                       children: [
-                        if (widget.pickupDistanceMeters != null)
+                        if (totalDistance != null)
                           DriverMetaPill(
-                            icon: Icons.near_me_rounded,
-                            text: pickupDistanceText(
-                              widget.pickupDistanceMeters,
-                            ),
+                            icon: Icons.route_rounded,
+                            text: totalOrderDistanceText(totalDistance),
                             emphasized: true,
                           ),
                         DriverMetaPill(

@@ -6,6 +6,7 @@ import '../../../../../core/services/osrm_service.dart';
 import '../../../../../core/utils/delivery_map_utils.dart';
 import '../../../../risk_reports/data/risk_intervention_repository.dart';
 import '../../../../risk_reports/widgets/driver_risk_instruction_card.dart';
+import '../../../../order_contact/widgets/driver_incoming_message_alert.dart';
 import 'driver_navigation_arrival_bar.dart';
 import 'driver_risk_action.dart';
 
@@ -27,6 +28,8 @@ class DriverNavigationView extends StatelessWidget {
     this.driverLatitude,
     this.driverLongitude,
     this.onContact,
+    this.currentUserId,
+    this.onOpenMessageChat,
     this.riskInterventionRepository,
   });
 
@@ -45,6 +48,8 @@ class DriverNavigationView extends StatelessWidget {
   final double? driverLatitude;
   final double? driverLongitude;
   final VoidCallback? onContact;
+  final String? currentUserId;
+  final Future<void> Function()? onOpenMessageChat;
   final RiskInterventionRepository? riskInterventionRepository;
 
   @override
@@ -103,11 +108,23 @@ class DriverNavigationView extends StatelessWidget {
                     const SizedBox(height: AppSpacing.sm),
                     Align(
                       alignment: Alignment.centerRight,
-                      child: DriverRiskAction(
-                        order: order,
-                        initialLatitude: driverLatitude,
-                        initialLongitude: driverLongitude,
-                        dark: true,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          DriverRiskAction(
+                            order: order,
+                            initialLatitude: driverLatitude,
+                            initialLongitude: driverLongitude,
+                            dark: true,
+                          ),
+                          if (currentUserId != null &&
+                              onOpenMessageChat != null)
+                            DriverIncomingMessageAlert(
+                              orderId: order.id,
+                              currentUserId: currentUserId!,
+                              onOpenChat: onOpenMessageChat!,
+                            ),
+                        ],
                       ),
                     ),
                   ],

@@ -31,6 +31,43 @@ void main() {
     expect(label.style?.fontFamily, AppTextStyles.labelLarge.fontFamily);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('fills a loose form and clips the thumb at the right endpoint', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _testApp(onCompleted: () {}, width: 240, dark: true, loose: true),
+    );
+
+    final action = find.byKey(const Key('test-driver-swipe'));
+    final track = tester.widget<AnimatedContainer>(
+      find.byKey(const Key('driver-swipe-track')),
+    );
+    expect(track.clipBehavior, Clip.antiAlias);
+
+    final rect = tester.getRect(action);
+    final gesture = await tester.startGesture(
+      Offset(rect.left + 24, rect.center.dy),
+    );
+    await gesture.moveTo(Offset(rect.right + 80, rect.center.dy));
+    await tester.pump();
+
+    final trackRect = tester.getRect(
+      find.byKey(const Key('driver-swipe-track')),
+    );
+    expect(trackRect.width, 240);
+    final thumbRect = tester.getRect(
+      find.byKey(const Key('driver-swipe-thumb')),
+    );
+    expect(
+      thumbRect.right,
+      lessThanOrEqualTo(trackRect.right - AppSpacing.sm + 1),
+    );
+
+    await gesture.up();
+    await tester.pump(AppDuration.fast);
+    await tester.pumpAndSettle();
+  });
 }
 
 Future<void> _completeSwipe(WidgetTester tester, Finder finder) async {
@@ -46,21 +83,28 @@ Future<void> _completeSwipe(WidgetTester tester, Finder finder) async {
 Widget _testApp({
   required VoidCallback onCompleted,
   TextScaler textScaler = TextScaler.noScaling,
+  double width = 340,
+  bool dark = false,
+  bool loose = false,
 }) {
+  final action = DriverSwipeAction(
+    key: const Key('test-driver-swipe'),
+    label: 'Gạt đã giao',
+    accent: AppColors.success,
+    icon: Icons.check_rounded,
+    dark: dark,
+    onCompleted: onCompleted,
+  );
   return MaterialApp(
     home: MediaQuery(
       data: MediaQueryData(textScaler: textScaler),
       child: Scaffold(
         body: Center(
           child: SizedBox(
-            width: 340,
-            child: DriverSwipeAction(
-              key: const Key('test-driver-swipe'),
-              label: 'Gạt đã giao',
-              accent: AppColors.success,
-              icon: Icons.check_rounded,
-              onCompleted: onCompleted,
-            ),
+            width: width,
+            child: loose
+                ? Column(mainAxisSize: MainAxisSize.min, children: [action])
+                : action,
           ),
         ),
       ),

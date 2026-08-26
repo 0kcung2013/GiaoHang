@@ -16,26 +16,31 @@ class RiskReportEntryAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foreground = dark ? AppColors.textOnDark : AppColors.textSecondary;
+    final background = dark ? AppColors.bgDarkCard : AppColors.bgCard;
     return Semantics(
       button: true,
       enabled: onPressed != null,
       label: label,
       child: Material(
-        color: Colors.transparent,
+        color: background,
+        borderRadius: AppRadius.md,
         child: InkWell(
           onTap: onPressed,
           borderRadius: AppRadius.md,
           child: Container(
+            key: const ValueKey('risk-report-entry-surface'),
             constraints: const BoxConstraints(minHeight: 48),
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.lg,
               vertical: AppSpacing.md,
             ),
             decoration: BoxDecoration(
+              color: background,
               borderRadius: AppRadius.md,
               border: Border.all(
-                color: dark ? AppColors.textMuted : AppColors.border,
+                color: dark ? AppColors.warning : AppColors.border,
               ),
+              boxShadow: dark ? AppShadow.elevated : AppShadow.subtle,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,

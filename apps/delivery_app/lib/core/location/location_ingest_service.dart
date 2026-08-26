@@ -29,7 +29,7 @@ class LocationIngestService {
     LocationHistoryQueue? historyQueue,
   }) : _supabase = client ?? Supabase.instance.client,
        _throttle = throttle ?? LocationThrottle(),
-       _historyQueue = historyQueue ?? LocationHistoryQueue() {
+       _historyQueue = historyQueue ?? LocationHistoryQueue(client: client) {
     _historyQueue.start();
   }
 

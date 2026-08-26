@@ -17,6 +17,7 @@ class DeliveryProofService {
     required String driverId,
     required DeliveryProofStage stage,
     required XFile image,
+    DateTime? capturedAt,
     double? capturedLat,
     double? capturedLng,
   }) async {
@@ -56,7 +57,7 @@ class DeliveryProofService {
       'driver_id': driverId,
       'stage': stage.value,
       'storage_path': storagePath,
-      'captured_at': DateTime.now().toUtc().toIso8601String(),
+      'captured_at': (capturedAt ?? DateTime.now()).toUtc().toIso8601String(),
       'captured_lat': capturedLat,
       'captured_lng': capturedLng,
     };

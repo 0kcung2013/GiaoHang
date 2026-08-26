@@ -13,34 +13,46 @@ class DriverOrdersScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final currentUser = Supabase.instance.client.auth.currentUser;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final layout = DriverHomeLayout.fromWidth(constraints.maxWidth);
-
-        return SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(
+    return ColoredBox(
+      color: AppColors.bgLight,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final layout = DriverHomeLayout.fromWidth(constraints.maxWidth);
+          final contentPadding = EdgeInsets.fromLTRB(
             layout.horizontalPadding,
             layout.topPadding,
             layout.horizontalPadding,
-            AppSpacing.xl2,
-          ),
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: layout.maxContentWidth),
-              child: currentUser == null
-                  ? const DriverMessageState(
-                      icon: Icons.lock_outline_rounded,
-                      title: 'Cần đăng nhập',
-                      message:
-                          'Vui lòng đăng nhập bằng tài khoản tài xế để xem đơn hàng.',
-                    )
-                  : DriverOrdersBody(userId: currentUser.id),
-            ),
-          ),
-        );
-      },
+            AppSpacing.xl3,
+          );
+
+          if (currentUser == null) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              padding: contentPadding,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: layout.maxContentWidth),
+                  child: const DriverMessageState(
+                    icon: Icons.lock_outline_rounded,
+                    title: 'Cần đăng nhập',
+                    message:
+                        'Vui lòng đăng nhập bằng tài khoản tài xế để xem đơn hàng.',
+                  ),
+                ),
+              ),
+            );
+          }
+
+          return DriverOrdersBody(
+            userId: currentUser.id,
+            contentPadding: contentPadding,
+            maxContentWidth: layout.maxContentWidth,
+          );
+        },
+      ),
     );
   }
 }

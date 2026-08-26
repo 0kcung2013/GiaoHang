@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:giaohang_domain/giaohang_domain.dart';
 import 'package:delivery_app/core/models/order_model.dart';
 import 'package:delivery_app/core/models/order_status_log_model.dart';
 import 'package:delivery_app/core/providers/customer_providers.dart';
@@ -12,6 +13,9 @@ import 'package:delivery_app/features/customer/screens/order/dialogs/widgets/ord
 import 'package:delivery_app/features/customer/screens/order/dialogs/widgets/order_detail_activity.dart';
 import 'package:delivery_app/features/customer/screens/order/dialogs/widgets/order_detail_header.dart';
 import 'package:delivery_app/features/customer/screens/order/widgets/order_card_image.dart';
+import 'package:delivery_app/features/order_help/data/customer_support_ticket_repository.dart';
+import 'package:delivery_app/features/risk_reports/data/participant_risk_report_query_repository.dart';
+import 'package:delivery_app/features/risk_reports/models/participant_risk_report_summary.dart';
 
 void main() {
   testWidgets('order detail sheet uses white orange layout and cargo image', (
@@ -45,6 +49,8 @@ void main() {
                     context: context,
                     customerId: order.customerId,
                     order: order,
+                    supportRepository: const _EmptySupportRepository(),
+                    riskRepository: const _EmptyRiskRepository(),
                   ),
                   child: const Text('Mở chi tiết'),
                 );
@@ -149,6 +155,8 @@ void main() {
                     context: context,
                     customerId: order.customerId,
                     order: order,
+                    supportRepository: const _EmptySupportRepository(),
+                    riskRepository: const _EmptyRiskRepository(),
                   ),
                   child: const Text('Mở chi tiết'),
                 ),
@@ -178,6 +186,43 @@ void main() {
       expect(button.onTap, isNull);
     },
   );
+}
+
+class _EmptySupportRepository implements CustomerSupportTicketRepository {
+  const _EmptySupportRepository();
+
+  @override
+  Future<SupportTicket> create(SupportTicketDraft draft) =>
+      throw UnsupportedError('Not used by this test.');
+
+  @override
+  Future<List<SupportTicket>> fetchForOrder(String orderId) async => const [];
+
+  @override
+  Stream<List<SupportTicket>> watchForOrder(String orderId) =>
+      const Stream.empty();
+}
+
+class _EmptyRiskRepository implements ParticipantRiskReportQueryRepository {
+  const _EmptyRiskRepository();
+
+  @override
+  Future<List<ParticipantRiskReportSummary>> fetchForOrder(
+    String orderId,
+  ) async => const [];
+
+  @override
+  Stream<List<ParticipantRiskReportSummary>> watchForOrder(String orderId) =>
+      const Stream.empty();
+
+  @override
+  Future<ParticipantRiskReportSummary?> findActive(
+    String orderId,
+    RiskCategory category,
+  ) async => null;
+
+  @override
+  Future<List<RiskReportEvent>> fetchEvents(String reportId) async => const [];
 }
 
 OrderModel _order() {

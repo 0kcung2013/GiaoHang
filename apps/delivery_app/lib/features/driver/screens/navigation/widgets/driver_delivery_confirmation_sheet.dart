@@ -1,23 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
+import '../../../../../core/services/delivery_proof_watermark_service.dart';
 import '../../../../../core/utils/money_formatter.dart';
 import '../models/driver_delivery_workflow.dart';
 import 'driver_proof_photo_field.dart';
 
 class DriverDeliveryConfirmationResult {
-  const DriverDeliveryConfirmationResult({this.proofImage});
+  const DriverDeliveryConfirmationResult({this.proof});
 
-  final XFile? proofImage;
+  final DeliveryProofCapture? proof;
 }
 
 Future<DriverDeliveryConfirmationResult?> showDriverDeliveryConfirmationSheet({
   required BuildContext context,
   required DriverDeliveryAction action,
   required OrderModel order,
+  required DeliveryProofLocationProvider locationProvider,
   CaptureProofPhoto? capturePhoto,
+  DeliveryProofAddressResolver? resolveAddress,
+  DeliveryProofWatermarker? watermarkPhoto,
 }) async {
   return showModalBottomSheet<DriverDeliveryConfirmationResult>(
     context: context,
@@ -26,7 +29,10 @@ Future<DriverDeliveryConfirmationResult?> showDriverDeliveryConfirmationSheet({
     builder: (_) => _DriverDeliveryConfirmationSheet(
       action: action,
       order: order,
+      locationProvider: locationProvider,
       capturePhoto: capturePhoto,
+      resolveAddress: resolveAddress,
+      watermarkPhoto: watermarkPhoto,
     ),
   );
 }
@@ -35,12 +41,18 @@ class _DriverDeliveryConfirmationSheet extends StatefulWidget {
   const _DriverDeliveryConfirmationSheet({
     required this.action,
     required this.order,
+    required this.locationProvider,
     this.capturePhoto,
+    this.resolveAddress,
+    this.watermarkPhoto,
   });
 
   final DriverDeliveryAction action;
   final OrderModel order;
+  final DeliveryProofLocationProvider locationProvider;
   final CaptureProofPhoto? capturePhoto;
+  final DeliveryProofAddressResolver? resolveAddress;
+  final DeliveryProofWatermarker? watermarkPhoto;
 
   @override
   State<_DriverDeliveryConfirmationSheet> createState() =>
@@ -50,7 +62,7 @@ class _DriverDeliveryConfirmationSheet extends StatefulWidget {
 class _DriverDeliveryConfirmationSheetState
     extends State<_DriverDeliveryConfirmationSheet> {
   final Set<int> _checkedItems = {};
-  XFile? _proofImage;
+  DeliveryProofCapture? _proof;
 
   bool get _requiresPhoto => widget.action.requiresProofPhoto;
 
@@ -60,8 +72,6 @@ class _DriverDeliveryConfirmationSheetState
       DriverDeliveryAction.confirmPickup => [
         'Đã nhận đúng kiện hàng của đơn này',
         'Đã kiểm tra tình trạng bên ngoài của kiện hàng',
-        if (widget.order.driverAdvanceAmount > 0)
-          'Đã ứng ${formatVnd(widget.order.driverAdvanceAmount)} cho người gửi',
       ],
       DriverDeliveryAction.startDelivery => const [],
       DriverDeliveryAction.confirmDelivery => [
@@ -75,7 +85,7 @@ class _DriverDeliveryConfirmationSheetState
   bool get _canConfirm {
     final checklistComplete =
         _checklist.isEmpty || _checkedItems.length == _checklist.length;
-    return checklistComplete && (!_requiresPhoto || _proofImage != null);
+    return checklistComplete && (!_requiresPhoto || _proof != null);
   }
 
   @override
@@ -130,8 +140,11 @@ class _DriverDeliveryConfirmationSheetState
                 const SizedBox(height: AppSpacing.xl),
                 DriverProofPhotoField(
                   accent: config.accent,
+                  locationProvider: widget.locationProvider,
                   capturePhoto: widget.capturePhoto,
-                  onChanged: (photo) => setState(() => _proofImage = photo),
+                  resolveAddress: widget.resolveAddress,
+                  watermarkPhoto: widget.watermarkPhoto,
+                  onChanged: (proof) => setState(() => _proof = proof),
                 ),
               ],
               if (_checklist.isNotEmpty) ...[
@@ -189,9 +202,7 @@ class _DriverDeliveryConfirmationSheetState
                     child: FilledButton.icon(
                       onPressed: _canConfirm
                           ? () => Navigator.of(context).pop(
-                              DriverDeliveryConfirmationResult(
-                                proofImage: _proofImage,
-                              ),
+                              DriverDeliveryConfirmationResult(proof: _proof),
                             )
                           : null,
                       icon: Icon(config.icon, size: 19),

@@ -1,14 +1,17 @@
+import 'package:flutter/material.dart';
+
 import '../../../../../core/models/order_model.dart';
 import '../../home/utils/driver_home_formatters.dart';
 
 enum DriverOrderFilter {
-  available('Available'),
-  active('Active'),
-  completed('Completed');
+  available('Đơn mới', Icons.inbox_rounded),
+  active('Đang chạy', Icons.navigation_rounded),
+  completed('Hoàn tất', Icons.verified_rounded);
 
   final String label;
+  final IconData icon;
 
-  const DriverOrderFilter(this.label);
+  const DriverOrderFilter(this.label, this.icon);
 
   String get emptyTitle {
     return switch (this) {

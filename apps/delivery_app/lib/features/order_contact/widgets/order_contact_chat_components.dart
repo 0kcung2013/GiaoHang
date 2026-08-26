@@ -144,11 +144,32 @@ class _MessageList extends StatelessWidget {
               borderRadius: AppRadius.lg,
               border: isMine ? null : Border.all(color: AppColors.border),
             ),
-            child: Text(
-              message.body,
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: isMine ? AppColors.textOnDark : AppColors.textPrimary,
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: isMine
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message.body,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: isMine
+                        ? AppColors.textOnDark
+                        : AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  formatOrderContactTime(message.sentAt),
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: isMine
+                        ? AppColors.textOnDark.withValues(alpha: 0.68)
+                        : AppColors.textMuted,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
             ),
           ),
         );

@@ -172,7 +172,7 @@ class OrderAssignmentService {
 
       return nextStatus;
     } catch (error) {
-      throw Exception(_advanceStatusErrorMessage(error.toString()));
+      throw Exception(advanceStatusErrorMessage(error.toString()));
     }
   }
 
@@ -237,7 +237,22 @@ class OrderAssignmentService {
     return 'GH-$shortId';
   }
 
-  String _advanceStatusErrorMessage(String message) {
+  static String advanceStatusErrorMessage(String message) {
+    if (message.contains('INSUFFICIENT_WALLET_BALANCE_AT_PICKUP')) {
+      return 'Số dư ví không còn đủ để nhận kiện. Hãy nạp thêm rồi xác nhận lại.';
+    }
+    if (message.contains('PICKUP_PROOF_LOCATION_REQUIRED')) {
+      return 'Không xác định được GPS của ảnh nhận hàng. Hãy bật vị trí và chụp lại.';
+    }
+    if (message.contains('DELIVERY_PROOF_LOCATION_REQUIRED')) {
+      return 'Không xác định được GPS của ảnh bàn giao. Hãy bật vị trí và chụp lại.';
+    }
+    if (message.contains('PICKUP_OUTSIDE_GEOFENCE')) {
+      return 'Bạn cần đến trong phạm vi 100 m của điểm lấy hàng để xác nhận.';
+    }
+    if (message.contains('DELIVERY_OUTSIDE_GEOFENCE')) {
+      return 'Bạn cần đến trong phạm vi 100 m của điểm giao để hoàn tất đơn.';
+    }
     if (message.contains('PICKUP_PROOF_REQUIRED')) {
       return 'Cần chụp và tải ảnh xác nhận nhận hàng trước khi bắt đầu giao.';
     }

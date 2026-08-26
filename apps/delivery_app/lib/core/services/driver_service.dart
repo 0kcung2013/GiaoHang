@@ -1,19 +1,46 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../location/driver_location_producer_policy.dart';
 import '../location/location_ingest_service.dart';
 import '../models/driver_location_model.dart';
 import '../utils/geo_utils.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
+typedef DriverRpcInvoker =
+    Future<dynamic> Function(String name, Map<String, dynamic> params);
+
+typedef DriverLocationPublisher =
+    Future<void> Function({
+      required String driverProfileId,
+      required double lat,
+      required double lng,
+      double? heading,
+      double? speed,
+    });
+
 class DriverService {
-  DriverService({SupabaseClient? client, LocationIngestService? locationIngest})
-    : _supabase = client ?? Supabase.instance.client,
-      _locationIngest = locationIngest ?? LocationIngestService();
+  DriverService({
+    SupabaseClient? client,
+    LocationIngestService? locationIngest,
+    DriverRpcInvoker? rpcInvoker,
+    DriverLocationPublisher? locationPublisher,
+  }) : _supabase = client ?? Supabase.instance.client,
+       _locationIngest =
+           locationIngest ??
+           (locationPublisher == null ? LocationIngestService() : null),
+       _rpcInvoker = rpcInvoker,
+       _locationPublisher = locationPublisher;
 
   final SupabaseClient _supabase;
-  final LocationIngestService _locationIngest;
+  LocationIngestService? _locationIngest;
+  final DriverRpcInvoker? _rpcInvoker;
+  final DriverLocationPublisher? _locationPublisher;
   final Map<String, String?> _debugEmailByUserId = <String, String?>{};
+
+  LocationIngestService get _locationPipeline {
+    return _locationIngest ??= LocationIngestService(client: _supabase);
+  }
 
   static const String _driversTable = 'drivers';
   static const String _locationsTable = 'driver_locations';
@@ -55,18 +82,92 @@ class DriverService {
     }
   }
 
-  Future<void> updateAvailability(String driverId, bool isAvailable) async {
+  Future<void> updateAvailability(bool isAvailable) async {
     try {
-      await _supabase
-          .from(_driversTable)
-          .update({
-            'is_available': isAvailable,
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
-          })
-          .eq('id', driverId);
+      await _invokeRpc('set_driver_availability', {
+        'p_is_available': isAvailable,
+      });
     } catch (error) {
       throw Exception('Failed to update availability: $error');
     }
+  }
+
+  /// Ghi GPS mới trước, sau đó bật Online và đánh thức hàng chờ trong một RPC.
+  Future<String?> setOnlineWithLocation({
+    required String driverProfileId,
+    required double lat,
+    required double lng,
+    double? heading,
+    double? speed,
+    LocationIngestCoordinateSpace coordinateSpace =
+        LocationIngestCoordinateSpace.rawGps,
+  }) async {
+    try {
+      final adjusted = coordinateSpace.shouldApplyDemoOffset
+          ? GeoUtils.applyTestDriverOffset(
+              email: _supabase.auth.currentUser?.email,
+              lat: lat,
+              lng: lng,
+            )
+          : null;
+      final effectiveLat = adjusted?.latitude ?? lat;
+      final effectiveLng = adjusted?.longitude ?? lng;
+
+      await _publishLocation(
+        driverProfileId: driverProfileId,
+        lat: effectiveLat,
+        lng: effectiveLng,
+        heading: heading,
+        speed: speed,
+      );
+
+      final response = await _invokeRpc('set_driver_online_with_location', {
+        'p_lat': effectiveLat,
+        'p_lng': effectiveLng,
+      });
+      final offeredOrderId = response?.toString().trim();
+      return offeredOrderId == null ||
+              offeredOrderId.isEmpty ||
+              offeredOrderId == 'null'
+          ? null
+          : offeredOrderId;
+    } catch (error) {
+      throw Exception('Failed to go online with current location: $error');
+    }
+  }
+
+  Future<dynamic> _invokeRpc(String name, Map<String, dynamic> params) {
+    final invoker = _rpcInvoker;
+    if (invoker != null) return invoker(name, params);
+    return _supabase.rpc(name, params: params);
+  }
+
+  Future<void> _publishLocation({
+    required String driverProfileId,
+    required double lat,
+    required double lng,
+    double? heading,
+    double? speed,
+  }) {
+    final publisher = _locationPublisher;
+    if (publisher != null) {
+      return publisher(
+        driverProfileId: driverProfileId,
+        lat: lat,
+        lng: lng,
+        heading: heading,
+        speed: speed,
+      );
+    }
+    return _locationPipeline.ingest(
+      driverProfileId: driverProfileId,
+      lat: lat,
+      lng: lng,
+      heading: heading,
+      speed: speed,
+      force: true,
+      coordinateSpace: LocationIngestCoordinateSpace.mapCoordinates,
+    );
   }
 
   /// Cập nhật vị trí qua pipeline tối ưu (throttle + hot/history tách).
@@ -78,7 +179,7 @@ class DriverService {
     double? heading,
   }) async {
     try {
-      await _locationIngest.ingest(
+      await _locationPipeline.ingest(
         driverProfileId: driverId,
         lat: lat,
         lng: lng,

@@ -14,17 +14,21 @@ import '../../../../core/models/delivery_proof_model.dart';
 import '../../../../core/models/order_model.dart';
 import '../../../../core/providers/customer_providers.dart';
 import '../../../../core/providers/driver_nav_session_provider.dart';
+import '../../../../core/providers/driver_wallet_providers.dart';
 import '../../../../core/providers/location_providers.dart';
 import '../../../../core/services/osrm_service.dart';
+import '../../../../core/services/delivery_proof_watermark_service.dart';
 import '../../../../core/utils/delivery_map_utils.dart';
 import '../../../reviews/widgets/driver_rate_customer_sheet.dart';
 import '../../../order_contact/models/order_contact_message.dart';
+import '../../../order_contact/order_contact_strings.dart';
 import '../../../order_contact/widgets/arrival_contact_sheet.dart';
 import '../../../order_contact/widgets/demo_call_sheet.dart';
 import '../../../order_contact/widgets/order_contact_chat_sheet.dart';
 import '../../../risk_reports/data/risk_intervention_repository.dart';
 import 'models/driver_arrival_policy.dart';
 import 'models/driver_delivery_workflow.dart';
+import 'utils/driver_navigation_motion.dart';
 import 'utils/driver_navigation_route_logic.dart';
 import 'utils/driver_navigation_position_smoother.dart';
 import 'utils/driver_navigation_resume_policy.dart';
@@ -32,6 +36,7 @@ import 'widgets/driver_delivery_confirmation_sheet.dart';
 import 'widgets/driver_delivery_success_dialog.dart';
 import 'widgets/driver_navigation_map.dart';
 import 'widgets/driver_navigation_view.dart';
+import 'widgets/driver_wallet_debit_dialog.dart';
 
 part 'driver_navigation_delivery_actions.dart';
 part 'driver_navigation_contact_actions.dart';
@@ -78,13 +83,23 @@ class _DriverNavigationScreenState
   bool _pickupConfirmed = false;
   bool _hasRestoredNavigationPosition = false;
 
-  static const int _simPointsPerSecond = 1;
+  static const Duration _simulationTick = Duration(milliseconds: 250);
+  static const double _simulationSpeedMetersPerSecond = 8.0;
 
   late final StateController<String?> _navigationOwner;
   late final DriverNavSessionsNotifier _navSessionsNotifier;
   late final RiskInterventionRepository? _riskInterventionRepository;
 
   void _updateUi(VoidCallback update) => setState(update);
+
+  User? get _authenticatedUser {
+    try {
+      return Supabase.instance.client.auth.currentUser;
+    } on AssertionError {
+      // Isolated widget tests and previews can mount before app bootstrap.
+      return null;
+    }
+  }
 
   @override
   void initState() {
@@ -307,7 +322,7 @@ class _DriverNavigationScreenState
     // Session là tọa độ cuối đã đồng bộ; giữ nó cho đến khi hành trình kết thúc.
     if (DriverNavigationResumePolicy.shouldKeepRestoredPosition(
       hasRestoredPosition: _hasRestoredNavigationPosition,
-      driverEmail: Supabase.instance.client.auth.currentUser?.email,
+      driverEmail: _authenticatedUser?.email,
     )) {
       return;
     }
@@ -409,17 +424,17 @@ class _DriverNavigationScreenState
         _driverPos!,
       );
       // Giữ index session nếu vẫn hợp lệ và không lùi quá xa so với nearest.
-      if (_simRouteIndex > 0 &&
+      if (_simRouteIndex > nearest &&
           _simRouteIndex < points.length &&
           (_simRouteIndex - nearest).abs() <= 8) {
         // giữ _simRouteIndex
       } else {
-        _simRouteIndex = nearest;
+        _simRouteIndex = (nearest + 1).clamp(1, points.length);
       }
     } else if (!resume) {
-      _simRouteIndex = 0;
+      _simRouteIndex = 1;
     } else {
-      _simRouteIndex = _simRouteIndex.clamp(0, points.length - 1);
+      _simRouteIndex = _simRouteIndex.clamp(1, points.length);
     }
 
     debugPrint(
@@ -427,37 +442,47 @@ class _DriverNavigationScreenState
       'fromIndex=$_simRouteIndex resume=$resume',
     );
 
-    _simTimer = Timer.periodic(
-      Duration(milliseconds: (1000 / _simPointsPerSecond).round()),
-      (timer) {
-        if (!mounted) {
-          timer.cancel();
-          return;
-        }
-        if (!DriverDeliveryWorkflow.canSimulateMovement(
-          status: _currentOrder.status,
-          pickupConfirmed: _pickupConfirmed,
-          arrivedAtTarget: _arrivedAtTarget,
-        )) {
-          timer.cancel();
-          _persistNavSession();
-          return;
-        }
-        final pts = _routePoints;
-        if (pts == null) {
-          return;
-        }
-        if (_simRouteIndex >= pts.length) {
-          debugPrint('[SIM] Reached end of simulation route');
-          timer.cancel();
-          _persistNavSession();
-          return;
-        }
-        final pos = pts[_simRouteIndex];
-        _simRouteIndex++;
-        _onDriverMoved(pos, source: DriverPositionSource.simulation);
-      },
-    );
+    _simTimer = Timer.periodic(_simulationTick, (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (!DriverDeliveryWorkflow.canSimulateMovement(
+        status: _currentOrder.status,
+        pickupConfirmed: _pickupConfirmed,
+        arrivedAtTarget: _arrivedAtTarget,
+      )) {
+        timer.cancel();
+        _persistNavSession();
+        return;
+      }
+      final pts = _routePoints;
+      if (pts == null) {
+        return;
+      }
+      final current = _driverPos;
+      if (current == null) {
+        return;
+      }
+      final step = DriverNavigationMotion.advanceAlongRoute(
+        route: pts,
+        current: current,
+        nextRouteIndex: _simRouteIndex,
+        maxDistanceMeters:
+            _simulationSpeedMetersPerSecond *
+            _simulationTick.inMilliseconds /
+            Duration.millisecondsPerSecond,
+      );
+      _simRouteIndex = step.nextRouteIndex;
+      if (step.reachedEnd) {
+        debugPrint('[SIM] Reached end of simulation route');
+        timer.cancel();
+        _persistNavSession();
+      }
+      unawaited(
+        _onDriverMoved(step.position, source: DriverPositionSource.simulation),
+      );
+    });
   }
 
   Future<void> _onDriverMoved(
@@ -478,7 +503,7 @@ class _DriverNavigationScreenState
     // Raw GPS theo mode của phiên; simulation/session/profile giữ map coords.
     var published = source.resolveForPublishing(
       locationMode: ref.read(driverLocationModeProvider),
-      email: Supabase.instance.client.auth.currentUser?.email,
+      email: _authenticatedUser?.email,
       position: newPos,
     );
 
@@ -515,8 +540,6 @@ class _DriverNavigationScreenState
         published = arrival;
         _arrivedAtTarget = true;
         justArrived = true;
-        _simTimer?.cancel();
-        _simTimer = null;
       }
     }
 
@@ -582,8 +605,8 @@ class _DriverNavigationScreenState
       if (mounted && meters > 0) {
         setState(() {
           _totalDistance = meters;
-          // Ước ~22 km/h trung bình nội thành cho ETA hiển thị
-          _totalDuration = (meters / 6.1);
+          // Đồng bộ ETA với tốc độ mô phỏng ~29 km/h.
+          _totalDuration = meters / _simulationSpeedMetersPerSecond;
         });
       }
     }
@@ -764,9 +787,9 @@ class _DriverNavigationScreenState
       onBack: () => Navigator.of(context).maybePop(),
       onFitMap: _fitMapBounds,
       onPrimaryAction: _handlePrimaryAction,
-      onContact: _arrivedAtTarget && !_pickupConfirmed
-          ? _openArrivalContact
-          : null,
+      onContact: _openActiveOrderContact,
+      currentUserId: _authenticatedUser?.id,
+      onOpenMessageChat: _openOrderChat,
       riskInterventionRepository: _riskInterventionRepository,
       map: DriverNavigationMap(
         mapController: _mapController,

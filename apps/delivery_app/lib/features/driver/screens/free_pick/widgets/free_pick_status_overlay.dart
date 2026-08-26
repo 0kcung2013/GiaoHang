@@ -27,10 +27,10 @@ class FreePickStatusOverlay extends StatelessWidget {
         : error != null
         ? (Icons.error_outline_rounded, error!, AppColors.error)
         : isLoading
-        ? (Icons.search_rounded, 'Đang tìm trong khu vực này', AppColors.info)
+        ? (Icons.search_rounded, 'Đang tìm đơn có thể nhận', AppColors.info)
         : (
             Icons.inventory_2_rounded,
-            '$count đơn FreePick trong vùng',
+            '$count đơn có thể nhận',
             AppColors.success,
           );
 

@@ -7,6 +7,7 @@ void main() {
     'driver location shows a concrete address instead of coordinates',
     (tester) async {
       final descriptionController = TextEditingController();
+      var captureCalls = 0;
       addTearDown(descriptionController.dispose);
 
       await tester.pumpWidget(
@@ -27,7 +28,7 @@ void main() {
                 locationError: null,
                 onDescriptionChanged: (_) {},
                 onPickPhotos: () {},
-                onCaptureLocation: () {},
+                onCaptureLocation: () => captureCalls += 1,
                 onPickMessages: () {},
               ),
             ),
@@ -38,6 +39,14 @@ void main() {
       expect(find.textContaining('Đường DX 124'), findsOneWidget);
       expect(find.textContaining('10.82100'), findsNothing);
       expect(find.textContaining('106.72100'), findsNothing);
+      await tester.tap(find.text('Gửi vị trí hiện tại'));
+      await tester.pump();
+      expect(captureCalls, 0);
+
+      final locationAction = tester.widget<Semantics>(
+        find.byKey(const ValueKey('risk-required-location-action')),
+      );
+      expect(locationAction.properties.enabled, isFalse);
       expect(tester.takeException(), isNull);
     },
   );

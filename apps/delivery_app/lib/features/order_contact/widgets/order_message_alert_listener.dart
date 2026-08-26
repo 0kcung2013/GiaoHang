@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/order_contact_message.dart';
 import '../order_contact_strings.dart';
 import '../services/order_message_alert_transport.dart';
+import 'order_incoming_message_button.dart';
 
 class OrderMessageAlertOrder {
   const OrderMessageAlertOrder({
@@ -46,6 +47,9 @@ class OrderMessageAlertListener extends StatefulWidget {
 class _OrderMessageAlertListenerState extends State<OrderMessageAlertListener> {
   late final OrderMessageAlertTransport _transport;
   final Set<String> _shownMessageIds = <String>{};
+  OverlayEntry? _messageButtonOverlay;
+  OrderMessageAlertOrder? _latestUnreadOrder;
+  int _unreadCount = 0;
 
   @override
   void initState() {
@@ -86,9 +90,13 @@ class _OrderMessageAlertListenerState extends State<OrderMessageAlertListener> {
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
     final order = matchingOrder;
+    _latestUnreadOrder = order;
+    _unreadCount++;
+    _showOrUpdateMessageButton();
+
     void openChat() {
       messenger.hideCurrentSnackBar();
-      widget.onOpenChat(order);
+      _openUnreadChat(order);
     }
 
     messenger
@@ -119,8 +127,49 @@ class _OrderMessageAlertListenerState extends State<OrderMessageAlertListener> {
       );
   }
 
+  void _showOrUpdateMessageButton() {
+    final currentOverlay = _messageButtonOverlay;
+    if (currentOverlay != null) {
+      currentOverlay.markNeedsBuild();
+      return;
+    }
+
+    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    if (overlay == null) return;
+    final entry = OverlayEntry(
+      builder: (_) => Positioned(
+        right: AppSpacing.lg,
+        bottom: AppSpacing.bottomNavHeight + AppSpacing.xl,
+        child: OrderIncomingMessageButton(
+          buttonKey: const Key('customer-incoming-message-button'),
+          unreadCount: _unreadCount,
+          onPressed: _openUnreadChat,
+          semanticLabel: OrderContactStrings.customerUnreadMessages(
+            _unreadCount,
+          ),
+          tooltip: OrderContactStrings.viewNewMessages,
+        ),
+      ),
+    );
+    _messageButtonOverlay = entry;
+    overlay.insert(entry);
+  }
+
+  void _openUnreadChat([OrderMessageAlertOrder? order]) {
+    final targetOrder = order ?? _latestUnreadOrder;
+    if (targetOrder == null) return;
+    ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
+    _messageButtonOverlay?.remove();
+    _messageButtonOverlay = null;
+    _latestUnreadOrder = null;
+    _unreadCount = 0;
+    widget.onOpenChat(targetOrder);
+  }
+
   @override
   void dispose() {
+    _messageButtonOverlay?.remove();
+    _messageButtonOverlay = null;
     unawaited(_transport.close());
     super.dispose();
   }

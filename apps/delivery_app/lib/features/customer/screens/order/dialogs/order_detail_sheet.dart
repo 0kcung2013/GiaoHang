@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/providers/customer_providers.dart';
+import '../../../../order_help/data/customer_support_ticket_repository.dart';
 import '../../../../reviews/widgets/order_review_section.dart';
+import '../../../../risk_reports/data/participant_risk_report_query_repository.dart';
 import '../../../widgets/delivery_proof/customer_delivery_proof_section.dart';
 import '../../tracking/widgets/assigned_driver_card.dart';
 import '../order_helpers.dart';
@@ -21,13 +23,20 @@ void showOrderDetailSheet({
   required BuildContext context,
   required String customerId,
   required OrderModel order,
+  CustomerSupportTicketRepository? supportRepository,
+  ParticipantRiskReportQueryRepository? riskRepository,
 }) {
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => OrderDetailSheet(customerId: customerId, order: order),
+    builder: (_) => OrderDetailSheet(
+      customerId: customerId,
+      order: order,
+      supportRepository: supportRepository,
+      riskRepository: riskRepository,
+    ),
   );
 }
 
@@ -36,10 +45,14 @@ class OrderDetailSheet extends ConsumerStatefulWidget {
     super.key,
     required this.customerId,
     required this.order,
+    this.supportRepository,
+    this.riskRepository,
   });
 
   final String customerId;
   final OrderModel order;
+  final CustomerSupportTicketRepository? supportRepository;
+  final ParticipantRiskReportQueryRepository? riskRepository;
 
   @override
   ConsumerState<OrderDetailSheet> createState() => _OrderDetailSheetState();
@@ -142,7 +155,11 @@ class _OrderDetailSheetState extends ConsumerState<OrderDetailSheet> {
                     OrderReviewSection(order: order),
                   ],
                   const SizedBox(height: AppSpacing.md),
-                  OrderRiskReportSection(order: order),
+                  OrderRiskReportSection(
+                    order: order,
+                    supportRepository: widget.supportRepository,
+                    riskRepository: widget.riskRepository,
+                  ),
                   if (canCancel || cancellationLockedReason != null) ...[
                     const SizedBox(height: AppSpacing.md),
                     OrderCancelSection(

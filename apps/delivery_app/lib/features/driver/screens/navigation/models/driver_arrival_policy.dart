@@ -19,6 +19,10 @@ class DriverArrivalPolicy {
     if (!isActiveLeg || !source.canConfirmArrival) return null;
 
     final meters = const Distance().as(LengthUnit.Meter, current, target);
-    return meters <= arrivalRadiusMeters ? target : null;
+    if (meters > arrivalRadiusMeters) return null;
+
+    // Mô phỏng giữ đúng vị trí khi vừa mở khóa xác nhận, không nhảy thẳng tới
+    // đích; timer navigation sẽ tiếp tục đưa marker tới cuối route.
+    return source == DriverPositionSource.simulation ? current : target;
   }
 }

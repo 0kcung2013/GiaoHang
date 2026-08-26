@@ -1,11 +1,32 @@
 part of 'driver_navigation_screen.dart';
 
 extension _DriverNavigationContactActions on _DriverNavigationScreenState {
-  Future<void> _openArrivalContact() async {
-    if (!_arrivedAtTarget || _pickupConfirmed) return;
-
+  Future<void> _openOrderChat() async {
     final order = _currentOrder;
-    final isDelivery = order.status == 'delivering';
+    final isDelivery =
+        order.status == 'delivering' || order.status == 'delivered';
+    final recipientName = order.recipientName?.trim() ?? '';
+    final currentUserId =
+        _authenticatedUser?.id ?? order.driverId ?? 'driver-demo';
+
+    await showOrderContactChatSheet(
+      context: context,
+      orderId: order.id,
+      currentUserId: currentUserId,
+      currentRole: OrderContactSenderRole.driver,
+      counterpartName: isDelivery && recipientName.isNotEmpty
+          ? recipientName
+          : isDelivery
+          ? OrderContactStrings.recipientName
+          : OrderContactStrings.customerName,
+      stage: isDelivery ? OrderContactStage.delivery : OrderContactStage.pickup,
+    );
+  }
+
+  Future<void> _openActiveOrderContact() async {
+    final order = _currentOrder;
+    final isDelivery =
+        order.status == 'delivering' || order.status == 'delivered';
     final contactLabel = isDelivery ? 'người nhận' : 'người tạo đơn';
     final address = isDelivery ? order.deliveryAddress : order.pickupAddress;
     var contactName = isDelivery ? (order.recipientName?.trim() ?? '') : '';
@@ -50,9 +71,7 @@ extension _DriverNavigationContactActions on _DriverNavigationScreenState {
     }
 
     final currentUserId =
-        Supabase.instance.client.auth.currentUser?.id ??
-        order.driverId ??
-        'driver-demo';
+        _authenticatedUser?.id ?? order.driverId ?? 'driver-demo';
     await showOrderContactChatSheet(
       context: context,
       orderId: order.id,

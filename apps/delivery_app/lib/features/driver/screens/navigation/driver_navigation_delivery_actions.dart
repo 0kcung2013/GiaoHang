@@ -13,11 +13,23 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
       return;
     }
     if (workflow.action == DriverDeliveryAction.none) return;
+    if (!workflow.canPerform(arrivedAtTarget: _arrivedAtTarget)) {
+      _showArrivalRequiredMessage();
+      return;
+    }
 
     final confirmation = await showDriverDeliveryConfirmationSheet(
       context: context,
       action: workflow.action,
       order: _currentOrder,
+      locationProvider: () {
+        final position = _driverPos;
+        if (position == null) return null;
+        return DeliveryProofLocation(
+          latitude: position.latitude,
+          longitude: position.longitude,
+        );
+      },
     );
     if (confirmation != null && mounted) {
       await _applyConfirmedAction(
@@ -25,6 +37,17 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
         confirmation: confirmation,
       );
     }
+  }
+
+  void _showArrivalRequiredMessage() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Bạn cần đến trong phạm vi 100 m để xác nhận.'),
+        backgroundColor: AppColors.warning,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _applyConfirmedAction({
@@ -47,7 +70,7 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
         });
         _persistNavSession();
         _showWorkflowMessage(
-          'Đã lưu xác nhận nhận hàng. GPS đang chờ bạn bắt đầu giao.',
+          'Đã xác nhận lấy hàng. GPS đang chờ bạn bắt đầu giao.',
         );
         return;
       }
@@ -62,7 +85,7 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
 
   Future<void> _startDelivery() async {
     if (_currentOrder.status != 'picking_up' || !_pickupConfirmed) {
-      _showWorkflowMessage('Hãy xác nhận đã nhận hàng trước khi bắt đầu giao.');
+      _showWorkflowMessage('Hãy xác nhận đã lấy hàng trước khi bắt đầu giao.');
       return;
     }
 
@@ -87,8 +110,8 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
     };
     if (proofStage == null) return;
 
-    final proofImage = confirmation.proofImage;
-    if (proofImage == null) {
+    final proof = confirmation.proof;
+    if (proof == null) {
       throw Exception('Bạn cần chụp ảnh xác nhận trước khi tiếp tục.');
     }
     await ref
@@ -97,13 +120,28 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
           orderId: _currentOrder.id,
           driverId: _currentOrder.driverId ?? '',
           stage: proofStage,
-          image: proofImage,
-          capturedLat: _driverPos?.latitude,
-          capturedLng: _driverPos?.longitude,
+          image: proof.image,
+          capturedAt: proof.capturedAt,
+          capturedLat: proof.location.latitude,
+          capturedLng: proof.location.longitude,
         );
   }
 
   Future<void> _advanceOrderStatus() async {
+    final isStartingDelivery = _currentOrder.status == 'picking_up';
+    var walletBefore = ref
+        .read(driverWalletSummaryProvider)
+        .valueOrNull
+        ?.availableBalance;
+    if (isStartingDelivery && walletBefore == null) {
+      try {
+        walletBefore =
+            (await ref.read(driverWalletServiceProvider).getSummary())
+                .availableBalance;
+      } catch (_) {
+        // The status RPC remains authoritative and re-checks the balance.
+      }
+    }
     final nextStatus = await ref
         .read(customerOrderServiceProvider)
         .updateDriverOrderStatus(
@@ -115,7 +153,32 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
     final driverId = _currentOrder.driverId ?? '';
     ref.invalidate(availableOrdersProvider(driverId));
     ref.invalidate(driverOrdersProvider(driverId));
+    ref.invalidate(driverWalletSummaryProvider);
+    ref.invalidate(driverWalletTransactionsProvider);
     if (!mounted) return;
+
+    if (isStartingDelivery &&
+        nextStatus == 'delivering' &&
+        _currentOrder.driverAdvanceAmount > 0) {
+      int? availableBalance = walletBefore == null
+          ? null
+          : walletBefore - _currentOrder.driverAdvanceAmount;
+      try {
+        final wallet = await ref.read(driverWalletServiceProvider).getSummary();
+        availableBalance = wallet.availableBalance;
+      } catch (_) {
+        if (availableBalance != null && availableBalance < 0) {
+          availableBalance = 0;
+        }
+      }
+      if (!mounted) return;
+      await showDriverWalletDebitDialog(
+        context: context,
+        debitedAmount: _currentOrder.driverAdvanceAmount,
+        availableBalance: availableBalance,
+      );
+      if (!mounted) return;
+    }
 
     if (nextStatus == 'delivered') {
       final deliveredOrder = _currentOrder.copyWith(status: nextStatus);

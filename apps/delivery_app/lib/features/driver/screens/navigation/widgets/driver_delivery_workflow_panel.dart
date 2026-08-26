@@ -43,6 +43,9 @@ class DriverDeliveryWorkflowPanel extends StatelessWidget {
     final address = isDelivery ? order.deliveryAddress : order.pickupAddress;
     final actionEnabled =
         workflow.canPerform(arrivedAtTarget: arrivedAtTarget) && !isLoading;
+    final actionLabel = workflow.requiresArrival && !arrivedAtTarget
+        ? DriverNavigationStrings.arriveToConfirm
+        : workflow.primaryLabel;
 
     return Container(
       width: double.infinity,
@@ -139,7 +142,7 @@ class DriverDeliveryWorkflowPanel extends StatelessWidget {
             if (workflow.requiresArrival && !arrivedAtTarget)
               const SizedBox(height: AppSpacing.sm),
             DriverSwipeAction(
-              label: workflow.primaryLabel,
+              label: actionLabel,
               accent: workflow.accent,
               icon: workflow.primaryIcon,
               loading: isLoading,

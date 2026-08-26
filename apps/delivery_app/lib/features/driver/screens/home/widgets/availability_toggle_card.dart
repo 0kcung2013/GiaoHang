@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 import '../../../../../core/location/driver_location_producer_policy.dart';
 import '../../../../../core/providers/customer_providers.dart';
+import '../../../../../core/providers/driver_wallet_providers.dart';
 import '../../../../../core/providers/location_providers.dart';
 import '../driver_home_strings.dart';
+import 'driver_wallet_balance_dialog.dart';
+
+bool shouldShowOnlineWalletNotice(String? offeredOrderId) {
+  return offeredOrderId == null || offeredOrderId.trim().isEmpty;
+}
 
 /// Trạng thái online là ý định nhận đơn; trạng thái busy được suy ra từ đơn active.
 class AvailabilityToggleCard extends ConsumerStatefulWidget {
@@ -33,6 +40,7 @@ class _AvailabilityToggleCardState
     setState(() => _isToggling = true);
 
     try {
+      String? offeredOrderId;
       if (value) {
         final position = await ref
             .read(locationServiceProvider)
@@ -43,29 +51,29 @@ class _AvailabilityToggleCardState
           );
         }
 
-        await ref
-            .read(driverServiceProvider)
-            .updateAvailability(widget.driver.id, true);
         final locationMode = ref.read(driverLocationModeProvider);
-        await ref
-            .read(locationIngestServiceProvider)
-            .ingest(
+        offeredOrderId = await ref
+            .read(driverServiceProvider)
+            .setOnlineWithLocation(
               driverProfileId: widget.driver.id,
               lat: position.latitude,
               lng: position.longitude,
               heading: position.heading,
               speed: position.speed,
-              force: true,
               coordinateSpace: locationMode.rawGpsCoordinateSpace,
             );
         ref.invalidate(currentPositionProvider);
+        ref.invalidate(availableOrdersProvider(widget.driver.userId));
       } else {
-        await ref
-            .read(driverServiceProvider)
-            .updateAvailability(widget.driver.id, false);
+        await ref.read(driverServiceProvider).updateAvailability(false);
       }
 
       ref.invalidate(driverByUserIdProvider(widget.driver.userId));
+      if (mounted) setState(() => _isToggling = false);
+
+      if (value && shouldShowOnlineWalletNotice(offeredOrderId)) {
+        await _showOnlineWalletNotice();
+      }
     } catch (error) {
       if (!mounted) return;
       final message = error.toString().replaceFirst('Exception: ', '').trim();
@@ -81,7 +89,32 @@ class _AvailabilityToggleCardState
         ),
       );
     } finally {
-      if (mounted) setState(() => _isToggling = false);
+      if (mounted && _isToggling) setState(() => _isToggling = false);
+    }
+  }
+
+  Future<void> _showOnlineWalletNotice() async {
+    try {
+      final wallet = await ref.read(driverWalletServiceProvider).getSummary();
+      ref.invalidate(driverWalletSummaryProvider);
+      if (!mounted) return;
+
+      final action = await showDriverWalletBalanceDialog(
+        context,
+        availableBalance: wallet.availableBalance,
+      );
+      if (mounted && action == DriverWalletBalanceAction.topUp) {
+        context.go('/driver-home?tab=earnings');
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(DriverHomeStrings.walletUnavailable),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 

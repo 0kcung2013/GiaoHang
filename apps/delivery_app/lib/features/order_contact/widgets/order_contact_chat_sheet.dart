@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/order_contact_message.dart';
 import '../services/order_contact_transport.dart';
+import '../utils/order_contact_time_formatter.dart';
 
 part 'order_contact_chat_components.dart';
 

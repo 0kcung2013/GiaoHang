@@ -19,17 +19,21 @@ void main() {
       expect(arrival, isNull);
     });
 
-    test('a fresh simulated position inside the radius can prove arrival', () {
-      final target = const LatLng(10.0, 106.0);
-      final arrival = DriverArrivalPolicy.resolveArrival(
-        status: 'picking_up',
-        current: const LatLng(10.0001, 106.0001),
-        target: target,
-        source: DriverPositionSource.simulation,
-      );
+    test(
+      'simulation keeps its first in-radius position when arrival unlocks',
+      () {
+        final target = const LatLng(10.0, 106.0);
+        final current = const LatLng(10.0001, 106.0001);
+        final arrival = DriverArrivalPolicy.resolveArrival(
+          status: 'picking_up',
+          current: current,
+          target: target,
+          source: DriverPositionSource.simulation,
+        );
 
-      expect(arrival, target);
-    });
+        expect(arrival, current);
+      },
+    );
 
     test('simulation and restored sessions use map coordinates as-is', () {
       expect(
@@ -43,6 +47,34 @@ void main() {
       expect(
         DriverPositionSource.deviceGps.ingestCoordinateSpace,
         LocationIngestCoordinateSpace.rawGps,
+      );
+    });
+
+    test('entering the confirmation radius does not cancel simulation', () {
+      final source = File(
+        'lib/features/driver/screens/navigation/driver_navigation_screen.dart',
+      ).readAsStringSync();
+      final arrivalStart = source.indexOf('if (arrival != null)');
+      final arrivalEnd = source.indexOf(
+        '\n    }\n\n    final isFirstPos',
+        arrivalStart,
+      );
+
+      expect(arrivalStart, greaterThanOrEqualTo(0));
+      expect(arrivalEnd, greaterThan(arrivalStart));
+      final arrivalBlock = source.substring(arrivalStart, arrivalEnd);
+      expect(arrivalBlock, isNot(contains('_simTimer?.cancel()')));
+      expect(arrivalBlock, isNot(contains('_simTimer = null')));
+    });
+
+    test('navigation simulation runs at eight meters per second', () {
+      final source = File(
+        'lib/features/driver/screens/navigation/driver_navigation_screen.dart',
+      ).readAsStringSync();
+
+      expect(
+        source,
+        contains('static const double _simulationSpeedMetersPerSecond = 8.0;'),
       );
     });
 

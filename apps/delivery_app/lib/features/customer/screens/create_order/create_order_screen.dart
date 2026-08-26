@@ -283,7 +283,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       _noteController.text = 'Gọi trước khi giao hàng.';
       _itemNameController.text = 'Hộp bánh sinh nhật';
       _itemDescriptionController.text = 'Hàng dễ vỡ, vui lòng giữ thẳng.';
-      _financeController.codCollectionController.text = '350000';
+      _financeController.setCodCollectionAmount(50000);
       _itemCategory = cargoCategories.first;
     });
     _showSnackBar('Đã điền dữ liệu demo.');

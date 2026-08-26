@@ -15,6 +15,7 @@ import '../../core/models/order_model.dart';
 import '../../core/providers/customer_providers.dart';
 import '../../core/providers/location_providers.dart';
 import '../../core/services/delivery_proof_service.dart';
+import '../../core/services/delivery_proof_watermark_service.dart';
 import '../../core/services/osrm_service.dart';
 import '../../core/utils/delivery_map_utils.dart';
 import '../driver/screens/navigation/models/driver_position_source.dart';

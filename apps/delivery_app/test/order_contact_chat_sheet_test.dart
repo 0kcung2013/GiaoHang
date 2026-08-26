@@ -57,13 +57,14 @@ void main() {
         senderId: 'driver-1',
         senderRole: OrderContactSenderRole.driver,
         body: 'Tôi đang chờ tại cổng.',
-        sentAt: DateTime.utc(2026, 8, 8),
+        sentAt: DateTime(2026, 8, 8, 8, 25),
         kind: OrderContactMessageKind.quickReply,
       ),
     );
     await tester.pump();
 
     expect(find.text('Tôi đang chờ tại cổng.'), findsOneWidget);
+    expect(find.text('08:25'), findsOneWidget);
   });
 
   testWidgets('quick replies fit a small landscape screen with large text', (

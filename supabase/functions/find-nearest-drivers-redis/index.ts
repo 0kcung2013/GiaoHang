@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     const body = (await req.json()) as Body;
     const lat = Number(body.pickup_lat);
     const lng = Number(body.pickup_lng);
-    const radius = Number(body.radius_meters ?? 3000);
+    const radius = Number(body.radius_meters ?? 2000);
     const requestedMaxResults = Number(body.max_results ?? 20);
     const maxResults = Number.isFinite(requestedMaxResults)
       ? Math.min(Math.max(Math.trunc(requestedMaxResults), 1), 50)

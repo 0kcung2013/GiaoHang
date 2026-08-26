@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:delivery_app/core/models/order_model.dart';
 import 'package:delivery_app/features/driver/screens/navigation/models/driver_delivery_workflow.dart';
 import 'package:delivery_app/features/driver/screens/navigation/widgets/driver_delivery_workflow_panel.dart';
@@ -7,6 +9,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('active navigation always wires the contact action', () {
+    final screenSource = File(
+      'lib/features/driver/screens/navigation/driver_navigation_screen.dart',
+    ).readAsStringSync();
+    final contactSource = File(
+      'lib/features/driver/screens/navigation/'
+      'driver_navigation_contact_actions.dart',
+    ).readAsStringSync();
+
+    expect(screenSource, contains('onContact: _openActiveOrderContact,'));
+    expect(
+      contactSource,
+      isNot(contains('if (!_arrivedAtTarget || _pickupConfirmed) return;')),
+    );
+  });
+
   group('DriverDeliveryWorkflow', () {
     test('maps the active order statuses to four explicit stages', () {
       final assigned = DriverDeliveryWorkflow.fromStatus('assigned');
@@ -26,7 +44,7 @@ void main() {
       expect(awaitingDeliveryStart.action, DriverDeliveryAction.startDelivery);
       expect(assigned.primaryLabel, 'Gạt để đến nơi lấy hàng');
       expect(pickup.primaryLabel, 'Gạt đã nhận');
-      expect(awaitingDeliveryStart.primaryLabel, 'Gạt để giao');
+      expect(awaitingDeliveryStart.primaryLabel, 'Gạt để bắt đầu giao');
       expect(delivery.primaryLabel, 'Gạt đã giao');
       expect(delivery.stepIndex, 2);
       expect(delivery.action, DriverDeliveryAction.confirmDelivery);
@@ -34,15 +52,15 @@ void main() {
       expect(delivered.action, DriverDeliveryAction.none);
     });
 
-    test('swipe actions stay available before arrival', () {
+    test('handoff swipes stay locked until the driver arrives', () {
       final assigned = DriverDeliveryWorkflow.fromStatus('assigned');
       final pickup = DriverDeliveryWorkflow.fromStatus('picking_up');
       final delivery = DriverDeliveryWorkflow.fromStatus('delivering');
 
       expect(assigned.canPerform(arrivedAtTarget: false), isTrue);
-      expect(pickup.canPerform(arrivedAtTarget: false), isTrue);
+      expect(pickup.canPerform(arrivedAtTarget: false), isFalse);
       expect(pickup.canPerform(arrivedAtTarget: true), isTrue);
-      expect(delivery.canPerform(arrivedAtTarget: false), isTrue);
+      expect(delivery.canPerform(arrivedAtTarget: false), isFalse);
       expect(delivery.canPerform(arrivedAtTarget: true), isTrue);
     });
 
@@ -66,7 +84,15 @@ void main() {
       );
     });
 
-    test('pauses simulated movement while pickup awaits delivery start', () {
+    test('continues simulation after arrival until pickup is confirmed', () {
+      expect(
+        DriverDeliveryWorkflow.canSimulateMovement(
+          status: 'picking_up',
+          pickupConfirmed: false,
+          arrivedAtTarget: true,
+        ),
+        isTrue,
+      );
       expect(
         DriverDeliveryWorkflow.canSimulateMovement(
           status: 'picking_up',
@@ -86,7 +112,7 @@ void main() {
     });
   });
 
-  testWidgets('pickup swipe stays available before the driver arrives', (
+  testWidgets('pickup swipe stays locked before the driver arrives', (
     tester,
   ) async {
     var actionCount = 0;
@@ -111,22 +137,22 @@ void main() {
       ),
     );
 
-    expect(find.text('Gạt đã nhận'), findsOneWidget);
+    expect(find.text('Đến trong 100 m để xác nhận'), findsOneWidget);
     expect(find.byType(DriverSwipeAction), findsOneWidget);
-    expect(find.textContaining('Gạt để mở xác nhận ảnh'), findsOneWidget);
+    expect(find.textContaining('Đến trong phạm vi 100 m'), findsOneWidget);
 
     final swipe = tester.widget<DriverSwipeAction>(
       find.byType(DriverSwipeAction),
     );
-    expect(swipe.onCompleted, isNotNull);
-    swipe.onCompleted!.call();
-    expect(actionCount, 1);
+    expect(swipe.onCompleted, isNull);
+    expect(actionCount, 0);
   });
 
-  testWidgets('active navigation bar allows swipe before arrival', (
+  testWidgets('active navigation bar blocks swipe before arrival', (
     tester,
   ) async {
     var actionCount = 0;
+    var contactCount = 0;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -143,6 +169,7 @@ void main() {
                 remainingDistanceMeters: 783,
                 remainingDurationSeconds: 180,
                 onPrimaryAction: () => actionCount++,
+                onContact: () => contactCount++,
               ),
             ),
           ),
@@ -151,14 +178,18 @@ void main() {
     );
 
     final swipe = find.byKey(const Key('driver-navigation-primary-action'));
-    expect(find.text('Gạt đã nhận'), findsOneWidget);
+    expect(find.text('Đến trong 100 m để xác nhận'), findsOneWidget);
     expect(swipe, findsOneWidget);
+    expect(find.byTooltip('Liên hệ'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Liên hệ'));
+    expect(contactCount, 1);
 
     await _completeSwipe(tester, swipe);
-    expect(actionCount, 1);
+    expect(actionCount, 0);
   });
 
-  testWidgets('confirmed pickup exposes a separate start delivery action', (
+  testWidgets('pickup confirmation exposes a separate start delivery swipe', (
     tester,
   ) async {
     var actionCount = 0;
@@ -183,7 +214,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Gạt để giao'), findsOneWidget);
+    expect(find.text('Gạt để bắt đầu giao'), findsOneWidget);
     expect(find.text('Gạt đã nhận'), findsNothing);
 
     final swipe = tester.widget<DriverSwipeAction>(

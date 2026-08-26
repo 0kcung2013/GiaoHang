@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../core/services/auth_service.dart';
+import 'widgets/customer_wallet_card.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -100,6 +101,8 @@ class _AccountScreenState extends State<AccountScreen> {
                     phone: '0912 345 678',
                   ),
                   SizedBox(height: layout.profileGap),
+                  const CustomerWalletCard(),
+                  const SizedBox(height: AppSpacing.lg),
                   _MenuSection(items: _menuItems),
                   const SizedBox(height: AppSpacing.md),
                   _LogoutRow(

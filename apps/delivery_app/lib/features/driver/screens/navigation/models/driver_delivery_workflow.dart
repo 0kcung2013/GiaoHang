@@ -50,7 +50,8 @@ class DriverDeliveryWorkflow {
       DriverArrivalPolicy.arrivalRadiusMeters;
 
   bool canPerform({required bool arrivedAtTarget}) {
-    return action != DriverDeliveryAction.none;
+    if (action == DriverDeliveryAction.none) return false;
+    return !requiresArrival || arrivedAtTarget;
   }
 
   static DriverDeliveryWorkflow fromStatus(
@@ -61,7 +62,7 @@ class DriverDeliveryWorkflow {
       return const DriverDeliveryWorkflow(
         stepIndex: 2,
         eyebrow: 'CHỜ BẮT ĐẦU GIAO',
-        title: 'Đã nhận hàng',
+        title: 'Đã lấy hàng',
         description: 'GPS đang tạm dừng. Bắt đầu khi bạn sẵn sàng.',
         primaryLabel: DriverNavigationStrings.swipeStartDelivery,
         primaryIcon: Icons.local_shipping_rounded,
@@ -138,7 +139,9 @@ class DriverDeliveryWorkflow {
     required bool pickupConfirmed,
     required bool arrivedAtTarget,
   }) {
-    if (arrivedAtTarget || pickupConfirmed) return false;
+    // `arrivedAtTarget` chỉ mở khóa xác nhận trong bán kính 100 m. Simulation
+    // vẫn tiếp tục tới cuối route và chỉ dừng sớm sau khi đã xác nhận lấy hàng.
+    if (pickupConfirmed) return false;
     return status == 'picking_up' || status == 'delivering';
   }
 }

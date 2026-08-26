@@ -56,10 +56,14 @@ class DriverWalletTransaction {
     );
   }
 
-  int get signedAmount => switch (type) {
-    'cod_hold' || 'cod_advance_capture' || 'platform_fee_capture' => -amount,
-    _ => amount,
-  };
+  int get signedAmount {
+    if (availableDelta != 0) return availableDelta;
+    return switch (type) {
+      'cod_hold' || 'platform_fee_capture' => -amount,
+      'cod_advance_capture' => 0,
+      _ => amount,
+    };
+  }
 
   bool get isIncome =>
       status == 'completed' &&
@@ -67,15 +71,16 @@ class DriverWalletTransaction {
           type == 'cod_settlement' ||
           type == 'return_earning');
 
-  /// `cod_advance_capture` chỉ chuyển khoản đã giữ sang trạng thái đã ứng.
-  /// Hiển thị thêm một số âm sẽ khiến tài xế hiểu nhầm bị trừ hai lần.
-  bool get isVisibleInHistory => type != 'cod_advance_capture';
+  /// Capture cũ chỉ chuyển khoản đã giữ nên không hiện lần trừ thứ hai.
+  /// Capture mới trừ trực tiếp số dư tại pickup và phải xuất hiện trong lịch sử.
+  bool get isVisibleInHistory =>
+      type != 'cod_advance_capture' || availableDelta < 0;
 
   String get label => switch (type) {
     'vnpay_topup' => 'Nạp ví',
     'cod_hold' => 'Ứng tiền hàng',
     'cod_release' => 'Hoàn tiền ứng COD',
-    'cod_advance_capture' => 'Đã chốt tiền ứng',
+    'cod_advance_capture' => 'Ứng tiền khi nhận hàng',
     'platform_fee_capture' => 'Phí nền tảng (chính sách cũ)',
     'prepaid_earning' => 'Thu nhập trả trước',
     'cod_settlement' => 'Thu nhập COD',

@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
 import '../../../../../core/models/order_model.dart';
-import '../../../../../core/utils/geo_utils.dart';
 import '../../../../../core/utils/money_formatter.dart';
 import '../../home/utils/driver_home_formatters.dart';
+import '../../home/utils/driver_order_distance.dart';
 
 class FreePickOrderPanel extends StatelessWidget {
   const FreePickOrderPanel({
@@ -15,6 +15,8 @@ class FreePickOrderPanel extends StatelessWidget {
     required this.onClaim,
     this.driverLat,
     this.driverLng,
+    this.position = 1,
+    this.totalCount = 1,
   });
 
   final OrderModel order;
@@ -22,10 +24,17 @@ class FreePickOrderPanel extends StatelessWidget {
   final VoidCallback? onClaim;
   final double? driverLat;
   final double? driverLng;
+  final int position;
+  final int totalCount;
 
   @override
   Widget build(BuildContext context) {
-    final distance = _distanceToPickup();
+    final distance = totalOrderDistanceMeters(
+      order: order,
+      driverLat: driverLat,
+      driverLng: driverLng,
+    );
+    final isDemo = order.trackingCode.toUpperCase().contains('DEMO');
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -67,9 +76,11 @@ class FreePickOrderPanel extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        distance == null
-                            ? 'Đơn FreePick'
-                            : pickupDistanceText(distance),
+                        [
+                          'FreePick $position/$totalCount',
+                          if (distance != null)
+                            totalOrderDistanceText(distance),
+                        ].join(' • '),
                         style: AppTextStyles.bodySmall.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -84,6 +95,24 @@ class FreePickOrderPanel extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.xs,
+              children: [
+                _MetricChip(
+                  icon: Icons.payments_rounded,
+                  label: 'COD ${formatVnd(order.codCollectionAmount)}',
+                  color: AppColors.accent,
+                ),
+                if (isDemo)
+                  const _MetricChip(
+                    icon: Icons.all_inclusive_rounded,
+                    label: 'Demo không hết hạn',
+                    color: AppColors.info,
+                  ),
               ],
             ),
             const SizedBox(height: AppSpacing.md),
@@ -126,14 +155,46 @@ class FreePickOrderPanel extends StatelessWidget {
       ),
     );
   }
+}
 
-  double? _distanceToPickup() {
-    if (driverLat == null || driverLng == null) return null;
-    return GeoUtils.distanceMeters(
-      fromLat: driverLat!,
-      fromLng: driverLng!,
-      toLat: order.pickupLat,
-      toLng: order.pickupLng,
+class _MetricChip extends StatelessWidget {
+  const _MetricChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: AppRadius.full,
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            label,
+            style: AppTextStyles.labelSmall.copyWith(
+              color: color,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

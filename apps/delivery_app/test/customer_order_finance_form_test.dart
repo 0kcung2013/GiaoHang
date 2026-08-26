@@ -65,4 +65,14 @@ void main() {
 
     expect(controller.codCollectionAmount, 1250000);
   });
+
+  test('demo COD amount is stored with VND grouping separators', () {
+    final controller = OrderFinanceFormController();
+    addTearDown(controller.dispose);
+
+    controller.setCodCollectionAmount(50000);
+
+    expect(controller.codCollectionController.text, '50.000');
+    expect(controller.codCollectionAmount, 50000);
+  });
 }
