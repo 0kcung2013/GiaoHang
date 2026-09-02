@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
+import '../order_contact_strings.dart';
+
+export 'call_contact_picker_sheet.dart';
+
 enum ArrivalContactAction { call, chat }
 
 Future<ArrivalContactAction?> showArrivalContactSheet({
   required BuildContext context,
-  required String contactLabel,
+  required String contactTitle,
   required String contactName,
   required String? phone,
   required String address,
+  required String callActionLabel,
+  String? callActionDetail,
+  String? chatActionLabel,
 }) {
   final normalizedPhone = phone?.trim() ?? '';
   return showModalBottomSheet<ArrivalContactAction>(
@@ -42,7 +49,7 @@ Future<ArrivalContactAction?> showArrivalContactSheet({
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
-            'Liên hệ $contactLabel',
+            contactTitle,
             style: AppTextStyles.headingMedium.copyWith(
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
@@ -64,34 +71,51 @@ Future<ArrivalContactAction?> showArrivalContactSheet({
             style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
           ),
           const SizedBox(height: AppSpacing.lg),
-          Row(
-            children: [
-              Expanded(
-                child: _ContactChoice(
-                  icon: Icons.call_rounded,
-                  label: 'Gọi điện',
-                  detail: normalizedPhone.isEmpty
-                      ? 'Chưa có số điện thoại'
-                      : normalizedPhone,
-                  color: AppColors.success,
-                  enabled: normalizedPhone.isNotEmpty,
-                  onTap: () =>
-                      Navigator.pop(context, ArrivalContactAction.call),
+          if (chatActionLabel == null)
+            _ContactChoice(
+              icon: Icons.call_rounded,
+              label: callActionLabel,
+              detail:
+                  callActionDetail ??
+                  (normalizedPhone.isEmpty
+                      ? OrderContactStrings.phoneUnavailable
+                      : normalizedPhone),
+              color: AppColors.success,
+              enabled: callActionDetail != null || normalizedPhone.isNotEmpty,
+              onTap: () => Navigator.pop(context, ArrivalContactAction.call),
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: _ContactChoice(
+                    icon: Icons.call_rounded,
+                    label: callActionLabel,
+                    detail:
+                        callActionDetail ??
+                        (normalizedPhone.isEmpty
+                            ? OrderContactStrings.phoneUnavailable
+                            : normalizedPhone),
+                    color: AppColors.success,
+                    enabled:
+                        callActionDetail != null || normalizedPhone.isNotEmpty,
+                    onTap: () =>
+                        Navigator.pop(context, ArrivalContactAction.call),
+                  ),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: _ContactChoice(
-                  icon: Icons.forum_rounded,
-                  label: 'Nhắn tin',
-                  detail: 'Câu trả lời nhanh',
-                  color: AppColors.info,
-                  onTap: () =>
-                      Navigator.pop(context, ArrivalContactAction.chat),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: _ContactChoice(
+                    icon: Icons.forum_rounded,
+                    label: chatActionLabel,
+                    detail: OrderContactStrings.quickReplies,
+                    color: AppColors.info,
+                    onTap: () =>
+                        Navigator.pop(context, ArrivalContactAction.chat),
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
     ),

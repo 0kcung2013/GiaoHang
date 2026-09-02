@@ -273,7 +273,7 @@ class CriticalRiskNotice extends StatelessWidget {
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
-              'Báo cáo nghiêm trọng cần Admin đưa ra kết luận cuối.',
+              'Báo cáo này cần Admin đưa ra kết luận cuối.',
               style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
             ),
           ),

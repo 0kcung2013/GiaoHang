@@ -31,16 +31,17 @@ void main() {
     expect(find.text('Đang xác minh'), findsNothing);
   });
 
-  testWidgets('acceptance is separate from pre-pickup hold', (tester) async {
-    var held = false;
+  testWidgets('open report exposes delivery decisions without an accept step', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: RiskInterventionPanel(
             report: _report(status: RiskStatus.open),
             intervention: _intervention(RiskInterventionState.awaitingTriage),
-            orderStatus: 'assigned',
-            onHoldBeforePickup: () async => held = true,
+            orderStatus: 'delivering',
+            onHoldBeforePickup: () async {},
             onDecision: (_, _) async {},
             onConfirmCustody: () async {},
             onResumeOrder: () async {},
@@ -50,12 +51,12 @@ void main() {
       ),
     );
 
+    expect(find.byKey(const Key('continue-delivery-button')), findsOneWidget);
+    expect(find.byKey(const Key('return-order-button')), findsOneWidget);
     expect(
       find.text('Tiếp nhận báo cáo trước khi can thiệp đơn.'),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('Giữ đơn & giải phóng tài xế'), findsNothing);
-    expect(held, isFalse);
   });
 
   testWidgets('assigned order can be explicitly held and release driver', (
@@ -109,7 +110,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Yêu cầu hoàn trả'));
+    await tester.tap(find.byKey(const Key('return-order-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Xác nhận'));
     await tester.pump();

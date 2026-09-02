@@ -23,7 +23,7 @@ void showOrderDetailSheet({
   required BuildContext context,
   required String customerId,
   required OrderModel order,
-  CustomerSupportTicketRepository? supportRepository,
+  ParticipantSupportTicketRepository? supportRepository,
   ParticipantRiskReportQueryRepository? riskRepository,
 }) {
   showModalBottomSheet<void>(
@@ -51,7 +51,7 @@ class OrderDetailSheet extends ConsumerStatefulWidget {
 
   final String customerId;
   final OrderModel order;
-  final CustomerSupportTicketRepository? supportRepository;
+  final ParticipantSupportTicketRepository? supportRepository;
   final ParticipantRiskReportQueryRepository? riskRepository;
 
   @override

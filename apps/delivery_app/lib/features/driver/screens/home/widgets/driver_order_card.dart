@@ -13,11 +13,11 @@ import '../../../../../core/widgets/order_cargo_info_block.dart';
 import '../../../../reviews/widgets/driver_rate_customer_sheet.dart';
 import '../../navigation/driver_navigation_screen.dart';
 import '../../navigation/widgets/driver_order_cancellation_guard.dart';
-import '../../navigation/widgets/driver_risk_action.dart';
 import '../utils/driver_home_formatters.dart';
 import '../utils/driver_order_distance.dart';
 import 'driver_offer_countdown.dart';
 import 'driver_order_card_components.dart';
+import 'driver_order_distance_summary.dart';
 import 'driver_order_finance_panel.dart';
 
 /// Card đơn hàng dùng chung cho Tổng quan và danh sách đơn của tài xế.
@@ -297,6 +297,11 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                       iconColor: AppColors.markerDrop,
                       text: order.deliveryAddress,
                     ),
+                    const SizedBox(height: AppSpacing.md),
+                    DriverOrderDistanceSummary(
+                      pickupDistanceMeters: widget.pickupDistanceMeters,
+                      totalDistanceMeters: totalDistance,
+                    ),
                     if (hasCargoInfo(order)) ...[
                       const SizedBox(height: AppSpacing.md),
                       OrderCargoInfoBlock(order: order, compact: true),
@@ -311,12 +316,6 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                       spacing: AppSpacing.sm,
                       runSpacing: AppSpacing.sm,
                       children: [
-                        if (totalDistance != null)
-                          DriverMetaPill(
-                            icon: Icons.route_rounded,
-                            text: totalOrderDistanceText(totalDistance),
-                            emphasized: true,
-                          ),
                         DriverMetaPill(
                           icon: Icons.payments_outlined,
                           text: priceText(order),
@@ -372,10 +371,6 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                         status: order.status,
                         onTap: _openNavigation,
                       ),
-                    ],
-                    if (!canAccept && (canContinueDelivery || isDelivered)) ...[
-                      const SizedBox(height: AppSpacing.md),
-                      DriverRiskAction(order: order),
                     ],
                     if (isDelivered) ...[
                       const SizedBox(height: AppSpacing.lg),

@@ -52,6 +52,7 @@ void main() {
         deliveryAddress: '456 Đường Điểm Giao',
         deliveryLat: 10.82,
         deliveryLng: 106.72,
+        deliveryFee: 40000,
       ),
     );
 
@@ -79,6 +80,12 @@ void main() {
     expect(find.text('123 Đường Điểm Lấy'), findsOneWidget);
     expect(find.text('Điểm xử lý'), findsNothing);
     expect(find.byType(TextField), findsNWidgets(2));
+    expect(find.text('Cước giao gốc'), findsOneWidget);
+    expect(find.text('40.000 đ'), findsOneWidget);
+    expect(find.text('Phí hoàn hàng (50%)'), findsOneWidget);
+    expect(find.text('20.000 đ'), findsOneWidget);
+    expect(find.text('Tổng tài xế nhận'), findsOneWidget);
+    expect(find.text('60.000 đ'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('approve-order-return')));
     await tester.pumpAndSettle();
@@ -88,5 +95,6 @@ void main() {
     expect(submitted!.destinationAddress, '123 Đường Điểm Lấy');
     expect(submitted!.destinationLat, 10.81);
     expect(submitted!.destinationLng, 106.71);
+    expect(submitted!.driverReturnEarning, 20000);
   });
 }

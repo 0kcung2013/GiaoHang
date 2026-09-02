@@ -67,3 +67,11 @@ const customerOrderHelpOptions = [
     icon: Icons.more_horiz_rounded,
   ),
 ];
+
+const driverOrderSupportOption = OrderHelpOption(
+  category: RiskCategory.other,
+  channel: OrderHelpChannel.support,
+  label: 'Trao đổi với CSKH',
+  description: 'Hỏi về lấy hàng, giao hàng, thanh toán hoặc ứng dụng.',
+  icon: Icons.support_agent_rounded,
+);

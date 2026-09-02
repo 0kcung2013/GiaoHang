@@ -6,7 +6,9 @@ import 'package:giaohang_design/giaohang_design.dart';
 
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/services/free_pick_service.dart';
+import '../free_pick_strings.dart';
 import '../utils/free_pick_radius.dart';
+import 'free_pick_radius_controls.dart';
 
 class FreePickMapCanvas extends StatelessWidget {
   const FreePickMapCanvas({
@@ -14,10 +16,13 @@ class FreePickMapCanvas extends StatelessWidget {
     this.mapController,
     required this.driverPosition,
     required this.orders,
+    required this.searchRadiusMeters,
     required this.selectedOrderId,
     required this.onMapSettled,
     required this.onOrderSelected,
     required this.onLocate,
+    required this.onRadiusIncrease,
+    required this.onRadiusDecrease,
     this.showBaseMap = true,
   });
 
@@ -28,10 +33,13 @@ class FreePickMapCanvas extends StatelessWidget {
   final MapController? mapController;
   final LatLng? driverPosition;
   final List<OrderModel> orders;
+  final double searchRadiusMeters;
   final String? selectedOrderId;
   final ValueChanged<FreePickViewport> onMapSettled;
   final ValueChanged<OrderModel> onOrderSelected;
   final VoidCallback onLocate;
+  final VoidCallback onRadiusIncrease;
+  final VoidCallback onRadiusDecrease;
   final bool showBaseMap;
 
   @override
@@ -62,17 +70,15 @@ class FreePickMapCanvas extends StatelessWidget {
                 maxNativeZoom: 19,
               ),
             if (driverPosition != null)
-              CircleLayer(
-                circles: [
-                  CircleMarker(
-                    point: driverPosition!,
-                    radius: serviceRadiusMeters,
-                    useRadiusInMeter: true,
-                    color: AppColors.info.withValues(alpha: 0.16),
-                    borderColor: AppColors.info.withValues(alpha: 0.92),
-                    borderStrokeWidth: 2.5,
-                  ),
-                ],
+              TweenAnimationBuilder<double>(
+                duration: AppDuration.normal,
+                curve: AppCurve.decelerate,
+                tween: Tween<double>(
+                  begin: serviceRadiusMeters,
+                  end: searchRadiusMeters,
+                ),
+                builder: (_, animatedRadius, _) =>
+                    CircleLayer(circles: _radiusCircles(animatedRadius)),
               ),
             MarkerLayer(
               markers: [
@@ -97,10 +103,12 @@ class FreePickMapCanvas extends StatelessWidget {
           right: AppSpacing.md,
           top: AppSpacing.xl5 + AppSpacing.sm,
           child: Tooltip(
-            message: 'Về vị trí hiện tại',
+            message: FreePickStrings.currentLocation,
             child: Semantics(
               button: true,
-              label: 'Về vị trí hiện tại và xem vùng tự động 2 km',
+              label:
+                  '${FreePickStrings.currentLocation}. '
+                  '${FreePickStrings.radiusSemantics(searchRadiusMeters)}',
               child: Material(
                 color: AppColors.info,
                 shape: const CircleBorder(),
@@ -121,6 +129,16 @@ class FreePickMapCanvas extends StatelessWidget {
             ),
           ),
         ),
+        if (driverPosition != null)
+          Positioned(
+            left: AppSpacing.md,
+            top: AppSpacing.xl5 * 2,
+            child: FreePickRadiusControls(
+              radiusMeters: searchRadiusMeters,
+              onIncrease: onRadiusIncrease,
+              onDecrease: onRadiusDecrease,
+            ),
+          ),
         if (driverPosition != null)
           Positioned(
             left: AppSpacing.md,
@@ -145,14 +163,16 @@ class FreePickMapCanvas extends StatelessWidget {
                     Container(
                       width: 10,
                       height: 10,
-                      decoration: const BoxDecoration(
-                        color: AppColors.info,
+                      decoration: BoxDecoration(
+                        color: searchRadiusMeters > freePickDefaultRadiusMeters
+                            ? AppColors.accent
+                            : AppColors.info,
                         shape: BoxShape.circle,
                       ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Text(
-                      'Vùng tự động 2 km',
+                      FreePickStrings.radiusBadge(searchRadiusMeters),
                       style: AppTextStyles.labelSmall.copyWith(
                         color: AppColors.textPrimary,
                         fontWeight: FontWeight.w700,
@@ -165,6 +185,28 @@ class FreePickMapCanvas extends StatelessWidget {
           ),
       ],
     );
+  }
+
+  List<CircleMarker> _radiusCircles(double animatedRadius) {
+    return [
+      if (animatedRadius > serviceRadiusMeters)
+        CircleMarker(
+          point: driverPosition!,
+          radius: animatedRadius,
+          useRadiusInMeter: true,
+          color: AppColors.accent.withValues(alpha: 0.09),
+          borderColor: AppColors.accent.withValues(alpha: 0.88),
+          borderStrokeWidth: 2.5,
+        ),
+      CircleMarker(
+        point: driverPosition!,
+        radius: serviceRadiusMeters,
+        useRadiusInMeter: true,
+        color: AppColors.info.withValues(alpha: 0.16),
+        borderColor: AppColors.info.withValues(alpha: 0.92),
+        borderStrokeWidth: 2.5,
+      ),
+    ];
   }
 
   Marker _driverMarker(LatLng position) {

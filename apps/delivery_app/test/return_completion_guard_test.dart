@@ -48,6 +48,7 @@ void main() {
       );
 
       expect(find.textContaining('786 m'), findsOneWidget);
+      expect(find.byTooltip('Phí hoàn hàng'), findsOneWidget);
       expect(find.byType(DriverSwipeAction), findsOneWidget);
       expect(find.textContaining('Gạt để mở xác nhận ảnh'), findsOneWidget);
       await _completeSwipe(

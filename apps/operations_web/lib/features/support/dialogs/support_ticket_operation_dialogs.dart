@@ -31,7 +31,7 @@ Future<String?> showSupportResolutionDialog(BuildContext context) {
         maxLines: 6,
         maxLength: 4000,
         decoration: const InputDecoration(
-          hintText: 'Biện pháp đã thực hiện và kết quả cho khách hàng',
+          hintText: 'Biện pháp đã thực hiện và kết quả cho người dùng',
           filled: true,
           fillColor: AppColors.bgLight,
           border: OutlineInputBorder(borderRadius: AppRadius.md),

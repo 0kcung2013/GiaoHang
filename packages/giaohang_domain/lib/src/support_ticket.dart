@@ -36,7 +36,8 @@ enum SupportTicketPriority {
 class SupportTicket {
   const SupportTicket({
     required this.id,
-    required this.customerId,
+    String? requesterId,
+    @Deprecated('Use requesterId') String? customerId,
     required this.subject,
     required this.message,
     required this.status,
@@ -47,15 +48,20 @@ class SupportTicket {
     this.assignedTo,
     this.riskReportId,
     this.resolution,
-    this.customerName,
+    this.requesterRole = 'customer',
+    String? requesterName,
+    @Deprecated('Use requesterName') String? customerName,
     this.assignedToName,
     this.firstResponseAt,
     this.responseDueAt,
     this.escalatedAt,
-  });
+  }) : assert(requesterId != null || customerId != null),
+       requesterId = requesterId ?? customerId ?? '',
+       requesterName = requesterName ?? customerName;
 
   final String id;
-  final String customerId;
+  final String requesterId;
+  final String requesterRole;
   final String? orderId;
   final String? assignedTo;
   final String? riskReportId;
@@ -66,11 +72,19 @@ class SupportTicket {
   final SupportTicketPriority priority;
   final DateTime createdAt;
   final DateTime updatedAt;
-  final String? customerName;
+  final String? requesterName;
   final String? assignedToName;
   final DateTime? firstResponseAt;
   final DateTime? responseDueAt;
   final DateTime? escalatedAt;
+
+  bool get isDriverRequester => requesterRole == 'driver';
+
+  @Deprecated('Use requesterId')
+  String get customerId => requesterId;
+
+  @Deprecated('Use requesterName')
+  String? get customerName => requesterName;
 
   bool get responseOverdue =>
       responseDueAt != null &&
@@ -79,11 +93,14 @@ class SupportTicket {
       !status.isClosed;
 
   factory SupportTicket.fromJson(Map<String, dynamic> json) {
-    final customer = _ticketNestedMap(json['customer']);
+    final requester = _ticketNestedMap(json['requester'] ?? json['customer']);
     final assignee = _ticketNestedMap(json['assignee']);
     return SupportTicket(
       id: json['id']?.toString() ?? '',
-      customerId: json['customer_id']?.toString() ?? '',
+      requesterId:
+          json['requester_id']?.toString() ??
+          json['customer_id']?.toString() ??
+          '',
       orderId: json['order_id']?.toString(),
       assignedTo: json['assigned_to']?.toString(),
       riskReportId: json['risk_report_id']?.toString(),
@@ -96,7 +113,13 @@ class SupportTicket {
       ),
       createdAt: _ticketDate(json['created_at']),
       updatedAt: _ticketDate(json['updated_at']),
-      customerName: customer['full_name']?.toString(),
+      requesterRole:
+          requester['role']?.toString() ??
+          json['requester_role']?.toString() ??
+          'customer',
+      requesterName:
+          requester['full_name']?.toString() ??
+          json['requester_name']?.toString(),
       assignedToName: assignee['full_name']?.toString(),
       firstResponseAt: _ticketOptionalDate(json['first_response_at']),
       responseDueAt: _ticketOptionalDate(json['response_due_at']),
@@ -106,7 +129,8 @@ class SupportTicket {
 
   Map<String, dynamic> toJson() => {
     'id': id,
-    'customer_id': customerId,
+    'requester_id': requesterId,
+    'requester_role': requesterRole,
     'order_id': orderId,
     'assigned_to': assignedTo,
     'risk_report_id': riskReportId,
@@ -117,7 +141,7 @@ class SupportTicket {
     'priority': priority.databaseValue,
     'created_at': createdAt.toUtc().toIso8601String(),
     'updated_at': updatedAt.toUtc().toIso8601String(),
-    'customer_name': customerName,
+    'requester_name': requesterName,
     'assigned_to_name': assignedToName,
     'first_response_at': firstResponseAt?.toUtc().toIso8601String(),
     'response_due_at': responseDueAt?.toUtc().toIso8601String(),
@@ -127,23 +151,31 @@ class SupportTicket {
 
 class SupportTicketDraft {
   const SupportTicketDraft({
-    required this.customerId,
-    required this.orderId,
+    String? requesterId,
+    @Deprecated('Use requesterId') String? customerId,
+    this.orderId,
     required this.subject,
     required this.message,
     required this.priority,
-  });
+  }) : assert(requesterId != null || customerId != null),
+       requesterId = requesterId ?? customerId ?? '';
 
-  final String customerId;
-  final String orderId;
+  final String requesterId;
+  final String? orderId;
   final String subject;
   final String message;
   final SupportTicketPriority priority;
 
+  @Deprecated('Use requesterId')
+  String get customerId => requesterId;
+
   factory SupportTicketDraft.fromJson(Map<String, dynamic> json) =>
       SupportTicketDraft(
-        customerId: json['customer_id']?.toString() ?? '',
-        orderId: json['order_id']?.toString() ?? '',
+        requesterId:
+            json['requester_id']?.toString() ??
+            json['customer_id']?.toString() ??
+            '',
+        orderId: json['order_id']?.toString(),
         subject: json['subject']?.toString() ?? '',
         message: json['message']?.toString() ?? '',
         priority: SupportTicketPriority.fromDatabase(
@@ -152,7 +184,7 @@ class SupportTicketDraft {
       );
 
   Map<String, dynamic> toJson() => {
-    'customer_id': customerId,
+    'requester_id': requesterId,
     'order_id': orderId,
     'subject': subject,
     'message': message,

@@ -112,10 +112,17 @@ class ReturnBottomPanel extends StatelessWidget {
                       icon: Icons.schedule_rounded,
                       label: DeliveryMapUtils.formatDuration(duration!),
                     ),
-                  _MetricItem(
-                    icon: Icons.payments_rounded,
-                    label: '+${formatVnd(mission.driverReturnEarning)}',
-                    foreground: AppColors.success,
+                  Semantics(
+                    label:
+                        'Phí hoàn hàng ${formatVnd(mission.driverReturnEarning)}',
+                    child: Tooltip(
+                      message: 'Phí hoàn hàng',
+                      child: _MetricItem(
+                        icon: Icons.payments_rounded,
+                        label: '+${formatVnd(mission.driverReturnEarning)}',
+                        foreground: AppColors.success,
+                      ),
+                    ),
                   ),
                 ],
               ),

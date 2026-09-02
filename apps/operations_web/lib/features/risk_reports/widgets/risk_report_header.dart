@@ -8,11 +8,13 @@ class RiskReportHeader extends StatelessWidget {
   const RiskReportHeader({
     required this.reports,
     required this.onCreate,
+    this.showMetrics = true,
     super.key,
   });
 
   final List<RiskReport> reports;
   final VoidCallback onCreate;
+  final bool showMetrics;
 
   @override
   Widget build(BuildContext context) {
@@ -39,18 +41,22 @@ class RiskReportHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  RiskReportStrings.title,
+                  showMetrics
+                      ? RiskReportStrings.title
+                      : RiskReportStrings.supportTitle,
                   style: AppTextStyles.headingLarge.copyWith(
                     color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  RiskReportStrings.subtitle,
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
+                if (showMetrics) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    RiskReportStrings.subtitle,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                ),
+                ],
               ],
             );
             final button = SizedBox(
@@ -70,6 +76,7 @@ class RiskReportHeader extends StatelessWidget {
                 label: const Text(RiskReportStrings.create),
               ),
             );
+            if (!showMetrics) return title;
             if (constraints.maxWidth < 560) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -89,49 +96,51 @@ class RiskReportHeader extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: AppSpacing.xl2),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final columns = constraints.maxWidth >= 900 ? 4 : 2;
-            final width =
-                (constraints.maxWidth - (columns - 1) * AppSpacing.md) /
-                columns;
-            return Wrap(
-              spacing: AppSpacing.md,
-              runSpacing: AppSpacing.md,
-              children: [
-                _MetricCard(
-                  width: width,
-                  label: 'Đang mở',
-                  value: active,
-                  icon: Icons.radar_rounded,
-                  color: AppColors.info,
-                ),
-                _MetricCard(
-                  width: width,
-                  label: 'Nghiêm trọng',
-                  value: critical,
-                  icon: Icons.gpp_maybe_outlined,
-                  color: AppColors.error,
-                ),
-                _MetricCard(
-                  width: width,
-                  label: 'Chưa nhận',
-                  value: unassigned,
-                  icon: Icons.person_add_alt_outlined,
-                  color: AppColors.warning,
-                ),
-                _MetricCard(
-                  width: width,
-                  label: 'Đã xử lý',
-                  value: resolved,
-                  icon: Icons.check_circle_outline_rounded,
-                  color: AppColors.success,
-                ),
-              ],
-            );
-          },
-        ),
+        if (showMetrics) ...[
+          const SizedBox(height: AppSpacing.xl2),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 900 ? 4 : 2;
+              final width =
+                  (constraints.maxWidth - (columns - 1) * AppSpacing.md) /
+                  columns;
+              return Wrap(
+                spacing: AppSpacing.md,
+                runSpacing: AppSpacing.md,
+                children: [
+                  _MetricCard(
+                    width: width,
+                    label: 'Đang mở',
+                    value: active,
+                    icon: Icons.radar_rounded,
+                    color: AppColors.info,
+                  ),
+                  _MetricCard(
+                    width: width,
+                    label: 'Nghiêm trọng',
+                    value: critical,
+                    icon: Icons.gpp_maybe_outlined,
+                    color: AppColors.error,
+                  ),
+                  _MetricCard(
+                    width: width,
+                    label: 'Chưa nhận',
+                    value: unassigned,
+                    icon: Icons.person_add_alt_outlined,
+                    color: AppColors.warning,
+                  ),
+                  _MetricCard(
+                    width: width,
+                    label: 'Đã xử lý',
+                    value: resolved,
+                    icon: Icons.check_circle_outline_rounded,
+                    color: AppColors.success,
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
       ],
     );
   }

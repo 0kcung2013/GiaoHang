@@ -122,9 +122,12 @@ class SupportTicketCard extends StatelessWidget {
                       runSpacing: AppSpacing.sm,
                       children: [
                         _TicketMeta(
-                          icon: Icons.person_outline_rounded,
+                          icon: SupportTicketUi.requesterRoleIcon(
+                            ticket.requesterRole,
+                          ),
                           label:
-                              'KH ${ticket.customerName ?? SupportTicketUi.shortId(ticket.customerId)}',
+                              '${SupportTicketUi.requesterRoleLabel(ticket.requesterRole)} '
+                              '${ticket.requesterName ?? SupportTicketUi.shortId(ticket.requesterId)}',
                         ),
                         _TicketMeta(
                           icon: Icons.inventory_2_outlined,

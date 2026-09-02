@@ -6,7 +6,7 @@ abstract final class SupportTicketUi {
   static String statusLabel(SupportTicketStatus status) => switch (status) {
     SupportTicketStatus.open => 'Mới',
     SupportTicketStatus.inProgress => 'Đang xử lý',
-    SupportTicketStatus.waitingCustomer => 'Chờ khách phản hồi',
+    SupportTicketStatus.waitingCustomer => 'Chờ người dùng',
     SupportTicketStatus.waitingAdmin => 'Chờ Admin',
     SupportTicketStatus.resolved => 'Đã xử lý',
     SupportTicketStatus.closed => 'Đã đóng',
@@ -43,6 +43,16 @@ abstract final class SupportTicketUi {
         SupportTicketPriority.normal => AppColors.info,
         SupportTicketPriority.high => AppColors.error,
       };
+
+  static String requesterRoleLabel(String role) => switch (role) {
+    'driver' => 'Tài xế',
+    _ => 'Khách hàng',
+  };
+
+  static IconData requesterRoleIcon(String role) => switch (role) {
+    'driver' => Icons.local_shipping_outlined,
+    _ => Icons.person_outline_rounded,
+  };
 
   static String shortId(String value) {
     if (value.length <= 8) return value;

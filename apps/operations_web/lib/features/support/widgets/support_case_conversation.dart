@@ -122,7 +122,7 @@ class _SupportCaseConversationState extends State<SupportCaseConversation> {
               segments: const [
                 ButtonSegment(
                   value: CaseMessageVisibility.public,
-                  label: Text('Khách hàng'),
+                  label: Text('Người dùng'),
                   icon: Icon(Icons.person_outline_rounded),
                 ),
                 ButtonSegment(
@@ -145,7 +145,7 @@ class _SupportCaseConversationState extends State<SupportCaseConversation> {
               decoration: InputDecoration(
                 hintText: _visibility == CaseMessageVisibility.internal
                     ? 'Ghi chú chỉ Support/Admin nhìn thấy'
-                    : 'Phản hồi hoặc yêu cầu khách bổ sung thông tin',
+                    : 'Phản hồi hoặc yêu cầu người dùng bổ sung thông tin',
                 errorText: _error,
                 filled: true,
                 fillColor: AppColors.bgCard,

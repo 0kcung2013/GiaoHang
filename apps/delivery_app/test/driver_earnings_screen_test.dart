@@ -74,9 +74,9 @@ void main() {
         home: Scaffold(
           body: DriverWalletContent(
             summary: const DriverWalletSummary(
-              availableBalance: 368000,
+              availableBalance: 404000,
               heldBalance: 0,
-              todayIncome: 18000,
+              todayIncome: 54000,
             ),
             transactions: [
               _transaction('hold', 'cod_hold', 350000, '2026-08-18T02:14:00Z'),
@@ -85,6 +85,12 @@ void main() {
                 'cod_advance_capture',
                 350000,
                 '2026-08-18T02:16:00Z',
+              ),
+              _transaction(
+                'return-delivery-income',
+                'return_delivery_earning',
+                36000,
+                '2026-08-18T02:22:00Z',
               ),
               _transaction(
                 'return-income',
@@ -100,13 +106,14 @@ void main() {
       ),
     );
 
-    expect(find.text('+18.000đ'), findsWidgets);
+    expect(find.text('+54.000đ'), findsWidgets);
     await tester.scrollUntilVisible(find.text('Ứng tiền hàng'), 300);
     expect(find.text('-350.000đ'), findsOneWidget);
     expect(find.text('Ứng tiền hàng'), findsOneWidget);
-    expect(find.text('Thu nhập hoàn hàng'), findsOneWidget);
+    expect(find.text('Cước giao của đơn hoàn'), findsOneWidget);
+    expect(find.text('Phí hoàn hàng'), findsOneWidget);
     expect(find.text('Giữ tiền COD'), findsNothing);
-    expect(find.text('2 giao dịch'), findsNWidgets(2));
+    expect(find.text('3 giao dịch'), findsNWidgets(2));
   });
 
   testWidgets('pending top-up is not presented as credited money', (

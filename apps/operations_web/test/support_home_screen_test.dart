@@ -80,7 +80,8 @@ class _FakeSupportTicketRepository implements SupportTicketRepository {
   Future<List<SupportTicket>> fetchTickets() async => [
     SupportTicket(
       id: 'ticket-1',
-      customerId: 'customer-1',
+      requesterId: 'customer-1',
+      requesterRole: 'customer',
       orderId: 'order-1',
       subject: 'Không liên lạc được khách',
       message: 'Tài xế cần CSKH xác minh số điện thoại.',
@@ -91,7 +92,8 @@ class _FakeSupportTicketRepository implements SupportTicketRepository {
     ),
     SupportTicket(
       id: 'ticket-2',
-      customerId: 'customer-2',
+      requesterId: 'customer-2',
+      requesterRole: 'customer',
       subject: 'Kiểm tra thanh toán COD',
       message: 'Khách hàng cần đối soát khoản thu hộ.',
       status: SupportTicketStatus.inProgress,

@@ -14,6 +14,7 @@ abstract interface class SupportTicketCommandRepository {
 
 abstract interface class SupportTicketConversationRepository {
   Future<List<CaseMessage>> fetchMessages(String ticketId);
+  Stream<List<CaseMessage>> watchMessages(String ticketId);
   Future<void> postMessage(
     String ticketId,
     String body, {
@@ -58,10 +59,10 @@ class SupabaseSupportTicketRepository
     final rows = await _client
         .from('support_tickets')
         .select(
-          'id, order_id, customer_id, assigned_to, subject, message, '
+          'id, order_id, requester_id, assigned_to, subject, message, '
           'risk_report_id, resolution, status, priority, first_response_at, '
           'response_due_at, escalated_at, created_at, updated_at, '
-          'customer:users!support_tickets_customer_id_fkey(full_name), '
+          'requester:users!support_tickets_requester_id_fkey(full_name, role), '
           'assignee:users!support_tickets_assigned_to_fkey(full_name)',
         )
         .order('updated_at', ascending: false)
@@ -74,9 +75,11 @@ class SupabaseSupportTicketRepository
   @override
   Future<void> createTicket(SupportTicketDraft draft, String actorId) async {
     await _client.from('support_tickets').insert({
-      'customer_id': draft.customerId,
+      'requester_id': draft.requesterId,
       'created_by': actorId,
-      'order_id': draft.orderId.isEmpty ? null : draft.orderId,
+      'order_id': (draft.orderId?.trim().isEmpty ?? true)
+          ? null
+          : draft.orderId!.trim(),
       'subject': draft.subject.trim(),
       'message': draft.message.trim(),
       'priority': draft.priority.databaseValue,
@@ -133,6 +136,20 @@ class SupabaseSupportTicketRepository
     return List<Map<String, dynamic>>.from(
       rows,
     ).map((row) => CaseMessage.fromJson(row, caseIdKey: 'ticket_id')).toList();
+  }
+
+  @override
+  Stream<List<CaseMessage>> watchMessages(String ticketId) {
+    return _client
+        .from('support_ticket_messages')
+        .stream(primaryKey: ['id'])
+        .eq('ticket_id', ticketId)
+        .order('created_at')
+        .map(
+          (rows) => rows
+              .map((row) => CaseMessage.fromJson(row, caseIdKey: 'ticket_id'))
+              .toList(),
+        );
   }
 
   @override

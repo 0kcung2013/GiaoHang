@@ -188,7 +188,7 @@ void main() {
   );
 }
 
-class _EmptySupportRepository implements CustomerSupportTicketRepository {
+class _EmptySupportRepository implements ParticipantSupportTicketRepository {
   const _EmptySupportRepository();
 
   @override

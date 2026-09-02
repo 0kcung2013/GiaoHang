@@ -13,6 +13,8 @@ class RiskReportFilters extends StatelessWidget {
     required this.onSearchChanged,
     required this.onSeverityChanged,
     required this.onStatusChanged,
+    this.showSeverity = true,
+    this.showStatus = true,
     super.key,
   });
 
@@ -22,6 +24,8 @@ class RiskReportFilters extends StatelessWidget {
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<RiskSeverity?> onSeverityChanged;
   final ValueChanged<RiskStatus?> onStatusChanged;
+  final bool showSeverity;
+  final bool showStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +65,8 @@ class RiskReportFilters extends StatelessWidget {
             onChanged: onStatusChanged,
           );
 
+          if (!showSeverity && !showStatus) return search;
+
           if (compact) {
             return Column(
               children: [
@@ -68,9 +74,11 @@ class RiskReportFilters extends StatelessWidget {
                 const SizedBox(height: AppSpacing.sm),
                 Row(
                   children: [
-                    Expanded(child: severity),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(child: status),
+                    if (showSeverity) ...[
+                      Expanded(child: severity),
+                      const SizedBox(width: AppSpacing.sm),
+                    ],
+                    if (showStatus) Expanded(child: status),
                   ],
                 ),
               ],
@@ -79,10 +87,14 @@ class RiskReportFilters extends StatelessWidget {
           return Row(
             children: [
               Expanded(child: search),
-              const SizedBox(width: AppSpacing.sm),
-              SizedBox(width: 170, child: severity),
-              const SizedBox(width: AppSpacing.sm),
-              SizedBox(width: 180, child: status),
+              if (showSeverity) ...[
+                const SizedBox(width: AppSpacing.sm),
+                SizedBox(width: 170, child: severity),
+              ],
+              if (showStatus) ...[
+                const SizedBox(width: AppSpacing.sm),
+                SizedBox(width: 180, child: status),
+              ],
             ],
           );
         },

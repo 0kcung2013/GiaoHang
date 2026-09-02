@@ -60,6 +60,17 @@ String totalOrderDistanceText(double? distanceMeters) {
   return 'Tổng 2 chặng · ~${distanceKm.toStringAsFixed(decimals)} km';
 }
 
+String distanceKilometersText(double? distanceMeters) {
+  if (distanceMeters == null ||
+      !distanceMeters.isFinite ||
+      distanceMeters < 0) {
+    return '—';
+  }
+  final distanceKm = distanceMeters / 1000;
+  final decimals = distanceKm < 10 ? 1 : 0;
+  return '${distanceKm.toStringAsFixed(decimals)} km';
+}
+
 bool _isValidCoordinate(double? lat, double? lng) {
   return lat != null &&
       lng != null &&

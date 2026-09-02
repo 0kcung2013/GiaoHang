@@ -182,6 +182,18 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
 
     if (nextStatus == 'delivered') {
       final deliveredOrder = _currentOrder.copyWith(status: nextStatus);
+      _simTimer?.cancel();
+      _simTimer = null;
+      _routeRefreshTimer?.cancel();
+      _routeRefreshTimer = null;
+      _updateUi(() {
+        _currentOrder = deliveredOrder;
+        _totalDistance = 0;
+        _totalDuration = 0;
+        _arrivedAtTarget = true;
+        _pickupConfirmed = false;
+      });
+      await _navSessionsNotifier.remove(deliveredOrder.id);
       await DriverForegroundLocationService.stop();
       if (!mounted) return;
       await showDriverDeliverySuccessDialog(context);
@@ -191,7 +203,6 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
         order: deliveredOrder,
         customerName: null,
       );
-      if (mounted) Navigator.of(context).pop(true);
       return;
     }
 

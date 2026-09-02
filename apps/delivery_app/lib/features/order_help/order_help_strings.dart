@@ -3,6 +3,11 @@ abstract final class OrderHelpStrings {
   static const entryHint = 'Theo dõi yêu cầu hoặc báo vấn đề mới.';
   static const chooseTitle = 'Bạn cần hỗ trợ gì?';
   static const chooseSubtitle = 'Chọn nội dung gần nhất với vấn đề.';
+  static const supportChannel = 'Chat với CSKH';
+  static const supportChannelHint = 'Hỏi đáp và nhận hướng dẫn trực tiếp.';
+  static const reportChannel = 'Báo cáo sự cố';
+  static const reportChannelHint =
+      'Tạo hồ sơ có bằng chứng và quy trình xử lý.';
   static const detailTitle = 'Mô tả vấn đề';
   static const detailHint =
       'Cho CSKH biết điều gì đã xảy ra và thời điểm xảy ra.';

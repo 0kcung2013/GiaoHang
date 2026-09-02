@@ -43,4 +43,14 @@ class RiskReportPolicy {
   }
 
   static bool requiresResolution(RiskStatus status) => status.isClosed;
+
+  static bool hasInlineFirstAction({
+    required String orderStatus,
+    RiskInterventionState? interventionState,
+  }) {
+    if (interventionState != RiskInterventionState.awaitingTriage) return false;
+    return orderStatus == 'assigned' ||
+        orderStatus == 'picking_up' ||
+        orderStatus == 'delivering';
+  }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -31,6 +33,7 @@ class SupportTicketDetailDialog extends StatefulWidget {
 
 class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
   List<CaseMessage>? _messages;
+  StreamSubscription<List<CaseMessage>>? _messageSubscription;
   bool _busy = false;
   String? _error;
 
@@ -39,7 +42,25 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
   @override
   void initState() {
     super.initState();
+    _subscribeToMessages();
     _loadMessages();
+  }
+
+  @override
+  void dispose() {
+    unawaited(_messageSubscription?.cancel());
+    super.dispose();
+  }
+
+  void _subscribeToMessages() {
+    final repository = widget.repository;
+    if (repository is! SupportTicketConversationRepository) return;
+    final conversations = repository as SupportTicketConversationRepository;
+    _messageSubscription = conversations.watchMessages(widget.ticket.id).listen(
+      (messages) {
+        if (mounted) setState(() => _messages = messages);
+      },
+    );
   }
 
   Future<void> _loadMessages() async {

@@ -9,12 +9,15 @@ import 'package:giaohang_design/giaohang_design.dart';
 import '../../../core/location/driver_foreground_location_service.dart';
 import '../../../core/models/order_model.dart';
 import '../../../core/providers/customer_providers.dart';
+import '../../../core/providers/location_providers.dart';
+import '../../../core/utils/geo_utils.dart';
 import '../../notifications/models/notification_inbox_item.dart';
 import '../../notifications/widgets/notification_bell_button.dart';
 import 'account/driver_account_screen.dart';
 import 'earnings/driver_earnings_screen.dart';
 import 'free_pick/driver_free_pick_screen.dart';
 import 'home/home_screen.dart';
+import 'home/utils/driver_dashboard_location.dart';
 import 'home/utils/driver_home_formatters.dart';
 import 'home/widgets/driver_incoming_offer_overlay.dart';
 import 'orders/driver_orders_screen.dart';
@@ -76,6 +79,13 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
       tabIndex: _currentIndex,
       offers: availableOffers,
     );
+    final incomingOfferPickupDistance =
+        currentUser == null || incomingOffer == null
+        ? null
+        : _resolveIncomingOfferPickupDistance(
+            currentUser: currentUser,
+            order: incomingOffer,
+          );
 
     if (currentUser != null) {
       ref.watch(driverCancelledOrderRealtimeProvider(currentUser.id));
@@ -183,6 +193,7 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
             child: DriverIncomingOfferOverlay(
               order: incomingOffer,
               driverUserId: currentUser.id,
+              pickupDistanceMeters: incomingOfferPickupDistance,
             ),
           ),
       ],
@@ -214,6 +225,41 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
             email: currentUser.email,
           ),
       ],
+    );
+  }
+
+  double? _resolveIncomingOfferPickupDistance({
+    required User currentUser,
+    required OrderModel order,
+  }) {
+    if (order.pickupLat == 0 && order.pickupLng == 0) return null;
+
+    final driver = ref
+        .watch(driverByUserIdProvider(currentUser.id))
+        .valueOrNull;
+    if (driver == null) return null;
+
+    final currentPosition = ref.watch(currentPositionProvider).valueOrNull;
+    final dashboardPosition = resolveDriverDashboardPosition(
+      locationMode: ref.watch(driverLocationModeProvider),
+      email: currentUser.email,
+      rawLat: currentPosition?.latitude,
+      rawLng: currentPosition?.longitude,
+      storedLat: driver.currentLat,
+      storedLng: driver.currentLng,
+    );
+    final offerPosition = resolveDriverOfferPosition(
+      dashboardPosition: dashboardPosition,
+      storedLat: driver.currentLat,
+      storedLng: driver.currentLng,
+    );
+    if (offerPosition == null) return null;
+
+    return GeoUtils.distanceMeters(
+      fromLat: offerPosition.latitude,
+      fromLng: offerPosition.longitude,
+      toLat: order.pickupLat,
+      toLng: order.pickupLng,
     );
   }
 

@@ -2,18 +2,23 @@ import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 
+import '../free_pick_strings.dart';
+import '../utils/free_pick_radius.dart';
+
 class FreePickStatusOverlay extends StatelessWidget {
   const FreePickStatusOverlay({
     super.key,
     required this.count,
     required this.isLoading,
     required this.isEnabled,
+    required this.radiusMeters,
     this.error,
   });
 
   final int count;
   final bool isLoading;
   final bool isEnabled;
+  final double radiusMeters;
   final String? error;
 
   @override
@@ -27,10 +32,20 @@ class FreePickStatusOverlay extends StatelessWidget {
         : error != null
         ? (Icons.error_outline_rounded, error!, AppColors.error)
         : isLoading
-        ? (Icons.search_rounded, 'Đang tìm đơn có thể nhận', AppColors.info)
+        ? (
+            Icons.search_rounded,
+            FreePickStrings.loadingWithinRadius(radiusMeters),
+            AppColors.info,
+          )
+        : radiusMeters <= freePickDefaultRadiusMeters
+        ? (
+            Icons.add_circle_outline_rounded,
+            FreePickStrings.expandToFindOrders,
+            AppColors.info,
+          )
         : (
             Icons.inventory_2_rounded,
-            '$count đơn có thể nhận',
+            FreePickStrings.manualOrderCount(count, radiusMeters),
             AppColors.success,
           );
 

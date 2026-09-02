@@ -6,8 +6,10 @@ import '../../../../../core/models/order_model.dart';
 import '../../../../../core/providers/customer_providers.dart';
 import '../driver_home_strings.dart';
 import '../utils/driver_home_formatters.dart';
+import '../utils/driver_order_distance.dart';
 import 'driver_offer_countdown.dart';
 import 'driver_order_card_components.dart';
+import 'driver_order_distance_summary.dart';
 import 'driver_order_finance_panel.dart';
 
 OrderModel? selectIncomingOfferForTab({
@@ -23,10 +25,12 @@ class DriverIncomingOfferOverlay extends ConsumerStatefulWidget {
     super.key,
     required this.order,
     required this.driverUserId,
+    this.pickupDistanceMeters,
   });
 
   final OrderModel order;
   final String driverUserId;
+  final double? pickupDistanceMeters;
 
   @override
   ConsumerState<DriverIncomingOfferOverlay> createState() =>
@@ -133,6 +137,7 @@ class _DriverIncomingOfferOverlayState
                       const SizedBox(height: AppSpacing.xl2),
                       _OfferCard(
                         order: order,
+                        pickupDistanceMeters: widget.pickupDistanceMeters,
                         isAccepting: _isAccepting,
                         isTransferring: _isTransferring,
                         onAccept: _acceptOrder,
@@ -223,6 +228,7 @@ class _OfferHero extends StatelessWidget {
 class _OfferCard extends StatelessWidget {
   const _OfferCard({
     required this.order,
+    required this.pickupDistanceMeters,
     required this.isAccepting,
     required this.isTransferring,
     required this.onAccept,
@@ -230,6 +236,7 @@ class _OfferCard extends StatelessWidget {
   });
 
   final OrderModel order;
+  final double? pickupDistanceMeters;
   final bool isAccepting;
   final bool isTransferring;
   final VoidCallback onAccept;
@@ -237,6 +244,11 @@ class _OfferCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final totalDistanceMeters = totalOrderDistanceFromPickup(
+      order: order,
+      pickupDistanceMeters: pickupDistanceMeters,
+    );
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.xl),
@@ -267,6 +279,11 @@ class _OfferCard extends StatelessWidget {
             icon: Icons.location_on_rounded,
             iconColor: AppColors.markerDrop,
             text: order.deliveryAddress,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          DriverOrderDistanceSummary(
+            pickupDistanceMeters: pickupDistanceMeters,
+            totalDistanceMeters: totalDistanceMeters,
           ),
           const SizedBox(height: AppSpacing.lg),
           DriverOrderFinancePanel(order: order),

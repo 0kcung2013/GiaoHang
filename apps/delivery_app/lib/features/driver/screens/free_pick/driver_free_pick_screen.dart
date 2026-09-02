@@ -33,6 +33,7 @@ class DriverFreePickScreen extends ConsumerStatefulWidget {
 class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
   final _mapController = MapController();
   Timer? _searchDebounce;
+  List<OrderModel> _viewportOrders = const [];
   List<OrderModel> _orders = const [];
   OrderModel? _selectedOrder;
   FreePickViewport? _lastViewport;
@@ -41,6 +42,7 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
   bool _isLoading = false;
   bool _isClaiming = false;
   bool _didCenterOnce = false;
+  double _radiusMeters = freePickDefaultRadiusMeters;
   int _requestSerial = 0;
   String? _error;
 
@@ -99,10 +101,13 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
               mapController: _mapController,
               driverPosition: position,
               orders: enabled ? _orders : const [],
+              searchRadiusMeters: _radiusMeters,
               selectedOrderId: _selectedOrder?.id,
               onMapSettled: _onMapSettled,
               onOrderSelected: _selectOrder,
               onLocate: _locateDriver,
+              onRadiusIncrease: _increaseRadius,
+              onRadiusDecrease: _decreaseRadius,
             ),
             Positioned(
               top: AppSpacing.md,
@@ -114,6 +119,7 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
                   count: enabled ? _orders.length : 0,
                   isLoading: _isLoading,
                   isEnabled: enabled,
+                  radiusMeters: _radiusMeters,
                   error: _error,
                 ),
               ),
@@ -153,7 +159,11 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
   void _onMapSettled(FreePickViewport viewport) {
     _lastViewport = viewport;
     _searchDebounce?.cancel();
-    if (!_isEnabled || _driverPosition == null) return;
+    if (!_isEnabled ||
+        _driverPosition == null ||
+        _radiusMeters <= freePickDefaultRadiusMeters) {
+      return;
+    }
     _searchDebounce = Timer(
       const Duration(milliseconds: 550),
       () => _loadViewport(viewport),
@@ -173,8 +183,14 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
           .read(freePickServiceProvider)
           .getOrdersInViewport(viewport);
       if (!mounted || serial != _requestSerial) return;
-      final freePickOrders = ordersSearchableInFreePick(orders);
+      final freePickOrders = ordersSearchableInFreePick(
+        orders,
+        driverLat: position.latitude,
+        driverLng: position.longitude,
+        radiusMeters: _radiusMeters,
+      );
       setState(() {
+        _viewportOrders = orders;
         _orders = freePickOrders;
         final selectedId = _selectedOrder?.id;
         _selectedOrder = freePickOrders.isEmpty
@@ -203,7 +219,7 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
       return;
     }
     _driverPosition = position;
-    _mapController.move(position, FreePickMapCanvas.overviewZoom);
+    _fitSearchRadius();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final bounds = _mapController.camera.visibleBounds;
@@ -216,6 +232,74 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
         ),
       );
     });
+  }
+
+  void _increaseRadius() {
+    _setRadius(increaseFreePickRadius(_radiusMeters));
+  }
+
+  void _decreaseRadius() {
+    _setRadius(decreaseFreePickRadius(_radiusMeters));
+  }
+
+  void _setRadius(double nextRadius) {
+    if (nextRadius == _radiusMeters) return;
+    final position = _driverPosition;
+    final filtered = position == null
+        ? const <OrderModel>[]
+        : ordersSearchableInFreePick(
+            _viewportOrders,
+            driverLat: position.latitude,
+            driverLng: position.longitude,
+            radiusMeters: nextRadius,
+          );
+    final selectedId = _selectedOrder?.id;
+    setState(() {
+      _radiusMeters = nextRadius;
+      _orders = filtered;
+      _selectedOrder = filtered.isEmpty
+          ? null
+          : filtered.firstWhere(
+              (order) => order.id == selectedId,
+              orElse: () => filtered.first,
+            );
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _fitSearchRadius();
+      final bounds = _mapController.camera.visibleBounds;
+      _onMapSettled(
+        FreePickViewport(
+          south: bounds.south,
+          west: bounds.west,
+          north: bounds.north,
+          east: bounds.east,
+        ),
+      );
+    });
+  }
+
+  void _fitSearchRadius() {
+    final position = _driverPosition;
+    if (position == null) return;
+    const distance = Distance();
+    final boundary = <LatLng>[
+      distance.offset(position, _radiusMeters, 0),
+      distance.offset(position, _radiusMeters, 90),
+      distance.offset(position, _radiusMeters, 180),
+      distance.offset(position, _radiusMeters, 270),
+    ];
+    try {
+      _mapController.fitCamera(
+        CameraFit.coordinates(
+          coordinates: boundary,
+          padding: const EdgeInsets.fromLTRB(76, 120, 76, 108),
+          maxZoom: FreePickMapCanvas.overviewZoom,
+        ),
+      );
+    } catch (_) {
+      _mapController.move(position, FreePickMapCanvas.overviewZoom);
+    }
   }
 
   void _selectOrder(OrderModel order) {
@@ -236,6 +320,9 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
       ref.invalidate(availableOrdersProvider(userId));
       if (!mounted) return;
       setState(() {
+        _viewportOrders = _viewportOrders
+            .where((item) => item.id != order.id)
+            .toList(growable: false);
         final remaining = _orders.where((item) => item.id != order.id).toList();
         _orders = remaining;
         _selectedOrder = remaining.isEmpty

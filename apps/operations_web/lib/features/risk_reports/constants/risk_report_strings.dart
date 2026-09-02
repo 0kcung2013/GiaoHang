@@ -2,6 +2,7 @@ class RiskReportStrings {
   const RiskReportStrings._();
 
   static const title = 'Rủi ro hệ thống';
+  static const supportTitle = 'Báo cáo người dùng';
   static const subtitle = 'Phát hiện, xác minh và xử lý theo mức độ';
   static const create = 'Báo cáo rủi ro';
   static const searchHint = 'Tìm mã đơn hoặc tiêu đề';

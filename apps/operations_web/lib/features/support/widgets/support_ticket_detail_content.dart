@@ -82,10 +82,11 @@ class SupportTicketContext extends StatelessWidget {
       runSpacing: AppSpacing.md,
       children: [
         _ContextItem(
-          icon: Icons.person_outline_rounded,
-          label: 'Khách hàng',
+          icon: SupportTicketUi.requesterRoleIcon(ticket.requesterRole),
+          label: SupportTicketUi.requesterRoleLabel(ticket.requesterRole),
           value:
-              ticket.customerName ?? SupportTicketUi.shortId(ticket.customerId),
+              ticket.requesterName ??
+              SupportTicketUi.shortId(ticket.requesterId),
         ),
         _ContextItem(
           icon: Icons.inventory_2_outlined,

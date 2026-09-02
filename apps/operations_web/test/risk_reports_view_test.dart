@@ -69,6 +69,56 @@ void main() {
     expect(find.text('Normal report'), findsNothing);
   });
 
+  testWidgets('support queue hides severity metrics and severity badges', (
+    tester,
+  ) async {
+    final repository = _FakeRiskReportRepository([_sampleReport]);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RiskReportsView(
+            isAdmin: false,
+            repository: repository,
+            currentUserId: 'staff-2',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nghiêm trọng'), findsNothing);
+    expect(find.text('Mức độ'), findsNothing);
+    expect(find.text('Trạng thái'), findsNothing);
+    expect(find.byKey(const Key('create-risk-report-button')), findsNothing);
+    expect(find.text('Nguyễn An'), findsOneWidget);
+    expect(find.byKey(const Key('risk-reporter-avatar')), findsOneWidget);
+    expect(find.text('Chưa có người phụ trách'), findsNothing);
+  });
+
+  testWidgets('compact support report card fits a 375px viewport', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(375, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RiskReportsView(
+            isAdmin: false,
+            repository: _FakeRiskReportRepository([_sampleReport]),
+            currentUserId: 'staff-2',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('action bar requires ownership before status transitions', (
     tester,
   ) async {

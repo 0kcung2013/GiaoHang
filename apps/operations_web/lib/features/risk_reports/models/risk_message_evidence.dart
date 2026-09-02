@@ -64,3 +64,16 @@ class RiskMessageEvidence {
     );
   }
 }
+
+List<RiskOrderMessage> availableRiskOrderMessages({
+  required List<RiskOrderMessage> messages,
+  required List<RiskMessageEvidence> evidence,
+}) {
+  final attachedIds = evidence
+      .map((item) => item.sourceMessageId)
+      .whereType<String>()
+      .toSet();
+  return messages
+      .where((message) => !attachedIds.contains(message.id))
+      .toList();
+}

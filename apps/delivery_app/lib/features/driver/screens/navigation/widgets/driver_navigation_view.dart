@@ -7,8 +7,9 @@ import '../../../../../core/utils/delivery_map_utils.dart';
 import '../../../../risk_reports/data/risk_intervention_repository.dart';
 import '../../../../risk_reports/widgets/driver_risk_instruction_card.dart';
 import '../../../../order_contact/widgets/driver_incoming_message_alert.dart';
+import '../models/driver_delivery_workflow.dart';
+import 'driver_help_actions.dart';
 import 'driver_navigation_arrival_bar.dart';
-import 'driver_risk_action.dart';
 
 class DriverNavigationView extends StatelessWidget {
   const DriverNavigationView({
@@ -54,6 +55,10 @@ class DriverNavigationView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final workflow = DriverDeliveryWorkflow.fromStatus(
+      order.status,
+      pickupConfirmed: pickupConfirmed,
+    );
     return Scaffold(
       backgroundColor: AppColors.bgLight,
       body: Stack(
@@ -88,6 +93,14 @@ class DriverNavigationView extends StatelessWidget {
                           pickupConfirmed: pickupConfirmed,
                         ),
                         const SizedBox(width: AppSpacing.sm),
+                        DriverHelpActions(
+                          order: order,
+                          initialLatitude: driverLatitude,
+                          initialLongitude: driverLongitude,
+                          dark: true,
+                          collapsed: true,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
                         _MapControlButton(
                           icon: Icons.my_location_rounded,
                           tooltip: 'Theo vị trí',
@@ -105,28 +118,19 @@ class DriverNavigationView extends StatelessWidget {
                       arrivedAtTarget: arrivedAtTarget,
                       pickupConfirmed: pickupConfirmed,
                     ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          DriverRiskAction(
-                            order: order,
-                            initialLatitude: driverLatitude,
-                            initialLongitude: driverLongitude,
-                            dark: true,
-                          ),
-                          if (currentUserId != null &&
-                              onOpenMessageChat != null)
-                            DriverIncomingMessageAlert(
-                              orderId: order.id,
-                              currentUserId: currentUserId!,
-                              onOpenChat: onOpenMessageChat!,
-                            ),
-                        ],
+                    if (workflow.allowsContactChat &&
+                        currentUserId != null &&
+                        onOpenMessageChat != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: DriverIncomingMessageAlert(
+                          orderId: order.id,
+                          currentUserId: currentUserId!,
+                          onOpenChat: onOpenMessageChat!,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

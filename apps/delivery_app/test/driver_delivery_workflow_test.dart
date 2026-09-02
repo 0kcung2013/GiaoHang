@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:delivery_app/core/models/order_model.dart';
+import 'package:delivery_app/features/driver/screens/navigation/driver_navigation_screen.dart';
 import 'package:delivery_app/features/driver/screens/navigation/models/driver_delivery_workflow.dart';
 import 'package:delivery_app/features/driver/screens/navigation/widgets/driver_delivery_workflow_panel.dart';
 import 'package:delivery_app/features/driver/screens/navigation/widgets/driver_navigation_arrival_bar.dart';
@@ -9,6 +10,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('driver navigation library compiles with contact actions', () {
+    expect(
+      DriverNavigationScreen(order: _order(status: 'delivered')),
+      isA<DriverNavigationScreen>(),
+    );
+  });
+
   test('active navigation always wires the contact action', () {
     final screenSource = File(
       'lib/features/driver/screens/navigation/driver_navigation_screen.dart',
@@ -17,11 +25,23 @@ void main() {
       'lib/features/driver/screens/navigation/'
       'driver_navigation_contact_actions.dart',
     ).readAsStringSync();
+    final deliveryActionsSource = File(
+      'lib/features/driver/screens/navigation/'
+      'driver_navigation_delivery_actions.dart',
+    ).readAsStringSync();
 
     expect(screenSource, contains('onContact: _openActiveOrderContact,'));
     expect(
       contactSource,
       isNot(contains('if (!_arrivedAtTarget || _pickupConfirmed) return;')),
+    );
+    expect(contactSource, contains('if (!workflow.allowsContactChat) return;'));
+    expect(contactSource, isNot(contains('OrderContactStage.delivery')));
+    expect(contactSource, contains('showCallContactPickerSheet('));
+    expect(deliveryActionsSource, contains('_currentOrder = deliveredOrder;'));
+    expect(
+      deliveryActionsSource,
+      isNot(contains('Navigator.of(context).pop(true)')),
     );
   });
 
@@ -50,6 +70,27 @@ void main() {
       expect(delivery.action, DriverDeliveryAction.confirmDelivery);
       expect(delivered.stepIndex, 3);
       expect(delivered.action, DriverDeliveryAction.none);
+    });
+
+    test('maps contact roles and channels to the active delivery leg', () {
+      final assigned = DriverDeliveryWorkflow.fromStatus('assigned');
+      final pickup = DriverDeliveryWorkflow.fromStatus('picking_up');
+      final awaitingDeliveryStart = DriverDeliveryWorkflow.fromStatus(
+        'picking_up',
+        pickupConfirmed: true,
+      );
+      final delivery = DriverDeliveryWorkflow.fromStatus('delivering');
+      final delivered = DriverDeliveryWorkflow.fromStatus('delivered');
+
+      expect(assigned.contactRoleLabel, 'Người gửi');
+      expect(pickup.contactRoleLabel, 'Người gửi');
+      expect(pickup.allowsContactChat, isTrue);
+      expect(awaitingDeliveryStart.contactRoleLabel, 'Người nhận');
+      expect(awaitingDeliveryStart.allowsContactChat, isFalse);
+      expect(delivery.contactRoleLabel, 'Người nhận');
+      expect(delivery.allowsContactChat, isFalse);
+      expect(delivered.contactActionTooltip, 'Liên hệ đơn hàng');
+      expect(delivered.callContactLabel, 'Gọi');
     });
 
     test('handoff swipes stay locked until the driver arrives', () {
@@ -180,13 +221,113 @@ void main() {
     final swipe = find.byKey(const Key('driver-navigation-primary-action'));
     expect(find.text('Đến trong 100 m để xác nhận'), findsOneWidget);
     expect(swipe, findsOneWidget);
-    expect(find.byTooltip('Liên hệ'), findsOneWidget);
+    expect(find.text('Liên hệ'), findsOneWidget);
+    expect(find.byTooltip('Liên hệ đơn hàng'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Liên hệ'));
+    await tester.tap(find.byTooltip('Liên hệ đơn hàng'));
     expect(contactCount, 1);
 
     await _completeSwipe(tester, swipe);
     expect(actionCount, 0);
+  });
+
+  testWidgets('delivery navigation exposes the generic contact action', (
+    tester,
+  ) async {
+    var contactCount = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.bottomCenter,
+            child: SizedBox(
+              width: 390,
+              child: DriverNavigationArrivalBar(
+                order: _order(status: 'delivering'),
+                arrivedAtTarget: false,
+                pickupConfirmed: false,
+                isLoading: false,
+                onPrimaryAction: () {},
+                onContact: () => contactCount++,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Liên hệ'), findsOneWidget);
+    expect(find.byTooltip('Liên hệ đơn hàng'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Liên hệ đơn hàng'));
+    expect(contactCount, 1);
+  });
+
+  testWidgets('contact action fits a 375px screen with large text', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(375, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(
+            size: Size(375, 700),
+            textScaler: TextScaler.linear(1.6),
+          ),
+          child: Scaffold(
+            body: Align(
+              alignment: Alignment.bottomCenter,
+              child: DriverNavigationArrivalBar(
+                order: _order(status: 'delivering'),
+                arrivedAtTarget: false,
+                pickupConfirmed: false,
+                isLoading: false,
+                onPrimaryAction: () {},
+                onContact: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Liên hệ'), findsOneWidget);
+  });
+
+  testWidgets('completed order keeps the contact action available', (
+    tester,
+  ) async {
+    var contactCount = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.bottomCenter,
+            child: SizedBox(
+              width: 390,
+              child: DriverNavigationArrivalBar(
+                order: _order(status: 'delivered'),
+                arrivedAtTarget: true,
+                pickupConfirmed: false,
+                isLoading: false,
+                onPrimaryAction: null,
+                onContact: () => contactCount++,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Liên hệ'), findsOneWidget);
+    await tester.tap(find.byTooltip('Liên hệ đơn hàng'));
+    expect(contactCount, 1);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('pickup confirmation exposes a separate start delivery swipe', (

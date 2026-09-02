@@ -15,7 +15,7 @@ import 'order_help_receipt_sheet.dart';
 Future<bool> showCustomerOrderHelpFlow(
   BuildContext context, {
   required OrderModel order,
-  CustomerSupportTicketRepository? supportRepository,
+  ParticipantSupportTicketRepository? supportRepository,
   ParticipantRiskReportRepository? riskCommandRepository,
   ParticipantRiskReportQueryRepository? riskQueryRepository,
 }) async {
@@ -23,7 +23,7 @@ Future<bool> showCustomerOrderHelpFlow(
   if (option == null || !context.mounted) return false;
 
   final support =
-      supportRepository ?? SupabaseCustomerSupportTicketRepository();
+      supportRepository ?? SupabaseParticipantSupportTicketRepository();
   final riskQuery =
       riskQueryRepository ?? SupabaseParticipantRiskReportQueryRepository();
   OrderHelpReceipt? receipt;
@@ -94,7 +94,7 @@ Future<bool> showCustomerOrderHelpFlow(
 }
 
 Future<SupportTicket?> _findExistingSupport(
-  CustomerSupportTicketRepository repository,
+  ParticipantSupportTicketRepository repository,
   String orderId,
   String subject,
 ) async {

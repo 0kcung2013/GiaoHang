@@ -23,17 +23,20 @@ LatLng? resolveDriverDashboardPosition({
   return null;
 }
 
-/// Khoảng cách của đơn chờ phải dùng đúng vị trí server đã dùng để phân đơn.
-/// Chỉ fallback về vị trí dashboard khi hồ sơ tài xế chưa có tọa độ đã lưu.
+/// Khoảng cách hiển thị ưu tiên vị trí dashboard mới nhất.
+///
+/// Matching có thể dùng GPS hot-store (Redis) mới hơn `drivers.current_lat/lng`,
+/// vì vậy tọa độ PostgreSQL chỉ là fallback khi thiết bị chưa có GPS.
 LatLng? resolveDriverOfferPosition({
   required LatLng? dashboardPosition,
   double? storedLat,
   double? storedLng,
 }) {
+  if (dashboardPosition != null) return dashboardPosition;
   if (_isValid(storedLat, storedLng)) {
     return LatLng(storedLat!, storedLng!);
   }
-  return dashboardPosition;
+  return null;
 }
 
 bool _isValid(double? lat, double? lng) =>

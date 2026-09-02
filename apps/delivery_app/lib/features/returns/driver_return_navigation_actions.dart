@@ -75,7 +75,7 @@ extension _DriverReturnNavigationActions on _DriverReturnNavigationScreenState {
       _tracker.stopSimulation();
       await showReturnSuccessDialog(
         context,
-        driverEarning: _mission.driverReturnEarning,
+        returnFee: _mission.driverReturnEarning,
       );
       if (mounted) Navigator.pop(context, true);
     } catch (error) {

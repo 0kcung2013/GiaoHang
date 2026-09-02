@@ -112,18 +112,49 @@ class DriverNavigationArrivalBar extends StatelessWidget {
               ),
               if (onContact != null) ...[
                 const SizedBox(width: AppSpacing.sm),
-                Material(
-                  color: AppColors.bgDarkCard,
-                  borderRadius: AppRadius.full,
-                  clipBehavior: Clip.antiAlias,
-                  child: IconButton(
-                    onPressed: onContact,
-                    tooltip: 'Liên hệ',
-                    style: IconButton.styleFrom(
-                      minimumSize: const Size(44, 44),
-                      foregroundColor: AppColors.info,
+                Semantics(
+                  button: true,
+                  label: workflow.contactActionTooltip,
+                  child: Tooltip(
+                    message: workflow.contactActionTooltip,
+                    child: Material(
+                      color: AppColors.bgDarkCard,
+                      borderRadius: AppRadius.full,
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        key: const Key('driver-contact-target-action'),
+                        onTap: onContact,
+                        borderRadius: AppRadius.full,
+                        child: Container(
+                          constraints: const BoxConstraints(minHeight: 48),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: AppSpacing.sm,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.contact_phone_rounded,
+                                color: AppColors.info,
+                                size: 20,
+                              ),
+                              const SizedBox(width: AppSpacing.xs),
+                              Text(
+                                DriverNavigationStrings.contactAction,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.labelSmall.copyWith(
+                                  color: AppColors.textOnDark,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
-                    icon: const Icon(Icons.forum_rounded, size: 21),
                   ),
                 ),
               ],

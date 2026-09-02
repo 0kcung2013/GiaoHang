@@ -14,7 +14,7 @@ class OrderRiskReportSection extends StatelessWidget {
   });
 
   final OrderModel order;
-  final CustomerSupportTicketRepository? supportRepository;
+  final ParticipantSupportTicketRepository? supportRepository;
   final ParticipantRiskReportQueryRepository? riskRepository;
 
   @override

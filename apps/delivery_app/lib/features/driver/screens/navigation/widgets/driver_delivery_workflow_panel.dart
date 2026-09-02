@@ -130,6 +130,7 @@ class DriverDeliveryWorkflowPanel extends StatelessWidget {
             _DestinationCard(
               address: address,
               isDelivery: isDelivery,
+              contactRoleLabel: workflow.contactRoleLabel,
               recipientName: order.recipientName,
               recipientPhone: order.recipientPhone,
               remainingDistanceMeters: remainingDistanceMeters,
@@ -243,6 +244,7 @@ class _DestinationCard extends StatelessWidget {
   const _DestinationCard({
     required this.address,
     required this.isDelivery,
+    required this.contactRoleLabel,
     required this.recipientName,
     required this.recipientPhone,
     required this.remainingDistanceMeters,
@@ -252,6 +254,7 @@ class _DestinationCard extends StatelessWidget {
 
   final String address;
   final bool isDelivery;
+  final String contactRoleLabel;
   final String? recipientName;
   final String? recipientPhone;
   final double? remainingDistanceMeters;
@@ -280,6 +283,15 @@ class _DestinationCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Text(
+                  contactRoleLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: accent,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
                 if (isDelivery && recipientName?.trim().isNotEmpty == true)
                   Text(
                     recipientName!.trim(),

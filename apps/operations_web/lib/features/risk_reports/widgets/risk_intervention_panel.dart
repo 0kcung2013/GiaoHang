@@ -28,6 +28,7 @@ class RiskInterventionPanel extends StatefulWidget {
     required this.onAddNote,
     this.notes = const [],
     this.canManage = true,
+    this.canAddNote,
     this.managementBlockedMessage,
     super.key,
   });
@@ -43,6 +44,7 @@ class RiskInterventionPanel extends StatefulWidget {
   final Future<void> Function(String body) onAddNote;
   final List<RiskReportNote> notes;
   final bool canManage;
+  final bool? canAddNote;
   final String? managementBlockedMessage;
 
   @override
@@ -65,59 +67,20 @@ class _RiskInterventionPanelState extends State<RiskInterventionPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  color: AppColors.accentLight,
-                  borderRadius: AppRadius.md,
-                ),
-                child: const Icon(
-                  Icons.alt_route_rounded,
-                  size: 21,
-                  color: AppColors.accent,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Can thiệp vận hành',
-                      style: AppTextStyles.headingSmall,
-                    ),
-                    Text(
-                      'Quyết định luồng giao và lưu thông tin xử lý',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.bgLight,
-              borderRadius: AppRadius.md,
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: _operationalActions(context),
+          Text('Xác minh đơn hàng', style: AppTextStyles.headingSmall),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Chọn hướng xử lý phù hợp',
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.textSecondary,
             ),
           ),
           const SizedBox(height: AppSpacing.md),
+          ..._operationalActions(context),
+          const SizedBox(height: AppSpacing.md),
           RiskInternalNotesSection(
             notes: widget.notes,
-            canManage: widget.canManage,
+            canManage: widget.canAddNote ?? widget.canManage,
             onAddNote: widget.onAddNote,
           ),
         ],
@@ -134,9 +97,6 @@ class _RiskInterventionPanelState extends State<RiskInterventionPanel> {
               'Chỉ nhân viên đang phụ trách mới được can thiệp đơn.',
         ),
       ];
-    }
-    if (widget.report.status == RiskStatus.open) {
-      return [_InfoText('Tiếp nhận báo cáo trước khi can thiệp đơn.')];
     }
     if (intervention.state == RiskInterventionState.awaitingTriage) {
       if (widget.orderStatus == 'assigned') {
@@ -156,25 +116,17 @@ class _RiskInterventionPanelState extends State<RiskInterventionPanel> {
             runSpacing: AppSpacing.sm,
             children: [
               _PanelButton(
+                key: const Key('continue-delivery-button'),
                 label: 'Tiếp tục giao',
                 icon: Icons.play_arrow_rounded,
                 onTap: _busy ? null : _confirmContinueDelivery,
               ),
               _PanelButton(
-                label: 'Yêu cầu hoàn trả',
+                key: const Key('return-order-button'),
+                label: 'Hoàn hàng',
                 icon: Icons.keyboard_return_rounded,
                 secondary: true,
                 onTap: _busy ? null : _requestReturn,
-              ),
-              _PanelButton(
-                label: 'Yêu cầu bàn giao',
-                icon: Icons.handshake_outlined,
-                secondary: true,
-                onTap: _busy
-                    ? null
-                    : () => _requestInstruction(
-                        RiskInterventionState.handoffRequired,
-                      ),
               ),
             ],
           ),
@@ -326,6 +278,7 @@ class _InfoText extends StatelessWidget {
 
 class _PanelButton extends StatelessWidget {
   const _PanelButton({
+    super.key,
     required this.label,
     required this.icon,
     required this.onTap,

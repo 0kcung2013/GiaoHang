@@ -134,7 +134,10 @@ class SupabaseRiskReportRepository
     updated_at,
     reporter:users!risk_reports_reported_by_fkey(
       full_name,
-      role
+      role,
+      avatar_url,
+      phone,
+      email
     ),
     assignee:users!risk_reports_assigned_to_fkey(
       full_name

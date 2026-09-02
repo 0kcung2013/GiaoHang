@@ -69,6 +69,7 @@ class DriverWalletTransaction {
       status == 'completed' &&
       (type == 'prepaid_earning' ||
           type == 'cod_settlement' ||
+          type == 'return_delivery_earning' ||
           type == 'return_earning');
 
   /// Capture cũ chỉ chuyển khoản đã giữ nên không hiện lần trừ thứ hai.
@@ -84,7 +85,8 @@ class DriverWalletTransaction {
     'platform_fee_capture' => 'Phí nền tảng (chính sách cũ)',
     'prepaid_earning' => 'Thu nhập trả trước',
     'cod_settlement' => 'Thu nhập COD',
-    'return_earning' => 'Thu nhập hoàn hàng',
+    'return_delivery_earning' => 'Cước giao của đơn hoàn',
+    'return_earning' => 'Phí hoàn hàng',
     _ => 'Giao dịch ví',
   };
 }

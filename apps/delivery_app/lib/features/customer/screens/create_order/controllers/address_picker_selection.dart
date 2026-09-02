@@ -67,7 +67,7 @@ extension AddressPickerSelection on AddressPickerController {
 
     if (resolvedAddress != null &&
         !resolvedAddress!.hasHouseNumber &&
-        detailController.text.trim().length < 3) {
+        detailController.text.trim().isEmpty) {
       detailError = AddressPickerStrings.addressDetailRequired;
     }
 

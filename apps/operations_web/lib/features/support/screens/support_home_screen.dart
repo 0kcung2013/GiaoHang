@@ -53,7 +53,8 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
       if (query.isEmpty) return true;
       return ticket.subject.toLowerCase().contains(query) ||
           ticket.message.toLowerCase().contains(query) ||
-          ticket.customerId.toLowerCase().contains(query) ||
+          ticket.requesterId.toLowerCase().contains(query) ||
+          (ticket.requesterName?.toLowerCase().contains(query) ?? false) ||
           (ticket.orderId?.toLowerCase().contains(query) ?? false);
     }).toList();
     tickets.sort((left, right) {

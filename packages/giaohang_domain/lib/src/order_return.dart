@@ -65,6 +65,18 @@ enum ReturnQuoteSource {
       : ReturnQuoteSource.fallback;
 }
 
+abstract final class OrderReturnPricingPolicy {
+  static const int returnFeeRateBps = 5000;
+
+  static int calculateReturnFee(int deliveryFee) {
+    if (deliveryFee <= 0) return 0;
+    return (deliveryFee * returnFeeRateBps + 5000) ~/ 10000;
+  }
+
+  static int calculateTotalDriverEarning(int deliveryFee) =>
+      deliveryFee + calculateReturnFee(deliveryFee);
+}
+
 class OrderReturn {
   const OrderReturn({
     required this.id,

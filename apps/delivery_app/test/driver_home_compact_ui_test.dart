@@ -59,6 +59,24 @@ void main() {
     expect(find.byType(Switch), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('active delivery keeps availability on and locked', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _AvailabilityPreview(
+        driver: _driver(isAvailable: false),
+        hasActiveOrder: true,
+        textScaler: TextScaler.noScaling,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final toggle = tester.widget<Switch>(find.byType(Switch));
+    expect(find.text(DriverHomeStrings.activityBusy), findsOneWidget);
+    expect(toggle.value, isTrue);
+    expect(toggle.onChanged, isNull);
+  });
 }
 
 Future<void> _setTestViewport(WidgetTester tester, Size size) async {

@@ -12,7 +12,6 @@ class ReturnRouteQuote {
     required this.distanceMeters,
     required this.durationSeconds,
     required this.source,
-    required this.suggestedFee,
   });
 
   final double originLat;
@@ -20,7 +19,6 @@ class ReturnRouteQuote {
   final int distanceMeters;
   final int durationSeconds;
   final ReturnQuoteSource source;
-  final int suggestedFee;
 }
 
 typedef ReturnIncidentOriginLoader =
@@ -165,16 +163,12 @@ class ReturnRouteQuoteService {
     required int duration,
     required ReturnQuoteSource source,
   }) {
-    final fee = DeliveryPricingPolicy.calculate(
-      distanceMeters: distance.toDouble(),
-    ).total.round();
     return ReturnRouteQuote(
       originLat: origin.$1,
       originLng: origin.$2,
       distanceMeters: distance,
       durationSeconds: duration,
       source: source,
-      suggestedFee: fee,
     );
   }
 

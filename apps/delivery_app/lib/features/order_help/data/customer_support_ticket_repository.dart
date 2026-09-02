@@ -1,35 +1,36 @@
 import 'package:giaohang_domain/giaohang_domain.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-abstract interface class CustomerSupportTicketRepository {
+abstract interface class ParticipantSupportTicketRepository {
   Future<SupportTicket> create(SupportTicketDraft draft);
   Future<List<SupportTicket>> fetchForOrder(String orderId);
   Stream<List<SupportTicket>> watchForOrder(String orderId);
 }
 
-abstract interface class CustomerSupportConversationRepository {
+abstract interface class ParticipantSupportConversationRepository {
   Future<List<CaseMessage>> fetchMessages(String ticketId);
+  Stream<List<CaseMessage>> watchMessages(String ticketId);
   Future<void> postMessage(String ticketId, String body);
 }
 
-class SupabaseCustomerSupportTicketRepository
+class SupabaseParticipantSupportTicketRepository
     implements
-        CustomerSupportTicketRepository,
-        CustomerSupportConversationRepository {
-  SupabaseCustomerSupportTicketRepository({SupabaseClient? client})
+        ParticipantSupportTicketRepository,
+        ParticipantSupportConversationRepository {
+  SupabaseParticipantSupportTicketRepository({SupabaseClient? client})
     : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
 
   static const _selection =
-      'id, order_id, customer_id, assigned_to, subject, message, '
+      'id, order_id, requester_id, assigned_to, subject, message, '
       'risk_report_id, resolution, status, priority, first_response_at, '
       'response_due_at, escalated_at, created_at, updated_at';
 
   @override
   Future<SupportTicket> create(SupportTicketDraft draft) async {
     final userId = _client.auth.currentUser?.id;
-    if (userId == null || userId != draft.customerId) {
+    if (userId == null || userId != draft.requesterId) {
       throw const CustomerSupportTicketException(
         'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
       );
@@ -39,7 +40,7 @@ class SupabaseCustomerSupportTicketRepository
       final row = await _client
           .from('support_tickets')
           .insert({
-            'customer_id': userId,
+            'requester_id': userId,
             'created_by': userId,
             'order_id': draft.orderId,
             'subject': draft.subject.trim(),
@@ -99,6 +100,20 @@ class SupabaseCustomerSupportTicketRepository
   }
 
   @override
+  Stream<List<CaseMessage>> watchMessages(String ticketId) {
+    return _client
+        .from('support_ticket_messages')
+        .stream(primaryKey: ['id'])
+        .eq('ticket_id', ticketId)
+        .order('created_at')
+        .map(
+          (rows) => rows
+              .map((row) => CaseMessage.fromJson(row, caseIdKey: 'ticket_id'))
+              .toList(),
+        );
+  }
+
+  @override
   Future<void> postMessage(String ticketId, String body) async {
     try {
       await _client.rpc(
@@ -116,6 +131,17 @@ class SupabaseCustomerSupportTicketRepository
     }
   }
 }
+
+@Deprecated('Use ParticipantSupportTicketRepository')
+typedef CustomerSupportTicketRepository = ParticipantSupportTicketRepository;
+
+@Deprecated('Use ParticipantSupportConversationRepository')
+typedef CustomerSupportConversationRepository =
+    ParticipantSupportConversationRepository;
+
+@Deprecated('Use SupabaseParticipantSupportTicketRepository')
+typedef SupabaseCustomerSupportTicketRepository =
+    SupabaseParticipantSupportTicketRepository;
 
 class CustomerSupportTicketException implements Exception {
   const CustomerSupportTicketException(this.message);

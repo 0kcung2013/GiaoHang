@@ -7,6 +7,21 @@ import 'package:giaohang_domain/giaohang_domain.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
+  test('first persisted driver state stays offline on cold start', () async {
+    final service = _MemoryDriverService(isAvailable: false);
+    final container = ProviderContainer(
+      overrides: [driverServiceProvider.overrideWithValue(service)],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(
+      driverColdStartAvailabilityProvider('driver-user-1').future,
+    );
+
+    expect(service.isAvailable, isFalse);
+    expect(service.availabilityWrites, isZero);
+  });
+
   test('reload preserves the online state stored on the server', () async {
     final service = _MemoryDriverService(isAvailable: true);
     final container = ProviderContainer(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
@@ -12,7 +14,7 @@ import 'order_help_event_row.dart';
 Future<void> showSupportTicketProgressSheet(
   BuildContext context,
   SupportTicket ticket,
-  CustomerSupportTicketRepository repository,
+  ParticipantSupportTicketRepository repository,
 ) {
   return showModalBottomSheet<void>(
     context: context,
@@ -31,7 +33,7 @@ class _SupportProgressLoader extends StatefulWidget {
   });
 
   final SupportTicket ticket;
-  final CustomerSupportTicketRepository repository;
+  final ParticipantSupportTicketRepository repository;
 
   @override
   State<_SupportProgressLoader> createState() => _SupportProgressLoaderState();
@@ -39,28 +41,50 @@ class _SupportProgressLoader extends StatefulWidget {
 
 class _SupportProgressLoaderState extends State<_SupportProgressLoader> {
   List<CaseMessage>? _messages;
+  StreamSubscription<List<CaseMessage>>? _messageSubscription;
 
   @override
   void initState() {
     super.initState();
+    _subscribeToMessages();
     _loadMessages();
+  }
+
+  @override
+  void dispose() {
+    unawaited(_messageSubscription?.cancel());
+    super.dispose();
+  }
+
+  void _subscribeToMessages() {
+    final repository = widget.repository;
+    if (repository is! ParticipantSupportConversationRepository) return;
+    final conversations =
+        repository as ParticipantSupportConversationRepository;
+    _messageSubscription = conversations.watchMessages(widget.ticket.id).listen(
+      (messages) {
+        if (mounted) setState(() => _messages = messages);
+      },
+    );
   }
 
   Future<void> _loadMessages() async {
     final repository = widget.repository;
-    if (repository is! CustomerSupportConversationRepository) {
+    if (repository is! ParticipantSupportConversationRepository) {
       if (mounted) setState(() => _messages = const []);
       return;
     }
-    final conversations = repository as CustomerSupportConversationRepository;
+    final conversations =
+        repository as ParticipantSupportConversationRepository;
     final messages = await conversations.fetchMessages(widget.ticket.id);
     if (mounted) setState(() => _messages = messages);
   }
 
   Future<void> _send(String body) async {
     final repository = widget.repository;
-    if (repository is! CustomerSupportConversationRepository) return;
-    final conversations = repository as CustomerSupportConversationRepository;
+    if (repository is! ParticipantSupportConversationRepository) return;
+    final conversations =
+        repository as ParticipantSupportConversationRepository;
     await conversations.postMessage(widget.ticket.id, body);
     await _loadMessages();
   }

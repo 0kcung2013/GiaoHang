@@ -36,7 +36,7 @@ class _AvailabilityToggleCardState
   bool _isToggling = false;
 
   Future<void> _toggle(bool value) async {
-    if (_isToggling) return;
+    if (_isToggling || (widget.hasActiveOrder && !value)) return;
     setState(() => _isToggling = true);
 
     try {
@@ -122,6 +122,7 @@ class _AvailabilityToggleCardState
   Widget build(BuildContext context) {
     final isOnline = widget.driver.isAvailable;
     final isBusy = widget.hasActiveOrder;
+    final isToggleOn = isOnline || isBusy;
     final statusLabel = isBusy
         ? DriverHomeStrings.activityBusy
         : isOnline
@@ -216,8 +217,8 @@ class _AvailabilityToggleCardState
                     value: statusLabel,
                     child: Switch(
                       key: const ValueKey('switch'),
-                      value: isOnline,
-                      onChanged: _toggle,
+                      value: isToggleOn,
+                      onChanged: isBusy ? null : _toggle,
                       activeThumbColor: AppColors.textOnAccent,
                       activeTrackColor: AppColors.accent,
                       inactiveThumbColor: AppColors.bgCard,

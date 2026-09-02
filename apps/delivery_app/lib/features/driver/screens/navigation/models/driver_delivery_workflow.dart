@@ -54,6 +54,30 @@ class DriverDeliveryWorkflow {
     return !requiresArrival || arrivedAtTarget;
   }
 
+  bool get contactsRecipient =>
+      action == DriverDeliveryAction.startDelivery ||
+      action == DriverDeliveryAction.confirmDelivery ||
+      stepIndex == 3;
+
+  bool get allowsContactChat =>
+      action == DriverDeliveryAction.startPickupJourney ||
+      action == DriverDeliveryAction.confirmPickup;
+
+  String get contactRoleLabel => contactsRecipient
+      ? DriverNavigationStrings.recipientRole
+      : DriverNavigationStrings.senderRole;
+
+  String get contactActionTooltip => DriverNavigationStrings.contactOrder;
+
+  String get contactTitle => contactsRecipient
+      ? DriverNavigationStrings.contactRecipient
+      : DriverNavigationStrings.contactSender;
+
+  String get callContactLabel => DriverNavigationStrings.callContact;
+
+  String? get chatContactLabel =>
+      allowsContactChat ? DriverNavigationStrings.messageSender : null;
+
   static DriverDeliveryWorkflow fromStatus(
     String status, {
     bool pickupConfirmed = false,

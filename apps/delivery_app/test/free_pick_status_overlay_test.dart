@@ -13,13 +13,13 @@ void main() {
             count: 2,
             isLoading: false,
             isEnabled: true,
+            radiusMeters: 3000,
           ),
         ),
       ),
     );
 
-    expect(find.text('2 đơn có thể nhận'), findsOneWidget);
-    expect(find.textContaining('ngoài 2 km'), findsNothing);
+    expect(find.text('2 đơn tự chọn • 3 km'), findsOneWidget);
   });
 
   testWidgets('uses neutral loading copy for the searchable viewport', (
@@ -32,12 +32,31 @@ void main() {
             count: 0,
             isLoading: true,
             isEnabled: true,
+            radiusMeters: 2500,
           ),
         ),
       ),
     );
 
-    expect(find.text('Đang tìm đơn có thể nhận'), findsOneWidget);
-    expect(find.textContaining('ngoài vùng tự động'), findsNothing);
+    expect(find.text('Đang tìm đơn trong 2,5 km'), findsOneWidget);
+  });
+
+  testWidgets('prompts expansion at the default automatic radius', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: FreePickStatusOverlay(
+            count: 0,
+            isLoading: false,
+            isEnabled: true,
+            radiusMeters: 2000,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Mở rộng bán kính để tìm đơn'), findsOneWidget);
   });
 }

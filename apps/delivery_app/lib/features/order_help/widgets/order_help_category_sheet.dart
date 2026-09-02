@@ -20,6 +20,12 @@ class _OrderHelpCategorySheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final supportOptions = customerOrderHelpOptions
+        .where((option) => option.channel == OrderHelpChannel.support)
+        .toList();
+    final riskOptions = customerOrderHelpOptions
+        .where((option) => option.channel == OrderHelpChannel.risk)
+        .toList();
     return FractionallySizedBox(
       heightFactor: 0.86,
       child: DecoratedBox(
@@ -32,23 +38,44 @@ class _OrderHelpCategorySheet extends StatelessWidget {
           children: [
             _Header(onClose: () => Navigator.pop(context)),
             Expanded(
-              child: ListView.separated(
+              child: ListView(
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.screenH,
                   AppSpacing.md,
                   AppSpacing.screenH,
                   AppSpacing.xl2,
                 ),
-                itemCount: customerOrderHelpOptions.length,
-                separatorBuilder: (_, _) =>
+                children: [
+                  const _ChannelHeader(
+                    icon: Icons.support_agent_rounded,
+                    title: OrderHelpStrings.supportChannel,
+                    subtitle: OrderHelpStrings.supportChannelHint,
+                    color: AppColors.info,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  for (final option in supportOptions) ...[
+                    _OptionTile(
+                      option: option,
+                      onTap: () => Navigator.pop(context, option),
+                    ),
                     const SizedBox(height: AppSpacing.sm),
-                itemBuilder: (context, index) {
-                  final option = customerOrderHelpOptions[index];
-                  return _OptionTile(
-                    option: option,
-                    onTap: () => Navigator.pop(context, option),
-                  );
-                },
+                  ],
+                  const SizedBox(height: AppSpacing.md),
+                  const _ChannelHeader(
+                    icon: Icons.report_problem_outlined,
+                    title: OrderHelpStrings.reportChannel,
+                    subtitle: OrderHelpStrings.reportChannelHint,
+                    color: AppColors.error,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  for (final option in riskOptions) ...[
+                    _OptionTile(
+                      option: option,
+                      onTap: () => Navigator.pop(context, option),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
+                ],
               ),
             ),
           ],
@@ -56,6 +83,50 @@ class _OrderHelpCategorySheet extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ChannelHeader extends StatelessWidget {
+  const _ChannelHeader({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: AppRadius.md,
+        ),
+        child: Icon(icon, color: color, size: 21),
+      ),
+      const SizedBox(width: AppSpacing.md),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: AppTextStyles.headingSmall),
+            Text(
+              subtitle,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
 }
 
 class _Header extends StatelessWidget {

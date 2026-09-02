@@ -41,6 +41,7 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
   String? _error;
   bool _submitting = false;
   bool _attachingEvidence = false;
+  bool _acceptedInline = false;
 
   @override
   void initState() {
@@ -160,18 +161,6 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
     }
   }
 
-  Future<void> _assignToMe() async {
-    setState(() => _submitting = true);
-    try {
-      await widget.repository.assignToMe(widget.report.id);
-      if (mounted) Navigator.pop(context, true);
-    } catch (_) {
-      if (mounted) setState(() => _error = 'Không thể nhận báo cáo này.');
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
-  }
-
   Future<void> _takeOver() async {
     final repository = widget.repository;
     if (repository is! RiskOwnershipCommandRepository) return;
@@ -203,7 +192,10 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
     await _loadEvents();
   }
 
-  Future<void> _changeStatus(RiskStatus status) async {
+  Future<void> _changeStatus(
+    RiskStatus status, {
+    bool acceptIfNeeded = false,
+  }) async {
     String? resolution;
     if (RiskReportPolicy.requiresResolution(status)) {
       resolution = await showRiskResolutionDialog(context, status);
@@ -212,6 +204,7 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
 
     setState(() => _submitting = true);
     try {
+      if (acceptIfNeeded) await _acceptReportIfNeeded();
       await widget.repository.changeStatus(
         widget.report.id,
         status,
@@ -230,12 +223,14 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
   Future<void> _runIntervention(
     Future<void> Function(RiskInterventionCommandRepository commands) action, {
     bool closeAfter = true,
+    bool acceptIfNeeded = false,
   }) async {
     final repository = widget.repository;
     if (repository is! RiskInterventionCommandRepository) return;
     final commands = repository as RiskInterventionCommandRepository;
     setState(() => _submitting = true);
     try {
+      if (acceptIfNeeded) await _acceptReportIfNeeded();
       await action(commands);
       if (!mounted) return;
       if (closeAfter) {
@@ -252,9 +247,27 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
     }
   }
 
+  Future<void> _acceptReportIfNeeded() async {
+    final report = widget.report;
+    if (_acceptedInline ||
+        report.assignedTo != null ||
+        report.status != RiskStatus.open) {
+      return;
+    }
+    final repository = widget.repository;
+    if (repository is RiskInterventionCommandRepository) {
+      final commands = repository as RiskInterventionCommandRepository;
+      await commands.acceptReport(report.id);
+    } else {
+      await repository.assignToMe(report.id);
+    }
+    _acceptedInline = true;
+  }
+
   Future<void> _approveReturn(ReturnApprovalDraft draft) async {
     setState(() => _submitting = true);
     try {
+      await _acceptReportIfNeeded();
       await SupportOrderReturnRepository(
         Supabase.instance.client,
       ).approve(draft);
@@ -282,6 +295,15 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
         _intervention?.state == RiskInterventionState.returnRequired;
     final criticalRestricted =
         report.severity == RiskSeverity.critical && !widget.isAdmin;
+    final unassignedOpen =
+        report.assignedTo == null && report.status == RiskStatus.open;
+    final hasInlineFirstAction = RiskReportPolicy.hasInlineFirstAction(
+      orderStatus: report.order.status,
+      interventionState: _intervention?.state,
+    );
+    final showDirectStatusFallback = unassignedOpen && !hasInlineFirstAction;
+    final actsAsOwner =
+        report.assignedTo == widget.currentUserId || showDirectStatusFallback;
     final screen = MediaQuery.sizeOf(context);
 
     return Dialog(
@@ -289,7 +311,7 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
       backgroundColor: Colors.transparent,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: 880,
+          maxWidth: 1120,
           maxHeight: screen.height - AppSpacing.xl3,
         ),
         child: Material(
@@ -312,7 +334,10 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
                   notes: _notes,
                   attachments: _attachments,
                   messageEvidence: _messageEvidence,
-                  availableMessages: _availableMessages,
+                  availableMessages: availableRiskOrderMessages(
+                    messages: _orderMessages ?? const [],
+                    evidence: _messageEvidence ?? const [],
+                  ),
                   evidenceLoading:
                       _messageEvidence == null || _orderMessages == null,
                   attachingEvidence: _attachingEvidence,
@@ -324,6 +349,7 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
                   error: _error,
                   onHoldBeforePickup: () => _runIntervention(
                     (commands) => commands.holdBeforePickup(report.id),
+                    acceptIfNeeded: true,
                   ),
                   onDecision: (decision, instruction) => _runIntervention(
                     (commands) => commands.decideOperation(
@@ -331,6 +357,7 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
                       decision,
                       instruction: instruction,
                     ),
+                    acceptIfNeeded: true,
                   ),
                   onApproveReturn: _approveReturn,
                   onConfirmCustody: () => _runIntervention(
@@ -343,36 +370,30 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
                     await commands.addInternalNote(report.id, body);
                     await _loadNotes();
                   }, closeAfter: false),
+                  showSeverity: widget.isAdmin,
                 ),
               ),
-              RiskReportActionBar(
-                assignedToMe: report.assignedTo == widget.currentUserId,
-                unassigned: report.assignedTo == null,
-                submitting: _submitting,
-                transitions: transitions,
-                statusLocked: statusLocked,
-                onAssign: _assignToMe,
-                canTakeOver:
-                    widget.isAdmin &&
-                    report.assignedTo != null &&
-                    report.assignedTo != widget.currentUserId,
-                onTakeOver: _takeOver,
-                onTransition: _changeStatus,
-              ),
+              if (report.assignedTo != null || showDirectStatusFallback)
+                RiskReportActionBar(
+                  assignedToMe: actsAsOwner,
+                  unassigned: false,
+                  submitting: _submitting,
+                  transitions: transitions,
+                  statusLocked: statusLocked,
+                  onAssign: () {},
+                  canTakeOver:
+                      widget.isAdmin &&
+                      report.assignedTo != widget.currentUserId,
+                  onTakeOver: _takeOver,
+                  onTransition: (status) => _changeStatus(
+                    status,
+                    acceptIfNeeded: showDirectStatusFallback,
+                  ),
+                ),
             ],
           ),
         ),
       ),
     );
-  }
-
-  List<RiskOrderMessage> get _availableMessages {
-    final attachedIds = (_messageEvidence ?? const <RiskMessageEvidence>[])
-        .map((item) => item.sourceMessageId)
-        .whereType<String>()
-        .toSet();
-    return (_orderMessages ?? const <RiskOrderMessage>[])
-        .where((message) => !attachedIds.contains(message.id))
-        .toList();
   }
 }

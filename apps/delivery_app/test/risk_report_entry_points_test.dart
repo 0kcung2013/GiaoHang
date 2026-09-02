@@ -30,6 +30,9 @@ void main() {
   final driverAction = File(
     'lib/features/driver/screens/navigation/widgets/driver_risk_action.dart',
   );
+  final driverHelpActions = File(
+    'lib/features/driver/screens/navigation/widgets/driver_help_actions.dart',
+  ).readAsStringSync();
 
   testWidgets('customer gets labeled help actions in detail and tracking', (
     tester,
@@ -56,23 +59,24 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test('driver action stays separate from primary delivery progression', () {
+  test('driver help actions stay on navigation but off the order card', () {
     expect(driverAction.existsSync(), isTrue);
-    expect(driverNavigation, contains('DriverRiskAction('));
-    expect(driverNavigation, contains('order: order'));
-    expect(driverCard, contains('DriverRiskAction(order: order)'));
+    expect(driverNavigation, contains('DriverHelpActions('));
+    expect(driverCard, isNot(contains('DriverHelpActions(')));
+    expect(driverHelpActions, contains('DriverRiskAction('));
+    expect(driverHelpActions, contains('order: order'));
     final source = driverAction.readAsStringSync();
     expect(source, contains('RiskReporterRole.driver'));
     expect(source, isNot(contains('onPrimaryAction')));
   });
 
-  test('available unassigned orders do not expose driver reporting', () {
-    expect(driverCard, contains('if (!canAccept'));
-    expect(driverCard, contains('DriverRiskAction(order: order)'));
+  test('driver order card does not expose driver reporting', () {
+    expect(driverCard, isNot(contains('DriverHelpActions(')));
+    expect(driverCard, isNot(contains('DriverRiskAction(')));
   });
 }
 
-class _EmptySupportRepository implements CustomerSupportTicketRepository {
+class _EmptySupportRepository implements ParticipantSupportTicketRepository {
   const _EmptySupportRepository();
 
   @override

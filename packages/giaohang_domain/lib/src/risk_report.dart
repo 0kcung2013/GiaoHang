@@ -184,6 +184,9 @@ class RiskReport {
     this.component,
     this.reporterRole = RiskReporterRole.unknown,
     this.reporterName,
+    this.reporterAvatarUrl,
+    this.reporterPhone,
+    this.reporterEmail,
     this.assignedToName,
     this.triageDueAt,
     this.firstResponseAt,
@@ -209,6 +212,9 @@ class RiskReport {
   final RiskOrderSummary order;
   final RiskReporterRole reporterRole;
   final String? reporterName;
+  final String? reporterAvatarUrl;
+  final String? reporterPhone;
+  final String? reporterEmail;
   final String? assignedToName;
   final DateTime? triageDueAt;
   final DateTime? firstResponseAt;
@@ -257,6 +263,15 @@ class RiskReport {
       reporterName:
           reporterJson['full_name']?.toString() ??
           json['reporter_name']?.toString(),
+      reporterAvatarUrl:
+          reporterJson['avatar_url']?.toString() ??
+          json['reporter_avatar_url']?.toString(),
+      reporterPhone:
+          reporterJson['phone']?.toString() ??
+          json['reporter_phone']?.toString(),
+      reporterEmail:
+          reporterJson['email']?.toString() ??
+          json['reporter_email']?.toString(),
       assignedToName:
           assigneeJson['full_name']?.toString() ??
           json['assigned_to_name']?.toString(),
@@ -290,6 +305,9 @@ class RiskReport {
     'orders': order.toJson(),
     'reporter_role_snapshot': reporterRole.name,
     'reporter_name': reporterName,
+    'reporter_avatar_url': reporterAvatarUrl,
+    'reporter_phone': reporterPhone,
+    'reporter_email': reporterEmail,
     'assigned_to_name': assignedToName,
     'triage_due_at': triageDueAt?.toUtc().toIso8601String(),
     'first_response_at': firstResponseAt?.toUtc().toIso8601String(),

@@ -24,7 +24,7 @@ class CreateSupportTicketDialog extends StatefulWidget {
 
 class _CreateSupportTicketDialogState extends State<CreateSupportTicketDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _customer = TextEditingController();
+  final _requester = TextEditingController();
   final _order = TextEditingController();
   final _subject = TextEditingController();
   final _message = TextEditingController();
@@ -32,7 +32,7 @@ class _CreateSupportTicketDialogState extends State<CreateSupportTicketDialog> {
 
   @override
   void dispose() {
-    _customer.dispose();
+    _requester.dispose();
     _order.dispose();
     _subject.dispose();
     _message.dispose();
@@ -64,10 +64,10 @@ class _CreateSupportTicketDialogState extends State<CreateSupportTicketDialog> {
                   child: Column(
                     children: [
                       TextFormField(
-                        controller: _customer,
+                        controller: _requester,
                         decoration: _fieldDecoration(
-                          label: 'Mã khách hàng *',
-                          hint: 'UUID khách hàng',
+                          label: 'Mã người yêu cầu *',
+                          hint: 'UUID khách hàng hoặc tài xế',
                           icon: Icons.person_outline_rounded,
                         ),
                         validator: _required,
@@ -102,7 +102,7 @@ class _CreateSupportTicketDialogState extends State<CreateSupportTicketDialog> {
                         maxLength: 4000,
                         decoration: _fieldDecoration(
                           label: 'Nội dung *',
-                          hint: 'Ghi lại thông tin khách hàng cung cấp',
+                          hint: 'Ghi lại thông tin người dùng cung cấp',
                           icon: Icons.notes_rounded,
                         ),
                         validator: _required,
@@ -150,8 +150,8 @@ class _CreateSupportTicketDialogState extends State<CreateSupportTicketDialog> {
     Navigator.pop(
       context,
       SupportTicketDraft(
-        customerId: _customer.text.trim(),
-        orderId: _order.text.trim(),
+        requesterId: _requester.text.trim(),
+        orderId: _order.text.trim().isEmpty ? null : _order.text.trim(),
         subject: _subject.text.trim(),
         message: _message.text.trim(),
         priority: _priority,

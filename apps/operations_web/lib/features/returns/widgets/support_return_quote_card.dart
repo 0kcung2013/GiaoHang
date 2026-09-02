@@ -8,36 +8,45 @@ class SupportReturnQuoteCard extends StatelessWidget {
   const SupportReturnQuoteCard({
     required this.quote,
     required this.payer,
+    required this.deliveryFee,
     super.key,
   });
 
   final ReturnRouteQuote quote;
   final ReturnFeePayer payer;
+  final int deliveryFee;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(AppSpacing.lg),
-    decoration: const BoxDecoration(
-      color: AppColors.bgLight,
-      borderRadius: AppRadius.lg,
-    ),
-    child: Wrap(
-      spacing: AppSpacing.xl,
-      runSpacing: AppSpacing.sm,
-      children: [
-        _value(
-          'Quãng hoàn',
-          '${(quote.distanceMeters / 1000).toStringAsFixed(1)} km',
-        ),
-        _value('Dự kiến', '${(quote.durationSeconds / 60).ceil()} phút'),
-        _value('Thu nhập tài xế', _vnd(quote.suggestedFee)),
-        _value(
-          'Khách thanh toán',
-          _vnd(payer == ReturnFeePayer.customer ? quote.suggestedFee : 0),
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final returnFee = OrderReturnPricingPolicy.calculateReturnFee(deliveryFee);
+    final totalDriverEarning =
+        OrderReturnPricingPolicy.calculateTotalDriverEarning(deliveryFee);
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: const BoxDecoration(
+        color: AppColors.bgLight,
+        borderRadius: AppRadius.lg,
+      ),
+      child: Wrap(
+        spacing: AppSpacing.xl,
+        runSpacing: AppSpacing.sm,
+        children: [
+          _value(
+            'Quãng hoàn',
+            '${(quote.distanceMeters / 1000).toStringAsFixed(1)} km',
+          ),
+          _value('Dự kiến', '${(quote.durationSeconds / 60).ceil()} phút'),
+          _value('Cước giao gốc', _vnd(deliveryFee)),
+          _value('Phí hoàn hàng (50%)', _vnd(returnFee)),
+          _value('Tổng tài xế nhận', _vnd(totalDriverEarning)),
+          _value(
+            'Khách trả thêm',
+            _vnd(payer == ReturnFeePayer.customer ? returnFee : 0),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _value(String label, String value) => SizedBox(
     width: 135,

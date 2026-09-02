@@ -59,4 +59,10 @@ void main() {
     expect(draft.toRpcParams(), containsPair('p_destination_type', 'sender'));
     expect(draft.toRpcParams(), containsPair('p_route_distance_m', 4000));
   });
+
+  test('return fee is 50 percent of the original delivery fee', () {
+    expect(OrderReturnPricingPolicy.calculateReturnFee(40000), 20000);
+    expect(OrderReturnPricingPolicy.calculateReturnFee(25001), 12501);
+    expect(OrderReturnPricingPolicy.calculateTotalDriverEarning(40000), 60000);
+  });
 }

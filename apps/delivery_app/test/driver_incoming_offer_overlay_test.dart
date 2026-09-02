@@ -1,5 +1,6 @@
 import 'package:delivery_app/core/models/order_model.dart';
 import 'package:delivery_app/features/driver/screens/home/driver_home_strings.dart';
+import 'package:delivery_app/features/driver/screens/home/utils/driver_order_distance.dart';
 import 'package:delivery_app/features/driver/screens/home/widgets/driver_incoming_offer_overlay.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,6 +37,7 @@ void main() {
               child: DriverIncomingOfferOverlay(
                 order: _order(),
                 driverUserId: 'driver-user-1',
+                pickupDistanceMeters: 1200,
               ),
             ),
           ),
@@ -50,6 +52,20 @@ void main() {
     expect(find.text(DriverHomeStrings.incomingOfferTitle), findsOneWidget);
     expect(find.text('12 Nguyễn Huệ, Quận 1'), findsOneWidget);
     expect(find.text('85 Lê Lợi, Quận 1'), findsOneWidget);
+    expect(find.text(DriverHomeStrings.pickupDistanceLabel), findsOneWidget);
+    expect(find.text(DriverHomeStrings.totalDistanceLabel), findsOneWidget);
+    expect(find.text('1.2 km'), findsOneWidget);
+    expect(
+      find.text(
+        distanceKilometersText(
+          totalOrderDistanceFromPickup(
+            order: _order(),
+            pickupDistanceMeters: 1200,
+          ),
+        ),
+      ),
+      findsOneWidget,
+    );
     expect(find.text(DriverHomeStrings.incomingOfferAccept), findsOneWidget);
     expect(find.text(DriverHomeStrings.incomingOfferTransfer), findsOneWidget);
     expect(tester.takeException(), isNull);

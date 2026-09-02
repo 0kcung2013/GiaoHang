@@ -45,6 +45,8 @@ class DriverHomeStrings {
       'Kiểm tra lộ trình và phản hồi trước khi hết giờ.';
   static const incomingOfferAccept = 'Nhận đơn';
   static const incomingOfferTransfer = 'Chuyển đơn';
+  static const pickupDistanceLabel = 'Đến điểm lấy';
+  static const totalDistanceLabel = 'Tổng 2 chặng';
   static const incomingOfferAcceptSuccess = 'Đã nhận đơn hàng.';
   static const incomingOfferTransferSuccess = 'Đã chuyển đơn cho tài xế khác.';
   static const incomingOfferActionError =
@@ -52,6 +54,11 @@ class DriverHomeStrings {
 
   static String incomingOfferSemantic(String orderCode) =>
       'Có đơn hàng mới $orderCode cần phản hồi';
+
+  static String distanceSummarySemantic({
+    required String pickupText,
+    required String totalText,
+  }) => 'Cách điểm lấy $pickupText, tổng quãng đường hai chặng $totalText';
 
   static String offerCountdownSemantic(int seconds) =>
       'Còn $seconds giây để nhận đơn. Hết giờ hệ thống tự chuyển tài xế khác.';

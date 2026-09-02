@@ -81,6 +81,41 @@ void main() {
     expect(report.order.trackingCode, 'GH-00001');
   });
 
+  test('RiskReport preserves the reporter profile used by support UI', () {
+    final report = RiskReport.fromJson({
+      'id': 'report-profile',
+      'order_id': 'order-1',
+      'reported_by': 'customer-1',
+      'category': 'contact_issue',
+      'severity': 'medium',
+      'status': 'open',
+      'title': 'Không liên lạc được',
+      'description': 'Khách hàng cần hỗ trợ.',
+      'created_at': '2026-08-01T10:00:00Z',
+      'updated_at': '2026-08-01T10:05:00Z',
+      'reporter': {
+        'full_name': 'Nguyễn An',
+        'role': 'customer',
+        'avatar_url': 'https://example.com/avatar.jpg',
+        'phone': '0901234567',
+        'email': 'an@example.com',
+      },
+      'orders': {
+        'tracking_code': 'GH-00001',
+        'status': 'delivering',
+        'pickup_address': 'Điểm lấy',
+        'delivery_address': 'Điểm giao',
+      },
+    });
+
+    expect(
+      report.toJson()['reporter_avatar_url'],
+      'https://example.com/avatar.jpg',
+    );
+    expect(report.toJson()['reporter_phone'], '0901234567');
+    expect(report.toJson()['reporter_email'], 'an@example.com');
+  });
+
   test('RiskReport parses an orderless system incident', () {
     final report = RiskReport.fromJson({
       'id': 'report-system',

@@ -222,6 +222,7 @@ class _RiskReportsViewState extends State<RiskReportsView> {
                   child: RiskReportHeader(
                     reports: _reports,
                     onCreate: _createReport,
+                    showMetrics: widget.isAdmin,
                   ),
                 ),
               ),
@@ -256,6 +257,8 @@ class _RiskReportsViewState extends State<RiskReportsView> {
                     onSeverityChanged: (value) =>
                         setState(() => _severity = value),
                     onStatusChanged: (value) => setState(() => _status = value),
+                    showSeverity: widget.isAdmin,
+                    showStatus: widget.isAdmin,
                   ),
                 ),
               ),
@@ -319,6 +322,7 @@ class _RiskReportsViewState extends State<RiskReportsView> {
                     itemBuilder: (context, index) => RiskReportCard(
                       report: filtered[index],
                       currentUserId: _currentUserId,
+                      showSeverity: widget.isAdmin,
                       onTap: () => _openReport(filtered[index]),
                     ),
                   ),

@@ -24,7 +24,7 @@ class CustomerOrderHelpSection extends StatefulWidget {
 
   final OrderModel order;
   final bool compact;
-  final CustomerSupportTicketRepository? supportRepository;
+  final ParticipantSupportTicketRepository? supportRepository;
   final ParticipantRiskReportQueryRepository? riskRepository;
 
   @override
@@ -33,7 +33,7 @@ class CustomerOrderHelpSection extends StatefulWidget {
 }
 
 class _CustomerOrderHelpSectionState extends State<CustomerOrderHelpSection> {
-  late final CustomerSupportTicketRepository _supportRepository;
+  late final ParticipantSupportTicketRepository _supportRepository;
   late final ParticipantRiskReportQueryRepository _riskRepository;
   List<SupportTicket> _tickets = const [];
   List<ParticipantRiskReportSummary> _reports = const [];
@@ -45,7 +45,8 @@ class _CustomerOrderHelpSectionState extends State<CustomerOrderHelpSection> {
   void initState() {
     super.initState();
     _supportRepository =
-        widget.supportRepository ?? SupabaseCustomerSupportTicketRepository();
+        widget.supportRepository ??
+        SupabaseParticipantSupportTicketRepository();
     _riskRepository =
         widget.riskRepository ?? SupabaseParticipantRiskReportQueryRepository();
     _subscribeToUpdates();

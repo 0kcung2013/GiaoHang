@@ -11,7 +11,23 @@ Future<SupportTicket?> showCustomerSupportRequestSheet(
   BuildContext context, {
   required OrderModel order,
   required OrderHelpOption option,
-  required CustomerSupportTicketRepository repository,
+  required ParticipantSupportTicketRepository repository,
+}) {
+  return showParticipantSupportRequestSheet(
+    context,
+    requesterId: order.customerId,
+    order: order,
+    option: option,
+    repository: repository,
+  );
+}
+
+Future<SupportTicket?> showParticipantSupportRequestSheet(
+  BuildContext context, {
+  required String requesterId,
+  required OrderModel order,
+  required OrderHelpOption option,
+  required ParticipantSupportTicketRepository repository,
 }) {
   return showModalBottomSheet<SupportTicket>(
     context: context,
@@ -20,6 +36,7 @@ Future<SupportTicket?> showCustomerSupportRequestSheet(
     backgroundColor: Colors.transparent,
     barrierColor: AppColors.primary.withValues(alpha: 0.42),
     builder: (_) => _CustomerSupportRequestSheet(
+      requesterId: requesterId,
       order: order,
       option: option,
       repository: repository,
@@ -29,14 +46,16 @@ Future<SupportTicket?> showCustomerSupportRequestSheet(
 
 class _CustomerSupportRequestSheet extends StatefulWidget {
   const _CustomerSupportRequestSheet({
+    required this.requesterId,
     required this.order,
     required this.option,
     required this.repository,
   });
 
+  final String requesterId;
   final OrderModel order;
   final OrderHelpOption option;
-  final CustomerSupportTicketRepository repository;
+  final ParticipantSupportTicketRepository repository;
 
   @override
   State<_CustomerSupportRequestSheet> createState() =>
@@ -68,7 +87,7 @@ class _CustomerSupportRequestSheetState
     try {
       final ticket = await widget.repository.create(
         SupportTicketDraft(
-          customerId: widget.order.customerId,
+          requesterId: widget.requesterId,
           orderId: widget.order.id,
           subject: widget.option.label,
           message: message,

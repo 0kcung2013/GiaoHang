@@ -25,6 +25,25 @@ void main() {
     expect(controller.buildResult().addressDetail, startsWith('Số 123'));
   });
 
+  test('accepts a one-digit house number as address detail', () {
+    final controller = AddressPickerController(
+      initialPosition: const LatLng(10.7626, 106.6602),
+      initialSelection: const MapPickerResult(
+        position: LatLng(10.7626, 106.6602),
+        formattedAddress: 'Đường Nguyễn Trãi, Quận 5, TP. Hồ Chí Minh',
+        addressDetail: '',
+        deliveryNote: '',
+      ),
+    );
+    addTearDown(controller.dispose);
+
+    controller.detailController.text = '1';
+
+    expect(controller.validate(), isTrue);
+    expect(controller.detailError, isNull);
+    expect(controller.buildResult().addressDetail, '1');
+  });
+
   test('requires a custom label when saving an address as other', () {
     final controller = AddressPickerController(
       initialPosition: const LatLng(10.7626, 106.6602),

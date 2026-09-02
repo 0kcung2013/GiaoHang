@@ -237,7 +237,11 @@ class _SupportReturnApprovalDialogState
                     ),
                     if (_quote != null) ...[
                       const SizedBox(height: AppSpacing.md),
-                      SupportReturnQuoteCard(quote: _quote!, payer: _feePayer),
+                      SupportReturnQuoteCard(
+                        quote: _quote!,
+                        payer: _feePayer,
+                        deliveryFee: widget.report.order.deliveryFee,
+                      ),
                     ],
                     if (_error != null) ...[
                       const SizedBox(height: AppSpacing.sm),
@@ -300,8 +304,10 @@ class _SupportReturnApprovalDialogState
 
   void _submit() {
     final quote = _quote!;
-    final fee = quote.suggestedFee;
     final order = widget.report.order;
+    final returnFee = OrderReturnPricingPolicy.calculateReturnFee(
+      order.deliveryFee,
+    );
     Navigator.pop(
       context,
       ReturnApprovalDraft(
@@ -318,7 +324,7 @@ class _SupportReturnApprovalDialogState
         quoteSource: quote.source,
         feePayer: _feePayer,
         customerReturnCharge: 0,
-        driverReturnEarning: fee,
+        driverReturnEarning: returnFee,
         instruction: _instructionController.text.trim().isEmpty
             ? null
             : _instructionController.text.trim(),

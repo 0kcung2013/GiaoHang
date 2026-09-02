@@ -37,6 +37,7 @@ migrate_working_dir/
 **/coverage/
 .tmp/
 .worktrees/
+.superpowers/
 
 # Local ETA training artifacts
 /data/hcm_traffic_raw/

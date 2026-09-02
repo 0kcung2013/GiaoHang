@@ -75,7 +75,7 @@ void main() {
       'assignment_timed_out_at is null',
       'assignment_expires_at > now()',
       'public.st_dwithin',
-      '50000',
+      '4000',
     ]) {
       expect(
         searchSql,
@@ -94,7 +94,7 @@ void main() {
       'assignment_expires_at <= clock_timestamp()',
       'free_pick_order_reserved',
       'public.st_dwithin',
-      '50000',
+      '4000',
       'driver_has_active_offer',
       'public.accept_order(p_order_id)',
     ]) {

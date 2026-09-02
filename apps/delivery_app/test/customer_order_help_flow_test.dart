@@ -50,7 +50,13 @@ void main() {
 
     await tester.tap(find.text('Mở trợ giúp'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('An toàn hoặc đáng ngờ'));
+    final safetyOption = find.text('An toàn hoặc đáng ngờ');
+    await tester.scrollUntilVisible(
+      safetyOption,
+      240,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(safetyOption);
     await tester.pumpAndSettle();
     expect(find.text('Thêm thông tin'), findsOneWidget);
 
@@ -93,7 +99,13 @@ void main() {
 
     await tester.tap(find.text('Mở trợ giúp'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('An toàn hoặc đáng ngờ'));
+    final safetyOption = find.text('An toàn hoặc đáng ngờ');
+    await tester.scrollUntilVisible(
+      safetyOption,
+      240,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(safetyOption);
     await tester.pumpAndSettle();
 
     expect(find.text('Yêu cầu đang được xử lý'), findsOneWidget);
@@ -127,7 +139,7 @@ Future<void> _pump(
   );
 }
 
-class _FakeSupportRepository implements CustomerSupportTicketRepository {
+class _FakeSupportRepository implements ParticipantSupportTicketRepository {
   final created = <SupportTicketDraft>[];
 
   @override
@@ -135,7 +147,8 @@ class _FakeSupportRepository implements CustomerSupportTicketRepository {
     created.add(draft);
     return SupportTicket(
       id: 'ticket-123',
-      customerId: draft.customerId,
+      requesterId: draft.requesterId,
+      requesterRole: 'customer',
       orderId: draft.orderId,
       subject: draft.subject,
       message: draft.message,
