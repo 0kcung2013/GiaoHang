@@ -126,7 +126,7 @@ class _DriverWalletContentState extends State<DriverWalletContent> {
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: Theme.of(context).colorScheme.copyWith(
-            primary: AppColors.primary,
+            primary: AppColors.accent,
             secondary: AppColors.accent,
           ),
         ),

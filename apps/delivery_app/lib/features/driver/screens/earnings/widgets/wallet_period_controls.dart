@@ -216,7 +216,7 @@ class _PeriodOption extends StatelessWidget {
       selected: selected,
       label: 'Xem theo $label',
       child: Material(
-        color: selected ? AppColors.primary : Colors.transparent,
+        color: selected ? AppColors.accent : Colors.transparent,
         borderRadius: AppRadius.lg,
         child: InkWell(
           onTap: onTap,
@@ -228,7 +228,7 @@ class _PeriodOption extends StatelessWidget {
                 label,
                 style: AppTextStyles.labelMedium.copyWith(
                   color: selected
-                      ? AppColors.textOnDark
+                      ? AppColors.textOnAccent
                       : AppColors.textSecondary,
                   fontWeight: FontWeight.w800,
                 ),

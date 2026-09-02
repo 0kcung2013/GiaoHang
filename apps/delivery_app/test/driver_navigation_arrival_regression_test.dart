@@ -67,14 +67,14 @@ void main() {
       expect(arrivalBlock, isNot(contains('_simTimer = null')));
     });
 
-    test('navigation simulation runs at eight meters per second', () {
+    test('navigation simulation runs at fifteen meters per second', () {
       final source = File(
         'lib/features/driver/screens/navigation/driver_navigation_screen.dart',
       ).readAsStringSync();
 
       expect(
         source,
-        contains('static const double _simulationSpeedMetersPerSecond = 8.0;'),
+        contains('static const double _simulationSpeedMetersPerSecond = 15.0;'),
       );
     });
 

@@ -84,7 +84,7 @@ class _DriverNavigationScreenState
   bool _hasRestoredNavigationPosition = false;
 
   static const Duration _simulationTick = Duration(milliseconds: 250);
-  static const double _simulationSpeedMetersPerSecond = 8.0;
+  static const double _simulationSpeedMetersPerSecond = 15.0;
 
   late final StateController<String?> _navigationOwner;
   late final DriverNavSessionsNotifier _navSessionsNotifier;
@@ -605,7 +605,7 @@ class _DriverNavigationScreenState
       if (mounted && meters > 0) {
         setState(() {
           _totalDistance = meters;
-          // Đồng bộ ETA với tốc độ mô phỏng ~29 km/h.
+          // Đồng bộ ETA với tốc độ mô phỏng 54 km/h.
           _totalDuration = meters / _simulationSpeedMetersPerSecond;
         });
       }

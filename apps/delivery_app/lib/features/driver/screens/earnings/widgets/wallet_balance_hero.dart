@@ -19,12 +19,14 @@ class WalletBalanceHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      key: const ValueKey('driver_wallet_balance_card'),
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.xl2),
       decoration: BoxDecoration(
-        color: AppColors.primary,
+        color: AppColors.bgCard,
         borderRadius: AppRadius.xl2,
-        boxShadow: AppShadow.elevated,
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.24)),
+        boxShadow: AppShadow.card,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -35,12 +37,12 @@ class WalletBalanceHero extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: AppColors.textOnDark.withValues(alpha: 0.1),
+                  color: AppColors.accentLight,
                   borderRadius: AppRadius.md,
                 ),
                 child: const Icon(
                   Icons.account_balance_wallet_rounded,
-                  color: AppColors.textOnDark,
+                  color: AppColors.accent,
                   size: 20,
                 ),
               ),
@@ -48,7 +50,7 @@ class WalletBalanceHero extends StatelessWidget {
               Text(
                 'VÍ TÀI XẾ',
                 style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.textOnDark.withValues(alpha: 0.74),
+                  color: AppColors.accent,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.7,
                 ),
@@ -59,14 +61,14 @@ class WalletBalanceHero extends StatelessWidget {
           Text(
             'Số dư khả dụng',
             style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.textOnDark.withValues(alpha: 0.72),
+              color: AppColors.textSecondary,
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
             formatVnd(summary.availableBalance),
             style: AppTextStyles.displayLarge.copyWith(
-              color: AppColors.textOnDark,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -78,6 +80,7 @@ class WalletBalanceHero extends StatelessWidget {
                   icon: Icons.lock_clock_rounded,
                   label: 'Đang giữ',
                   value: formatVnd(summary.heldBalance),
+                  color: AppColors.accent,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -102,9 +105,9 @@ class WalletBalanceHero extends StatelessWidget {
                     icon: const Icon(Icons.account_balance_rounded),
                     label: const Text('Rút'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.textOnDark,
+                      foregroundColor: AppColors.accent,
                       side: BorderSide(
-                        color: AppColors.textOnDark.withValues(alpha: 0.28),
+                        color: AppColors.accent.withValues(alpha: 0.36),
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: AppRadius.full,
@@ -152,14 +155,14 @@ class _HeroMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = color ?? AppColors.textOnDark;
+    final foreground = color ?? AppColors.accent;
     return Container(
       constraints: const BoxConstraints(minHeight: 72),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.textOnDark.withValues(alpha: 0.08),
+        color: AppColors.bgWarm,
         borderRadius: AppRadius.lg,
-        border: Border.all(color: AppColors.textOnDark.withValues(alpha: 0.08)),
+        border: Border.all(color: foreground.withValues(alpha: 0.16)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -175,7 +178,7 @@ class _HeroMetric extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.textOnDark.withValues(alpha: 0.7),
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ),

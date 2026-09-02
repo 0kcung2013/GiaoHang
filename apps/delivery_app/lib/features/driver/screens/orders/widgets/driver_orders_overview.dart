@@ -26,22 +26,20 @@ class DriverOrdersOverview extends StatelessWidget {
       container: true,
       label: '${DriverOrdersStrings.overviewEyebrow}. ${status.title}',
       child: Container(
+        key: const ValueKey('driver_orders_overview_card'),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppColors.primary, AppColors.bgDark],
-          ),
+          color: AppColors.bgCard,
           borderRadius: AppRadius.xl2,
-          boxShadow: AppShadow.elevated,
+          border: Border.all(color: AppColors.accent.withValues(alpha: 0.24)),
+          boxShadow: AppShadow.card,
         ),
         child: Stack(
           children: [
             const Positioned(
               right: -42,
               top: -58,
-              child: _DecorativeOrb(size: 156, color: AppColors.info),
+              child: _DecorativeOrb(size: 156, color: AppColors.accent),
             ),
             const Positioned(
               left: -34,
@@ -60,15 +58,15 @@ class DriverOrdersOverview extends StatelessWidget {
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: AppColors.textOnDark.withValues(alpha: 0.1),
+                          color: AppColors.accentLight,
                           borderRadius: AppRadius.lg,
                           border: Border.all(
-                            color: AppColors.textOnDark.withValues(alpha: 0.12),
+                            color: AppColors.accent.withValues(alpha: 0.18),
                           ),
                         ),
                         child: const Icon(
                           Icons.route_rounded,
-                          color: AppColors.textOnDark,
+                          color: AppColors.accent,
                           size: 25,
                         ),
                       ),
@@ -91,7 +89,7 @@ class DriverOrdersOverview extends StatelessWidget {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: AppTextStyles.headingMedium.copyWith(
-                                color: AppColors.textOnDark,
+                                color: AppColors.textPrimary,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -112,7 +110,7 @@ class DriverOrdersOverview extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.textOnDark.withValues(alpha: 0.7),
+                      color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
@@ -122,10 +120,10 @@ class DriverOrdersOverview extends StatelessWidget {
                       vertical: AppSpacing.md,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.textOnDark.withValues(alpha: 0.07),
+                      color: AppColors.bgWarm,
                       borderRadius: AppRadius.lg,
                       border: Border.all(
-                        color: AppColors.textOnDark.withValues(alpha: 0.1),
+                        color: AppColors.accent.withValues(alpha: 0.14),
                       ),
                     ),
                     child: Row(
@@ -164,7 +162,7 @@ class DriverOrdersOverview extends StatelessWidget {
         title: DriverOrdersStrings.activeTitle,
         message: DriverOrdersStrings.activeMessage,
         icon: Icons.navigation_rounded,
-        color: AppColors.warning,
+        color: AppColors.accent,
       );
     }
     if (isAvailable) {
@@ -242,7 +240,7 @@ class _Metric extends StatelessWidget {
           Text(
             value.toString(),
             style: AppTextStyles.headingMedium.copyWith(
-              color: AppColors.textOnDark,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -252,7 +250,7 @@ class _Metric extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AppTextStyles.labelSmall.copyWith(
-              color: AppColors.textOnDark.withValues(alpha: 0.62),
+              color: AppColors.textSecondary,
               letterSpacing: 0,
             ),
           ),
@@ -270,7 +268,7 @@ class _MetricDivider extends StatelessWidget {
     return Container(
       width: 1,
       height: 32,
-      color: AppColors.textOnDark.withValues(alpha: 0.12),
+      color: AppColors.accent.withValues(alpha: 0.16),
     );
   }
 }
