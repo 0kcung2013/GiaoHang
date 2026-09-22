@@ -16,6 +16,7 @@ const PG_TOUCH_TTL_SEC = 8;
 type Body = {
   driver_profile_id?: string;
   driver_user_id?: string;
+  order_id?: string;
   lat?: number;
   lng?: number;
   heading?: number;
@@ -104,6 +105,18 @@ Deno.serve(async (req) => {
     }
     profileId = driver.id as string;
     userId = driver.user_id as string;
+    const orderId = body.order_id?.trim() || null;
+    if (orderId) {
+      const { data: order, error: orderError } = await admin
+        .from("orders")
+        .select("id")
+        .eq("id", orderId)
+        .eq("driver_id", userId)
+        .maybeSingle();
+      if (orderError || !order) {
+        return json({ error: "Order is not assigned to this driver" }, 403);
+      }
+    }
 
     const now = new Date().toISOString();
     const member = userId; // GEO member = user_id (khớp nearest filter)
@@ -126,16 +139,19 @@ Deno.serve(async (req) => {
     ]);
 
     // Queue history (cold path), idempotent across tabs/callers.
-    const historyPoint: GpsHistoryPayload = {
+    const historyPoint: GpsHistoryPayload | null = orderId ? {
       driver_id: profileId,
       user_id: userId,
+      order_id: orderId,
       lat,
       lng,
       heading: body.heading ?? null,
       speed: body.speed ?? null,
       created_at: body.client_ts || now,
-    };
-    const historyEnqueued = await enqueueHistoryOnce(redis, historyPoint);
+    } : null;
+    const historyEnqueued = historyPoint
+      ? await enqueueHistoryOnce(redis, historyPoint)
+      : false;
 
     // Throttle UPDATE drivers → Realtime khách vẫn nhận được, ít ghi hơn
     const touchKey = `${PG_TOUCH_PREFIX}${profileId}`;

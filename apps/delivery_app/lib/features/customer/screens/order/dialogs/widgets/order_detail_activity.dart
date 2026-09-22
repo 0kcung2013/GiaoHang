@@ -295,10 +295,12 @@ class _InlineLoading extends StatelessWidget {
           ),
         ),
         const SizedBox(width: AppSpacing.md),
-        Text(
-          label,
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.textSecondary,
+        Expanded(
+          child: Text(
+            label,
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
       ],

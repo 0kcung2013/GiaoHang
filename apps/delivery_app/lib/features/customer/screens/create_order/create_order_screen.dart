@@ -19,8 +19,10 @@ import 'controllers/order_quote_controller.dart';
 import 'utils/create_order_feedback.dart';
 import 'utils/order_cargo_picker.dart';
 import 'utils/order_form_validators.dart';
+import 'utils/validate_order_form.dart';
 import 'widgets/create_order_app_bar.dart';
 import 'widgets/create_order_body.dart';
+import 'widgets/create_order_payment_body.dart';
 import 'widgets/fee_loading_dialog.dart';
 import 'widgets/map_picker_sheet.dart';
 import 'widgets/order_location_step.dart';
@@ -37,6 +39,7 @@ class CreateOrderScreen extends ConsumerStatefulWidget {
 
 class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _paymentFormKey = GlobalKey<FormState>();
   final _pickupAddressController = TextEditingController();
   final _deliveryAddressController = TextEditingController();
   final _recipientNameController = TextEditingController();
@@ -46,7 +49,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   final _itemDescriptionController = TextEditingController();
   final _financeController = OrderFinanceFormController();
 
-  String _itemCategory = cargoCategories.first;
+  String _itemCategory = '';
   XFile? _cargoImage;
 
   double _pickupLat = 0;
@@ -203,8 +206,14 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
 
   void _goToInformation() => setState(() => _step = 2);
 
+  void _goToPayment() {
+    if (!validateOrderForm(_formKey)) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _step = 3);
+  }
+
   Future<void> _goToConfirmation() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!validateOrderForm(_paymentFormKey)) return;
     FocusScope.of(context).unfocus();
     final quote = _quote;
     if (quote == null) {
@@ -303,9 +312,10 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
           ? null
           : CreateOrderAppBar(
               onBack: () => setState(() => _step -= 1),
-              stepLabel: '${_step + 1} / 3',
+              stepLabel: '${_step + 1} / 4',
               sectionLabel: switch (_step) {
                 1 => 'Báo giá',
+                3 => 'Thanh toán',
                 _ => 'Thông tin',
               },
             ),
@@ -314,14 +324,16 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
           : SubmitOrderButton(
               label: switch (_step) {
                 1 => 'Nhập thông tin đơn',
+                2 => 'Thanh toán',
                 _ => 'Kiểm tra đơn hàng',
               },
               subtitle: switch (_step) {
                 1 => 'Thêm người nhận và kiện hàng',
-                _ => 'Xem lại COD và tổng tiền',
+                _ => '',
               },
               onPressed: switch (_step) {
                 1 => _goToInformation,
+                2 => _goToPayment,
                 _ => _goToConfirmation,
               },
             ),
@@ -344,6 +356,11 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
             )
           : SafeArea(
               child: switch (_step) {
+                3 => CreateOrderPaymentBody(
+                  formKey: _paymentFormKey,
+                  controller: _financeController,
+                  deliveryFee: quote!.deliveryFee,
+                ),
                 1 => OrderQuoteStep(
                   quote: quote!,
                   pickupAddress: _pickupAddressController.text,
@@ -366,8 +383,6 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                   onPickGallery: () => _pickCargoImage(ImageSource.gallery),
                   onRemoveImage: () => setState(() => _cargoImage = null),
                   onAutofillDemo: _autofillDemoData,
-                  codCollectionController:
-                      _financeController.codCollectionController,
                 ),
               },
             ),

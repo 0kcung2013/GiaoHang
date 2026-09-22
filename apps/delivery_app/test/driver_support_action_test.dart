@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:delivery_app/core/models/order_model.dart';
 import 'package:delivery_app/features/driver/screens/home/widgets/driver_order_card.dart';
 import 'package:delivery_app/features/driver/screens/navigation/widgets/driver_help_actions.dart';
 import 'package:delivery_app/features/driver/screens/navigation/widgets/driver_navigation_view.dart';
 import 'package:delivery_app/features/order_help/data/customer_support_ticket_repository.dart';
+import 'package:delivery_app/features/order_help/widgets/support_chat/support_chat_messages.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,11 +29,13 @@ void main() {
 
     await tester.tap(find.text('Trao đổi với CSKH'));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('support-chat-sheet')), findsOneWidget);
+    expect(find.text('CSKH GiaoHang'), findsOneWidget);
     await tester.enterText(
-      find.byKey(const Key('customer-support-message')),
+      find.byKey(const Key('support-chat-composer')),
       'Tôi cần CSKH hỗ trợ giao đơn này.',
     );
-    await tester.tap(find.byKey(const Key('submit-customer-support-ticket')));
+    await tester.tap(find.byKey(const Key('send-support-chat-message')));
     await tester.pumpAndSettle();
 
     expect(repository.created, hasLength(1));
@@ -66,6 +71,78 @@ void main() {
     expect(find.byKey(const Key('driver-help-support-option')), findsOneWidget);
     expect(find.byKey(const Key('driver-help-risk-option')), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('support chat receives CSKH replies in real time', (
+    tester,
+  ) async {
+    final repository = _RealtimeParticipantSupportRepository();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DriverHelpActionsForTest(order: _order, repository: repository),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Trao đổi với CSKH'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Đang kết nối thời gian thực'), findsOneWidget);
+    repository.emitSupportReply('CSKH đang kiểm tra đơn hàng cho bạn.');
+    await tester.pumpAndSettle();
+
+    expect(find.text('CSKH đang kiểm tra đơn hàng cho bạn.'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Đóng cuộc trò chuyện'));
+    await tester.pumpAndSettle();
+    await repository.dispose();
+  });
+
+  testWidgets('mobile support chat keeps the newest message at the bottom', (
+    tester,
+  ) async {
+    final scrollController = ScrollController();
+    addTearDown(scrollController.dispose);
+    final newer = CaseMessage(
+      id: 'newer',
+      caseId: 'ticket-1',
+      senderId: 'driver-1',
+      senderRole: 'driver',
+      visibility: CaseMessageVisibility.public,
+      body: 'Tin mới nhất',
+      createdAt: DateTime(2026, 9, 16, 13, 49),
+    );
+    final older = CaseMessage(
+      id: 'older',
+      caseId: 'ticket-1',
+      senderId: 'driver-1',
+      senderRole: 'driver',
+      visibility: CaseMessageVisibility.public,
+      body: 'Tin cũ hơn',
+      createdAt: DateTime(2026, 9, 16, 10, 59),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            height: 620,
+            child: SupportChatMessages(
+              messages: [newer, older],
+              requesterId: 'driver-1',
+              scrollController: scrollController,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.getTopLeft(find.text('Tin cũ hơn')).dy,
+      lessThan(tester.getTopLeft(find.text('Tin mới nhất')).dy),
+    );
   });
 
   testWidgets('driver order card omits support and incident actions', (
@@ -161,6 +238,64 @@ class _FakeParticipantSupportRepository
   @override
   Stream<List<SupportTicket>> watchForOrder(String orderId) =>
       const Stream.empty();
+}
+
+class _RealtimeParticipantSupportRepository
+    implements
+        ParticipantSupportTicketRepository,
+        ParticipantSupportConversationRepository {
+  final _messageController = StreamController<List<CaseMessage>>.broadcast();
+  final _ticket = SupportTicket(
+    id: 'ticket-live',
+    requesterId: 'driver-1',
+    requesterRole: 'driver',
+    orderId: 'order-1',
+    subject: 'Trao đổi với CSKH',
+    message: 'Tôi cần hỗ trợ đơn hàng.',
+    status: SupportTicketStatus.inProgress,
+    priority: SupportTicketPriority.normal,
+    createdAt: DateTime(2026),
+    updatedAt: DateTime(2026),
+  );
+  List<CaseMessage> _messages = const [];
+
+  void emitSupportReply(String body) {
+    _messages = [
+      ..._messages,
+      CaseMessage(
+        id: 'message-${_messages.length + 1}',
+        caseId: _ticket.id,
+        senderId: 'support-1',
+        senderRole: 'support',
+        visibility: CaseMessageVisibility.public,
+        body: body,
+        createdAt: DateTime(2026, 9, 16, 10, 30),
+      ),
+    ];
+    _messageController.add(_messages);
+  }
+
+  Future<void> dispose() => _messageController.close();
+
+  @override
+  Future<SupportTicket> create(SupportTicketDraft draft) async => _ticket;
+
+  @override
+  Future<List<SupportTicket>> fetchForOrder(String orderId) async => [_ticket];
+
+  @override
+  Stream<List<SupportTicket>> watchForOrder(String orderId) =>
+      const Stream.empty();
+
+  @override
+  Future<List<CaseMessage>> fetchMessages(String ticketId) async => _messages;
+
+  @override
+  Stream<List<CaseMessage>> watchMessages(String ticketId) =>
+      _messageController.stream;
+
+  @override
+  Future<void> postMessage(String ticketId, String body) async {}
 }
 
 final _order = OrderModel(

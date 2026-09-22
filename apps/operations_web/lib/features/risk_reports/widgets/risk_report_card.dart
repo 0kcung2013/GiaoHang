@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
+import '../../../core/widgets/stored_media_image.dart';
 import '../constants/risk_report_strings.dart';
 import '../models/risk_report.dart';
 import '../utils/risk_report_ui.dart';
@@ -50,7 +51,7 @@ class RiskReportCard extends StatelessWidget {
                   child: Container(
                     width: 5,
                     decoration: BoxDecoration(
-                      color: showSeverity ? severityColor : AppColors.primary,
+                      color: showSeverity ? severityColor : AppColors.accent,
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(16),
                         bottomLeft: Radius.circular(16),
@@ -116,7 +117,7 @@ class RiskReportCard extends StatelessWidget {
                                   ? (report.component ?? 'Toàn hệ thống')
                                   : report.order.trackingCode,
                               style: AppTextStyles.mono.copyWith(
-                                color: AppColors.primary,
+                                color: AppColors.accent,
                               ),
                             ),
                             const SizedBox(width: AppSpacing.md),
@@ -220,11 +221,11 @@ class _CompactReporterAvatar extends StatelessWidget {
       child:
           report.reporterAvatarUrl != null &&
               report.reporterAvatarUrl!.trim().isNotEmpty
-          ? Image.network(
-              report.reporterAvatarUrl!,
+          ? StoredMediaImage(
+              storedValue: report.reporterAvatarUrl,
               fit: BoxFit.cover,
               semanticLabel: 'Ảnh người gửi $name',
-              errorBuilder: (_, _, _) => fallback,
+              fallback: fallback,
             )
           : fallback,
     );

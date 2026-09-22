@@ -24,17 +24,18 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Giao hàng chậm'));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('support-chat-sheet')), findsOneWidget);
     await tester.enterText(
-      find.byKey(const Key('customer-support-message')),
+      find.byKey(const Key('support-chat-composer')),
       'Đơn hàng đã đứng yên hơn ba mươi phút.',
     );
-    await tester.tap(find.byKey(const Key('submit-customer-support-ticket')));
+    await tester.tap(find.byKey(const Key('send-support-chat-message')));
     await tester.pumpAndSettle();
 
     expect(support.created, hasLength(1));
     expect(support.created.single.subject, 'Giao hàng chậm');
     expect(riskCommand.submitCalls, 0);
-    expect(find.text('Đã gửi thành công'), findsOneWidget);
+    expect(find.text('Đơn hàng đã đứng yên hơn ba mươi phút.'), findsOneWidget);
   });
 
   testWidgets('routes a safety issue to the risk wizard', (tester) async {

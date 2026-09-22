@@ -8,13 +8,13 @@ class WalletBalanceHero extends StatelessWidget {
   const WalletBalanceHero({
     super.key,
     required this.summary,
-    required this.todayIncome,
     required this.onTopUp,
+    this.onWithdraw,
   });
 
   final DriverWalletSummary summary;
-  final int todayIncome;
   final VoidCallback onTopUp;
+  final VoidCallback? onWithdraw;
 
   @override
   Widget build(BuildContext context) {
@@ -34,30 +34,52 @@ class WalletBalanceHero extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
+                width: 40,
+                height: 40,
+                decoration: const BoxDecoration(
                   color: AppColors.accentLight,
                   borderRadius: AppRadius.md,
                 ),
                 child: const Icon(
                   Icons.account_balance_wallet_rounded,
                   color: AppColors.accent,
-                  size: 20,
+                  size: 22,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
-              Text(
-                'VÍ TÀI XẾ',
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.accent,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.7,
+              Expanded(
+                child: Text(
+                  'VÍ TÀI XẾ',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.accent,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.7,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.bgWarm,
+                  borderRadius: AppRadius.full,
+                  border: Border.all(
+                    color: AppColors.accent.withValues(alpha: 0.18),
+                  ),
+                ),
+                child: Text(
+                  'Giữ ${formatVnd(summary.heldBalance)}',
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.xl),
           Text(
             'Số dư khả dụng',
             style: AppTextStyles.bodySmall.copyWith(
@@ -65,134 +87,59 @@ class WalletBalanceHero extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
-          Text(
-            formatVnd(summary.availableBalance),
-            style: AppTextStyles.displayLarge.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w900,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              formatVnd(summary.availableBalance),
+              style: AppTextStyles.displayLarge.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.xl2),
           Row(
             children: [
               Expanded(
-                child: _HeroMetric(
-                  icon: Icons.lock_clock_rounded,
-                  label: 'Đang giữ',
-                  value: formatVnd(summary.heldBalance),
-                  color: AppColors.accent,
+                child: OutlinedButton.icon(
+                  onPressed: onWithdraw,
+                  icon: const Icon(Icons.account_balance_rounded, size: 19),
+                  label: const Text('Rút tiền'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.accent,
+                    disabledForegroundColor: AppColors.textMuted,
+                    side: BorderSide(
+                      color: onWithdraw == null
+                          ? AppColors.border
+                          : AppColors.accent.withValues(alpha: 0.36),
+                    ),
+                    minimumSize: const Size.fromHeight(50),
+                    textStyle: AppTextStyles.labelMedium.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                    shape: RoundedRectangleBorder(borderRadius: AppRadius.full),
+                  ),
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
-                child: _HeroMetric(
-                  icon: Icons.today_rounded,
-                  label: 'Thu nhập hôm nay',
-                  value: '+${formatVnd(todayIncome)}',
-                  color: AppColors.success,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          SizedBox(
-            height: 50,
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.account_balance_rounded),
-                    label: const Text('Rút'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.accent,
-                      side: BorderSide(
-                        color: AppColors.accent.withValues(alpha: 0.36),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.full,
-                      ),
+                child: FilledButton.icon(
+                  onPressed: onTopUp,
+                  icon: const Icon(Icons.add_card_rounded, size: 19),
+                  label: const Text('Nạp tiền'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.accent,
+                    foregroundColor: AppColors.textOnAccent,
+                    minimumSize: const Size.fromHeight(50),
+                    textStyle: AppTextStyles.labelMedium.copyWith(
+                      fontWeight: FontWeight.w800,
                     ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  flex: 2,
-                  child: FilledButton.icon(
-                    onPressed: onTopUp,
-                    icon: const Icon(Icons.add_card_rounded),
-                    label: const Text('Nạp qua VNPAY'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.accent,
-                      foregroundColor: AppColors.textOnAccent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.full,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroMetric extends StatelessWidget {
-  const _HeroMetric({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final foreground = color ?? AppColors.accent;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 72),
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.bgWarm,
-        borderRadius: AppRadius.lg,
-        border: Border.all(color: foreground.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 15, color: foreground),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.textSecondary,
+                    shape: RoundedRectangleBorder(borderRadius: AppRadius.full),
                   ),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.labelMedium.copyWith(
-              color: foreground,
-              fontWeight: FontWeight.w900,
-            ),
           ),
         ],
       ),

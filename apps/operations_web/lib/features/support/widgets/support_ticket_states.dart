@@ -100,7 +100,7 @@ class SupportTicketEmpty extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: onRetry,
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
+                      foregroundColor: AppColors.accent,
                       side: const BorderSide(color: AppColors.border),
                       shape: const RoundedRectangleBorder(
                         borderRadius: AppRadius.md,

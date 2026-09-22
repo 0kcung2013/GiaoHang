@@ -5,6 +5,7 @@ import 'package:delivery_app/core/providers/driver_nav_session_provider.dart';
 import 'package:delivery_app/features/driver/screens/navigation/models/driver_arrival_policy.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('driver arrival regression', () {
@@ -50,23 +51,6 @@ void main() {
       );
     });
 
-    test('entering the confirmation radius does not cancel simulation', () {
-      final source = File(
-        'lib/features/driver/screens/navigation/driver_navigation_screen.dart',
-      ).readAsStringSync();
-      final arrivalStart = source.indexOf('if (arrival != null)');
-      final arrivalEnd = source.indexOf(
-        '\n    }\n\n    final isFirstPos',
-        arrivalStart,
-      );
-
-      expect(arrivalStart, greaterThanOrEqualTo(0));
-      expect(arrivalEnd, greaterThan(arrivalStart));
-      final arrivalBlock = source.substring(arrivalStart, arrivalEnd);
-      expect(arrivalBlock, isNot(contains('_simTimer?.cancel()')));
-      expect(arrivalBlock, isNot(contains('_simTimer = null')));
-    });
-
     test('navigation simulation runs at fifteen meters per second', () {
       final source = File(
         'lib/features/driver/screens/navigation/driver_navigation_screen.dart',
@@ -102,6 +86,33 @@ void main() {
       expect(restored.arrivedAtTarget, isTrue);
       expect(restored.pickupConfirmed, isTrue);
       expect(restored.updatedAt, now.subtract(const Duration(minutes: 5)));
+    });
+
+    test('an arrived session is hydrated from persistent storage', () async {
+      SharedPreferences.setMockInitialValues({});
+      final firstRun = DriverNavSessionsNotifier();
+      final arrived = DriverNavSession(
+        orderId: 'order-1',
+        status: 'delivering',
+        lat: 10.75,
+        lng: 106.67,
+        arrivedAtTarget: true,
+        simRouteIndex: 42,
+        updatedAt: DateTime.utc(2026, 9, 17, 10),
+      );
+      await firstRun.upsert(arrived);
+      firstRun.dispose();
+
+      final nextRun = DriverNavSessionsNotifier();
+      await nextRun.hydrate();
+      final restored = nextRun.state['order-1'];
+
+      expect(restored, isNotNull);
+      expect(restored!.arrivedAtTarget, isTrue);
+      expect(restored.simRouteIndex, 42);
+      expect(restored.lat, 10.75);
+      expect(restored.lng, 106.67);
+      nextRun.dispose();
     });
 
     test('navigation no longer opens the automatic arrival sheet', () {

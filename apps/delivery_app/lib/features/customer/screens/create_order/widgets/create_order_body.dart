@@ -4,7 +4,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'create_order_form_sections.dart';
 import 'demo_autofill_button.dart';
-import 'order_finance_details_section.dart';
 import 'sender_contact_section.dart';
 
 class CreateOrderBody extends StatelessWidget {
@@ -25,7 +24,6 @@ class CreateOrderBody extends StatelessWidget {
     required this.onPickGallery,
     required this.onRemoveImage,
     required this.onAutofillDemo,
-    required this.codCollectionController,
     this.trafficDemoRouteCard,
   });
 
@@ -44,7 +42,6 @@ class CreateOrderBody extends StatelessWidget {
   final VoidCallback onPickGallery;
   final VoidCallback onRemoveImage;
   final VoidCallback onAutofillDemo;
-  final TextEditingController codCollectionController;
   final Widget? trafficDemoRouteCard;
 
   @override
@@ -59,7 +56,7 @@ class CreateOrderBody extends StatelessWidget {
             constraints: BoxConstraints(maxWidth: layout.maxContentWidth),
             child: Form(
               key: formKey,
-              child: ListView(
+              child: SingleChildScrollView(
                 padding: EdgeInsets.fromLTRB(
                   layout.horizontalPadding,
                   AppSpacing.md,
@@ -68,42 +65,40 @@ class CreateOrderBody extends StatelessWidget {
                 ),
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior.onDrag,
-                children: [
-                  DemoAutofillButton(onPressed: onAutofillDemo),
-                  const SizedBox(height: AppSpacing.lg),
-                  if (trafficDemoRouteCard != null) ...[
-                    trafficDemoRouteCard!,
+                child: Column(
+                  children: [
+                    DemoAutofillButton(onPressed: onAutofillDemo),
                     const SizedBox(height: AppSpacing.lg),
+                    if (trafficDemoRouteCard != null) ...[
+                      trafficDemoRouteCard!,
+                      const SizedBox(height: AppSpacing.lg),
+                    ],
+                    CreateOrderRecipientSection(
+                      recipientNameController: recipientNameController,
+                      recipientPhoneController: recipientPhoneController,
+                      noteController: noteController,
+                      requiredText: requiredText,
+                      validatePhone: validatePhone,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    CreateOrderCargoSection(
+                      itemNameController: itemNameController,
+                      itemDescriptionController: itemDescriptionController,
+                      itemCategory: itemCategory,
+                      requiredText: requiredText,
+                      onCategoryChanged: onCategoryChanged,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    CreateOrderPhotosSection(
+                      image: cargoImage,
+                      onPickCamera: onPickCamera,
+                      onPickGallery: onPickGallery,
+                      onRemove: onRemoveImage,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    const SenderContactSection(),
                   ],
-                  CreateOrderRecipientSection(
-                    recipientNameController: recipientNameController,
-                    recipientPhoneController: recipientPhoneController,
-                    noteController: noteController,
-                    requiredText: requiredText,
-                    validatePhone: validatePhone,
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  CreateOrderCargoSection(
-                    itemNameController: itemNameController,
-                    itemDescriptionController: itemDescriptionController,
-                    itemCategory: itemCategory,
-                    requiredText: requiredText,
-                    onCategoryChanged: onCategoryChanged,
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  OrderFinanceDetailsSection(
-                    codCollectionController: codCollectionController,
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  CreateOrderPhotosSection(
-                    image: cargoImage,
-                    onPickCamera: onPickCamera,
-                    onPickGallery: onPickGallery,
-                    onRemove: onRemoveImage,
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  const SenderContactSection(),
-                ],
+                ),
               ),
             ),
           ),

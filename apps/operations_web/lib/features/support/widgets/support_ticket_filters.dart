@@ -36,7 +36,8 @@ class SupportTicketFilters extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.bgCard,
         borderRadius: AppRadius.lg,
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.16)),
+        boxShadow: AppShadow.subtle,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -57,13 +58,13 @@ class SupportTicketFilters extends StatelessWidget {
                   vertical: AppSpacing.xs,
                 ),
                 decoration: const BoxDecoration(
-                  color: AppColors.bgLight,
+                  color: AppColors.accentLight,
                   borderRadius: AppRadius.full,
                 ),
                 child: Text(
                   '$resultCount/$totalCount yêu cầu',
                   style: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.textSecondary,
+                    color: AppColors.accent,
                   ),
                 ),
               ),
@@ -120,10 +121,7 @@ class SupportTicketFilters extends StatelessWidget {
                   ),
                   focusedBorder: const OutlineInputBorder(
                     borderRadius: AppRadius.md,
-                    borderSide: BorderSide(
-                      color: AppColors.borderFocus,
-                      width: 1.5,
-                    ),
+                    borderSide: BorderSide(color: AppColors.accent, width: 1.5),
                   ),
                 ),
               );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../account/account_screen.dart';
@@ -11,10 +12,12 @@ class CustomerHomeScreen extends StatefulWidget {
     super.key,
     this.initialTab = 0,
     this.initialTrackingCode,
+    this.pages,
   });
 
   final int initialTab;
   final String? initialTrackingCode;
+  final List<Widget>? pages;
 
   @override
   State<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
@@ -39,12 +42,14 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      const DashboardScreen(),
-      const OrderScreen(),
-      TrackingScreen(initialTrackingCode: widget.initialTrackingCode),
-      const AccountScreen(),
-    ];
+    final pages =
+        widget.pages ??
+        [
+          const DashboardScreen(),
+          const OrderScreen(),
+          TrackingScreen(initialTrackingCode: widget.initialTrackingCode),
+          const AccountScreen(),
+        ];
 
     return Scaffold(
       backgroundColor: AppColors.bgLight,
@@ -54,10 +59,20 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       ),
       bottomNavigationBar: _BottomNav(
         currentIndex: _currentTab,
-        onTap: (i) => setState(() => _currentTab = i),
+        onTap: (i) {
+          setState(() => _currentTab = i);
+          context.go(_customerHomeLocationForTab(i));
+        },
       ),
     );
   }
+
+  String _customerHomeLocationForTab(int tab) => switch (tab) {
+    1 => '/customer-home?tab=orders',
+    2 => '/customer-home?tab=tracking',
+    3 => '/customer-home?tab=account',
+    _ => '/customer-home',
+  };
 }
 
 class _BottomNav extends StatelessWidget {

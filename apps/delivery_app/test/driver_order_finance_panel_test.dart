@@ -20,13 +20,19 @@ void main() {
       ),
     );
 
-    expect(find.text('COD · CẦN ỨNG'), findsOneWidget);
+    expect(find.text('Lấy'), findsOneWidget);
+    expect(find.text('Trả'), findsOneWidget);
     expect(find.text('120.000đ'), findsOneWidget);
-    expect(find.text('Thu người nhận'), findsOneWidget);
-    expect(find.text('145.000đ'), findsOneWidget);
-    expect(find.text('Thực nhận'), findsOneWidget);
-    expect(find.text('25.000đ'), findsOneWidget);
+    expect(find.text('Ứng qua ví · không trả tiền mặt'), findsOneWidget);
+    expect(find.text('Thực nhận 25.000đ'), findsOneWidget);
     expect(find.text('Nạp thêm 70.000đ'), findsOneWidget);
+    await tester.tap(find.text('Giao'));
+    await tester.pump();
+    expect(find.text('Thu'), findsOneWidget);
+    expect(find.text('145.000đ'), findsOneWidget);
+    await tester.tap(find.text('Lấy'));
+    await tester.pump();
+    expect(find.text('120.000đ'), findsOneWidget);
   });
 
   testWidgets('prepaid panel shows zero collection and net earning', (
@@ -42,8 +48,11 @@ void main() {
       ),
     );
 
-    expect(find.text('PHÍ ĐÃ THANH TOÁN'), findsOneWidget);
-    expect(find.text('0đ cần thu'), findsOneWidget);
+    expect(find.text('Không cần ứng tiền'), findsOneWidget);
+    await tester.tap(find.text('Giao'));
+    await tester.pump();
+    expect(find.text('0đ'), findsOneWidget);
+    expect(find.text('Không thu tiền người nhận'), findsOneWidget);
     expect(find.text('Thực nhận 25.000đ'), findsOneWidget);
   });
 
@@ -54,6 +63,41 @@ void main() {
       ),
       'Số dư ví chưa đủ để ứng đơn này. Hãy nạp thêm rồi thử lại.',
     );
+  });
+
+  testWidgets('no COD requires no advance and collects only delivery fee', (
+    tester,
+  ) async {
+    final order = OrderModel.fromJson({
+      ..._order(OrderPaymentMode.cod).toJson(),
+      'cod_collection_amount': 0,
+      'driver_advance_amount': 0,
+      'receiver_collection_amount': 25000,
+    });
+    tester.view.physicalSize = const Size(375, 812);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(1.6)),
+          child: Scaffold(
+            body: SingleChildScrollView(
+              child: DriverOrderFinancePanel(order: order, availableBalance: 0),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Trả'), findsOneWidget);
+    expect(find.text('0đ'), findsOneWidget);
+    expect(find.textContaining('Nạp thêm'), findsNothing);
+    await tester.tap(find.text('Giao'));
+    await tester.pump();
+    expect(find.text('Thu'), findsOneWidget);
+    expect(find.text('25.000đ'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
 

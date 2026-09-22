@@ -95,7 +95,8 @@ class DriverOrderService {
             _statusReturning,
             _statusReturned,
           ])
-          .order('created_at', ascending: false);
+          .order('updated_at', ascending: false)
+          .limit(100);
 
       final orders = response.map(OrderModel.fromJson).toList();
       _debugOrders('driver:result', orders);
@@ -111,7 +112,8 @@ class DriverOrderService {
         .from(_ordersTable)
         .stream(primaryKey: ['id'])
         .eq('driver_id', driverId)
-        .order('created_at', ascending: false)
+        .order('updated_at', ascending: false)
+        .limit(100)
         .map((rows) {
           final orders = rows
               .map(OrderModel.fromJson)

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:giaohang_config/giaohang_config.dart';
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'router.dart';
@@ -14,8 +15,31 @@ Future<void> main() async {
   runApp(const OperationsApp());
 }
 
-class OperationsApp extends StatelessWidget {
-  const OperationsApp({super.key});
+typedef OperationsRouterFactory = GoRouter Function();
+
+class OperationsApp extends StatefulWidget {
+  final OperationsRouterFactory routerFactory;
+
+  const OperationsApp({super.key, this.routerFactory = createOperationsRouter});
+
+  @override
+  State<OperationsApp> createState() => _OperationsAppState();
+}
+
+class _OperationsAppState extends State<OperationsApp> {
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
+    _router = widget.routerFactory();
+  }
+
+  @override
+  void dispose() {
+    _router.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +60,7 @@ class OperationsApp extends StatelessWidget {
           selectionColor: AppColors.accentLight,
         ),
       ),
-      routerConfig: createOperationsRouter(),
+      routerConfig: _router,
     );
   }
 }

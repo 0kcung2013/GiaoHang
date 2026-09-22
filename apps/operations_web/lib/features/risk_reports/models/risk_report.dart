@@ -3,6 +3,7 @@ export 'package:giaohang_domain/giaohang_domain.dart'
         CaseMessage,
         CaseMessageVisibility,
         RiskCategory,
+        RiskContact,
         RiskEvidenceType,
         RiskIntervention,
         RiskInterventionState,

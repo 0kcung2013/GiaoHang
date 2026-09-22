@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+
+import '../../../../../core/widgets/stored_media_image.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 import 'driver_card_actions.dart';
 
@@ -152,10 +154,10 @@ class _SheetAvatar extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: url != null && url.isNotEmpty
-          ? Image.network(
-              url,
+          ? StoredMediaImage(
+              storedValue: url,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Center(
+              fallback: Center(
                 child: Text(
                   initials,
                   style: AppTextStyles.labelLarge.copyWith(

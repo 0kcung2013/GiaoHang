@@ -5,6 +5,17 @@ import 'package:giaohang_domain/giaohang_domain.dart';
 class RiskReportUi {
   const RiskReportUi._();
 
+  static String orderStatusLabel(String status) => switch (status) {
+    'pending' => 'Chờ xác nhận',
+    'confirmed' => 'Đã xác nhận',
+    'assigned' => 'Đã phân công',
+    'picking_up' => 'Đang lấy hàng',
+    'delivering' => 'Đang giao hàng',
+    'delivered' => 'Đã giao hàng',
+    'cancelled' => 'Đã hủy',
+    _ => 'Chưa có trạng thái',
+  };
+
   static String severityLabel(RiskSeverity severity) => switch (severity) {
     RiskSeverity.low => 'Thấp',
     RiskSeverity.medium => 'Trung bình',

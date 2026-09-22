@@ -79,17 +79,18 @@ class SubmitOrderButton extends StatelessWidget {
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
-                            Text(
-                              subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTextStyles.labelSmall.copyWith(
-                                color: AppColors.textOnAccent.withValues(
-                                  alpha: 0.76,
+                            if (subtitle.isNotEmpty)
+                              Text(
+                                subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.labelSmall.copyWith(
+                                  color: AppColors.textOnAccent.withValues(
+                                    alpha: 0.76,
+                                  ),
+                                  letterSpacing: 0,
                                 ),
-                                letterSpacing: 0,
                               ),
-                            ),
                           ],
                         ),
                       ),

@@ -1,6 +1,7 @@
 abstract final class SupportTicketStrings {
   static const workspace = 'Trung tâm CSKH';
   static const riskQueue = 'Rủi ro';
+  static const ordersQueue = 'Đơn hàng';
   static const ticketQueue = 'Yêu cầu';
   static const ticketsTitle = 'Yêu cầu hỗ trợ';
   static const ticketsSubtitle = 'Theo dõi, ưu tiên và xử lý từng yêu cầu.';

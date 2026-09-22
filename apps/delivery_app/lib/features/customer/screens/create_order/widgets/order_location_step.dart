@@ -8,7 +8,7 @@ import '../../../../../core/widgets/delivery_map_markers.dart';
 import 'order_location_controls.dart';
 import 'traffic_aware_order_route_layer.dart';
 
-/// Bước 1/3: chọn điểm lấy, điểm giao và xem tuyến đường trên map toàn màn.
+/// Bước 1/4: chọn điểm lấy, điểm giao và xem tuyến đường trên map toàn màn.
 class OrderLocationStep extends StatefulWidget {
   const OrderLocationStep({
     super.key,
@@ -288,7 +288,7 @@ class _LocationStepHeader extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '1 / 3',
+                  '1 / 4',
                   style: AppTextStyles.labelMedium.copyWith(
                     color: AppColors.accent,
                     fontWeight: FontWeight.w800,

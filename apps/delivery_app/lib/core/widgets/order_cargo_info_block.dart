@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../models/order_model.dart';
 import '../utils/order_cargo_utils.dart';
+import 'stored_media_image.dart';
 
 class OrderCargoInfoBlock extends StatelessWidget {
   const OrderCargoInfoBlock({
@@ -106,10 +107,10 @@ class _CargoImage extends StatelessWidget {
                 color: AppColors.accent,
                 size: 24,
               )
-            : Image.network(
-                imageUrl,
+            : StoredMediaImage(
+                storedValue: imageUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const Icon(
+                fallback: const Icon(
                   Icons.broken_image_rounded,
                   color: AppColors.textMuted,
                   size: 24,

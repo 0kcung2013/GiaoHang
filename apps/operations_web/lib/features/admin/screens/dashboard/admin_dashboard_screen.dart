@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
+import '../../../../core/widgets/stored_media_image.dart';
+
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
 
@@ -311,22 +313,22 @@ class _PendingDriverTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: AppColors.warning.withValues(alpha: 0.12),
-            backgroundImage:
-                (driver.avatarUrl != null &&
-                    driver.avatarUrl!.trim().isNotEmpty)
-                ? NetworkImage(driver.avatarUrl!)
-                : null,
-            child:
-                (driver.avatarUrl == null || driver.avatarUrl!.trim().isEmpty)
-                ? const Icon(
-                    Icons.person_outline,
-                    color: AppColors.warning,
-                    size: 20,
-                  )
-                : null,
+          Container(
+            width: 40,
+            height: 40,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.warning.withValues(alpha: 0.12),
+            ),
+            child: StoredMediaImage(
+              storedValue: driver.avatarUrl,
+              fallback: const Icon(
+                Icons.person_outline,
+                color: AppColors.warning,
+                size: 20,
+              ),
+            ),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(

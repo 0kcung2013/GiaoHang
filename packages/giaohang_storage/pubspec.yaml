@@ -1,0 +1,15 @@
+name: giaohang_storage
+description: Lớp lưu trữ Cloudflare R2 dùng chung cho các ứng dụng Giao Hàng.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.9.0
+
+dependencies:
+  http: ^1.2.0
+  supabase_flutter: ^2.0.0
+
+dev_dependencies:
+  test: ^1.25.0

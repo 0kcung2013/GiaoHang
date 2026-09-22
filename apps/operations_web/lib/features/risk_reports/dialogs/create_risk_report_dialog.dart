@@ -243,7 +243,7 @@ class _CreateRiskReportDialogState extends State<CreateRiskReportDialog> {
       ),
       focusedBorder: const OutlineInputBorder(
         borderRadius: AppRadius.md,
-        borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+        borderSide: BorderSide(color: AppColors.accent, width: 1.5),
       ),
     );
   }

@@ -94,6 +94,20 @@ String createdTimeText(OrderModel order) {
   return '$day/$month $hour:$minute';
 }
 
+DateTime deliveryCompletedAt(OrderModel order) {
+  return order.actualDeliveredAt ?? order.updatedAt;
+}
+
+String deliveredTimeText(OrderModel order) {
+  final local = VietnamTime.toWallClock(deliveryCompletedAt(order));
+  final day = local.day.toString().padLeft(2, '0');
+  final month = local.month.toString().padLeft(2, '0');
+  final year = local.year.toString();
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$hour:$minute $day/$month/$year';
+}
+
 String pickupDistanceText(double? distanceMeters) {
   if (distanceMeters == null || !distanceMeters.isFinite) {
     return 'Chưa có khoảng cách';

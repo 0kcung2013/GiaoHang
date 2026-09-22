@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../../core/models/order_finance.dart';
 import '../../../../../core/utils/delivery_fee_calculator.dart';
 import '../utils/order_form_data.dart';
+import '../utils/order_form_validators.dart';
 import '../utils/sender_contact_loader.dart';
 
 class CreateOrderPreparationException implements Exception {
@@ -43,6 +44,14 @@ class CreateOrderConfirmationController {
     required int codCollectionAmount,
     required DeliveryFeeEstimate quote,
   }) async {
+    final error = validateOrderDetails(
+      recipientName: recipientName,
+      recipientPhone: recipientPhone,
+      itemName: itemName,
+      itemCategory: itemCategory,
+      hasPhoto: cargoImage != null,
+    );
+    if (error != null) throw CreateOrderPreparationException(error);
     late final SenderContactData sender;
     try {
       sender = await loadSenderContact(ref);

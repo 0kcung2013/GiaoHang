@@ -17,11 +17,11 @@
 -- =============================================================================
 
 -- 1) routes (VRP — unused)
-DROP TABLE IF EXISTS public.routes CASCADE;
+-- Superseded by the transactional consolidation migration. Do not drop here.
 
 -- 2) locations (legacy GPS log — replaced by driver_locations)
 --    Nếu có policy/trigger gắn bảng này, CASCADE gỡ kèm.
-DROP TABLE IF EXISTS public.locations CASCADE;
+-- Superseded by the transactional consolidation migration. Do not drop here.
 
 -- 3) (Tuỳ chọn) comment ghi nhận trong schema — không bắt buộc
 COMMENT ON TABLE public.driver_locations IS

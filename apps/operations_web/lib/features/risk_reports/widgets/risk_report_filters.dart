@@ -34,7 +34,7 @@ class RiskReportFilters extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.bgCard,
         borderRadius: AppRadius.lg,
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.16)),
         boxShadow: AppShadow.subtle,
       ),
       child: LayoutBuilder(
@@ -143,7 +143,7 @@ class _SearchField extends StatelessWidget {
         ),
         focusedBorder: const OutlineInputBorder(
           borderRadius: AppRadius.md,
-          borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+          borderSide: BorderSide(color: AppColors.accent, width: 1.5),
         ),
       ),
     );

@@ -1,15 +1,15 @@
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:giaohang_storage/giaohang_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class CargoImageService {
-  CargoImageService({SupabaseClient? client})
-    : _supabase = client ?? Supabase.instance.client;
+  CargoImageService({SupabaseClient? client, R2MediaClient? r2Client})
+    : _r2 = r2Client ?? R2MediaClient.supabase(client: client);
 
-  static const bucketName = 'order-cargo';
   static const _debugTag = '[CargoImagePickerDebug]';
 
-  final SupabaseClient _supabase;
+  final R2MediaClient _r2;
 
   Future<String> uploadOrderCargoImage({
     required String userId,
@@ -17,27 +17,25 @@ class CargoImageService {
   }) async {
     final bytes = await image.readAsBytes();
     final extension = _extensionFor(image);
-    final path = '$userId/${DateTime.now().millisecondsSinceEpoch}.$extension';
 
     debugPrint(
-      '$_debugTag service upload start bucket=$bucketName path=$path '
-      'name=${image.name} size=${bytes.length}',
+      '$_debugTag service upload start target=r2 '
+      'user=$userId name=${image.name} size=${bytes.length}',
     );
 
-    await _supabase.storage
-        .from(bucketName)
-        .uploadBinary(
-          path,
-          bytes,
-          fileOptions: FileOptions(
-            contentType: _contentTypeFor(extension),
-            upsert: false,
-          ),
-        );
-
-    final publicUrl = _supabase.storage.from(bucketName).getPublicUrl(path);
-    debugPrint('$_debugTag service upload success url=$publicUrl');
-    return publicUrl;
+    try {
+      final objectUri = await _r2.uploadBytes(
+        purpose: R2MediaPurpose.orderCargo,
+        bytes: bytes,
+        contentType: _contentTypeFor(extension),
+        extension: extension,
+      );
+      debugPrint('$_debugTag service upload success object=$objectUri');
+      return objectUri;
+    } catch (error, stackTrace) {
+      debugPrint('$_debugTag service upload failed error=$error\n$stackTrace');
+      rethrow;
+    }
   }
 
   String _extensionFor(XFile image) {

@@ -9,6 +9,7 @@ export type RedisCommand = (command: unknown[]) => Promise<unknown>;
 export type GpsHistoryPayload = {
   driver_id: string;
   user_id: string;
+  order_id: string;
   lat: number;
   lng: number;
   heading: number | null;
@@ -30,7 +31,7 @@ function resultOf(response: unknown): unknown {
 function dedupeKey(point: GpsHistoryPayload): string {
   const lat = point.lat.toFixed(COORDINATE_PRECISION);
   const lng = point.lng.toFixed(COORDINATE_PRECISION);
-  return `${HISTORY_DEDUPE_PREFIX}${point.driver_id}:${lat}:${lng}`;
+  return `${HISTORY_DEDUPE_PREFIX}${point.order_id}:${point.driver_id}:${lat}:${lng}`;
 }
 
 /// Claims a short-lived key before LPUSH so concurrent callers cannot add the

@@ -15,4 +15,14 @@ void main() {
       expect(migration, contains('ORDER_ALREADY_PICKED_UP'));
     },
   );
+
+  test('customer cancellation ignores pickup proofs from a previous driver', () {
+    final migration = File(
+      '../../supabase/migrations/20260913120000_fix_customer_cancel_pickup_proof_owner.sql',
+    ).readAsStringSync();
+
+    expect(migration, contains('proof.driver_id = v_order.driver_id'));
+    expect(migration, contains("proof.stage = 'pickup'"));
+    expect(migration, contains('ORDER_ALREADY_PICKED_UP'));
+  });
 }

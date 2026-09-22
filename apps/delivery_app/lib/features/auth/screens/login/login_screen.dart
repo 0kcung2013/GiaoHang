@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../core/services/auth_service.dart';
-import '../widgets/auth_form_components.dart';
-import '../widgets/auth_shell.dart';
 import '../widgets/auth_strings.dart';
+import 'widgets/login_experiment_view.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -93,70 +91,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AuthShell(
-      title: AuthStrings.loginTitle,
-      subtitle: AuthStrings.loginSubtitle,
-      child: AutofillGroup(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              AuthTextField(
-                controller: _emailController,
-                label: AuthStrings.email,
-                icon: Icons.mail_outline_rounded,
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
-                autofillHints: const [AutofillHints.email],
-                validator: _validateEmail,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              AuthTextField(
-                controller: _passwordController,
-                label: AuthStrings.password,
-                icon: Icons.lock_outline_rounded,
-                textInputAction: TextInputAction.done,
-                obscureText: _obscurePassword,
-                autofillHints: const [AutofillHints.password],
-                validator: _validatePassword,
-                onSubmitted: (_) => _signInWithEmail(),
-                suffixIcon: IconButton(
-                  onPressed: () =>
-                      setState(() => _obscurePassword = !_obscurePassword),
-                  tooltip: _obscurePassword ? 'Hiện mật khẩu' : 'Ẩn mật khẩu',
-                  icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-              if (_errorMessage case final message?) ...[
-                const SizedBox(height: AppSpacing.md),
-                AuthErrorBanner(message: message),
-              ],
-              const SizedBox(height: AppSpacing.xl),
-              AuthPrimaryButton(
-                label: AuthStrings.login,
-                busyLabel: AuthStrings.loggingIn,
-                isBusy: _loading,
-                onPressed: _signInWithEmail,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              const AuthDivider(),
-              const SizedBox(height: AppSpacing.lg),
-              AuthGoogleButton(isBusy: _loading, onPressed: _signInWithGoogle),
-              const SizedBox(height: AppSpacing.sm),
-              AuthSwitchPrompt(
-                prompt: AuthStrings.noAccount,
-                actionLabel: AuthStrings.registerNow,
-                onPressed: () => context.push('/register'),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return LoginExperimentView(
+      formKey: _formKey,
+      emailController: _emailController,
+      passwordController: _passwordController,
+      isBusy: _loading,
+      obscurePassword: _obscurePassword,
+      errorMessage: _errorMessage,
+      emailValidator: _validateEmail,
+      passwordValidator: _validatePassword,
+      onEmailSignIn: _signInWithEmail,
+      onGoogleSignIn: _signInWithGoogle,
+      onTogglePassword: () =>
+          setState(() => _obscurePassword = !_obscurePassword),
+      onRegister: () => context.push('/register'),
+      onPasswordSubmitted: (_) => _signInWithEmail(),
     );
   }
 }

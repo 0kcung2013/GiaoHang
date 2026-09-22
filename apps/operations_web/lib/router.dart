@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:giaohang_config/giaohang_config.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -9,19 +10,25 @@ import 'features/auth/operations_login_screen.dart';
 import 'features/auth/unauthorized_screen.dart';
 import 'features/risk_reports/screens/support_risk_reports_screen.dart';
 import 'features/support/screens/support_home_screen.dart';
+import 'features/support_orders/screens/support_orders_screen.dart';
 
 class _OperationsAuthNotifier extends ChangeNotifier {
   _OperationsAuthNotifier() {
-    _subscription = Supabase.instance.client.auth.onAuthStateChange.listen((_) {
+    final client = Supabase.instance.client;
+    _singleSessionController = SupabaseSingleSessionController(client: client);
+    _subscription = client.auth.onAuthStateChange.listen((state) {
+      unawaited(_singleSessionController.handleAuthState(state));
       notifyListeners();
     });
   }
 
   late final StreamSubscription<AuthState> _subscription;
+  late final SupabaseSingleSessionController _singleSessionController;
 
   @override
   void dispose() {
     _subscription.cancel();
+    unawaited(_singleSessionController.dispose());
     super.dispose();
   }
 }
@@ -76,6 +83,10 @@ GoRouter createOperationsRouter() {
       GoRoute(
         path: '/support-home',
         builder: (_, _) => const SupportHomeScreen(),
+      ),
+      GoRoute(
+        path: '/support-orders',
+        builder: (_, _) => const SupportOrdersScreen(),
       ),
       GoRoute(
         path: '/support-risk',

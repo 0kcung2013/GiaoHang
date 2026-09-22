@@ -1,15 +1,14 @@
 import 'package:flutter/foundation.dart';
+import 'package:giaohang_storage/giaohang_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Upload ảnh KYC / avatar tài xế lên bucket `driver-kyc`.
 class DriverKycStorageService {
-  DriverKycStorageService({SupabaseClient? client})
-    : _supabase = client ?? Supabase.instance.client;
+  DriverKycStorageService({SupabaseClient? client, R2MediaClient? r2Client})
+    : _r2 = r2Client ?? R2MediaClient.supabase(client: client);
 
-  static const bucketName = 'driver-kyc';
-
-  final SupabaseClient _supabase;
+  final R2MediaClient _r2;
 
   Future<String> uploadDriverImage({
     required String userId,
@@ -18,27 +17,23 @@ class DriverKycStorageService {
   }) async {
     final bytes = await image.readAsBytes();
     final extension = _extensionFor(image);
-    final path =
-        '$userId/${kind}_${DateTime.now().millisecondsSinceEpoch}.$extension';
 
     debugPrint(
-      '[DriverKyc] upload start bucket=$bucketName path=$path size=${bytes.length}',
+      '[DriverKyc] upload start target=r2 user=$userId kind=$kind '
+      'size=${bytes.length}',
     );
 
-    await _supabase.storage
-        .from(bucketName)
-        .uploadBinary(
-          path,
-          bytes,
-          fileOptions: FileOptions(
-            contentType: _contentTypeFor(extension),
-            upsert: true,
-          ),
-        );
-
-    final url = _supabase.storage.from(bucketName).getPublicUrl(path);
-    debugPrint('[DriverKyc] upload ok url=$url');
-    return url;
+    final objectUri = await _r2.uploadBytes(
+      purpose: kind == 'avatar'
+          ? R2MediaPurpose.avatar
+          : R2MediaPurpose.driverKyc,
+      bytes: bytes,
+      contentType: _contentTypeFor(extension),
+      extension: extension,
+      stage: kind,
+    );
+    debugPrint('[DriverKyc] upload ok object=$objectUri');
+    return objectUri;
   }
 
   String _extensionFor(XFile image) {

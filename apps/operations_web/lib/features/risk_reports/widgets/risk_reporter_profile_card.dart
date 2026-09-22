@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
+import '../../../core/widgets/stored_media_image.dart';
 import '../models/risk_report.dart';
 
 class RiskReporterProfileCard extends StatelessWidget {
@@ -104,11 +105,11 @@ class _ReporterAvatar extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         child: _hasValue(imageUrl)
-            ? Image.network(
-                imageUrl!,
+            ? StoredMediaImage(
+                storedValue: imageUrl,
                 fit: BoxFit.cover,
                 semanticLabel: 'Ảnh đại diện của $name',
-                errorBuilder: (_, _, _) => fallback,
+                fallback: fallback,
               )
             : fallback,
       ),

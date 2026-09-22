@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import 'order_field_label.dart';
 
 import '../../../../../core/services/osrm_service.dart';
 
@@ -191,7 +192,7 @@ class _LocationStopRow extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        OrderFieldLabel(
                           label,
                           style: AppTextStyles.labelSmall.copyWith(
                             color: color,

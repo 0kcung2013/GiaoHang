@@ -292,7 +292,7 @@ class _PanelButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: secondary ? AppColors.bgCard : AppColors.primary,
+      color: secondary ? AppColors.bgCard : AppColors.accent,
       borderRadius: AppRadius.md,
       child: InkWell(
         onTap: onTap,
@@ -310,13 +310,13 @@ class _PanelButton extends StatelessWidget {
               Icon(
                 icon,
                 size: 19,
-                color: secondary ? AppColors.primary : AppColors.textOnDark,
+                color: secondary ? AppColors.accent : AppColors.textOnAccent,
               ),
               const SizedBox(width: AppSpacing.sm),
               Text(
                 label,
                 style: AppTextStyles.labelMedium.copyWith(
-                  color: secondary ? AppColors.primary : AppColors.textOnDark,
+                  color: secondary ? AppColors.accent : AppColors.textOnAccent,
                 ),
               ),
             ],

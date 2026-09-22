@@ -91,6 +91,10 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
 
     _updateUi(() => _isUpdatingStatus = true);
     try {
+      // Xác thực lại mốc nhận hàng khi khôi phục phiên navigation cũ.
+      await ref
+          .read(deliveryProofServiceProvider)
+          .confirmPickup(orderId: _currentOrder.id);
       await _advanceOrderStatus();
     } catch (error) {
       _showStatusError(error);

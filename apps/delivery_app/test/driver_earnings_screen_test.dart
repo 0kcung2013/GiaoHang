@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('wallet view emphasizes available held and today income', (
+  testWidgets('wallet and income are split into dedicated tabs', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -43,27 +43,38 @@ void main() {
       ),
     );
 
+    expect(find.text('Ví'), findsOneWidget);
+    expect(find.text('Thu nhập'), findsOneWidget);
     expect(find.text('500.000đ'), findsOneWidget);
-    expect(find.text('Đang giữ'), findsOneWidget);
-    expect(find.text('123.750đ'), findsOneWidget);
-    expect(find.text('Thu nhập hôm nay'), findsOneWidget);
-    expect(find.text('+21.250đ'), findsWidgets);
-    expect(find.text('Nạp qua VNPAY'), findsOneWidget);
-    expect(find.text('Rút'), findsOneWidget);
-    expect(find.text('Ngày'), findsOneWidget);
-    expect(find.text('Tuần'), findsOneWidget);
-    expect(find.text('Tháng'), findsOneWidget);
-
-    await tester.tap(find.text('Tuần'));
-    await tester.pump();
-
-    expect(find.text('17/08 – 23/08'), findsOneWidget);
+    expect(find.text('Giữ 123.750đ'), findsOneWidget);
+    expect(find.text('Nạp tiền'), findsOneWidget);
+    expect(find.text('Rút tiền'), findsOneWidget);
 
     await tester.scrollUntilVisible(find.text('Nạp ví'), 300);
 
     expect(find.text('+500.000đ'), findsOneWidget);
     expect(find.text('Nạp ví'), findsOneWidget);
     expect(find.text('Hôm nay · 17/08/2026'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Thu nhập'));
+    await tester.tap(find.text('Thu nhập'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ngày'), findsOneWidget);
+    expect(find.text('Tuần'), findsOneWidget);
+    expect(find.text('Tháng'), findsOneWidget);
+    expect(find.text('17/08 – 23/08'), findsOneWidget);
+    expect(find.byKey(const ValueKey('driver-income-chart')), findsOneWidget);
+    expect(find.text('21.250đ'), findsNWidgets(2));
+    expect(find.text('+21.250đ'), findsOneWidget);
+
+    await tester.tap(find.text('Ngày'));
+    await tester.pump();
+    expect(find.text('Hôm nay'), findsOneWidget);
+
+    await tester.tap(find.text('Tháng'));
+    await tester.pump();
+    expect(find.text('Tháng 08/2026'), findsOneWidget);
   });
 
   testWidgets('shows one COD debit and includes return earning in income', (
@@ -106,14 +117,19 @@ void main() {
       ),
     );
 
-    expect(find.text('+54.000đ'), findsWidgets);
     await tester.scrollUntilVisible(find.text('Ứng tiền hàng'), 300);
     expect(find.text('-350.000đ'), findsOneWidget);
     expect(find.text('Ứng tiền hàng'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Thu nhập'));
+    await tester.tap(find.text('Thu nhập'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('54.000đ'), findsNWidgets(2));
     expect(find.text('Cước giao của đơn hoàn'), findsOneWidget);
     expect(find.text('Phí hoàn hàng'), findsOneWidget);
     expect(find.text('Giữ tiền COD'), findsNothing);
-    expect(find.text('3 giao dịch'), findsNWidgets(2));
+    expect(find.text('2 khoản'), findsOneWidget);
   });
 
   testWidgets('pending top-up is not presented as credited money', (
@@ -179,6 +195,12 @@ void main() {
       ),
     );
 
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('Thu nhập'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('driver-income-chart')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

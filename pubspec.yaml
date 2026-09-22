@@ -11,3 +11,4 @@ workspace:
   - packages/giaohang_config
   - packages/giaohang_design
   - packages/giaohang_domain
+  - packages/giaohang_storage

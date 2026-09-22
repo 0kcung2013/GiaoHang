@@ -86,7 +86,7 @@ void main() {
       (inputDecoration.focusedBorder as OutlineInputBorder).borderSide.color,
       AppColors.accent,
     );
-    expect(find.text('•'), findsOneWidget);
+    expect(find.text('Họ và tên *', findRichText: true), findsOneWidget);
 
     await tester.tap(find.text('Tài liệu'));
     await tester.pumpAndSettle();
@@ -131,8 +131,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Điểm lấy hàng'), findsOneWidget);
-    expect(find.text('Điểm giao hàng'), findsOneWidget);
+    expect(find.text('Điểm lấy hàng *', findRichText: true), findsOneWidget);
+    expect(find.text('Điểm giao hàng *', findRichText: true), findsOneWidget);
     expect(find.byIcon(Icons.check_rounded), findsOneWidget);
     expect(find.byIcon(Icons.map_outlined), findsOneWidget);
 

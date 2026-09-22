@@ -19,6 +19,25 @@ typedef DriverLocationPublisher =
       double? speed,
     });
 
+class DriverOnlinePinStatus {
+  const DriverOnlinePinStatus({required this.isConfigured, this.lockedUntil});
+
+  final bool isConfigured;
+  final DateTime? lockedUntil;
+
+  bool get isLocked =>
+      lockedUntil != null && lockedUntil!.isAfter(DateTime.now().toUtc());
+}
+
+class DriverOnlinePinException implements Exception {
+  const DriverOnlinePinException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class DriverService {
   DriverService({
     SupabaseClient? client,
@@ -43,8 +62,6 @@ class DriverService {
   }
 
   static const String _driversTable = 'drivers';
-  static const String _locationsTable = 'driver_locations';
-
   static const String driverOperationalSelection =
       'id, user_id, vehicle_type, license_plate, is_available, current_lat, '
       'current_lng, updated_at, total_deliveries, approval_status, '
@@ -92,11 +109,33 @@ class DriverService {
     }
   }
 
+  Future<DriverOnlinePinStatus> getOnlinePinStatus() async {
+    try {
+      final response = await _invokeRpc('get_driver_online_pin_status', {});
+      final data = Map<String, dynamic>.from(response as Map);
+      return DriverOnlinePinStatus(
+        isConfigured: data['is_configured'] == true,
+        lockedUntil: DateTime.tryParse(data['locked_until']?.toString() ?? ''),
+      );
+    } catch (error) {
+      throw Exception('Không thể kiểm tra mã PIN Online: $error');
+    }
+  }
+
+  Future<void> configureOnlinePin(String pin) async {
+    try {
+      await _invokeRpc('configure_driver_online_pin', {'p_pin': pin});
+    } catch (error) {
+      throw Exception('Không thể tạo mã PIN Online: $error');
+    }
+  }
+
   /// Ghi GPS mới trước, sau đó bật Online và đánh thức hàng chờ trong một RPC.
   Future<String?> setOnlineWithLocation({
     required String driverProfileId,
     required double lat,
     required double lng,
+    required String pin,
     double? heading,
     double? speed,
     LocationIngestCoordinateSpace coordinateSpace =
@@ -124,16 +163,53 @@ class DriverService {
       final response = await _invokeRpc('set_driver_online_with_location', {
         'p_lat': effectiveLat,
         'p_lng': effectiveLng,
+        'p_pin': pin,
       });
-      final offeredOrderId = response?.toString().trim();
+      final data = Map<String, dynamic>.from(response as Map);
+      final status = data['status']?.toString();
+      if (status == 'invalid_pin') {
+        final remaining = (data['remaining_attempts'] as num?)?.toInt() ?? 0;
+        throw DriverOnlinePinException(
+          'Mã PIN không đúng. Bạn còn $remaining lần thử.',
+        );
+      }
+      if (status == 'locked') {
+        final lockedUntil = DateTime.tryParse(
+          data['locked_until']?.toString() ?? '',
+        );
+        throw DriverOnlinePinException(_lockedPinMessage(lockedUntil));
+      }
+      if (status == 'pin_not_configured') {
+        throw const DriverOnlinePinException(
+          'Bạn cần tạo mã PIN Online trước khi nhận đơn.',
+        );
+      }
+      if (status != 'online') {
+        throw const DriverOnlinePinException(
+          'Không thể xác thực mã PIN Online. Vui lòng thử lại.',
+        );
+      }
+
+      final offeredOrderId = data['offered_order_id']?.toString().trim();
       return offeredOrderId == null ||
               offeredOrderId.isEmpty ||
               offeredOrderId == 'null'
           ? null
           : offeredOrderId;
     } catch (error) {
+      if (error is DriverOnlinePinException) rethrow;
       throw Exception('Failed to go online with current location: $error');
     }
+  }
+
+  static String _lockedPinMessage(DateTime? lockedUntil) {
+    if (lockedUntil == null) {
+      return 'Mã PIN tạm khóa do nhập sai nhiều lần. Vui lòng thử lại sau.';
+    }
+    final remaining = lockedUntil.difference(DateTime.now().toUtc());
+    final minutes =
+        remaining.inMinutes + (remaining.inSeconds % 60 == 0 ? 0 : 1);
+    return 'Mã PIN tạm khóa. Vui lòng thử lại sau ${minutes.clamp(1, 5)} phút.';
   }
 
   Future<dynamic> _invokeRpc(String name, Map<String, dynamic> params) {
@@ -199,32 +275,40 @@ class DriverService {
     bool isActive = true,
   }) async {
     try {
-      await _supabase.from(_locationsTable).insert({
-        'driver_id': driverId,
-        'lat': lat,
-        'lng': lng,
-        'heading': heading,
-        'speed': speed,
-        'is_active': isActive,
-        'created_at': DateTime.now().toUtc().toIso8601String(),
-      });
+      await _locationPipeline.ingest(
+        driverProfileId: driverId,
+        lat: lat,
+        lng: lng,
+        heading: heading,
+        speed: speed,
+        force: true,
+      );
     } catch (error) {
-      throw Exception('Failed to insert location history: $error');
+      throw Exception('Failed to enqueue location history: $error');
     }
   }
 
   Future<DriverLocationModel?> getLastLocation(String driverId) async {
     try {
       final response = await _supabase
-          .from(_locationsTable)
-          .select()
-          .eq('driver_id', driverId)
-          .order('created_at', ascending: false)
-          .limit(1)
+          .from(_driversTable)
+          .select('id, current_lat, current_lng, location_updated_at')
+          .eq('id', driverId)
           .maybeSingle();
 
-      if (response == null) return null;
-      return DriverLocationModel.fromJson(response);
+      if (response == null ||
+          response['current_lat'] == null ||
+          response['current_lng'] == null) {
+        return null;
+      }
+      return DriverLocationModel.fromJson({
+        'id': 'latest:$driverId',
+        'driver_id': driverId,
+        'lat': response['current_lat'],
+        'lng': response['current_lng'],
+        'created_at': response['location_updated_at'],
+        'is_active': true,
+      });
     } catch (error) {
       throw Exception('Failed to get last location: $error');
     }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 
+import '../../../../../core/widgets/stored_media_image.dart';
+
 import '../models/driver_account_view_data.dart';
 import '../utils/driver_account_strings.dart';
 
@@ -173,10 +175,10 @@ class _ProfileAvatar extends StatelessWidget {
             color: AppColors.accent,
             child: data.avatarUrl == null
                 ? fallback
-                : Image.network(
-                    data.avatarUrl!,
+                : StoredMediaImage(
+                    storedValue: data.avatarUrl,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => fallback,
+                    fallback: fallback,
                   ),
           ),
         ),

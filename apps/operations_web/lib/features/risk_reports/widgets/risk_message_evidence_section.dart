@@ -54,7 +54,7 @@ class RiskMessageEvidenceSection extends StatelessWidget {
               icon: const Icon(Icons.add_comment_rounded, size: 18),
               label: const Text(_Strings.attach),
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
+                foregroundColor: AppColors.accent,
                 side: const BorderSide(color: AppColors.border),
                 minimumSize: const Size(48, 48),
                 shape: RoundedRectangleBorder(borderRadius: AppRadius.full),
@@ -272,7 +272,7 @@ class _MessageEvidencePickerState extends State<_MessageEvidencePicker> {
                     icon: const Icon(Icons.link_rounded),
                     label: Text('Gắn ${_selected.length} tin nhắn'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: AppColors.accent,
                       foregroundColor: AppColors.textOnDark,
                       shape: RoundedRectangleBorder(
                         borderRadius: AppRadius.full,

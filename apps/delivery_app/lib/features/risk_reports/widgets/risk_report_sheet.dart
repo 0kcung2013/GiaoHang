@@ -7,7 +7,6 @@ import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/models/order_model.dart';
 import '../../../core/services/reverse_geocoding_service.dart';
@@ -16,7 +15,6 @@ import '../data/risk_report_repository.dart';
 import '../utils/risk_report_options.dart';
 import '../utils/risk_report_strings.dart';
 import 'risk_evidence_step.dart';
-import 'risk_message_picker_sheet.dart';
 import 'risk_reason_step.dart';
 import 'risk_review_step.dart';
 import 'risk_report_sheet_chrome.dart';
@@ -186,14 +184,12 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
         longitude: state.longitude,
         locationAddress: state.locationAddress,
         locationRequired: widget.role == RiskReporterRole.driver,
-        messageCount: state.messageIds.length,
         descriptionError: state.descriptionError,
         photoError: state.photoError,
         locationError: state.locationError,
         onDescriptionChanged: _controller.setDescription,
         onPickPhotos: _pickPhotos,
         onCaptureLocation: _captureLocation,
-        onPickMessages: _pickMessages,
       );
     }
     return RiskReviewStep(
@@ -203,7 +199,6 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
       photoCount: state.photos.length,
       hasLocation: state.latitude != null,
       locationAddress: state.locationAddress,
-      messageCount: state.messageIds.length,
     );
   }
 
@@ -301,33 +296,6 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
       if (showFailure) {
         _showMessage(RiskReportStrings.locationAddressUnavailable);
       }
-    }
-  }
-
-  Future<void> _pickMessages() async {
-    if (_loadingEvidence) return;
-    setState(() => _loadingEvidence = true);
-    try {
-      final response = await Supabase.instance.client
-          .from('order_messages')
-          .select('id, body, message_type, created_at')
-          .eq('order_id', widget.order.id)
-          .order('created_at', ascending: false)
-          .limit(20);
-      if (!mounted) return;
-      final rows = response
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList();
-      final selected = await showRiskMessagePicker(
-        context,
-        rows,
-        _controller.state.messageIds.toSet(),
-      );
-      if (selected != null) _controller.setMessageIds(selected.toList());
-    } catch (_) {
-      _showMessage('Chưa thể tải tin nhắn của đơn hàng.');
-    } finally {
-      if (mounted) setState(() => _loadingEvidence = false);
     }
   }
 

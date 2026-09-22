@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:giaohang_config/giaohang_config.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../features/auth/screens/driver_approval/driver_approval_screen.dart';
@@ -17,9 +18,13 @@ import '../features/auth/screens/unsupported_role_screen.dart';
 
 class _AuthStateNotifier extends ChangeNotifier {
   StreamSubscription? _subscription;
+  late final SupabaseSingleSessionController _singleSessionController;
 
   void start() {
-    _subscription = Supabase.instance.client.auth.onAuthStateChange.listen((_) {
+    final client = Supabase.instance.client;
+    _singleSessionController = SupabaseSingleSessionController(client: client);
+    _subscription = client.auth.onAuthStateChange.listen((state) {
+      unawaited(_singleSessionController.handleAuthState(state));
       notifyListeners();
     });
   }
@@ -27,6 +32,7 @@ class _AuthStateNotifier extends ChangeNotifier {
   @override
   void dispose() {
     _subscription?.cancel();
+    unawaited(_singleSessionController.dispose());
     super.dispose();
   }
 }

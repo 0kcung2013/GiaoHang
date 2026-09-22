@@ -13,6 +13,7 @@ class OrderCancelSection extends StatelessWidget {
     required this.showReasonInput,
     required this.isCancelling,
     required this.warnBeforeCancel,
+    this.errorMessage,
     this.disabledReason,
     required this.onShowReasonInput,
     required this.onCancel,
@@ -22,6 +23,7 @@ class OrderCancelSection extends StatelessWidget {
   final bool showReasonInput;
   final bool isCancelling;
   final bool warnBeforeCancel;
+  final String? errorMessage;
   final String? disabledReason;
   final VoidCallback onShowReasonInput;
   final VoidCallback onCancel;
@@ -83,6 +85,40 @@ class OrderCancelSection extends StatelessWidget {
               ],
             ),
           ),
+          if (errorMessage != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.08),
+                borderRadius: AppRadius.md,
+                border: Border.all(
+                  color: AppColors.error.withValues(alpha: 0.28),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    color: AppColors.error,
+                    size: 19,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      errorMessage!,
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (isLocked) ...[
             const SizedBox(height: AppSpacing.md),
             _CancelButton(
@@ -170,28 +206,31 @@ class _CancelButton extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             borderRadius: AppRadius.full,
-            child: AnimatedContainer(
-              duration: AppDuration.fast,
+            child: SizedBox(
+              height: 48,
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.md,
-              ),
-              decoration: BoxDecoration(
-                color: onTap == null
-                    ? AppColors.textMuted.withValues(alpha: 0.16)
-                    : AppColors.bgCard,
-                borderRadius: AppRadius.full,
-                border: Border.all(
-                  color: onTap == null ? AppColors.border : AppColors.error,
+              child: AnimatedContainer(
+                duration: AppDuration.fast,
+                decoration: BoxDecoration(
+                  color: onTap == null
+                      ? AppColors.textMuted.withValues(alpha: 0.16)
+                      : AppColors.bgCard,
+                  borderRadius: AppRadius.full,
+                  border: Border.all(
+                    color: onTap == null ? AppColors.border : AppColors.error,
+                  ),
                 ),
-              ),
-              child: Text(
-                label,
-                textAlign: TextAlign.center,
-                style: AppTextStyles.labelMedium.copyWith(
-                  color: onTap == null ? AppColors.textMuted : AppColors.error,
-                  fontWeight: FontWeight.w800,
+                child: Center(
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.labelMedium.copyWith(
+                      color: onTap == null
+                          ? AppColors.textMuted
+                          : AppColors.error,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
               ),
             ),

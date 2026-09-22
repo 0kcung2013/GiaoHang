@@ -3,6 +3,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart' show ReturnApprovalDraft;
 
 import '../data/risk_report_repository.dart';
+import '../constants/risk_report_strings.dart';
 import '../models/risk_message_evidence.dart';
 import '../models/risk_report.dart';
 import '../utils/risk_report_ui.dart';
@@ -13,6 +14,8 @@ import 'risk_intervention_panel.dart';
 import 'risk_message_evidence_section.dart';
 import 'risk_report_detail_content.dart';
 import 'risk_reporter_profile_card.dart';
+import 'risk_related_parties.dart';
+import 'risk_case_overview.dart';
 
 class RiskReportDetailBody extends StatelessWidget {
   const RiskReportDetailBody({
@@ -90,11 +93,13 @@ class RiskReportDetailBody extends StatelessWidget {
               ),
               RiskBadge(
                 label: RiskReportUi.categoryLabel(report.category),
-                color: AppColors.primary,
+                color: AppColors.accent,
                 icon: RiskReportUi.categoryIcon(report.category),
               ),
             ],
           ),
+          const SizedBox(height: AppSpacing.xl),
+          RiskCaseOverview(report: report),
           const SizedBox(height: AppSpacing.xl),
           _VerificationOverview(
             report: report,
@@ -210,6 +215,10 @@ class _VerificationOverview extends StatelessWidget {
                 onAddNote: onAddNote,
               ),
             ],
+            if (!report.isSystemIncident) ...[
+              const SizedBox(height: AppSpacing.lg),
+              RiskRelatedParties(report: report),
+            ],
           ],
         );
 
@@ -254,7 +263,10 @@ class _EvidenceOverview extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Nội dung người dùng gửi', style: AppTextStyles.labelMedium),
+          Text(
+            RiskReportStrings.submittedContent,
+            style: AppTextStyles.labelMedium,
+          ),
           const SizedBox(height: AppSpacing.sm),
           Text(
             report.description,
@@ -307,7 +319,7 @@ class _AdditionalCaseDetails extends StatelessWidget {
         ),
         shape: const Border(),
         collapsedShape: const Border(),
-        iconColor: AppColors.primary,
+        iconColor: AppColors.accent,
         collapsedIconColor: AppColors.textMuted,
         title: Text('Trao đổi và lịch sử', style: AppTextStyles.labelMedium),
         subtitle: Text(

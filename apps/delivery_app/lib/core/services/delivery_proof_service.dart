@@ -1,16 +1,19 @@
 import 'package:image_picker/image_picker.dart';
+import 'package:giaohang_storage/giaohang_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/delivery_proof_model.dart';
 
 class DeliveryProofService {
-  DeliveryProofService({SupabaseClient? client})
-    : _supabase = client ?? Supabase.instance.client;
+  DeliveryProofService({SupabaseClient? client, R2MediaClient? r2Client})
+    : _supabase = client ?? Supabase.instance.client,
+      _r2 = r2Client ?? R2MediaClient.supabase(client: client);
 
   static const bucketName = 'delivery-proofs';
   static const maxFileSizeBytes = 5 * 1024 * 1024;
 
   final SupabaseClient _supabase;
+  final R2MediaClient _r2;
 
   Future<DeliveryProofModel> submitProof({
     required String orderId,
@@ -39,18 +42,14 @@ class DeliveryProofService {
       throw Exception('Chỉ hỗ trợ ảnh JPG, PNG hoặc WebP.');
     }
 
-    final storagePath = '$driverId/$orderId/${stage.value}';
-    await _supabase.storage
-        .from(bucketName)
-        .uploadBinary(
-          storagePath,
-          bytes,
-          fileOptions: FileOptions(
-            contentType: contentType,
-            cacheControl: '3600',
-            upsert: true,
-          ),
-        );
+    final storagePath = await _r2.uploadBytes(
+      purpose: R2MediaPurpose.deliveryProof,
+      bytes: bytes,
+      contentType: contentType,
+      extension: _extensionFor(image),
+      contextId: orderId,
+      stage: stage.value,
+    );
 
     final payload = <String, dynamic>{
       'order_id': orderId,
@@ -67,13 +66,31 @@ class DeliveryProofService {
         .upsert(payload, onConflict: 'order_id,stage')
         .select()
         .single();
-    return DeliveryProofModel.fromJson(response);
+    final proof = DeliveryProofModel.fromJson(response);
+    if (stage == DeliveryProofStage.pickup) {
+      await confirmPickup(orderId: orderId);
+    }
+    return proof;
+  }
+
+  /// Ảnh chỉ là bằng chứng chuẩn bị; server xác nhận bàn giao mới khóa hủy.
+  Future<void> confirmPickup({required String orderId}) async {
+    final response = await _supabase.rpc(
+      'confirm_driver_pickup',
+      params: {'p_order_id': orderId},
+    );
+    if (response is! String || DateTime.tryParse(response) == null) {
+      throw Exception('Server chưa xác nhận nhận hàng. Vui lòng thử lại.');
+    }
   }
 
   Future<String> createSignedUrl({
     required String storagePath,
     int expiresInSeconds = 600,
-  }) {
+  }) async {
+    if (R2ObjectReference.isR2(storagePath)) {
+      return _r2.resolveUrl(storagePath, expiresInSeconds: expiresInSeconds);
+    }
     return _supabase.storage
         .from(bucketName)
         .createSignedUrl(storagePath, expiresInSeconds);
@@ -118,5 +135,12 @@ class DeliveryProofService {
     if (name.endsWith('.png')) return 'image/png';
     if (name.endsWith('.webp')) return 'image/webp';
     return null;
+  }
+
+  String _extensionFor(XFile image) {
+    final name = image.name.toLowerCase();
+    if (name.endsWith('.png')) return 'png';
+    if (name.endsWith('.webp')) return 'webp';
+    return 'jpg';
   }
 }

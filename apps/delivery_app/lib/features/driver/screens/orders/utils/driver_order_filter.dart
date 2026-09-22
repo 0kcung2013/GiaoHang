@@ -3,6 +3,16 @@ import 'package:flutter/material.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../home/utils/driver_home_formatters.dart';
 
+const driverCompletedHistoryWindow = Duration(days: 4);
+
+bool isRecentCompletedDriverOrder(OrderModel order, {required DateTime now}) {
+  if (order.status != 'delivered') return false;
+  final completedAt = deliveryCompletedAt(order).toUtc();
+  return !completedAt.isBefore(
+    now.toUtc().subtract(driverCompletedHistoryWindow),
+  );
+}
+
 enum DriverOrderFilter {
   available('Đơn mới', Icons.inbox_rounded),
   active('Đang chạy', Icons.navigation_rounded),
@@ -43,13 +53,24 @@ enum DriverOrderFilter {
   List<OrderModel> filter({
     required List<OrderModel> availableOrders,
     required List<OrderModel> driverOrders,
+    DateTime? now,
   }) {
+    final referenceTime = now ?? DateTime.now();
     return switch (this) {
       DriverOrderFilter.available => availableOrders,
       DriverOrderFilter.active =>
         driverOrders.where(isActiveDriverOrder).toList(),
       DriverOrderFilter.completed =>
-        driverOrders.where((order) => order.status == 'delivered').toList(),
+        driverOrders
+            .where(
+              (order) =>
+                  isRecentCompletedDriverOrder(order, now: referenceTime),
+            )
+            .toList()
+          ..sort(
+            (left, right) =>
+                deliveryCompletedAt(right).compareTo(deliveryCompletedAt(left)),
+          ),
     };
   }
 }

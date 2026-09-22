@@ -140,6 +140,7 @@ class _DriverNavigationScreenState
     await DriverForegroundLocationService.start(
       driverProfileId: driver.id,
       driverUserId: driverUserId,
+      orderId: _currentOrder.id,
     );
   }
 
@@ -577,6 +578,7 @@ class _DriverNavigationScreenState
       final ingest = ref.read(locationIngestServiceProvider);
       final ingestFuture = ingest.ingest(
         driverUserId: driverId,
+        orderId: orderId,
         lat: published.latitude,
         lng: published.longitude,
         prioritySync: true,

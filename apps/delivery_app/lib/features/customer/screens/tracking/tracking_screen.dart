@@ -29,6 +29,10 @@ import 'widgets/assigned_driver_card.dart';
 
 part 'tracking_widgets.dart';
 part 'tracking_helpers.dart';
+part 'widgets/tracking_header_search.dart';
+part 'widgets/tracking_order_hero.dart';
+part 'widgets/tracking_timeline.dart';
+part 'widgets/tracking_states.dart';
 part 'widgets/tracking_map.dart';
 part 'widgets/tracking_map_canvas.dart';
 
@@ -192,35 +196,29 @@ class _TrackingLookupResult extends ConsumerWidget {
       )),
     );
 
+    void refresh() {
+      ref.invalidate(orderByTrackingCodeProvider(trackingCode));
+      ref.invalidate(orderStatusLogsProvider(order.id));
+      ref.invalidate(assignedDriverProvider(order.id));
+      ref.invalidate(orderDeliveryProofsProvider(order.id));
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            if (isRefreshing) ...[
-              const _InlineLoading(label: 'Đang cập nhật...'),
-              const SizedBox(width: AppSpacing.md),
-            ],
-            _StateActionButton(
-              label: 'Làm mới',
-              onTap: () {
-                ref.invalidate(orderByTrackingCodeProvider(trackingCode));
-                ref.invalidate(orderStatusLogsProvider(order.id));
-                ref.invalidate(assignedDriverProvider(order.id));
-                ref.invalidate(orderDeliveryProofsProvider(order.id));
-              },
-            ),
-          ],
+        _TrackedOrderHero(
+          order: order,
+          isRefreshing: isRefreshing,
+          onRefresh: refresh,
         ),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.xl2),
         if (order.canWaitForDriver) ...[
           OrderAssignmentStatusCard(order: order),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.xl2),
         ],
-        if (_shouldShowOrderMap(order)) ...[
-          _TrackingMap(order: order),
-          const SizedBox(height: AppSpacing.md),
+        if (shouldShowAssignedDriverForOrder(order)) ...[
+          AssignedDriverCard(orderId: order.id),
+          const SizedBox(height: AppSpacing.xl2),
         ],
         _TrackingTimeline(order: order),
         if (const {
@@ -228,21 +226,17 @@ class _TrackingLookupResult extends ConsumerWidget {
           'delivering',
           'delivered',
         }.contains(order.status)) ...[
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.xl2),
           CustomerDeliveryProofSection(
             orderId: order.id,
             orderStatus: order.status,
           ),
         ],
-        if (shouldShowAssignedDriverForOrder(order)) ...[
-          const SizedBox(height: AppSpacing.xl2 + AppSpacing.xs),
-          AssignedDriverCard(orderId: order.id),
-        ],
         if (order.status == 'delivered') ...[
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.xl2),
           OrderReviewSection(order: order),
         ],
-        const SizedBox(height: AppSpacing.xl2 + AppSpacing.xs),
+        const SizedBox(height: AppSpacing.xl2),
         _PackageInfoCard(order: order),
       ],
     );

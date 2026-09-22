@@ -12,6 +12,7 @@ class DriverNavigationRouteLogic {
   static const double maneuverAdvanceRadiusMeters = 35;
   static const double navigationZoom = 17.8;
   static const double navigationLookAheadMeters = 70;
+  static const double navigationMarkerLookAheadMeters = 24;
   static const Offset navigationDriverOffset = Offset(0, 104);
 
   static List<LatLng> buildWaypoints({
@@ -169,6 +170,25 @@ class DriverNavigationRouteLogic {
     if (lookAhead == null) return 0;
     final bearing = const Distance().bearing(driverPosition, lookAhead);
     return normalizeBearing(-bearing);
+  }
+
+  /// Hướng xe theo đoạn polyline gần phía trước.
+  /// Camera nhìn xa hơn để chuyển hướng êm, marker nhìn gần để bám sát đường.
+  static double navigationMarkerBearingDegrees({
+    required LatLng driverPosition,
+    required List<LatLng> routePoints,
+  }) {
+    return DeliveryMapUtils.forwardRouteBearing(
+          route: routePoints,
+          current: driverPosition,
+          lookAheadMeters: navigationMarkerLookAheadMeters,
+        ) ??
+        normalizeBearing(
+          -navigationRotationDegrees(
+            driverPosition: driverPosition,
+            routePoints: routePoints,
+          ),
+        );
   }
 
   static ({double rotation, double zoom, Offset driverOffset})

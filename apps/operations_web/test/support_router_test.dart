@@ -13,5 +13,6 @@ void main() {
       contains("role == 'admin' ? '/admin-home' : '/support-risk'"),
     );
     expect(source, contains("return '/support-risk';"));
+    expect(source, contains("path: '/support-orders'"));
   });
 }

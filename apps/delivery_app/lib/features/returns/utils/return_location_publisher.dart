@@ -28,6 +28,7 @@ class ReturnLocationPublisher {
     );
     final ingest = locationIngestService.ingest(
       driverUserId: driverId,
+      orderId: orderId,
       lat: position.latitude,
       lng: position.longitude,
       prioritySync: true,

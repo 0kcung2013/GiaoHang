@@ -1,4 +1,4 @@
-// Edge Function: bulk pop GPS queue (Redis) → insert driver_locations (Postgres).
+// Edge Function: bulk pop GPS queue (Redis) → archive a compressed chunk in R2.
 // Deploy với --no-verify-jwt để cron-job.org không bị 401 ở API gateway
 // (một số cron strip header Authorization).
 //
@@ -7,13 +7,12 @@
 //   2) Header Authorization: Bearer <SERVICE_ROLE_KEY>
 //   3) Header x-cron-secret: <CRON_SECRET>  (optional secret riêng)
 //
-// Secrets: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
+// Secrets: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN,
+//          R2_GATEWAY_URL, R2_GPS_INGEST_SECRET,
 //          SUPABASE_SERVICE_ROLE_KEY (auto), CRON_SECRET (optional)
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
 const QUEUE_KEY = "gps:history:queue";
-const MAX_BATCH = 50;
+const MAX_BATCH = 5000;
 
 async function redis(command: unknown[]) {
   const url = Deno.env.get("UPSTASH_REDIS_REST_URL");
@@ -34,30 +33,9 @@ async function redis(command: unknown[]) {
   return data.result;
 }
 
-/** Decode JWT payload (không verify chữ ký — đủ cho DATN flush worker). */
-function jwtRole(token: string): string | null {
-  try {
-    const parts = token.split(".");
-    if (parts.length < 2) return null;
-    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
-    const json = atob(padded);
-    const payload = JSON.parse(json) as { role?: string; ref?: string };
-    // Đúng project DATN
-    if (payload.ref && payload.ref !== "erlpzwfbpjogvaulcxni") return null;
-    return payload.role ?? null;
-  } catch {
-    return null;
-  }
-}
-
 function isAuthorized(req: Request): boolean {
   const serviceKey = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").trim();
-  // Fallback demo khi không set được secrets qua CLI (403).
-  const cronSecret = (
-    Deno.env.get("CRON_SECRET") ??
-    "giaohang_flush_2026"
-  ).trim();
+  const cronSecret = (Deno.env.get("CRON_SECRET") ?? "").trim();
 
   const authHeader = (req.headers.get("Authorization") ?? "").trim();
   const apiKey = (req.headers.get("apikey") ?? "").trim();
@@ -70,22 +48,9 @@ function isAuthorized(req: Request): boolean {
     if (bearer === serviceKey) return true;
   }
 
-  // 2) JWT có claim role=service_role (khi env key khác / không inject)
-  //    → fix lỗi 401 dù PowerShell đã gửi đúng service_role key
-  if (bearer && jwtRole(bearer) === "service_role") return true;
-  if (apiKey && jwtRole(apiKey) === "service_role") return true;
-
-  // 3) Secret cron
+  // 2) Secret cron riêng. Function tắt JWT gateway nên chỉ chấp nhận
+  // giá trị secret được so khớp trực tiếp, không tự decode JWT.
   if (cronSecret && cronHeader === cronSecret) return true;
-
-  try {
-    const url = new URL(req.url);
-    const q = (url.searchParams.get("secret") ?? "").trim();
-    if (cronSecret && q === cronSecret) return true;
-    if (serviceKey && q === serviceKey) return true;
-  } catch {
-    /* ignore */
-  }
 
   return false;
 }
@@ -111,15 +76,12 @@ Deno.serve(async (req) => {
         {
           error: "Unauthorized",
           hint:
-            "Gửi apikey=service_role, hoặc Authorization Bearer service_role, hoặc x-cron-secret / ?secret=",
+            "Gửi apikey=service_role, Authorization Bearer service_role, hoặc x-cron-secret",
         },
         401,
       );
     }
 
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const admin = createClient(supabaseUrl, serviceKey);
     const rows: Record<string, unknown>[] = [];
 
     for (let i = 0; i < MAX_BATCH; i++) {
@@ -127,9 +89,13 @@ Deno.serve(async (req) => {
       if (raw == null) break;
       try {
         const p = typeof raw === "string" ? JSON.parse(raw) : raw;
-        if (!p?.driver_id || p.lat == null || p.lng == null) continue;
+        if (!p?.driver_id || !p?.order_id || p.lat == null || p.lng == null) {
+          continue;
+        }
         rows.push({
           driver_id: p.driver_id,
+          user_id: p.user_id ?? null,
+          order_id: p.order_id,
           lat: Number(p.lat),
           lng: Number(p.lng),
           heading: p.heading ?? null,
@@ -143,11 +109,20 @@ Deno.serve(async (req) => {
     }
 
     if (rows.length === 0) {
-      return json({ ok: true, inserted: 0, queue_empty: true });
+      return json({ ok: true, archived: 0, queue_empty: true });
     }
 
-    const { error } = await admin.from("driver_locations").insert(rows);
-    if (error) {
+    const gatewayUrl = requiredEnv("R2_GATEWAY_URL").replace(/\/$/, "");
+    const ingestSecret = requiredEnv("R2_GPS_INGEST_SECRET");
+    const archiveResponse = await fetch(`${gatewayUrl}/v1/gps/chunks`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-gps-ingest-secret": ingestSecret,
+      },
+      body: JSON.stringify({ points: rows }),
+    });
+    if (!archiveResponse.ok) {
       for (const r of rows.reverse()) {
         try {
           await redis([
@@ -155,6 +130,8 @@ Deno.serve(async (req) => {
             QUEUE_KEY,
             JSON.stringify({
               driver_id: r.driver_id,
+              user_id: r.user_id,
+              order_id: r.order_id,
               lat: r.lat,
               lng: r.lng,
               heading: r.heading,
@@ -166,10 +143,17 @@ Deno.serve(async (req) => {
           /* ignore */
         }
       }
-      return json({ error: error.message, requeued: rows.length }, 500);
+      return json(
+        {
+          error: `R2 gateway ${archiveResponse.status}`,
+          requeued: rows.length,
+        },
+        502,
+      );
     }
 
-    return json({ ok: true, inserted: rows.length });
+    const archived = await archiveResponse.json();
+    return json({ ok: true, archived: rows.length, object: archived });
   } catch (e) {
     return json(
       { error: e instanceof Error ? e.message : String(e) },
@@ -186,4 +170,10 @@ function json(data: unknown, status = 200) {
       "Access-Control-Allow-Origin": "*",
     },
   });
+}
+
+function requiredEnv(name: string): string {
+  const value = Deno.env.get(name)?.trim();
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
 }

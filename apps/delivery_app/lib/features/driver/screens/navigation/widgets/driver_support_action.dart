@@ -5,8 +5,7 @@ import 'package:giaohang_domain/giaohang_domain.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../order_help/data/customer_support_ticket_repository.dart';
 import '../../../../order_help/models/order_help_option.dart';
-import '../../../../order_help/widgets/customer_support_request_sheet.dart';
-import '../../../../order_help/widgets/order_help_progress_sheet.dart';
+import '../../../../order_help/widgets/support_chat/support_chat_sheet.dart';
 
 Future<void> showDriverSupportFlow(
   BuildContext context, {
@@ -18,31 +17,32 @@ Future<void> showDriverSupportFlow(
 
   final supportRepository =
       repository ?? SupabaseParticipantSupportTicketRepository();
-  final tickets = await supportRepository.fetchForOrder(order.id);
-  final active = tickets.cast<SupportTicket?>().firstWhere(
-    (ticket) =>
-        ticket != null &&
-        !ticket.status.isClosed &&
-        ticket.subject == driverOrderSupportOption.label,
-    orElse: () => null,
-  );
+  SupportTicket? active;
+  try {
+    final tickets = await supportRepository.fetchForOrder(order.id);
+    active = tickets.cast<SupportTicket?>().firstWhere(
+      (ticket) =>
+          ticket != null &&
+          !ticket.status.isClosed &&
+          ticket.subject == driverOrderSupportOption.label,
+      orElse: () => null,
+    );
+  } catch (_) {
+    // Vẫn mở chat mới khi bước tìm cuộc trò chuyện cũ tạm thời thất bại.
+  }
   if (!context.mounted) return;
 
-  if (active != null) {
-    await showSupportTicketProgressSheet(context, active, supportRepository);
-    return;
-  }
-
-  final ticket = await showParticipantSupportRequestSheet(
+  await showParticipantSupportChatSheet(
     context,
     requesterId: requesterId,
-    order: order,
-    option: driverOrderSupportOption,
+    requesterRole: 'driver',
+    orderId: order.id,
+    orderCode: order.trackingCode,
+    subject: driverOrderSupportOption.label,
+    priority: driverOrderSupportOption.priority,
     repository: supportRepository,
+    initialTicket: active,
   );
-  if (ticket != null && context.mounted) {
-    await showSupportTicketProgressSheet(context, ticket, supportRepository);
-  }
 }
 
 class DriverSupportAction extends StatefulWidget {

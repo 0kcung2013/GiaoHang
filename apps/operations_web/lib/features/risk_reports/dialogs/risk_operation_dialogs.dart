@@ -99,7 +99,7 @@ class _OperationConfirmationDialog extends StatelessWidget {
                   key: const Key('confirm-risk-operation'),
                   onPressed: () => Navigator.pop(context, true),
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: AppColors.accent,
                     minimumSize: const Size(48, 48),
                   ),
                   child: Text(confirmLabel),
@@ -207,7 +207,7 @@ class _InstructionDialogState extends State<_InstructionDialog> {
                   FilledButton(
                     onPressed: _submit,
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: AppColors.accent,
                       minimumSize: const Size(48, 48),
                     ),
                     child: const Text('Xác nhận'),
@@ -235,7 +235,7 @@ class _InstructionDialogState extends State<_InstructionDialog> {
       border: const OutlineInputBorder(borderRadius: AppRadius.md),
       focusedBorder: const OutlineInputBorder(
         borderRadius: AppRadius.md,
-        borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+        borderSide: BorderSide(color: AppColors.accent, width: 1.5),
       ),
     );
   }

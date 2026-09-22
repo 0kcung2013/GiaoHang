@@ -24,7 +24,7 @@ void main() {
     expect(find.text('Thêm thông tin'), findsOneWidget);
     expect(find.text('Thêm ảnh'), findsOneWidget);
     expect(find.text('Gửi vị trí hiện tại'), findsOneWidget);
-    expect(find.text('Chọn tin nhắn liên quan'), findsOneWidget);
+    expect(find.text('Chọn tin nhắn liên quan'), findsNothing);
 
     await tester.enterText(
       find.byType(TextField),
@@ -40,6 +40,7 @@ void main() {
     await tester.tap(find.text('Gửi cho CSKH'));
     await tester.pumpAndSettle();
     expect(repository.submitCalls, 1);
+    expect(repository.lastDraft?.messageIds, isEmpty);
     expect(find.text('Mã báo cáo: report-123'), findsOneWidget);
   });
 
@@ -137,6 +138,7 @@ class _LauncherState extends State<_Launcher> {
 
 class _FakeRepository implements ParticipantRiskReportRepository {
   int submitCalls = 0;
+  ParticipantRiskReportDraft? lastDraft;
 
   @override
   Future<RiskReportSubmissionResult> submit(
@@ -144,6 +146,7 @@ class _FakeRepository implements ParticipantRiskReportRepository {
     RiskReportProgressCallback? onProgress,
   }) async {
     submitCalls += 1;
+    lastDraft = draft;
     onProgress?.call(RiskReportSubmissionPhase.checkingDuplicate);
     onProgress?.call(RiskReportSubmissionPhase.processingImages);
     onProgress?.call(RiskReportSubmissionPhase.uploadingImages);

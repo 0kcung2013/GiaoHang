@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+
+import '../../../../../core/widgets/stored_media_image.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 import '../../../../../core/providers/customer_providers.dart';
 import '../../../../order_contact/models/order_contact_message.dart';
@@ -250,10 +252,10 @@ class _DriverAvatar extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: url != null && url.isNotEmpty
-          ? Image.network(
-              url,
+          ? StoredMediaImage(
+              storedValue: url,
               fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => _InitialsAvatar(initials: initials),
+              fallback: _InitialsAvatar(initials: initials),
             )
           : _InitialsAvatar(initials: initials),
     );

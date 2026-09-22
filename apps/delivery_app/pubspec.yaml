@@ -38,9 +38,12 @@ dependencies:
     path: ../../packages/giaohang_design
   giaohang_domain:
     path: ../../packages/giaohang_domain
+  giaohang_storage:
+    path: ../../packages/giaohang_storage
 
   cupertino_icons: ^1.0.8
   flutter_map: ^7.0.0
+  flutter_svg: ^2.0.16
   latlong2: ^0.9.0
   supabase_flutter: ^2.0.0
   riverpod: ^2.0.0
@@ -55,7 +58,6 @@ dependencies:
   geolocator: ^13.0.0
   flutter_foreground_task: ^9.2.2
   http: ^1.2.0
-  device_preview: ^1.2.0
   url_launcher: ^6.3.1
   uuid: 4.5.3
 
@@ -88,9 +90,10 @@ flutter:
     - assets/images/customer_orders_visual_header.png
     - assets/images/driver_home_courier_banner.png
     - assets/images/driver_home_courier_banner_v2.png
-    - assets/images/driver_map_marker.png
+    - assets/images/delivery_scooter_marker.svg
     - assets/images/app_splash_mascot.png
     - assets/images/app_splash_mascot_android12.png
+    - assets/images/login_courier_hero.png
 
   # To add more assets to your application, extend the section above:
   #   - images/a_dot_burr.jpeg

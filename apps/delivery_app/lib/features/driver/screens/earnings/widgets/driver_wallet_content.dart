@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 import '../../../../../core/models/driver_wallet.dart';
-import '../utils/driver_wallet_period.dart';
+import 'driver_finance_tabs.dart';
+import 'driver_income_content.dart';
 import 'wallet_balance_hero.dart';
-import 'wallet_period_controls.dart';
 import 'wallet_transaction_list.dart';
 
 class DriverWalletContent extends StatefulWidget {
@@ -14,12 +14,14 @@ class DriverWalletContent extends StatefulWidget {
     required this.summary,
     required this.transactions,
     required this.onTopUp,
+    this.onWithdraw,
     this.now,
   });
 
   final DriverWalletSummary summary;
   final List<DriverWalletTransaction> transactions;
   final VoidCallback onTopUp;
+  final VoidCallback? onWithdraw;
   final DateTime? now;
 
   @override
@@ -28,31 +30,22 @@ class DriverWalletContent extends StatefulWidget {
 
 class _DriverWalletContentState extends State<DriverWalletContent> {
   late final DateTime _today;
-  late DriverWalletPeriodSelection _selection;
+  DriverFinanceTab _selectedTab = DriverFinanceTab.wallet;
 
   @override
   void initState() {
     super.initState();
     _today = VietnamTime.now(clock: widget.now);
-    _selection = DriverWalletPeriodSelection(
-      period: DriverWalletPeriod.day,
-      anchorDate: _today,
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final visibleTransactions = widget.transactions
-        .where((transaction) => transaction.isVisibleInHistory)
-        .toList();
-    final filteredTransactions = _selection.filter(visibleTransactions);
-    final todaySelection = DriverWalletPeriodSelection(
-      period: DriverWalletPeriod.day,
-      anchorDate: _today,
-    );
-    final todayIncome = todaySelection.income(
-      todaySelection.filter(visibleTransactions),
-    );
+    final visibleTransactions =
+        widget.transactions
+            .where((transaction) => transaction.isVisibleInHistory)
+            .toList()
+          ..sort((left, right) => right.createdAt.compareTo(left.createdAt));
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.screenH,
@@ -61,84 +54,84 @@ class _DriverWalletContentState extends State<DriverWalletContent> {
         AppSpacing.xl4,
       ),
       children: [
-        WalletBalanceHero(
-          summary: widget.summary,
-          todayIncome: todayIncome,
-          onTopUp: widget.onTopUp,
+        DriverFinanceTabs(
+          selected: _selectedTab,
+          onChanged: (tab) => setState(() => _selectedTab = tab),
         ),
         const SizedBox(height: AppSpacing.xl2),
-        WalletPeriodControls(
-          selection: _selection,
-          today: _today,
-          onPeriodChanged: _changePeriod,
-          onPrevious: () => _shiftPeriod(-1),
-          onNext: _canMoveForward ? () => _shiftPeriod(1) : null,
-          onPickDate: _pickDate,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        WalletPeriodSummary(
-          incomeText: formatVnd(_selection.income(filteredTransactions)),
-          transactionCount: filteredTransactions.length,
-        ),
-        const SizedBox(height: AppSpacing.xl2),
-        Text(
-          'Giao dịch theo ngày',
-          style: AppTextStyles.headingSmall.copyWith(
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        WalletTransactionList(
-          transactions: filteredTransactions,
-          today: _today,
+        AnimatedSwitcher(
+          duration: AppDuration.normal,
+          switchInCurve: AppCurve.decelerate,
+          switchOutCurve: AppCurve.accelerate,
+          child: _selectedTab == DriverFinanceTab.wallet
+              ? _WalletTabContent(
+                  key: const ValueKey('driver-wallet-tab'),
+                  summary: widget.summary,
+                  transactions: visibleTransactions,
+                  today: _today,
+                  onTopUp: widget.onTopUp,
+                  onWithdraw: widget.onWithdraw,
+                )
+              : DriverIncomeContent(
+                  key: const ValueKey('driver-income-tab'),
+                  transactions: visibleTransactions,
+                  today: _today,
+                ),
         ),
       ],
     );
   }
+}
 
-  bool get _canMoveForward {
-    final currentPeriod = DriverWalletPeriodSelection(
-      period: _selection.period,
-      anchorDate: _today,
-    );
-    return _selection.start.isBefore(currentPeriod.start);
-  }
+class _WalletTabContent extends StatelessWidget {
+  const _WalletTabContent({
+    super.key,
+    required this.summary,
+    required this.transactions,
+    required this.today,
+    required this.onTopUp,
+    this.onWithdraw,
+  });
 
-  void _changePeriod(DriverWalletPeriod period) {
-    setState(() => _selection = _selection.withPeriod(period));
-  }
+  final DriverWalletSummary summary;
+  final List<DriverWalletTransaction> transactions;
+  final DateTime today;
+  final VoidCallback onTopUp;
+  final VoidCallback? onWithdraw;
 
-  void _shiftPeriod(int amount) {
-    setState(() => _selection = _selection.shift(amount));
-  }
-
-  Future<void> _pickDate() async {
-    final selected = await showDatePicker(
-      context: context,
-      initialDate: _selection.anchorDate.isAfter(_today)
-          ? _today
-          : _selection.anchorDate,
-      firstDate: DateTime(2020),
-      lastDate: _today,
-      helpText: 'Chọn ngày xem giao dịch',
-      cancelText: 'Huỷ',
-      confirmText: 'Chọn',
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: Theme.of(context).colorScheme.copyWith(
-            primary: AppColors.accent,
-            secondary: AppColors.accent,
-          ),
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        WalletBalanceHero(
+          summary: summary,
+          onTopUp: onTopUp,
+          onWithdraw: onWithdraw,
         ),
-        child: child!,
-      ),
+        const SizedBox(height: AppSpacing.xl2),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Lịch sử ví',
+                style: AppTextStyles.headingSmall.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            Text(
+              '${transactions.length} giao dịch',
+              style: AppTextStyles.labelMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        WalletTransactionList(transactions: transactions, today: today),
+      ],
     );
-    if (selected == null || !mounted) return;
-    setState(() {
-      _selection = DriverWalletPeriodSelection(
-        period: _selection.period,
-        anchorDate: selected,
-      );
-    });
   }
 }

@@ -1,0 +1,5 @@
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-supabase-anon-key
+SIGNING_SECRET=replace-with-at-least-32-random-bytes
+GPS_INGEST_SECRET=replace-with-another-random-secret
+R2_INTERNAL_SECRET=replace-with-a-third-random-secret

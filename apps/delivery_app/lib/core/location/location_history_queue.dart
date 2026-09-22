@@ -6,10 +6,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'location_ingest_config.dart';
 
-/// Một điểm GPS chờ bulk insert Postgres (cold path).
+/// Một điểm GPS chờ gửi lại Edge ingest khi đường truyền tạm lỗi.
 class GpsHistoryPoint {
   const GpsHistoryPoint({
     required this.driverProfileId,
+    required this.orderId,
     required this.lat,
     required this.lng,
     this.heading,
@@ -18,28 +19,30 @@ class GpsHistoryPoint {
   });
 
   final String driverProfileId;
+  final String orderId;
   final double lat;
   final double lng;
   final double? heading;
   final double? speed;
   final DateTime createdAt;
 
-  Map<String, dynamic> toDriverLocationsRow() {
+  Map<String, dynamic> toEdgeBody() {
     return {
-      'driver_id': driverProfileId,
+      'driver_profile_id': driverProfileId,
+      'order_id': orderId,
       'lat': lat,
       'lng': lng,
       'heading': heading,
       'speed': speed,
-      'is_active': true,
-      'created_at': createdAt.toIso8601String(),
+      'client_ts': createdAt.toUtc().toIso8601String(),
     };
   }
 }
 
-/// Queue client-side + flush định kỳ (fallback khi chưa có Redis worker).
+/// Queue client-side + thử gửi lại Edge Function định kỳ.
 ///
-/// Không thay Kafka: đủ cho DATN, giảm N INSERT lẻ thành 1 bulk.
+/// Fallback này không ghi lịch sử vào PostgreSQL. Khi Edge hoạt động lại, điểm
+/// được đưa vào Redis queue và cron sẽ đóng gói sang Cloudflare R2.
 class LocationHistoryQueue {
   LocationHistoryQueue({
     SupabaseClient? client,
@@ -76,7 +79,7 @@ class LocationHistoryQueue {
     }
   }
 
-  /// Bulk insert tối đa [maxBatch] điểm vào `driver_locations`.
+  /// Gửi lại tối đa [maxBatch] điểm qua Edge ingest.
   Future<int> flush() async {
     if (_flushing || _queue.isEmpty) return 0;
     _flushing = true;
@@ -87,21 +90,27 @@ class LocationHistoryQueue {
       }
       if (batch.isEmpty) return 0;
 
-      final rows = batch.map((e) => e.toDriverLocationsRow()).toList();
-      await _supabase.from('driver_locations').insert(rows);
+      var accepted = 0;
+      for (final point in batch) {
+        final response = await _supabase.functions.invoke(
+          LocationIngestConfig.ingestFunctionName,
+          body: point.toEdgeBody(),
+        );
+        if (response.status >= 200 && response.status < 300) accepted += 1;
+      }
 
       if (kDebugMode) {
         debugPrint(
-          '[GpsHistoryQueue] bulk insert ${rows.length} points '
+          '[GpsHistoryQueue] re-ingested $accepted/${batch.length} points '
           '(remaining=${_queue.length})',
         );
       }
-      return rows.length;
+      return accepted;
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[GpsHistoryQueue] flush failed: $e');
       }
-      // Mất batch khi lỗi — tránh queue phình vô hạn offline.
+      // Bỏ batch lỗi để tránh queue RAM phình vô hạn khi thiết bị offline lâu.
       return 0;
     } finally {
       _flushing = false;

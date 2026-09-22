@@ -191,7 +191,7 @@ class _EmptyPhotoPicker extends StatelessWidget {
               Expanded(
                 child: _PhotoAction(
                   icon: Icons.photo_library_outlined,
-                  label: showCamera ? 'Thư viện' : 'Chọn ảnh',
+                  label: showCamera ? 'Thư viện' : 'Chụp ảnh',
                   onTap: onPickGallery,
                 ),
               ),

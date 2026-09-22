@@ -4,8 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../constants/support_ticket_strings.dart';
+import 'support_workspace_theme.dart';
 
-enum SupportWorkspaceSection { risks, tickets }
+enum SupportWorkspaceSection { risks, orders, tickets }
 
 class SupportWorkspaceScaffold extends StatelessWidget {
   const SupportWorkspaceScaffold({
@@ -19,45 +20,48 @@ class SupportWorkspaceScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth >= 960) {
+    return Theme(
+      data: supportWorkspaceTheme(context),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= 960) {
+            return Scaffold(
+              backgroundColor: AppColors.bgWarm,
+              body: Row(
+                children: [
+                  _DesktopSupportNavigation(activeSection: activeSection),
+                  Expanded(child: body),
+                ],
+              ),
+            );
+          }
+
           return Scaffold(
-            backgroundColor: AppColors.bgLight,
-            body: Row(
-              children: [
-                _DesktopSupportNavigation(activeSection: activeSection),
-                Expanded(child: body),
+            backgroundColor: AppColors.bgWarm,
+            appBar: AppBar(
+              toolbarHeight: 64,
+              titleSpacing: AppSpacing.screenH,
+              title: const _WorkspaceBrand(compact: true),
+              backgroundColor: AppColors.bgCard,
+              surfaceTintColor: AppColors.bgCard,
+              scrolledUnderElevation: 0,
+              shape: const Border(bottom: BorderSide(color: AppColors.border)),
+              actions: [
+                IconButton(
+                  tooltip: SupportTicketStrings.signOut,
+                  onPressed: () => _signOut(context),
+                  icon: const Icon(Icons.logout_rounded),
+                ),
+                const SizedBox(width: AppSpacing.sm),
               ],
             ),
+            body: body,
+            bottomNavigationBar: _MobileSupportNavigation(
+              activeSection: activeSection,
+            ),
           );
-        }
-
-        return Scaffold(
-          backgroundColor: AppColors.bgLight,
-          appBar: AppBar(
-            toolbarHeight: 64,
-            titleSpacing: AppSpacing.screenH,
-            title: const _WorkspaceBrand(compact: true),
-            backgroundColor: AppColors.bgCard,
-            surfaceTintColor: AppColors.bgCard,
-            scrolledUnderElevation: 0,
-            shape: const Border(bottom: BorderSide(color: AppColors.border)),
-            actions: [
-              IconButton(
-                tooltip: SupportTicketStrings.signOut,
-                onPressed: () => _signOut(context),
-                icon: const Icon(Icons.logout_rounded),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-            ],
-          ),
-          body: body,
-          bottomNavigationBar: _MobileSupportNavigation(
-            activeSection: activeSection,
-          ),
-        );
-      },
+        },
+      ),
     );
   }
 }
@@ -71,8 +75,11 @@ class _DesktopSupportNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Container(
-        width: 256,
-        color: AppColors.primary,
+        width: 276,
+        decoration: const BoxDecoration(
+          color: AppColors.bgCard,
+          border: Border(right: BorderSide(color: AppColors.border)),
+        ),
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.lg,
           AppSpacing.xl,
@@ -89,7 +96,7 @@ class _DesktopSupportNavigation extends StatelessWidget {
                 AppSpacing.sm,
                 AppSpacing.xl3,
               ),
-              child: _WorkspaceBrand(onDark: true),
+              child: _WorkspaceBrand(),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(
@@ -101,7 +108,7 @@ class _DesktopSupportNavigation extends StatelessWidget {
               child: Text(
                 'KHÔNG GIAN LÀM VIỆC',
                 style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.textOnDark.withValues(alpha: 0.48),
+                  color: AppColors.textMuted,
                   letterSpacing: 0.9,
                 ),
               ),
@@ -111,8 +118,15 @@ class _DesktopSupportNavigation extends StatelessWidget {
               icon: Icons.shield_outlined,
               selectedIcon: Icons.shield_rounded,
               selected: activeSection == SupportWorkspaceSection.risks,
-              onDark: true,
               onTap: () => context.go('/support-risk'),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            _WorkspaceDestination(
+              label: SupportTicketStrings.ordersQueue,
+              icon: Icons.inventory_2_outlined,
+              selectedIcon: Icons.inventory_2_rounded,
+              selected: activeSection == SupportWorkspaceSection.orders,
+              onTap: () => context.go('/support-orders'),
             ),
             const SizedBox(height: AppSpacing.sm),
             _WorkspaceDestination(
@@ -120,7 +134,6 @@ class _DesktopSupportNavigation extends StatelessWidget {
               icon: Icons.forum_outlined,
               selectedIcon: Icons.forum_rounded,
               selected: activeSection == SupportWorkspaceSection.tickets,
-              onDark: true,
               onTap: () => context.go('/support-home'),
             ),
             const Spacer(),
@@ -128,10 +141,10 @@ class _DesktopSupportNavigation extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: AppSpacing.md),
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: AppColors.textOnDark.withValues(alpha: 0.06),
+                color: AppColors.bgWarm,
                 borderRadius: AppRadius.md,
                 border: Border.all(
-                  color: AppColors.textOnDark.withValues(alpha: 0.1),
+                  color: AppColors.accent.withValues(alpha: 0.16),
                 ),
               ),
               child: Row(
@@ -157,13 +170,13 @@ class _DesktopSupportNavigation extends StatelessWidget {
                         Text(
                           'Nhân viên CSKH',
                           style: AppTextStyles.labelMedium.copyWith(
-                            color: AppColors.textOnDark,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                         Text(
                           'Đang hoạt động',
                           style: AppTextStyles.labelSmall.copyWith(
-                            color: AppColors.textOnDark.withValues(alpha: 0.58),
+                            color: AppColors.success,
                           ),
                         ),
                       ],
@@ -177,7 +190,6 @@ class _DesktopSupportNavigation extends StatelessWidget {
               icon: Icons.logout_rounded,
               selectedIcon: Icons.logout_rounded,
               selected: false,
-              onDark: true,
               onTap: () => _signOut(context),
             ),
           ],
@@ -224,6 +236,17 @@ class _MobileSupportNavigation extends StatelessWidget {
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: _WorkspaceDestination(
+                  label: SupportTicketStrings.ordersQueue,
+                  icon: Icons.inventory_2_outlined,
+                  selectedIcon: Icons.inventory_2_rounded,
+                  selected: activeSection == SupportWorkspaceSection.orders,
+                  centered: true,
+                  onTap: () => context.go('/support-orders'),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _WorkspaceDestination(
                   label: SupportTicketStrings.ticketQueue,
                   icon: Icons.forum_outlined,
                   selectedIcon: Icons.forum_rounded,
@@ -241,10 +264,9 @@ class _MobileSupportNavigation extends StatelessWidget {
 }
 
 class _WorkspaceBrand extends StatelessWidget {
-  const _WorkspaceBrand({this.compact = false, this.onDark = false});
+  const _WorkspaceBrand({this.compact = false});
 
   final bool compact;
-  final bool onDark;
 
   @override
   Widget build(BuildContext context) {
@@ -255,12 +277,12 @@ class _WorkspaceBrand extends StatelessWidget {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: onDark ? AppColors.accent : AppColors.primary,
+            color: AppColors.accent,
             borderRadius: AppRadius.md,
           ),
           child: Icon(
             Icons.support_agent_rounded,
-            color: onDark ? AppColors.textOnAccent : AppColors.textOnDark,
+            color: AppColors.textOnAccent,
           ),
         ),
         const SizedBox(width: AppSpacing.md),
@@ -274,7 +296,7 @@ class _WorkspaceBrand extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppTextStyles.headingSmall.copyWith(
-                  color: onDark ? AppColors.textOnDark : AppColors.textPrimary,
+                  color: AppColors.textPrimary,
                 ),
               ),
               if (!compact)
@@ -282,9 +304,7 @@ class _WorkspaceBrand extends StatelessWidget {
                   'GiaoHang Operations',
                   maxLines: 1,
                   style: AppTextStyles.labelSmall.copyWith(
-                    color: onDark
-                        ? AppColors.textOnDark.withValues(alpha: 0.54)
-                        : AppColors.textMuted,
+                    color: AppColors.textMuted,
                   ),
                 ),
             ],
@@ -303,7 +323,6 @@ class _WorkspaceDestination extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.centered = false,
-    this.onDark = false,
   });
 
   final String label;
@@ -312,7 +331,6 @@ class _WorkspaceDestination extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final bool centered;
-  final bool onDark;
 
   @override
   Widget build(BuildContext context) {
@@ -321,18 +339,12 @@ class _WorkspaceDestination extends StatelessWidget {
       selected: selected,
       label: label,
       child: Material(
-        color: selected
-            ? (onDark
-                  ? AppColors.textOnDark.withValues(alpha: 0.1)
-                  : AppColors.accentLight)
-            : Colors.transparent,
+        color: selected ? AppColors.accentLight : Colors.transparent,
         borderRadius: AppRadius.md,
         child: InkWell(
           onTap: onTap,
           mouseCursor: SystemMouseCursors.click,
-          hoverColor: onDark
-              ? AppColors.textOnDark.withValues(alpha: 0.05)
-              : AppColors.bgLight,
+          hoverColor: AppColors.bgWarm,
           borderRadius: AppRadius.md,
           child: Container(
             constraints: const BoxConstraints(minHeight: 52),
@@ -345,11 +357,7 @@ class _WorkspaceDestination extends StatelessWidget {
                 Icon(
                   selected ? selectedIcon : icon,
                   size: 22,
-                  color: selected
-                      ? AppColors.accent
-                      : (onDark
-                            ? AppColors.textOnDark.withValues(alpha: 0.68)
-                            : AppColors.textSecondary),
+                  color: selected ? AppColors.accent : AppColors.textSecondary,
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Flexible(
@@ -359,12 +367,8 @@ class _WorkspaceDestination extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: AppTextStyles.labelMedium.copyWith(
                       color: selected
-                          ? (onDark
-                                ? AppColors.textOnDark
-                                : AppColors.textPrimary)
-                          : (onDark
-                                ? AppColors.textOnDark.withValues(alpha: 0.68)
-                                : AppColors.textSecondary),
+                          ? AppColors.accent
+                          : AppColors.textSecondary,
                     ),
                   ),
                 ),

@@ -1,16 +1,17 @@
 import 'package:delivery_app/core/widgets/delivery_map_markers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 
 void main() {
-  testWidgets('driver map marker uses the courier mascot asset', (
+  testWidgets('driver map marker uses a compact custom vehicle', (
     tester,
   ) async {
     final marker = DeliveryMapMarkers.driver(const LatLng(10.776, 106.701));
 
-    expect(marker.width, 68);
-    expect(marker.height, 68);
+    expect(marker.width, DriverVehicleMarker.size);
+    expect(marker.height, DriverVehicleMarker.size);
     expect(marker.alignment, Alignment.center);
 
     await tester.pumpWidget(
@@ -19,29 +20,17 @@ void main() {
       ),
     );
 
-    final image = tester.widget<Image>(find.byType(Image));
-    final resized = image.image as ResizeImage;
-    final asset = resized.imageProvider as AssetImage;
-    expect(asset.assetName, DeliveryMapMarkers.driverAssetPath);
-    expect(find.byKey(const Key('driver-map-marker-icon')), findsOneWidget);
-    final stack = tester.widget<Stack>(
-      find.byKey(const Key('driver-map-marker-stack')),
-    );
-    expect(stack.children.first, isA<Image>());
-    expect(
-      find.byKey(const Key('driver-map-marker-active-dot')),
-      findsOneWidget,
-    );
-    final activeDot = tester.widget<Container>(
-      find.byKey(const Key('driver-map-marker-active-dot')),
-    );
-    final dotDecoration = activeDot.decoration! as BoxDecoration;
-    expect(dotDecoration.border, isNull);
+    expect(find.byType(DriverVehicleMarker), findsOneWidget);
+    expect(find.byKey(const Key('driver-vehicle-marker')), findsOneWidget);
+    expect(find.byType(Image), findsNothing);
+    expect(find.byType(SvgPicture), findsOneWidget);
     expect(find.bySemanticsLabel('Vị trí tài xế'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('inactive driver marker hides the status dot', (tester) async {
+  testWidgets('inactive driver vehicle remains the same marker', (
+    tester,
+  ) async {
     final marker = DeliveryMapMarkers.driver(
       const LatLng(10.776, 106.701),
       highlight: false,
@@ -53,19 +42,49 @@ void main() {
       ),
     );
 
-    expect(find.byKey(const Key('driver-map-marker-icon')), findsOneWidget);
-    expect(find.byKey(const Key('driver-map-marker-active-dot')), findsNothing);
+    final opacity = tester.widget<Opacity>(
+      find.descendant(
+        of: find.byType(DriverVehicleMarker),
+        matching: find.byType(Opacity),
+      ),
+    );
+    expect(opacity.opacity, 0.58);
+    expect(find.byKey(const Key('driver-vehicle-marker')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  test('navigation marker centers the mascot on the GPS route', () {
+  testWidgets('driver vehicle rotates when heading is available', (
+    tester,
+  ) async {
+    final marker = DeliveryMapMarkers.driver(
+      const LatLng(10.776, 106.701),
+      bearingDegrees: 90,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: Center(child: marker.child)),
+      ),
+    );
+
+    expect(
+      find.ancestor(
+        of: find.byType(DriverVehicleMarker),
+        matching: find.byType(Transform),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  test('navigation marker centers the vehicle on the GPS route', () {
     final marker = DeliveryMapMarkers.navigationDriver(
       const LatLng(10.776, 106.701),
     );
 
-    expect(marker.width, 76);
-    expect(marker.height, 76);
+    expect(marker.width, DriverVehicleMarker.size);
+    expect(marker.height, DriverVehicleMarker.size);
     expect(marker.alignment, Alignment.center);
-    expect(marker.rotate, isTrue);
+    expect(marker.rotate, isFalse);
   });
 }

@@ -12,14 +12,12 @@ class RiskEvidenceStep extends StatelessWidget {
     required this.longitude,
     required this.locationAddress,
     required this.locationRequired,
-    required this.messageCount,
     required this.descriptionError,
     required this.photoError,
     required this.locationError,
     required this.onDescriptionChanged,
     required this.onPickPhotos,
     required this.onCaptureLocation,
-    required this.onPickMessages,
     super.key,
   });
 
@@ -29,14 +27,12 @@ class RiskEvidenceStep extends StatelessWidget {
   final double? longitude;
   final String? locationAddress;
   final bool locationRequired;
-  final int messageCount;
   final String? descriptionError;
   final String? photoError;
   final String? locationError;
   final ValueChanged<String> onDescriptionChanged;
   final VoidCallback onPickPhotos;
   final VoidCallback onCaptureLocation;
-  final VoidCallback onPickMessages;
 
   @override
   Widget build(BuildContext context) {
@@ -126,16 +122,6 @@ class RiskEvidenceStep extends StatelessWidget {
               style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
             ),
           ),
-        const SizedBox(height: AppSpacing.sm),
-        _EvidenceAction(
-          icon: Icons.chat_bubble_outline_rounded,
-          label: 'Chọn tin nhắn liên quan',
-          value: messageCount == 0
-              ? 'Không bắt buộc'
-              : '$messageCount tin nhắn',
-          onTap: onPickMessages,
-          complete: messageCount > 0,
-        ),
       ],
     );
   }

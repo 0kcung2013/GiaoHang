@@ -1,4 +1,4 @@
-/// Cấu hình pipeline GPS: throttle → hot store → queue history → Postgres.
+/// Cấu hình pipeline GPS: throttle → hot store → queue history → R2.
 ///
 /// Mục tiêu DATN: giảm ghi PostgreSQL trực tiếp mà vẫn giữ tracking realtime
 /// (UPDATE `drivers` theo chu kỳ) và history bất đồng bộ (batch).
@@ -24,17 +24,17 @@ class LocationIngestConfig {
   static const Duration navigationMinInterval = Duration(seconds: 2);
   static const double navigationMinDistanceMeters = 12;
 
-  /// Chu kỳ flush history queue → bulk insert Postgres (fallback client).
+  /// Chu kỳ thử gửi lại history queue qua Edge ingest (fallback client).
   static const Duration historyFlushInterval = Duration(seconds: 30);
 
   /// Số điểm tối thiểu trong queue trước khi flush sớm.
   static const int historyFlushMinBatch = 8;
 
-  /// Số điểm tối đa mỗi lần bulk insert.
+  /// Số điểm tối đa mỗi lần thử gửi lại.
   static const int historyFlushMaxBatch = 40;
 
   /// Gọi Edge Function `ingest-driver-location` (Redis + queue server).
-  /// false = fallback local: throttle + PG latest thưa + batch history client.
+  /// false = fallback local: chỉ cập nhật PG latest và retry history qua Edge.
   static const bool useEdgeIngest = true;
 
   /// Tên Edge Function ingest.

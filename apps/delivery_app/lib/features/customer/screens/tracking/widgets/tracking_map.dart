@@ -1,10 +1,15 @@
 part of '../tracking_screen.dart';
 
 class _TrackingMap extends ConsumerStatefulWidget {
-  const _TrackingMap({required this.order, this.isFullscreen = false});
+  const _TrackingMap({
+    required this.order,
+    this.isFullscreen = false,
+    this.height = 260,
+  });
 
   final OrderModel order;
   final bool isFullscreen;
+  final double height;
 
   @override
   ConsumerState<_TrackingMap> createState() => _TrackingMapState();
@@ -22,6 +27,8 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
   LatLng? _displayedDriverPos;
   LatLng? _motionStart;
   LatLng? _motionTarget;
+  TrackingRouteProjection? _motionStartProjection;
+  TrackingRouteProjection? _motionTargetProjection;
   late final AnimationController _driverMotionController;
   DateTime? _lastRealtimeAt;
   bool _isPublishingPollFallback = false;
@@ -227,24 +234,48 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
       evaluatedAt: DateTime.now(),
     );
     final progress = TrackingTrafficRouteProgress(snapshot);
+    final snappedCurrent = current == null
+        ? null
+        : TrackingLocationMotion.projectOntoRoute(
+            current,
+            snapshot.routePoints,
+          )?.point;
+    _driverMotionController.stop();
+    _motionStartProjection = null;
+    _motionTargetProjection = null;
     setState(() {
       _fullRoute = snapshot.routePoints;
       _trafficSnapshot = snapshot;
       _trafficProgress = progress;
-      _visibleTrafficSegments = progress.advanceTo(current);
+      _visibleTrafficSegments = progress.advanceTo(snappedCurrent);
+      if (snappedCurrent != null) {
+        _stableDriverPos = snappedCurrent;
+        _displayedDriverPos = snappedCurrent;
+      }
     });
   }
 
   void _animateDriverPosition(LatLng target) {
-    final current = _displayedDriverPos ?? _stableDriverPos ?? target;
-    _motionStart = current;
-    _motionTarget = target;
-    _stableDriverPos = target;
-    final trafficSegments = _trafficProgress?.advanceTo(target);
-    if (current == target) {
+    final route = _fullRoute;
+    final targetProjection = route == null
+        ? null
+        : TrackingLocationMotion.projectOntoRoute(target, route);
+    final snappedTarget = targetProjection?.point ?? target;
+    final current = _displayedDriverPos ?? _stableDriverPos ?? snappedTarget;
+    final startProjection = route == null
+        ? null
+        : TrackingLocationMotion.projectOntoRoute(current, route);
+    final snappedCurrent = startProjection?.point ?? current;
+    _motionStart = snappedCurrent;
+    _motionTarget = snappedTarget;
+    _motionStartProjection = startProjection;
+    _motionTargetProjection = targetProjection;
+    _stableDriverPos = snappedTarget;
+    final trafficSegments = _trafficProgress?.advanceTo(snappedTarget);
+    if (snappedCurrent == snappedTarget) {
       if (mounted) {
         setState(() {
-          _displayedDriverPos = target;
+          _displayedDriverPos = snappedTarget;
           if (trafficSegments != null) {
             _visibleTrafficSegments = trafficSegments;
           }
@@ -266,11 +297,18 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
       _driverMotionController.value,
     );
     setState(() {
-      _displayedDriverPos = TrackingLocationMotion.interpolate(
-        from,
-        to,
-        progress,
-      );
+      final route = _fullRoute;
+      final startProjection = _motionStartProjection;
+      final targetProjection = _motionTargetProjection;
+      _displayedDriverPos =
+          route != null && startProjection != null && targetProjection != null
+          ? TrackingLocationMotion.interpolateAlongRoute(
+              route: route,
+              from: startProjection,
+              to: targetProjection,
+              progress: progress,
+            )
+          : TrackingLocationMotion.interpolate(from, to, progress);
     });
   }
 
@@ -343,10 +381,19 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
       (order.pickupLng + order.deliveryLng) / 2,
     );
 
+    final resolvedDriverPosition =
+        _displayedDriverPos ?? _resolveDriverPos(driverAsync.valueOrNull, live);
+    final snappedDriverPosition = resolvedDriverPosition == null
+        ? null
+        : _snapToRoute(resolvedDriverPosition);
+    final driverBearing = snappedDriverPosition == null || _fullRoute == null
+        ? null
+        : TrackingLocationMotion.projectOntoRoute(
+            snappedDriverPosition,
+            _fullRoute!,
+          )?.bearingDegrees;
     final driverPos = phase.visibleDriverPosition(
-      latestDriverPosition:
-          _displayedDriverPos ??
-          _resolveDriverPos(driverAsync.valueOrNull, live),
+      latestDriverPosition: snappedDriverPosition,
       delivery: deliveryPoint,
     );
 
@@ -359,6 +406,7 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
       pickupPoint: pickupPoint,
       deliveryPoint: deliveryPoint,
       driverPosition: driverPos,
+      driverBearing: driverBearing,
       completed: phase == TrackingMapPhase.completed,
       isFullscreen: widget.isFullscreen,
       phaseLegend: phase.legend,
@@ -371,13 +419,21 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
     }
 
     return Container(
-      height: 260,
+      height: widget.height,
       decoration: BoxDecoration(
-        borderRadius: AppRadius.lg,
-        border: Border.all(color: AppColors.border),
+        borderRadius: AppRadius.xl2,
+        border: Border.all(color: AppColors.accent.withValues(alpha: 0.14)),
+        boxShadow: AppShadow.card,
       ),
       clipBehavior: Clip.antiAlias,
       child: map,
     );
+  }
+
+  LatLng _snapToRoute(LatLng position) {
+    final route = _fullRoute;
+    if (route == null) return position;
+    return TrackingLocationMotion.projectOntoRoute(position, route)?.point ??
+        position;
   }
 }

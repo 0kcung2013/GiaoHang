@@ -4,6 +4,8 @@ import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../home/widgets/driver_order_card.dart';
 import '../utils/driver_order_filter.dart';
+import '../utils/driver_orders_strings.dart';
+import 'driver_completed_order_card.dart';
 
 class DriverOrdersList extends StatelessWidget {
   final DriverOrderFilter filter;
@@ -52,6 +54,18 @@ class DriverOrdersList extends StatelessWidget {
           ),
           sliver: SliverToBoxAdapter(child: _constrain(_sectionHeader())),
         ),
+        if (filter == DriverOrderFilter.completed)
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(
+              contentPadding.left,
+              AppSpacing.md,
+              contentPadding.right,
+              0,
+            ),
+            sliver: SliverToBoxAdapter(
+              child: _constrain(const _CompletedRetentionNotice()),
+            ),
+          ),
         if (orders.isEmpty)
           SliverPadding(
             padding: EdgeInsets.fromLTRB(
@@ -77,10 +91,12 @@ class DriverOrdersList extends StatelessWidget {
                 (context, index) => _constrain(
                   Padding(
                     padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                    child: DriverOrderCard(
-                      order: orders[index],
-                      acceptDriverId: acceptDriverId,
-                    ),
+                    child: filter == DriverOrderFilter.completed
+                        ? DriverCompletedOrderCard(order: orders[index])
+                        : DriverOrderCard(
+                            order: orders[index],
+                            acceptDriverId: acceptDriverId,
+                          ),
                   ),
                 ),
                 childCount: orders.length,
@@ -124,6 +140,37 @@ class DriverOrdersList extends StatelessWidget {
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: maxContentWidth),
         child: child,
+      ),
+    );
+  }
+}
+
+class _CompletedRetentionNotice extends StatelessWidget {
+  const _CompletedRetentionNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.info.withValues(alpha: 0.08),
+        borderRadius: AppRadius.md,
+        border: Border.all(color: AppColors.info.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.history_rounded, color: AppColors.info, size: 20),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              DriverOrdersStrings.completedHistoryRetention,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

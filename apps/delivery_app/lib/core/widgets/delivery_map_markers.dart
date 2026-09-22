@@ -1,5 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
@@ -7,8 +10,6 @@ import 'package:giaohang_design/giaohang_design.dart';
 /// Marker thống nhất L / G / T cho map khách & tài xế.
 class DeliveryMapMarkers {
   DeliveryMapMarkers._();
-
-  static const driverAssetPath = 'assets/images/driver_map_marker.png';
 
   static Marker pickup(LatLng point) => Marker(
     point: point,
@@ -34,21 +35,34 @@ class DeliveryMapMarkers {
     ),
   );
 
-  static Marker driver(LatLng point, {bool highlight = true}) => Marker(
+  static Marker driver(
+    LatLng point, {
+    bool highlight = true,
+    double? bearingDegrees,
+  }) => Marker(
     point: point,
-    width: 68,
-    height: 68,
+    width: DriverVehicleMarker.size,
+    height: DriverVehicleMarker.size,
     alignment: Alignment.center,
-    child: _DriverMarker(isActive: highlight),
+    child: _RotatedDriverMarker(
+      isActive: highlight,
+      bearingDegrees: bearingDegrees,
+    ),
   );
 
-  static Marker navigationDriver(LatLng point) => Marker(
+  static Marker navigationDriver(
+    LatLng point, {
+    double? bearingDegrees,
+  }) => Marker(
     point: point,
-    width: 76,
-    height: 76,
+    width: DriverVehicleMarker.size,
+    height: DriverVehicleMarker.size,
     alignment: Alignment.center,
-    rotate: true,
-    child: const _DriverMarker(isActive: true),
+    // The navigation camera already rotates the road toward the top of
+    // the screen. Let this vehicle rotate with the map, so its heading
+    // stays aligned with the forward route instead of being counter-rotated.
+    rotate: false,
+    child: _RotatedDriverMarker(isActive: true, bearingDegrees: bearingDegrees),
   );
 
   /// Chỉ lệch nhẹ khi **rất gần** (<12m) để không che chữ L/G.
@@ -57,6 +71,26 @@ class DeliveryMapMarkers {
     final d = const Distance().as(LengthUnit.Meter, driver, other);
     if (d >= minM) return driver;
     return LatLng(driver.latitude + 0.00006, driver.longitude + 0.00005);
+  }
+}
+
+class _RotatedDriverMarker extends StatelessWidget {
+  const _RotatedDriverMarker({
+    required this.isActive,
+    required this.bearingDegrees,
+  });
+
+  final bool isActive;
+  final double? bearingDegrees;
+
+  @override
+  Widget build(BuildContext context) {
+    final bearing = bearingDegrees;
+    final child = DriverVehicleMarker(isActive: isActive);
+    if (bearing == null) return child;
+
+    final angle = bearing * math.pi / 180;
+    return Transform.rotate(angle: angle, child: child);
   }
 }
 
@@ -96,8 +130,11 @@ class _BubbleMarker extends StatelessWidget {
   }
 }
 
-class _DriverMarker extends StatelessWidget {
-  const _DriverMarker({required this.isActive});
+class DriverVehicleMarker extends StatelessWidget {
+  const DriverVehicleMarker({required this.isActive, super.key});
+
+  static const double size = 40;
+  static const String assetPath = 'assets/images/delivery_scooter_marker.svg';
 
   final bool isActive;
 
@@ -108,34 +145,18 @@ class _DriverMarker extends StatelessWidget {
       label: 'Vị trí tài xế',
       child: Tooltip(
         message: 'Tài xế',
-        child: Stack(
-          key: const Key('driver-map-marker-stack'),
-          alignment: Alignment.bottomCenter,
-          clipBehavior: Clip.none,
-          children: [
-            Image.asset(
-              DeliveryMapMarkers.driverAssetPath,
-              key: const Key('driver-map-marker-icon'),
+        child: RepaintBoundary(
+          child: Opacity(
+            opacity: isActive ? 1 : 0.58,
+            child: SvgPicture.asset(
+              assetPath,
+              key: Key('driver-vehicle-marker'),
+              width: size,
+              height: size,
               fit: BoxFit.contain,
-              cacheWidth: 192,
-              filterQuality: FilterQuality.high,
-              semanticLabel: 'Tài xế giao hàng',
+              excludeFromSemantics: true,
             ),
-            if (isActive)
-              Positioned(
-                right: AppSpacing.xs,
-                bottom: AppSpacing.xs,
-                child: Container(
-                  key: const Key('driver-map-marker-active-dot'),
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    color: AppColors.markerDriver,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-          ],
+          ),
         ),
       ),
     );

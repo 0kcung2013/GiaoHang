@@ -93,7 +93,7 @@ class SupabaseParticipantSupportTicketRepository
           'body, created_at',
         )
         .eq('ticket_id', ticketId)
-        .order('created_at');
+        .order('created_at', ascending: true);
     return List<Map<String, dynamic>>.from(
       rows,
     ).map((row) => CaseMessage.fromJson(row, caseIdKey: 'ticket_id')).toList();
@@ -105,7 +105,7 @@ class SupabaseParticipantSupportTicketRepository
         .from('support_ticket_messages')
         .stream(primaryKey: ['id'])
         .eq('ticket_id', ticketId)
-        .order('created_at')
+        .order('created_at', ascending: true)
         .map(
           (rows) => rows
               .map((row) => CaseMessage.fromJson(row, caseIdKey: 'ticket_id'))

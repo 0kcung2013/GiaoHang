@@ -4,6 +4,11 @@ abstract final class AuthStrings {
 
   static const loginTitle = 'Chào mừng trở lại';
   static const loginSubtitle = 'Đăng nhập để tiếp tục giao nhận';
+  static const loginHeroTitle = 'Giao hàng, nhẹ như chạm';
+  static const loginHeroSubtitle =
+      'Theo dõi từng chặng, an tâm đến lúc giao xong.';
+  static const loginIllustrationLabel =
+      'Nhân viên giao hàng mặc áo cam đang cầm kiện hàng';
   static const login = 'Đăng nhập';
   static const loggingIn = 'Đang đăng nhập...';
   static const loginWithGoogle = 'Tiếp tục với Google';
@@ -27,9 +32,13 @@ abstract final class AuthStrings {
 
   static const fullName = 'Họ và tên';
   static const email = 'Email';
+  static const emailPlaceholder = 'ban@example.com';
   static const phone = 'Số điện thoại';
   static const password = 'Mật khẩu';
+  static const passwordPlaceholder = 'Nhập mật khẩu';
   static const passwordHint = 'Tối thiểu 6 ký tự';
+  static const showPassword = 'Hiện mật khẩu';
+  static const hidePassword = 'Ẩn mật khẩu';
   static const or = 'hoặc';
 
   static const missingLogin = 'Vui lòng nhập email và mật khẩu.';

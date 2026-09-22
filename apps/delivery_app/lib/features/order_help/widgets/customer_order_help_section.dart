@@ -202,6 +202,7 @@ class _CustomerOrderHelpSectionState extends State<CustomerOrderHelpSection> {
         context,
         ticket,
         _supportRepository,
+        orderCode: widget.order.trackingCode,
       );
     }
     return showRiskReportProgressSheet(

@@ -116,6 +116,9 @@ void main() {
     await tester.pump();
     expect(find.byKey(const Key('risk-internal-note')), findsNothing);
 
+    await tester.ensureVisible(
+      find.byKey(const Key('continue-delivery-button')),
+    );
     await tester.tap(find.byKey(const Key('continue-delivery-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirm-risk-operation')));
@@ -148,6 +151,9 @@ void main() {
     await tester.pumpAndSettle();
 
     for (var attempt = 0; attempt < 2; attempt++) {
+      await tester.ensureVisible(
+        find.byKey(const Key('continue-delivery-button')),
+      );
       await tester.tap(find.byKey(const Key('continue-delivery-button')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('confirm-risk-operation')));

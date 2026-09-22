@@ -21,7 +21,8 @@ GiaoHang/
 ├── packages/
 │   ├── giaohang_config/   # Runtime config dùng chung
 │   ├── giaohang_design/   # Design tokens dùng chung
-│   └── giaohang_domain/   # Domain models dùng chung
+│   ├── giaohang_domain/   # Domain models dùng chung
+│   └── giaohang_storage/  # R2 client và object reference dùng chung
 ├── supabase/              # migrations và Edge Functions dùng chung
 ├── AGENTS.md
 ├── DESIGN.md
@@ -55,8 +56,7 @@ flutter build web                                    # Build Operations Web
 - **drivers** — id, user_id, vehicle_type, license_plate, vehicle_brand_model, vehicle_color, is_available, current_lat, current_lng, rating, total_deliveries, approval_status, verified_at, submitted_at, rejection_reason, KYC fields (id_card_*, driver_license_*, vehicle_photo_url), updated_at
 - **orders** — id, customer_id, driver_id, status, pickup_address, pickup_lat, pickup_lng, delivery_address, delivery_lat, delivery_lng, total_price, note, created_at
 - **order_items** — id, order_id, name, quantity, price
-- **routes** — id, driver_id, date, optimized_path (JSONB), total_distance, total_duration, status
-- **locations** — id, driver_id, lat, lng, timestamp (realtime tracking log)
+- **driver_locations** — dữ liệu GPS lịch sử cũ, chỉ đọc trong giai đoạn chuyển đổi sang R2; không ghi mới
 
 ### Enums
 - order status: `pending` → `confirmed` → `assigned` → `picking_up` → `delivering` → `delivered` | `cancelled`
@@ -108,6 +108,43 @@ Project đã kết nối Supabase MCP — có thể dùng AI để:
 
 Quan trọng: không thay đổi Supabase schema, RLS policies, migrations, Edge Functions, hoặc database fields nếu chưa được hỏi và chấp thuận riêng.
 
+## Database Change Rules
+
+- Ưu tiên tái sử dụng bảng, cột, RPC, view và luồng dữ liệu hiện có trước khi đề xuất cấu trúc mới.
+- Không tạo bảng mới chỉ để phục vụ một màn hình, tab hoặc trạng thái UI.
+- Chỉ đề xuất bảng mới khi dữ liệu thực sự có vòng đời, quan hệ, quyền truy cập hoặc yêu cầu audit độc lập mà các bảng hiện có không đáp ứng hợp lý.
+- Trước khi tạo bảng mới, phải nêu rõ vì sao không thể mở rộng hoặc tái sử dụng cấu trúc hiện tại.
+- Không bổ sung database hoặc dịch vụ lưu trữ thứ hai nếu chưa có số liệu dung lượng/hiệu năng chứng minh là cần thiết và chưa được chấp thuận riêng.
+
+## Delivery Monitoring / Violation Scope
+
+- Điểm vi phạm chỉ có hiệu lực trong 14 ngày (2 tuần) tính từ thời điểm phát sinh.
+- Giao muộn hoặc đánh giá xấu tạo điểm chờ xác minh; không tự động kết luận lỗi tài xế hoặc tự động khóa tài khoản.
+- Việc xác nhận, miễn hoặc điều chỉnh điểm thuộc quyền CSKH/Admin và phải có audit trail.
+- Phạm vi hiện tại không thu thập dữ liệu để huấn luyện lại LightGBM. Việc xây dựng dataset và retrain mô hình là hướng phát triển trong tương lai.
+- Trong phạm vi hiện tại, lịch sử GPS chỉ được lưu để phát lại hành trình, đối chiếu sự cố và lập báo cáo khi cần.
+
+### GPS Storage Architecture
+
+- Supabase chỉ giữ dữ liệu nghiệp vụ và vị trí mới nhất trong `drivers`; không ghi thêm lịch sử GPS mới vào PostgreSQL/Supabase Storage.
+- Lịch sử GPS chính được đóng gói theo `order_id` và lưu trong Cloudflare R2 ở định dạng nén, với object key xác định được từ mã đơn để không cần thêm bảng metadata chỉ nhằm lưu đường dẫn file.
+- Không upload một object cho từng điểm GPS. Phải buffer rồi ghi theo chunk hoặc ghi một file hoàn chỉnh khi kết thúc đơn để giảm số thao tác lưu trữ.
+- Object GPS mặc định hết hạn sau 14 ngày bằng lifecycle rule. Không giữ dữ liệu quá hạn chỉ để phục vụ huấn luyện mô hình.
+- `driver_locations` chỉ còn phục vụ dữ liệu lịch sử cũ trong giai đoạn chuyển đổi; không dùng làm fallback ghi mới khi R2 không khả dụng.
+- R2 access key/secret chỉ tồn tại ở server-side worker/function secrets, không đưa xuống Flutter client và không commit vào Git.
+- Việc tạo Cloudflare account, bucket, Worker, secrets hoặc thay đổi pipeline GPS cần được hỏi và chấp thuận riêng trước khi thực hiện.
+
+### Image / Media Storage Architecture
+
+- Ảnh upload mới (ảnh hàng hóa, bằng chứng giao/nhận/trả hàng, bằng chứng báo cáo rủi ro, avatar, KYC và hồ sơ thay đổi tài xế) ưu tiên lưu trên Cloudflare R2 thay vì Supabase Storage.
+- Dùng bucket private; không bật public `r2.dev` cho ảnh nghiệp vụ hoặc KYC. Client chỉ upload/download bằng presigned URL có thời hạn ngắn do server-side Worker cấp sau khi kiểm tra Supabase JWT và quyền trên đối tượng nghiệp vụ.
+- Tái sử dụng các cột URL/path hiện có bằng cách lưu object key hoặc URI ổn định dạng `r2://bucket/key`; không lưu presigned URL hết hạn vào database và không tạo bảng metadata mới nếu chưa thực sự cần.
+- Phân tách prefix theo loại dữ liệu và chủ sở hữu, ví dụ `orders/{order_id}/cargo/`, `orders/{order_id}/proofs/`, `risk-reports/{report_id}/`, `drivers/{driver_id}/kyc/` và `users/{user_id}/avatars/`.
+- Giới hạn MIME type, dung lượng và số lượng ảnh theo từng loại; ưu tiên chuyển ảnh thông thường sang WebP trước khi upload nhưng không làm giảm chất lượng tài liệu KYC đến mức khó xác minh.
+- Ảnh cũ trong Supabase Storage vẫn phải đọc được trong giai đoạn chuyển đổi. Không xóa hoặc di chuyển hàng loạt khi chưa có migration plan, kiểm tra đối soát và chấp thuận riêng.
+- Retention 14 ngày chỉ áp dụng cho GPS. Thời hạn lưu ảnh KYC, bằng chứng giao hàng và bằng chứng khiếu nại phải được xác định riêng theo nghiệp vụ; không tự động xóa theo lifecycle của GPS.
+- Việc tạo R2 media bucket, Worker cấp presigned URL, secrets hoặc migration file ảnh cần được hỏi và chấp thuận riêng trước khi thực hiện.
+
 ## Conventions
 - Đặt tên file: `snake_case.dart`
 - Đặt tên class: `PascalCase`
@@ -116,7 +153,7 @@ Quan trọng: không thay đổi Supabase schema, RLS policies, migrations, Edge
 - Không hardcode string — dùng constants
 - Comment bằng tiếng Việt hoặc tiếng Anh đều được
 
-## File Size / God File Rules
+## File Responsibility / God File Rules
 
 - Do not create God files.
 - One screen file should mainly own `Scaffold`, top-level layout, navigation entry points, and provider wiring.
@@ -125,12 +162,11 @@ Quan trọng: không thay đổi Supabase schema, RLS policies, migrations, Edge
 - Extract formatting/date/currency/status helpers into `utils/` folders.
 - Extract dialogs into `dialogs/` folders or separate widget files.
 - Extract filter/tab state helpers when they grow beyond trivial local state.
-- Prefer files under 300-400 lines.
-- Any file over 500 lines must be treated as a refactor candidate.
-- Any file over 800 lines must not receive new features until it is split.
-- Do not add new features into `apps/delivery_app/lib/features/customer/screens/tracking/tracking_screen.dart` or `apps/delivery_app/lib/features/customer/screens/order/order_screen.dart` until they are refactored.
-- When implementing features, report if any touched file exceeds 400 lines.
-- Before modifying a large file, propose a split plan first.
+- Không áp dụng giới hạn cứng theo số dòng và không tách file chỉ vì file dài.
+- Một file có thể dài nếu toàn bộ nội dung vẫn phục vụ một trách nhiệm thống nhất và dễ điều hướng.
+- Không để một file chứa quá nhiều phần độc lập như UI, state orchestration, dialogs, data access, formatters và business rules không liên quan chặt chẽ.
+- Chỉ đề xuất tách file khi thay đổi làm xuất hiện thêm trách nhiệm độc lập, làm giảm tính kết dính hoặc khiến việc kiểm thử/bảo trì khó khăn.
+- Trước khi mở rộng một file, kiểm tra trách nhiệm hiện có; nếu cần tách thì đề xuất theo ranh giới nghiệp vụ hoặc component, không dựa trên số dòng.
 
 ## Verification / Test Scope
 

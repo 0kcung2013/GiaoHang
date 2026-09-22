@@ -39,7 +39,7 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
   static const _titles = [
     'Tổng quan',
     'Đơn hàng',
-    'Ví Tài Xế',
+    'Ví & Thu nhập',
     'Tài khoản',
     'FreePick',
   ];
@@ -220,10 +220,7 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
           ],
         ),
         if (currentUser != null)
-          DriverActiveDeliveryLocationTracker(
-            userId: currentUser.id,
-            email: currentUser.email,
-          ),
+          DriverActiveDeliveryLocationTracker(userId: currentUser.id),
       ],
     );
   }

@@ -8,7 +8,9 @@ import '../../../../../core/location/driver_location_producer_policy.dart';
 import '../../../../../core/providers/customer_providers.dart';
 import '../../../../../core/providers/driver_wallet_providers.dart';
 import '../../../../../core/providers/location_providers.dart';
+import '../../../../../core/services/driver_service.dart';
 import '../driver_home_strings.dart';
+import 'driver_online_pin_verification_sheet.dart';
 import 'driver_wallet_balance_dialog.dart';
 
 bool shouldShowOnlineWalletNotice(String? offeredOrderId) {
@@ -42,6 +44,15 @@ class _AvailabilityToggleCardState
     try {
       String? offeredOrderId;
       if (value) {
+        final driverService = ref.read(driverServiceProvider);
+        final pinStatus = await driverService.getOnlinePinStatus();
+        if (pinStatus.isLocked) {
+          throw const DriverOnlinePinException(
+            'Mã PIN tạm khóa do nhập sai nhiều lần. Vui lòng thử lại sau.',
+          );
+        }
+        if (!mounted) return;
+
         final position = await ref
             .read(locationServiceProvider)
             .getCurrentPosition();
@@ -50,18 +61,31 @@ class _AvailabilityToggleCardState
             'Hãy bật GPS và cấp quyền vị trí trước khi nhận đơn.',
           );
         }
+        if (!mounted) return;
 
-        final locationMode = ref.read(driverLocationModeProvider);
-        offeredOrderId = await ref
-            .read(driverServiceProvider)
-            .setOnlineWithLocation(
+        var isPinConfigured = pinStatus.isConfigured;
+        final pin = await showDriverOnlinePinVerificationSheet(
+          context,
+          isSetup: !pinStatus.isConfigured,
+          onVerify: (pin) async {
+            if (!isPinConfigured) {
+              await driverService.configureOnlinePin(pin);
+              isPinConfigured = true;
+            }
+
+            final locationMode = ref.read(driverLocationModeProvider);
+            offeredOrderId = await driverService.setOnlineWithLocation(
               driverProfileId: widget.driver.id,
               lat: position.latitude,
               lng: position.longitude,
               heading: position.heading,
               speed: position.speed,
+              pin: pin,
               coordinateSpace: locationMode.rawGpsCoordinateSpace,
             );
+          },
+        );
+        if (pin == null) return;
         ref.invalidate(currentPositionProvider);
         ref.invalidate(availableOrdersProvider(widget.driver.userId));
       } else {

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
@@ -10,101 +8,25 @@ import '../data/customer_support_ticket_repository.dart';
 import '../utils/order_help_ui.dart';
 import 'order_help_conversation.dart';
 import 'order_help_event_row.dart';
+import 'support_chat/support_chat_sheet.dart';
 
 Future<void> showSupportTicketProgressSheet(
   BuildContext context,
   SupportTicket ticket,
-  ParticipantSupportTicketRepository repository,
-) {
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) =>
-        _SupportProgressLoader(ticket: ticket, repository: repository),
+  ParticipantSupportTicketRepository repository, {
+  String? orderCode,
+}) async {
+  await showParticipantSupportChatSheet(
+    context,
+    requesterId: ticket.requesterId,
+    requesterRole: ticket.requesterRole,
+    orderId: ticket.orderId ?? '',
+    orderCode: orderCode,
+    subject: ticket.subject,
+    priority: ticket.priority,
+    repository: repository,
+    initialTicket: ticket,
   );
-}
-
-class _SupportProgressLoader extends StatefulWidget {
-  const _SupportProgressLoader({
-    required this.ticket,
-    required this.repository,
-  });
-
-  final SupportTicket ticket;
-  final ParticipantSupportTicketRepository repository;
-
-  @override
-  State<_SupportProgressLoader> createState() => _SupportProgressLoaderState();
-}
-
-class _SupportProgressLoaderState extends State<_SupportProgressLoader> {
-  List<CaseMessage>? _messages;
-  StreamSubscription<List<CaseMessage>>? _messageSubscription;
-
-  @override
-  void initState() {
-    super.initState();
-    _subscribeToMessages();
-    _loadMessages();
-  }
-
-  @override
-  void dispose() {
-    unawaited(_messageSubscription?.cancel());
-    super.dispose();
-  }
-
-  void _subscribeToMessages() {
-    final repository = widget.repository;
-    if (repository is! ParticipantSupportConversationRepository) return;
-    final conversations =
-        repository as ParticipantSupportConversationRepository;
-    _messageSubscription = conversations.watchMessages(widget.ticket.id).listen(
-      (messages) {
-        if (mounted) setState(() => _messages = messages);
-      },
-    );
-  }
-
-  Future<void> _loadMessages() async {
-    final repository = widget.repository;
-    if (repository is! ParticipantSupportConversationRepository) {
-      if (mounted) setState(() => _messages = const []);
-      return;
-    }
-    final conversations =
-        repository as ParticipantSupportConversationRepository;
-    final messages = await conversations.fetchMessages(widget.ticket.id);
-    if (mounted) setState(() => _messages = messages);
-  }
-
-  Future<void> _send(String body) async {
-    final repository = widget.repository;
-    if (repository is! ParticipantSupportConversationRepository) return;
-    final conversations =
-        repository as ParticipantSupportConversationRepository;
-    await conversations.postMessage(widget.ticket.id, body);
-    await _loadMessages();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final ticket = widget.ticket;
-    return _ProgressSheet(
-      title: ticket.subject,
-      recordId: ticket.id,
-      statusLabel: OrderHelpUi.supportStatusLabel(ticket.status),
-      statusColor: OrderHelpUi.supportStatusColor(ticket.status),
-      statusIcon: OrderHelpUi.supportStatusIcon(ticket.status),
-      description: ticket.message,
-      resolution: ticket.resolution,
-      updatedAt: ticket.updatedAt,
-      messages: _messages,
-      onSend: ticket.status.isClosed ? null : _send,
-    );
-  }
 }
 
 Future<void> showRiskReportProgressSheet(

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
+import 'package:giaohang_storage/giaohang_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract interface class DriverProfileChangeGateway {
@@ -195,6 +196,10 @@ class SupabaseDriverProfileChangeRepository
       throw const DriverProfileChangeException(
         'Chưa thể tải ảnh lên. Vui lòng thử lại.',
       );
+    } on R2MediaException {
+      throw const DriverProfileChangeException(
+        'Chưa thể tải ảnh lên. Vui lòng thử lại.',
+      );
     }
   }
 
@@ -270,10 +275,14 @@ class SupabaseDriverProfileChangeRepository
 }
 
 class SupabaseDriverProfileChangeGateway implements DriverProfileChangeGateway {
-  SupabaseDriverProfileChangeGateway({SupabaseClient? client})
-    : _client = client ?? Supabase.instance.client;
+  SupabaseDriverProfileChangeGateway({
+    SupabaseClient? client,
+    R2MediaClient? r2Client,
+  }) : _client = client ?? Supabase.instance.client,
+       _r2 = r2Client ?? R2MediaClient.supabase(client: client);
 
   final SupabaseClient _client;
+  final R2MediaClient _r2;
 
   static const _table = 'driver_profile_change_requests';
   static const _bucket = 'driver-profile-request-files';
@@ -315,18 +324,32 @@ class SupabaseDriverProfileChangeGateway implements DriverProfileChangeGateway {
     required List<int> bytes,
     required String contentType,
   }) async {
-    return _client.storage
-        .from(_bucket)
-        .uploadBinary(
-          path,
-          Uint8List.fromList(bytes),
-          fileOptions: FileOptions(contentType: contentType, upsert: true),
-        );
+    final parts = path.split('/');
+    final fileName = parts.isEmpty ? 'document.jpg' : parts.last;
+    final extension = fileName.contains('.') ? fileName.split('.').last : 'jpg';
+    final stage = fileName.contains('.')
+        ? fileName.substring(0, fileName.lastIndexOf('.'))
+        : fileName;
+    return _r2.uploadBytes(
+      purpose: R2MediaPurpose.driverProfileChange,
+      bytes: Uint8List.fromList(bytes),
+      contentType: contentType,
+      extension: extension,
+      contextId: parts.length >= 2 ? parts[1] : null,
+      stage: stage,
+    );
   }
 
   @override
   Future<void> remove(List<String> paths) async {
-    await _client.storage.from(_bucket).remove(paths);
+    final r2Paths = paths.where(R2ObjectReference.isR2);
+    await Future.wait(r2Paths.map(_r2.deleteObject));
+    final legacyPaths = paths
+        .where((path) => !R2ObjectReference.isR2(path))
+        .toList(growable: false);
+    if (legacyPaths.isNotEmpty) {
+      await _client.storage.from(_bucket).remove(legacyPaths);
+    }
   }
 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import '../../../../../core/widgets/stored_media_image.dart';
 
 const orderCardImageKey = Key('order-card-image');
 const orderCardImagePlaceholderKey = Key('order-card-image-placeholder');
@@ -20,9 +21,7 @@ class OrderCardImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = imageUrl?.trim();
-    final uri = url == null || url.isEmpty ? null : Uri.tryParse(url);
-    final canLoad =
-        uri != null && (uri.scheme == 'https' || uri.scheme == 'http');
+    final canLoad = url != null && url.isNotEmpty;
 
     return Semantics(
       image: true,
@@ -40,27 +39,11 @@ class OrderCardImage extends StatelessWidget {
               ),
             ),
             child: canLoad
-                ? Image.network(
-                    url!,
-                    key: orderCardImageKey,
+                ? StoredMediaImage(
+                    storedValue: url,
+                    imageKey: orderCardImageKey,
                     fit: BoxFit.cover,
-                    frameBuilder: (context, child, frame, loadedSynchronously) {
-                      if (loadedSynchronously) return child;
-                      return Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          _OrderImagePlaceholder(category: category),
-                          AnimatedOpacity(
-                            opacity: frame == null ? 0 : 1,
-                            duration: AppDuration.normal,
-                            curve: AppCurve.decelerate,
-                            child: child,
-                          ),
-                        ],
-                      );
-                    },
-                    errorBuilder: (_, _, _) =>
-                        _OrderImagePlaceholder(category: category),
+                    fallback: _OrderImagePlaceholder(category: category),
                   )
                 : _OrderImagePlaceholder(category: category),
           ),

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/providers/customer_providers.dart';
+import '../../../../../core/utils/order_cargo_utils.dart';
+import '../../../../../core/widgets/order_cargo_info_block.dart';
 import '../driver_home_strings.dart';
 import '../utils/driver_home_formatters.dart';
 import '../utils/driver_order_distance.dart';
@@ -268,6 +270,14 @@ class _OfferCard extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
+          if (hasCargoInfo(order)) ...[
+            const SizedBox(height: AppSpacing.lg),
+            OrderCargoInfoBlock(
+              key: const ValueKey('driver-incoming-offer-cargo'),
+              order: order,
+              compact: true,
+            ),
+          ],
           const SizedBox(height: AppSpacing.lg),
           DriverOrderInfoRow(
             icon: Icons.storefront_rounded,

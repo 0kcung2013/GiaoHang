@@ -89,6 +89,16 @@ Deno.serve(async (request) => {
         };
       },
       publishAvatar: async (draftPath) => {
+        if (draftPath.startsWith("r2://")) {
+          const result = await callR2Internal("/v1/internal/promote-avatar", {
+            sourceObjectUri: draftPath,
+          });
+          const objectUri = requiredString(
+            result.objectUri,
+            "AVATAR_PUBLISH_FAILED",
+          );
+          return { url: objectUri, objectPath: objectUri };
+        }
         const extension = fileExtension(draftPath);
         const parts = draftPath.split("/");
         if (parts.length !== 3 || !allowedExtensions.has(extension)) {
@@ -153,12 +163,20 @@ Deno.serve(async (request) => {
         if (error) throw new Error("PROFILE_ROLLBACK_FAILED");
       },
       removePublishedAvatar: async (path) => {
+        if (path.startsWith("r2://")) {
+          await callR2Internal("/v1/internal/delete", { objectUri: path });
+          return;
+        }
         const { error } = await service.storage
           .from(avatarsBucket)
           .remove([path]);
         if (error) throw new Error("PUBLISHED_AVATAR_CLEANUP_FAILED");
       },
       removeAvatarDraft: async (path) => {
+        if (path.startsWith("r2://")) {
+          await callR2Internal("/v1/internal/delete", { objectUri: path });
+          return;
+        }
         const { error } = await service.storage
           .from(requestFilesBucket)
           .remove([path]);
@@ -227,6 +245,23 @@ function requiredEnv(name: string): string {
   const value = Deno.env.get(name);
   if (!value) throw new Error(`Missing ${name}`);
   return value;
+}
+
+async function callR2Internal(
+  path: string,
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const baseUrl = requiredEnv("R2_GATEWAY_URL").replace(/\/$/, "");
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-r2-internal-secret": requiredEnv("R2_INTERNAL_SECRET"),
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`R2_GATEWAY_${response.status}`);
+  return asRecord(await response.json());
 }
 
 function json(value: unknown, status = 200): Response {

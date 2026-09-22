@@ -24,6 +24,8 @@ class SupportTicketCard extends StatelessWidget {
       hint: 'Mở chi tiết yêu cầu hỗ trợ',
       child: Material(
         color: AppColors.bgCard,
+        elevation: 1,
+        shadowColor: AppColors.accent.withValues(alpha: 0.12),
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.lg,
           side: BorderSide(
@@ -36,7 +38,7 @@ class SupportTicketCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           mouseCursor: SystemMouseCursors.click,
-          hoverColor: AppColors.bgLight,
+          hoverColor: AppColors.bgWarm,
           focusColor: AppColors.accentLight.withValues(alpha: 0.55),
           child: Stack(
             children: [

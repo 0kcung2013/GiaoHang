@@ -12,7 +12,6 @@ class RiskReviewStep extends StatelessWidget {
     required this.photoCount,
     required this.hasLocation,
     required this.locationAddress,
-    required this.messageCount,
     super.key,
   });
 
@@ -22,7 +21,6 @@ class RiskReviewStep extends StatelessWidget {
   final int photoCount;
   final bool hasLocation;
   final String? locationAddress;
-  final int messageCount;
 
   @override
   Widget build(BuildContext context) {
@@ -77,11 +75,6 @@ class RiskReviewStep extends StatelessWidget {
                     icon: Icons.my_location_rounded,
                     label: hasLocation ? 'Có vị trí' : 'Không vị trí',
                     active: hasLocation,
-                  ),
-                  _EvidenceBadge(
-                    icon: Icons.chat_bubble_outline_rounded,
-                    label: '$messageCount tin nhắn',
-                    active: messageCount > 0,
                   ),
                 ],
               ),

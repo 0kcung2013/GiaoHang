@@ -72,7 +72,7 @@ class _RiskCaseConversationState extends State<RiskCaseConversation> {
         children: [
           Row(
             children: [
-              const Icon(Icons.forum_outlined, color: AppColors.primary),
+              const Icon(Icons.forum_outlined, color: AppColors.accent),
               const SizedBox(width: AppSpacing.sm),
               Text('Trao đổi hồ sơ', style: AppTextStyles.headingSmall),
               const Spacer(),
@@ -174,7 +174,7 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = message.isInternal ? AppColors.warning : AppColors.primary;
+    final color = message.isInternal ? AppColors.warning : AppColors.accent;
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(

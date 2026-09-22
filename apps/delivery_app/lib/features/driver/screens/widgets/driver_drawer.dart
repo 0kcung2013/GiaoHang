@@ -95,7 +95,7 @@ class DriverDrawer extends StatelessWidget {
             ),
             _DrawerItem(
               icon: Icons.account_balance_wallet_rounded,
-              label: 'Ví Tài Xế',
+              label: 'Ví & Thu nhập',
               active: currentIndex == 2,
               onTap: () => _navigate(context, 2),
             ),

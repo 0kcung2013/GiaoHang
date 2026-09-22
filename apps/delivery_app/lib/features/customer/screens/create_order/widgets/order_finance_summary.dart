@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
-import '../utils/create_order_formatters.dart';
+import '../../../../../core/utils/money_formatter.dart';
 import '../utils/order_form_data.dart';
 import 'confirmation_components.dart';
 
@@ -24,7 +24,7 @@ class OrderFinanceSummary extends StatelessWidget {
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
-                'THU TIỀN HỘ (COD)',
+                finance.codCollectionAmount > 0 ? 'THU HỘ' : 'KHÔNG THU HỘ',
                 style: AppTextStyles.labelMedium.copyWith(
                   color: color,
                   fontWeight: FontWeight.w800,
@@ -67,25 +67,32 @@ class _MoneyLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
+    return SizedBox(
+      width: double.infinity,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.xs,
+        children: [
+          Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.textSecondary,
             ),
           ),
-        ),
-        Text(
-          formatDeliveryFee(amount.toDouble()),
-          style:
-              (emphasized
-                      ? AppTextStyles.headingSmall
-                      : AppTextStyles.labelMedium)
-                  .copyWith(color: color, fontWeight: FontWeight.w800),
-        ),
-      ],
+          Text(
+            formatVnd(amount),
+            style:
+                (emphasized
+                        ? AppTextStyles.headingSmall
+                        : AppTextStyles.labelMedium)
+                    .copyWith(color: color, fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
     );
   }
 }

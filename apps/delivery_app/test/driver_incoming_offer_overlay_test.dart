@@ -68,6 +68,10 @@ void main() {
     );
     expect(find.text(DriverHomeStrings.incomingOfferAccept), findsOneWidget);
     expect(find.text(DriverHomeStrings.incomingOfferTransfer), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('driver-incoming-offer-cargo')),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 }
@@ -86,6 +90,8 @@ OrderModel _order() {
     deliveryLng: 106.698,
     createdAt: now,
     trackingCode: 'GH-001',
+    itemName: 'Hộp bánh sinh nhật',
+    itemCategory: 'food',
     offerExpiresAt: now.add(const Duration(seconds: 45)),
     deliveryFee: 50000,
     serviceType: 'standard',

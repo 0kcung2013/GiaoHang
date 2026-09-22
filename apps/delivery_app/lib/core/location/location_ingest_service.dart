@@ -18,10 +18,10 @@ import 'location_throttle.dart';
 ///   → [ưu tiên] Edge Function → Redis GEO/latest + Redis queue
 ///   → fallback local:
 ///        UPDATE drivers (throttled)  // realtime cho khách
-///        enqueue history → bulk insert driver_locations
+///        enqueue history → retry Edge → R2
 /// ```
 ///
-/// PostgreSQL vẫn là source of truth nghiệp vụ; history ghi batch.
+/// PostgreSQL chỉ giữ trạng thái nghiệp vụ/vị trí mới nhất; GPS history ở R2.
 class LocationIngestService {
   LocationIngestService({
     SupabaseClient? client,
@@ -53,6 +53,7 @@ class LocationIngestService {
   Future<void> ingest({
     String? driverProfileId,
     String? driverUserId,
+    String? orderId,
     required double lat,
     required double lng,
     double? heading,
@@ -103,6 +104,7 @@ class LocationIngestService {
       final ok = await _ingestViaEdge(
         driverProfileId: driverProfileId,
         driverUserId: driverUserId,
+        orderId: orderId,
         lat: adjusted.latitude,
         lng: adjusted.longitude,
         heading: heading,
@@ -134,6 +136,7 @@ class LocationIngestService {
     await _ingestLocal(
       driverProfileId: driverProfileId,
       driverUserId: driverUserId,
+      orderId: orderId,
       lat: adjusted.latitude,
       lng: adjusted.longitude,
       heading: heading,
@@ -146,6 +149,7 @@ class LocationIngestService {
   Future<bool> _ingestViaEdge({
     String? driverProfileId,
     String? driverUserId,
+    String? orderId,
     required double lat,
     required double lng,
     double? heading,
@@ -157,6 +161,7 @@ class LocationIngestService {
         body: {
           'driver_profile_id': ?driverProfileId,
           'driver_user_id': ?driverUserId,
+          'order_id': ?orderId,
           'lat': lat,
           'lng': lng,
           'heading': ?heading,
@@ -187,6 +192,7 @@ class LocationIngestService {
   Future<void> _ingestLocal({
     String? driverProfileId,
     String? driverUserId,
+    String? orderId,
     required double lat,
     required double lng,
     double? heading,
@@ -211,17 +217,20 @@ class LocationIngestService {
       force: force,
     );
 
-    // History: bulk queue
-    _historyQueue.enqueue(
-      GpsHistoryPoint(
-        driverProfileId: ids.profileId,
-        lat: lat,
-        lng: lng,
-        heading: heading,
-        speed: speed,
-        createdAt: now,
-      ),
-    );
+    // Chỉ lưu history cho một đơn cụ thể; GPS Online chỉ cập nhật latest.
+    if (orderId != null && orderId.isNotEmpty) {
+      _historyQueue.enqueue(
+        GpsHistoryPoint(
+          driverProfileId: ids.profileId,
+          orderId: orderId,
+          lat: lat,
+          lng: lng,
+          heading: heading,
+          speed: speed,
+          createdAt: now,
+        ),
+      );
+    }
   }
 
   /// UPDATE `drivers` latest — nguồn Realtime/poll cho map khách.

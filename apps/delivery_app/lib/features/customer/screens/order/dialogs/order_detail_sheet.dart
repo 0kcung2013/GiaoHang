@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,6 +16,7 @@ import 'widgets/order_cancel_section.dart';
 import 'widgets/order_detail_activity.dart';
 import 'widgets/order_detail_header.dart';
 import 'widgets/order_detail_information.dart';
+import 'widgets/order_print_label_action.dart';
 import 'widgets/order_risk_report_section.dart';
 
 const orderDetailSheetKey = Key('order-detail-sheet');
@@ -65,11 +67,13 @@ class _OrderDetailSheetState extends ConsumerState<OrderDetailSheet> {
     'assigned',
     'picking_up',
   };
-  static const _warnBeforeCancelStatuses = {'assigned', 'picking_up'};
+  static const _riskyCancellationStatuses = {'assigned', 'picking_up'};
 
   final _reasonController = TextEditingController();
   bool _showReasonInput = false;
   bool _isCancelling = false;
+  String? _cancellationError;
+  ScrollController? _sheetScrollController;
 
   @override
   void dispose() {
@@ -80,8 +84,14 @@ class _OrderDetailSheetState extends ConsumerState<OrderDetailSheet> {
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
-    final canCancel = _cancellableStatuses.contains(order.status);
-    final cancellationLockedReason = order.status == 'delivering'
+    final canCancel =
+        _cancellableStatuses.contains(order.status) &&
+        order.actualPickedUpAt == null;
+    final cancellationLockedReason =
+        order.actualPickedUpAt != null &&
+            _cancellableStatuses.contains(order.status)
+        ? OrderDetailStrings.cancelPickupLockedDescription
+        : order.status == 'delivering'
         ? OrderDetailStrings.cancelLockedDescription
         : null;
     final note = order.note?.trim();
@@ -92,6 +102,7 @@ class _OrderDetailSheetState extends ConsumerState<OrderDetailSheet> {
       maxChildSize: 0.97,
       expand: false,
       builder: (context, scrollController) {
+        _sheetScrollController = scrollController;
         return Container(
           key: orderDetailSheetKey,
           decoration: const BoxDecoration(
@@ -121,6 +132,8 @@ class _OrderDetailSheetState extends ConsumerState<OrderDetailSheet> {
                     order: order,
                     status: OrderStatusView.fromStatus(order.status),
                   ),
+                  const SizedBox(height: AppSpacing.md),
+                  OrderPrintLabelAction(order: order),
                   const SizedBox(height: AppSpacing.md),
                   OrderDetailCargoCard(order: order),
                   const SizedBox(height: AppSpacing.md),
@@ -166,13 +179,12 @@ class _OrderDetailSheetState extends ConsumerState<OrderDetailSheet> {
                       controller: _reasonController,
                       showReasonInput: _showReasonInput,
                       isCancelling: _isCancelling,
-                      warnBeforeCancel: _warnBeforeCancelStatuses.contains(
+                      warnBeforeCancel: _riskyCancellationStatuses.contains(
                         order.status,
                       ),
+                      errorMessage: _cancellationError,
                       disabledReason: cancellationLockedReason,
-                      onShowReasonInput: () {
-                        setState(() => _showReasonInput = true);
-                      },
+                      onShowReasonInput: _showCancellationReasonInput,
                       onCancel: _cancelOrder,
                     ),
                   ],
@@ -185,19 +197,44 @@ class _OrderDetailSheetState extends ConsumerState<OrderDetailSheet> {
     );
   }
 
+  void _showCancellationReasonInput() {
+    setState(() {
+      _showReasonInput = true;
+      _cancellationError = null;
+    });
+    _scrollToCancellationAction();
+  }
+
+  void _scrollToCancellationAction() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final scrollController = _sheetScrollController;
+      if (!mounted ||
+          scrollController == null ||
+          !scrollController.hasClients) {
+        return;
+      }
+      scrollController.animateTo(
+        scrollController.position.maxScrollExtent,
+        duration: AppDuration.normal,
+        curve: AppCurve.decelerate,
+      );
+    });
+  }
+
   Future<void> _cancelOrder() async {
     final reason = _reasonController.text.trim();
     if (reason.isEmpty) {
-      _showSnackBar(OrderDetailStrings.cancelReasonRequired);
+      setState(() {
+        _cancellationError = OrderDetailStrings.cancelReasonRequired;
+      });
+      _scrollToCancellationAction();
       return;
     }
 
-    if (_warnBeforeCancelStatuses.contains(widget.order.status)) {
-      final confirmed = await _showCancelWarningDialog();
-      if (!mounted || confirmed != true) return;
-    }
-
-    setState(() => _isCancelling = true);
+    setState(() {
+      _isCancelling = true;
+      _cancellationError = null;
+    });
     try {
       await ref
           .read(customerOrderServiceProvider)
@@ -215,96 +252,15 @@ class _OrderDetailSheetState extends ConsumerState<OrderDetailSheet> {
       );
     } catch (error) {
       if (!mounted) return;
-      setState(() => _isCancelling = false);
-      final message = error.toString().contains('Không thể hủy')
-          ? OrderDetailStrings.cancelInProgressFailure
-          : OrderDetailStrings.cancelFailure;
-      _showSnackBar(message);
+      setState(() {
+        _isCancelling = false;
+        final message = OrderDetailStrings.cancellationFailureMessage(error);
+        _cancellationError = kDebugMode
+            ? '$message\nChi tiết kỹ thuật: $error'
+            : message;
+      });
+      _scrollToCancellationAction();
     }
-  }
-
-  Future<bool?> _showCancelWarningDialog() {
-    final warning = widget.order.status == 'picking_up'
-        ? OrderDetailStrings.cancelPickingUpWarning
-        : OrderDetailStrings.cancelAssignedWarning;
-
-    return showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(AppSpacing.screenH),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 420),
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            decoration: BoxDecoration(
-              color: AppColors.bgCard,
-              borderRadius: AppRadius.xl2,
-              boxShadow: AppShadow.elevated,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.warning.withValues(alpha: 0.1),
-                    borderRadius: AppRadius.md,
-                  ),
-                  child: const Icon(
-                    Icons.warning_amber_rounded,
-                    color: AppColors.warning,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Text(
-                  OrderDetailStrings.cancelConfirmTitle,
-                  style: AppTextStyles.headingMedium.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  warning,
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textSecondary,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _DialogAction(
-                        label: OrderDetailStrings.keepOrderAction,
-                        onTap: () => Navigator.of(dialogContext).pop(false),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: _DialogAction(
-                        label: OrderDetailStrings.continueCancelAction,
-                        color: AppColors.error,
-                        onTap: () => Navigator.of(dialogContext).pop(true),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
-    );
   }
 }
 
@@ -320,46 +276,6 @@ class _SheetHandle extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.border,
           borderRadius: AppRadius.full,
-        ),
-      ),
-    );
-  }
-}
-
-class _DialogAction extends StatelessWidget {
-  const _DialogAction({
-    required this.label,
-    required this.onTap,
-    this.color = AppColors.textSecondary,
-  });
-
-  final String label;
-  final VoidCallback onTap;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: color == AppColors.error ? AppColors.error : AppColors.bgLight,
-      borderRadius: AppRadius.full,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: AppRadius.full,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.md,
-          ),
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: AppTextStyles.labelMedium.copyWith(
-              color: color == AppColors.error ? AppColors.textOnAccent : color,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
         ),
       ),
     );

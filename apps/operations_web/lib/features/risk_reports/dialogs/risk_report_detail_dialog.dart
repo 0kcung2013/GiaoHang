@@ -315,7 +315,7 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
           maxHeight: screen.height - AppSpacing.xl3,
         ),
         child: Material(
-          color: AppColors.bgLight,
+          color: AppColors.bgWarm,
           borderRadius: AppRadius.xl,
           elevation: 0,
           clipBehavior: Clip.antiAlias,

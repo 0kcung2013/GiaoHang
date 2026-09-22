@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
+import '../../../../../core/widgets/stored_media_image.dart';
+
 class AdminDriverRegistryPanel extends StatelessWidget {
   const AdminDriverRegistryPanel({
     super.key,
@@ -112,19 +114,22 @@ class _DriverRegistryCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.08),
-                    backgroundImage: driver.avatarUrl?.trim().isNotEmpty == true
-                        ? NetworkImage(driver.avatarUrl!)
-                        : null,
-                    child: driver.avatarUrl?.trim().isNotEmpty == true
-                        ? null
-                        : const Icon(
-                            Icons.person_rounded,
-                            color: AppColors.primary,
-                            size: 22,
-                          ),
+                  Container(
+                    width: 44,
+                    height: 44,
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.primary.withValues(alpha: 0.08),
+                    ),
+                    child: StoredMediaImage(
+                      storedValue: driver.avatarUrl,
+                      fallback: const Icon(
+                        Icons.person_rounded,
+                        color: AppColors.primary,
+                        size: 22,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(

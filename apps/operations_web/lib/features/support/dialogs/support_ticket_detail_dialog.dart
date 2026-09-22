@@ -8,7 +8,8 @@ import '../data/support_ticket_repository.dart';
 import '../models/support_ticket.dart';
 import '../models/support_ticket_policy.dart';
 import '../utils/support_ticket_ui.dart';
-import '../widgets/support_case_conversation.dart';
+import '../widgets/support_live_conversation.dart';
+import '../widgets/support_ticket_chat_sidebar.dart';
 import '../widgets/support_ticket_detail_content.dart';
 import 'support_ticket_operation_dialogs.dart';
 
@@ -56,11 +57,20 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
     final repository = widget.repository;
     if (repository is! SupportTicketConversationRepository) return;
     final conversations = repository as SupportTicketConversationRepository;
-    _messageSubscription = conversations.watchMessages(widget.ticket.id).listen(
-      (messages) {
-        if (mounted) setState(() => _messages = messages);
-      },
-    );
+    _messageSubscription = conversations
+        .watchMessages(widget.ticket.id)
+        .listen(
+          (messages) {
+            if (mounted) setState(() => _messages = messages);
+          },
+          onError: (_) {
+            if (mounted) {
+              setState(
+                () => _error = 'Mất kết nối hội thoại. Vui lòng thử lại.',
+              );
+            }
+          },
+        );
   }
 
   Future<void> _loadMessages() async {
@@ -74,7 +84,9 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
       final messages = await conversations.fetchMessages(widget.ticket.id);
       if (mounted) setState(() => _messages = messages);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Không tải được trao đổi hồ sơ.');
+      if (mounted) {
+        setState(() => _error = 'Không tải được lịch sử hội thoại.');
+      }
     }
   }
 
@@ -98,28 +110,33 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
   Future<void> _accept() async {
     final repository = widget.repository;
     if (repository is! SupportTicketCommandRepository) return;
-    final commands = repository as SupportTicketCommandRepository;
-    await _run(() => commands.acceptTicket(widget.ticket.id));
+    await _run(
+      () => (repository as SupportTicketCommandRepository).acceptTicket(
+        widget.ticket.id,
+      ),
+    );
   }
 
   Future<void> _takeOver() async {
     final repository = widget.repository;
     if (repository is! SupportTicketCommandRepository) return;
-    final commands = repository as SupportTicketCommandRepository;
-    await _run(() => commands.takeOverTicket(widget.ticket.id));
+    await _run(
+      () => (repository as SupportTicketCommandRepository).takeOverTicket(
+        widget.ticket.id,
+      ),
+    );
   }
 
   Future<void> _transition(SupportTicketStatus status) async {
     final repository = widget.repository;
     if (repository is! SupportTicketCommandRepository) return;
-    final commands = repository as SupportTicketCommandRepository;
     String? resolution;
     if (status.isClosed) {
       resolution = await showSupportResolutionDialog(context);
       if (resolution == null || !mounted) return;
     }
     await _run(
-      () => commands.transitionTicket(
+      () => (repository as SupportTicketCommandRepository).transitionTicket(
         widget.ticket.id,
         status,
         resolution: resolution,
@@ -145,7 +162,6 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
   Future<void> _convertToRisk() async {
     final repository = widget.repository;
     if (repository is! SupportTicketRiskRepository) return;
-    final riskCommands = repository as SupportTicketRiskRepository;
     final draft = await showSupportRiskConversionDialog(
       context,
       initialTitle: widget.ticket.subject,
@@ -154,7 +170,7 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
     );
     if (draft == null || !mounted) return;
     await _run(
-      () => riskCommands.convertToRisk(
+      () => (repository as SupportTicketRiskRepository).convertToRisk(
         widget.ticket.id,
         category: draft.category.databaseValue,
         severity: draft.severity.name,
@@ -168,14 +184,13 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
   @override
   Widget build(BuildContext context) {
     final ticket = widget.ticket;
-    final statusColor = SupportTicketUi.statusColor(ticket.status);
     final screen = MediaQuery.sizeOf(context);
     return Dialog(
       insetPadding: const EdgeInsets.all(AppSpacing.lg),
       backgroundColor: Colors.transparent,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: 860,
+          maxWidth: 980,
           maxHeight: screen.height - AppSpacing.xl3,
         ),
         child: Material(
@@ -186,73 +201,37 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
           child: Column(
             children: [
               SupportTicketDetailHeader(ticket: ticket),
+              if (_error != null) _ErrorBanner(message: _error!),
               Expanded(
-                child: ColoredBox(
-                  color: AppColors.bgLight,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(AppSpacing.xl2),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final chat = SupportLiveConversation(
+                      messages: _messages,
+                      currentUserId: widget.currentUserId,
+                      canReply: _assignedToMe && !ticket.status.isClosed,
+                      onSend: _sendMessage,
+                    );
+                    final sidebar = SupportTicketChatSidebar(ticket: ticket);
+                    if (constraints.maxWidth < 720) {
+                      return Column(
+                        children: [
+                          SizedBox(height: 210, child: sidebar),
+                          const Divider(height: 1, color: AppColors.border),
+                          Expanded(child: chat),
+                        ],
+                      );
+                    }
+                    return Row(
                       children: [
-                        Wrap(
-                          spacing: AppSpacing.sm,
-                          runSpacing: AppSpacing.sm,
-                          children: [
-                            SupportTicketBadge(
-                              icon: SupportTicketUi.statusIcon(ticket.status),
-                              label: SupportTicketUi.statusLabel(ticket.status),
-                              color: statusColor,
-                            ),
-                            SupportTicketBadge(
-                              icon: Icons.flag_outlined,
-                              label:
-                                  'Ưu tiên ${SupportTicketUi.priorityLabel(ticket.priority)}',
-                              color: SupportTicketUi.priorityColor(
-                                ticket.priority,
-                              ),
-                            ),
-                            if (ticket.responseOverdue)
-                              const SupportTicketBadge(
-                                icon: Icons.timer_off_outlined,
-                                label: 'Quá hạn phản hồi',
-                                color: AppColors.error,
-                              ),
-                          ],
+                        SizedBox(width: 292, child: sidebar),
+                        const VerticalDivider(
+                          width: 1,
+                          color: AppColors.border,
                         ),
-                        const SizedBox(height: AppSpacing.lg),
-                        SupportTicketContext(ticket: ticket),
-                        const SizedBox(height: AppSpacing.lg),
-                        SupportContentBlock(
-                          title: 'Nội dung ban đầu',
-                          body: ticket.message,
-                        ),
-                        if ((ticket.resolution ?? '').trim().isNotEmpty) ...[
-                          const SizedBox(height: AppSpacing.md),
-                          SupportContentBlock(
-                            title: 'Kết luận',
-                            body: ticket.resolution!,
-                            color: AppColors.success,
-                          ),
-                        ],
-                        const SizedBox(height: AppSpacing.xl),
-                        SupportCaseConversation(
-                          messages: _messages,
-                          currentUserId: widget.currentUserId,
-                          canReply: _assignedToMe && !ticket.status.isClosed,
-                          onSend: _sendMessage,
-                        ),
-                        if (_error != null) ...[
-                          const SizedBox(height: AppSpacing.md),
-                          Text(
-                            _error!,
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: AppColors.error,
-                            ),
-                          ),
-                        ],
+                        Expanded(child: chat),
                       ],
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
               _Actions(
@@ -271,6 +250,38 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
       ),
     );
   }
+}
+
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.xl,
+      vertical: AppSpacing.sm,
+    ),
+    color: AppColors.error.withValues(alpha: 0.08),
+    child: Row(
+      children: [
+        const Icon(
+          Icons.error_outline_rounded,
+          size: 17,
+          color: AppColors.error,
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            message,
+            style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _Actions extends StatelessWidget {
@@ -295,60 +306,79 @@ class _Actions extends StatelessWidget {
   final VoidCallback onConvert;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(AppSpacing.lg),
-    decoration: const BoxDecoration(
-      color: AppColors.bgCard,
-      border: Border(top: BorderSide(color: AppColors.border)),
-    ),
-    child: SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+  Widget build(BuildContext context) {
+    final transitions = SupportTicketPolicy.allowedTransitions(ticket.status);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xl,
+        vertical: AppSpacing.md,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.bgCard,
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
       child: Row(
         children: [
+          if (assignedToMe && ticket.riskReportId == null)
+            TextButton.icon(
+              onPressed: busy ? null : onConvert,
+              icon: const Icon(Icons.shield_outlined, size: 18),
+              label: const Text('Chuyển báo cáo sự cố'),
+            ),
+          const Spacer(),
           if (ticket.assignedTo == null)
             FilledButton.icon(
               key: const Key('accept-support-ticket'),
               onPressed: busy ? null : onAccept,
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.accent,
-                foregroundColor: AppColors.textOnAccent,
-              ),
-              icon: const Icon(Icons.person_add_alt_rounded),
+              icon: const Icon(Icons.person_add_alt_rounded, size: 18),
               label: const Text('Nhận xử lý'),
             )
           else if (!assignedToMe && isAdmin)
             OutlinedButton.icon(
               key: const Key('takeover-support-ticket'),
               onPressed: busy ? null : onTakeOver,
-              icon: const Icon(Icons.admin_panel_settings_outlined),
-              label: const Text('Admin tiếp quản'),
+              icon: const Icon(Icons.admin_panel_settings_outlined, size: 18),
+              label: const Text('Tiếp quản'),
             )
           else if (!assignedToMe)
-            OutlinedButton.icon(
-              onPressed: null,
-              icon: Icon(Icons.lock_person_outlined),
-              label: Text('Đã có người phụ trách'),
-            ),
-          if (assignedToMe && ticket.riskReportId == null) ...[
-            OutlinedButton.icon(
-              onPressed: busy ? null : onConvert,
-              icon: const Icon(Icons.shield_outlined),
-              label: const Text('Chuyển báo cáo sự cố'),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-          ],
-          if (assignedToMe)
-            for (final status in SupportTicketPolicy.allowedTransitions(
-              ticket.status,
-            )) ...[
-              OutlinedButton(
-                onPressed: busy ? null : () => onTransition(status),
-                child: Text(SupportTicketUi.statusLabel(status)),
+            Text(
+              'Đã có người phụ trách',
+              style: AppTextStyles.labelMedium.copyWith(
+                color: AppColors.textMuted,
               ),
-              const SizedBox(width: AppSpacing.sm),
-            ],
+            )
+          else if (transitions.isNotEmpty)
+            PopupMenuButton<SupportTicketStatus>(
+              enabled: !busy,
+              tooltip: 'Cập nhật trạng thái',
+              onSelected: onTransition,
+              itemBuilder: (context) => [
+                for (final status in transitions)
+                  PopupMenuItem(
+                    value: status,
+                    child: Row(
+                      children: [
+                        Icon(
+                          SupportTicketUi.statusIcon(status),
+                          size: 18,
+                          color: SupportTicketUi.statusColor(status),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(SupportTicketUi.statusLabel(status)),
+                      ],
+                    ),
+                  ),
+              ],
+              child: IgnorePointer(
+                child: OutlinedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.sync_alt_rounded, size: 18),
+                  label: const Text('Cập nhật trạng thái'),
+                ),
+              ),
+            ),
         ],
       ),
-    ),
-  );
+    );
+  }
 }

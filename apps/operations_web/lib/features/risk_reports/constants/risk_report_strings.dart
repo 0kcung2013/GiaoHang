@@ -6,6 +6,23 @@ class RiskReportStrings {
   static const subtitle = 'Phát hiện, xác minh và xử lý theo mức độ';
   static const create = 'Báo cáo rủi ro';
   static const searchHint = 'Tìm mã đơn hoặc tiêu đề';
+  static const relatedParties = 'Các bên liên quan';
+  static const orderingCustomer = 'Khách đặt đơn';
+  static const assignedDriver = 'Tài xế phụ trách';
+  static const recipient = 'Người nhận hàng';
+  static const missingProfile = 'Chưa có thông tin hồ sơ';
+  static const missingPhone = 'Chưa có số điện thoại';
+  static const noDriver = 'Chưa phân công tài xế';
+  static const reporterMarker = 'Người gửi báo cáo';
+  static const restrictedProfile =
+      'Không có dữ liệu hồ sơ hoặc tài khoản chưa có quyền xem.';
+  static const caseOverview = 'Thông tin xử lý';
+  static const orderOverview = 'Đơn hàng liên quan';
+  static const submittedAt = 'Gửi lúc';
+  static const updatedAt = 'Cập nhật';
+  static const owner = 'Phụ trách';
+  static const responseDeadline = 'Hạn phản hồi';
+  static const submittedContent = 'Nội dung báo cáo';
   static const all = 'Tất cả';
   static const noReports = 'Chưa có báo cáo rủi ro';
   static const noResults = 'Không có báo cáo phù hợp';

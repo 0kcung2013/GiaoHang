@@ -1,3 +1,4 @@
+import 'package:delivery_app/core/utils/delivery_map_utils.dart';
 import 'package:delivery_app/features/driver/screens/navigation/utils/driver_navigation_route_logic.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -31,6 +32,26 @@ void main() {
       expect(plan.rotation, closeTo(270, 0.5));
       expect(plan.zoom, DriverNavigationRouteLogic.navigationZoom);
       expect(plan.driverOffset.dy, greaterThan(0));
+    });
+
+    test('marker follows the polyline segment immediately ahead', () {
+      const driver = LatLng(10, 106);
+      const route = [
+        driver,
+        LatLng(10.0002, 106.0002),
+        LatLng(10.0012, 106.0002),
+      ];
+      final routeBearing = DeliveryMapUtils.routeBearing(
+        route: route,
+        current: driver,
+      );
+      final markerBearing =
+          DriverNavigationRouteLogic.navigationMarkerBearingDegrees(
+            driverPosition: driver,
+            routePoints: route,
+          );
+
+      expect(markerBearing, closeTo(routeBearing!, 1));
     });
   });
 }

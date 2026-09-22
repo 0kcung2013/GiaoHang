@@ -227,7 +227,7 @@ class _SupportReturnApprovalDialogState
                       contentPadding: EdgeInsets.zero,
                       leading: Icon(
                         Icons.verified_user_outlined,
-                        color: AppColors.primary,
+                        color: AppColors.accent,
                       ),
                       title: Text('GiaoHang hỗ trợ phí hoàn'),
                       subtitle: Text(
@@ -274,7 +274,7 @@ class _SupportReturnApprovalDialogState
                     label: const Text('Duyệt và gửi tài xế'),
                     style: FilledButton.styleFrom(
                       minimumSize: const Size(48, 48),
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: AppColors.accent,
                     ),
                   ),
                 ],
@@ -292,7 +292,7 @@ class _SupportReturnApprovalDialogState
       children: [
         CircleAvatar(
           radius: 15,
-          backgroundColor: AppColors.primary,
+          backgroundColor: AppColors.accent,
           foregroundColor: AppColors.textOnDark,
           child: Text(step),
         ),

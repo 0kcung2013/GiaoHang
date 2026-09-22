@@ -56,7 +56,7 @@ class _ConfirmationIntro extends StatelessWidget {
             borderRadius: AppRadius.sm,
           ),
           child: Text(
-            'BƯỚC 3 / 3',
+            'XÁC NHẬN',
             style: AppTextStyles.labelSmall.copyWith(
               color: AppColors.accent,
               fontWeight: FontWeight.w800,
@@ -74,7 +74,7 @@ class _ConfirmationIntro extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          'Xem lại tiền thu hộ và phí giao trước khi gửi đơn.',
+          'Xem lại thông tin trước khi đặt.',
           style: AppTextStyles.bodyMedium.copyWith(
             color: AppColors.textSecondary,
             height: 1.5,

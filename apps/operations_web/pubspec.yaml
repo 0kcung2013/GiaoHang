@@ -21,6 +21,8 @@ dependencies:
     path: ../../packages/giaohang_design
   giaohang_domain:
     path: ../../packages/giaohang_domain
+  giaohang_storage:
+    path: ../../packages/giaohang_storage
 
 dev_dependencies:
   flutter_test:

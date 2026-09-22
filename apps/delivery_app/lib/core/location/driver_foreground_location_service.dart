@@ -30,6 +30,7 @@ class DriverForegroundLocationService {
   static const _serviceId = 601;
   static const _driverProfileIdKey = 'delivery_driver_profile_id';
   static const _driverUserIdKey = 'delivery_driver_user_id';
+  static const _orderIdKey = 'delivery_order_id';
   static bool _initialized = false;
 
   static void initialize() {
@@ -77,6 +78,7 @@ class DriverForegroundLocationService {
   static Future<bool> start({
     required String driverProfileId,
     required String driverUserId,
+    required String orderId,
   }) async {
     if (kIsWeb || !Platform.isAndroid) return false;
     initialize();
@@ -98,11 +100,13 @@ class DriverForegroundLocationService {
       key: _driverUserIdKey,
       value: driverUserId,
     );
+    await FlutterForegroundTask.saveData(key: _orderIdKey, value: orderId);
 
     if (await FlutterForegroundTask.isRunningService) {
       FlutterForegroundTask.sendDataToTask({
         'driverProfileId': driverProfileId,
         'driverUserId': driverUserId,
+        'orderId': orderId,
       });
       return true;
     }
@@ -124,6 +128,7 @@ class DriverForegroundLocationService {
     }
     await FlutterForegroundTask.removeData(key: _driverProfileIdKey);
     await FlutterForegroundTask.removeData(key: _driverUserIdKey);
+    await FlutterForegroundTask.removeData(key: _orderIdKey);
   }
 }
 
@@ -138,6 +143,7 @@ class _DriverForegroundLocationTaskHandler extends TaskHandler {
   LocationIngestService? _ingest;
   String? _driverProfileId;
   String? _driverUserId;
+  String? _orderId;
   bool _uploading = false;
 
   @override
@@ -168,14 +174,18 @@ class _DriverForegroundLocationTaskHandler extends TaskHandler {
     if (data is! Map) return;
     final profileId = data['driverProfileId']?.toString();
     final userId = data['driverUserId']?.toString();
+    final orderId = data['orderId']?.toString();
     if (profileId == null ||
         profileId.isEmpty ||
         userId == null ||
-        userId.isEmpty) {
+        userId.isEmpty ||
+        orderId == null ||
+        orderId.isEmpty) {
       return;
     }
     _driverProfileId = profileId;
     _driverUserId = userId;
+    _orderId = orderId;
   }
 
   Future<void> _restoreDeliveryContext() async {
@@ -184,6 +194,9 @@ class _DriverForegroundLocationTaskHandler extends TaskHandler {
     );
     _driverUserId = await FlutterForegroundTask.getData<String>(
       key: DriverForegroundLocationService._driverUserIdKey,
+    );
+    _orderId = await FlutterForegroundTask.getData<String>(
+      key: DriverForegroundLocationService._orderIdKey,
     );
   }
 
@@ -219,7 +232,8 @@ class _DriverForegroundLocationTaskHandler extends TaskHandler {
     if (_uploading ||
         _ingest == null ||
         _driverProfileId == null ||
-        _driverUserId == null) {
+        _driverUserId == null ||
+        _orderId == null) {
       return;
     }
     _uploading = true;
@@ -228,6 +242,7 @@ class _DriverForegroundLocationTaskHandler extends TaskHandler {
         await _ingest!.ingest(
           driverProfileId: _driverProfileId,
           driverUserId: _driverUserId,
+          orderId: _orderId,
           lat: position.latitude,
           lng: position.longitude,
           heading: position.heading,

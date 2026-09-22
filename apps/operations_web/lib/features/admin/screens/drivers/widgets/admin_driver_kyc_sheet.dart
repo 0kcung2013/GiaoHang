@@ -5,6 +5,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 import '../profile_changes/data/admin_driver_media_resolver.dart';
 import '../profile_changes/widgets/admin_driver_media_preview.dart';
+import '../../../../../core/widgets/stored_media_image.dart';
 
 /// Bottom sheet admin xem KYC + duyệt / từ chối kèm lý do.
 Future<void> showAdminDriverKycSheet({
@@ -138,16 +139,21 @@ class _AdminDriverKycSheetState extends State<_AdminDriverKycSheet> {
             const SizedBox(height: AppSpacing.lg),
             Row(
               children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                  backgroundImage:
-                      (d.avatarUrl != null && d.avatarUrl!.trim().isNotEmpty)
-                      ? NetworkImage(d.avatarUrl!)
-                      : null,
-                  child: (d.avatarUrl == null || d.avatarUrl!.trim().isEmpty)
-                      ? const Icon(Icons.person, color: AppColors.primary)
-                      : null,
+                Container(
+                  width: 56,
+                  height: 56,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                  ),
+                  child: StoredMediaImage(
+                    storedValue: d.avatarUrl,
+                    fallback: const Icon(
+                      Icons.person,
+                      color: AppColors.primary,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(

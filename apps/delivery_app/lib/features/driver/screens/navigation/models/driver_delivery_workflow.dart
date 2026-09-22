@@ -163,9 +163,9 @@ class DriverDeliveryWorkflow {
     required bool pickupConfirmed,
     required bool arrivedAtTarget,
   }) {
-    // `arrivedAtTarget` chỉ mở khóa xác nhận trong bán kính 100 m. Simulation
-    // vẫn tiếp tục tới cuối route và chỉ dừng sớm sau khi đã xác nhận lấy hàng.
-    if (pickupConfirmed) return false;
+    // Khi đã vào bán kính đến nơi, giữ nguyên vị trí đã lưu. Điều này đặc biệt
+    // quan trọng sau khi mở lại app: route mới không được chạy lại từ đầu.
+    if (arrivedAtTarget || pickupConfirmed) return false;
     return status == 'picking_up' || status == 'delivering';
   }
 }

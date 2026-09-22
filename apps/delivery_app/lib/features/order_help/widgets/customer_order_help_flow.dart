@@ -8,9 +8,9 @@ import '../../risk_reports/widgets/risk_report_sheet.dart';
 import '../data/customer_support_ticket_repository.dart';
 import '../models/order_help_option.dart';
 import '../models/order_help_receipt.dart';
-import 'customer_support_request_sheet.dart';
 import 'order_help_category_sheet.dart';
 import 'order_help_receipt_sheet.dart';
+import 'support_chat/support_chat_sheet.dart';
 
 Future<bool> showCustomerOrderHelpFlow(
   BuildContext context, {
@@ -35,56 +35,45 @@ Future<bool> showCustomerOrderHelpFlow(
       option.label,
     );
     if (!context.mounted) return false;
-    if (existing != null) {
-      receipt = OrderHelpReceipt(
-        id: existing.id,
-        type: OrderHelpRecordType.supportTicket,
-        supportStatus: existing.status,
-        created: false,
-      );
-    } else {
-      final ticket = await showCustomerSupportRequestSheet(
-        context,
-        order: order,
-        option: option,
-        repository: support,
-      );
-      if (ticket != null) {
-        receipt = OrderHelpReceipt(
-          id: ticket.id,
-          type: OrderHelpRecordType.supportTicket,
-          supportStatus: ticket.status,
-          created: true,
-        );
-      }
-    }
+    final ticket = await showParticipantSupportChatSheet(
+      context,
+      requesterId: order.customerId,
+      requesterRole: 'customer',
+      orderId: order.id,
+      orderCode: order.trackingCode,
+      subject: option.label,
+      priority: option.priority,
+      repository: support,
+      initialTicket: existing,
+    );
+    return ticket != null;
+  }
+
+  final existing = await riskQuery.findActive(order.id, option.category);
+  if (!context.mounted) return false;
+  if (existing != null) {
+    receipt = OrderHelpReceipt(
+      id: existing.id,
+      type: OrderHelpRecordType.riskReport,
+      riskStatus: existing.status,
+      created: false,
+    );
   } else {
-    final existing = await riskQuery.findActive(order.id, option.category);
-    if (!context.mounted) return false;
-    if (existing != null) {
+    final result = await showRiskReportSheet(
+      context,
+      order: order,
+      role: RiskReporterRole.customer,
+      initialCategory: option.category,
+      repository:
+          riskCommandRepository ?? SupabaseParticipantRiskReportRepository(),
+    );
+    if (result != null) {
       receipt = OrderHelpReceipt(
-        id: existing.id,
+        id: result.reportId,
         type: OrderHelpRecordType.riskReport,
-        riskStatus: existing.status,
-        created: false,
+        riskStatus: result.status,
+        created: true,
       );
-    } else {
-      final result = await showRiskReportSheet(
-        context,
-        order: order,
-        role: RiskReporterRole.customer,
-        initialCategory: option.category,
-        repository:
-            riskCommandRepository ?? SupabaseParticipantRiskReportRepository(),
-      );
-      if (result != null) {
-        receipt = OrderHelpReceipt(
-          id: result.reportId,
-          type: OrderHelpRecordType.riskReport,
-          riskStatus: result.status,
-          created: true,
-        );
-      }
     }
   }
 

@@ -125,14 +125,14 @@ void main() {
       );
     });
 
-    test('continues simulation after arrival until pickup is confirmed', () {
+    test('does not restart simulation after arrival is restored', () {
       expect(
         DriverDeliveryWorkflow.canSimulateMovement(
           status: 'picking_up',
           pickupConfirmed: false,
           arrivedAtTarget: true,
         ),
-        isTrue,
+        isFalse,
       );
       expect(
         DriverDeliveryWorkflow.canSimulateMovement(

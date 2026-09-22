@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Transparent, north-facing delivery scooter shown from above. -->
+  <g stroke="#0F1B2D" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Front and rear tyres establish the vehicle's physical footprint. -->
+    <rect x="25" y="3" width="14" height="18" rx="7" fill="#0F1B2D" stroke-width="2"/>
+    <rect x="24" y="45" width="16" height="17" rx="8" fill="#0F1B2D" stroke-width="2"/>
+
+    <!-- Fork, handlebar and mirrors: the clearly identifiable front direction. -->
+    <path d="M32 18V26M20 16h24" fill="none" stroke-width="3"/>
+    <path d="M22 16l-5-4M42 16l5-4" fill="none" stroke-width="2.5"/>
+    <path d="M12 8c3-2 6 0 6 3s-3 5-6 3-3-5 0-6ZM52 8c3-2 6 0 6 3s-3 5-6 3-3-5 0-6Z" fill="#DDE7F0" stroke-width="2"/>
+
+    <!-- Front fairing and headlight. -->
+    <path d="M24 25c0-6 3-10 8-10s8 4 8 10l-2 10H26l-2-10Z" fill="#FF6B35" stroke-width="2.5"/>
+    <path d="M28 21c0-2.5 1.8-4.5 4-4.5s4 2 4 4.5v4h-8v-4Z" fill="#F8FAFC" stroke-width="1.8"/>
+
+    <!-- Floorboard and body panels. -->
+    <path d="M26 31h12l5 14c1 3-1 6-4 6H25c-3 0-5-3-4-6l5-14Z" fill="#FF6B35" stroke-width="2.5"/>
+    <path d="M26 33h12l2.5 10H23.5L26 33Z" fill="#FFB39A" stroke="none"/>
+    <path d="M25 35h14l2 8H23l2-8Z" fill="#0F1B2D" stroke-width="1.8"/>
+
+    <!-- Seat and rear delivery box. -->
+    <path d="M25 41c0-3 3-5 7-5s7 2 7 5v5H25v-5Z" fill="#243447" stroke-width="2"/>
+    <path d="M18 47c0-3 2-5 5-5h18c3 0 5 2 5 5v9c0 3-2 5-5 5H23c-3 0-5-2-5-5v-9Z" fill="#FF6B35" stroke-width="2.5"/>
+    <path d="M18 51h28" fill="none" stroke="#FFF7F1" stroke-width="2"/>
+    <path d="M30 47h4v10h-4z" fill="#FFF7F1" stroke="none"/>
+  </g>
+</svg>

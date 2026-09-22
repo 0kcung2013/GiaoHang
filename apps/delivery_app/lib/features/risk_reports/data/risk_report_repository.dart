@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
+import 'package:giaohang_storage/giaohang_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
@@ -82,51 +83,65 @@ typedef _CreateId = String Function();
 typedef _CheckDuplicate =
     Future<bool> Function(String orderId, RiskCategory category);
 typedef _ProcessPhoto = Future<Uint8List> Function(Uint8List bytes);
-typedef _UploadEvidence = Future<void> Function(String path, Uint8List bytes);
+typedef _UploadEvidence =
+    Future<String> Function(
+      String path,
+      Uint8List bytes,
+      String orderId,
+      String reportId,
+    );
 typedef _RemoveEvidence = Future<void> Function(List<String> paths);
 typedef _InvokeCreate = Future<dynamic> Function(Map<String, dynamic> params);
 
 class SupabaseParticipantRiskReportRepository
     implements ParticipantRiskReportRepository {
-  SupabaseParticipantRiskReportRepository({SupabaseClient? client})
-    : this._(
-        currentUserId: () =>
-            (client ?? Supabase.instance.client).auth.currentUser?.id,
-        createId: const Uuid().v4,
-        checkDuplicate: (orderId, category) async {
-          return (client ?? Supabase.instance.client).rpc<bool>(
-            'has_active_participant_risk_report',
-            params: {
-              'p_order_id': orderId,
-              'p_category': category.databaseValue,
-            },
-          );
-        },
-        processPhoto: prepareRiskPhotoForUpload,
-        upload: (path, bytes) async {
-          await (client ?? Supabase.instance.client).storage
-              .from(_evidenceBucket)
-              .uploadBinary(
-                path,
-                bytes,
-                fileOptions: const FileOptions(
-                  contentType: 'image/jpeg',
-                  upsert: false,
-                ),
-              );
-        },
-        remove: (paths) async {
-          if (paths.isNotEmpty) {
-            await (client ?? Supabase.instance.client).storage
-                .from(_evidenceBucket)
-                .remove(paths);
-          }
-        },
-        invokeCreate: (params) => (client ?? Supabase.instance.client).rpc(
-          'create_participant_risk_report',
-          params: params,
-        ),
-      );
+  SupabaseParticipantRiskReportRepository({
+    SupabaseClient? client,
+    R2MediaClient? r2Client,
+  }) : this._(
+         currentUserId: () =>
+             (client ?? Supabase.instance.client).auth.currentUser?.id,
+         createId: const Uuid().v4,
+         checkDuplicate: (orderId, category) async {
+           return (client ?? Supabase.instance.client).rpc<bool>(
+             'has_active_participant_risk_report',
+             params: {
+               'p_order_id': orderId,
+               'p_category': category.databaseValue,
+             },
+           );
+         },
+         processPhoto: prepareRiskPhotoForUpload,
+         upload: (_, bytes, orderId, reportId) async {
+           final r2 = r2Client ?? R2MediaClient.supabase(client: client);
+           return r2.uploadBytes(
+             purpose: R2MediaPurpose.riskEvidence,
+             bytes: bytes,
+             contentType: 'image/jpeg',
+             extension: 'jpg',
+             contextId: orderId,
+             groupId: reportId,
+           );
+         },
+         remove: (paths) async {
+           if (paths.isEmpty) return;
+           final r2 = r2Client ?? R2MediaClient.supabase(client: client);
+           final r2Paths = paths.where(R2ObjectReference.isR2);
+           await Future.wait(r2Paths.map(r2.deleteObject));
+           final legacyPaths = paths
+               .where((path) => !R2ObjectReference.isR2(path))
+               .toList(growable: false);
+           if (legacyPaths.isNotEmpty) {
+             await (client ?? Supabase.instance.client).storage
+                 .from(_evidenceBucket)
+                 .remove(legacyPaths);
+           }
+         },
+         invokeCreate: (params) => (client ?? Supabase.instance.client).rpc(
+           'create_participant_risk_report',
+           params: params,
+         ),
+       );
 
   SupabaseParticipantRiskReportRepository.test({
     required String? Function() currentUserId,
@@ -141,7 +156,10 @@ class SupabaseParticipantRiskReportRepository
          createId: createId,
          checkDuplicate: checkDuplicate,
          processPhoto: processPhoto,
-         upload: upload,
+         upload: (path, bytes, _, _) async {
+           await upload(path, bytes);
+           return path;
+         },
          remove: remove,
          invokeCreate: invokeCreate,
        );
@@ -239,9 +257,14 @@ class SupabaseParticipantRiskReportRepository
           preparedPhotos,
           limit: 2,
           convert: (photo, _) async {
-            await _upload(photo.path, photo.bytes).timeout(_requestTimeout);
-            uploadedPaths.add(photo.path);
-            return photo.path;
+            final storedPath = await _upload(
+              photo.path,
+              photo.bytes,
+              draft.orderId,
+              reportId,
+            ).timeout(_requestTimeout);
+            uploadedPaths.add(storedPath);
+            return storedPath;
           },
         );
       } catch (_) {

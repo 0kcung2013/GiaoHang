@@ -45,7 +45,6 @@ void main() {
               heldBalance: 120000,
               todayIncome: 85000,
             ),
-            todayIncome: 85000,
             onTopUp: _noop,
           ),
         ),

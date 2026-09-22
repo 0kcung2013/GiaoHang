@@ -16,20 +16,25 @@ class SupportTicketDetailHeader extends StatelessWidget {
       AppSpacing.lg,
       AppSpacing.lg,
     ),
-    decoration: const BoxDecoration(color: AppColors.primary),
+    decoration: BoxDecoration(
+      color: AppColors.bgCard,
+      border: Border(
+        bottom: BorderSide(color: AppColors.accent.withValues(alpha: 0.22)),
+      ),
+    ),
     child: Row(
       children: [
         Container(
           width: 42,
           height: 42,
           decoration: const BoxDecoration(
-            color: AppColors.accent,
+            color: AppColors.accentLight,
             borderRadius: AppRadius.md,
           ),
           child: const Icon(
             Icons.support_agent_rounded,
             size: 22,
-            color: AppColors.textOnAccent,
+            color: AppColors.accent,
           ),
         ),
         const SizedBox(width: AppSpacing.md),
@@ -42,13 +47,13 @@ class SupportTicketDetailHeader extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: AppTextStyles.headingMedium.copyWith(
-                  color: AppColors.textOnDark,
+                  color: AppColors.textPrimary,
                 ),
               ),
               Text(
                 '#${SupportTicketUi.shortId(ticket.id)} · ${SupportTicketUi.dateTimeLabel(ticket.createdAt)}',
                 style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.textOnDark.withValues(alpha: 0.62),
+                  color: AppColors.textSecondary,
                 ),
               ),
             ],
@@ -57,7 +62,7 @@ class SupportTicketDetailHeader extends StatelessWidget {
         IconButton(
           tooltip: 'Đóng',
           onPressed: () => Navigator.pop(context),
-          color: AppColors.textOnDark,
+          color: AppColors.textSecondary,
           icon: const Icon(Icons.close_rounded),
         ),
       ],

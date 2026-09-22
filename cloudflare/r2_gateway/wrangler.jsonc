@@ -1,0 +1,19 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "giaohang-r2-gateway",
+	"main": "src/index.js",
+	"compatibility_date": "2026-09-01",
+	"r2_buckets": [
+		{
+			"binding": "MEDIA_BUCKET",
+			"bucket_name": "giaohang-media-private"
+		},
+		{
+			"binding": "GPS_BUCKET",
+			"bucket_name": "giaohang-gps-private"
+		}
+	],
+	"vars": {
+		"ALLOWED_ORIGINS": "http://localhost:*,http://127.0.0.1:*"
+	}
+}

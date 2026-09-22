@@ -9,10 +9,12 @@ class WalletTransactionList extends StatelessWidget {
     super.key,
     required this.transactions,
     required this.today,
+    this.emptyMessage = 'Chưa có giao dịch',
   });
 
   final List<DriverWalletTransaction> transactions;
   final DateTime today;
+  final String emptyMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -28,10 +30,12 @@ class WalletTransactionList extends StatelessWidget {
           children: [
             const Icon(Icons.receipt_long_outlined, color: AppColors.textMuted),
             const SizedBox(width: AppSpacing.md),
-            Text(
-              'Chưa có giao dịch',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
+            Expanded(
+              child: Text(
+                emptyMessage,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
             ),
           ],

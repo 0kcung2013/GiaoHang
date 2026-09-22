@@ -72,6 +72,7 @@ class _DriverEarningsScreenState extends ConsumerState<DriverEarningsScreen>
       summary: wallet,
       transactions: history,
       onTopUp: _topUp,
+      onWithdraw: _showWithdrawNotice,
     );
   }
 
@@ -99,5 +100,15 @@ class _DriverEarningsScreenState extends ConsumerState<DriverEarningsScreen>
         ),
       );
     }
+  }
+
+  void _showWithdrawNotice() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Tính năng rút tiền đang được hoàn thiện.'),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 }

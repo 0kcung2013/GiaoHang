@@ -64,7 +64,7 @@ class RiskReportActionBar extends StatelessWidget {
                     onPressed: submitting ? null : onAssign,
                     style: FilledButton.styleFrom(
                       minimumSize: const Size(0, 48),
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: AppColors.accent,
                       foregroundColor: AppColors.textOnDark,
                     ),
                     icon: const Icon(Icons.person_add_alt_rounded),
@@ -79,7 +79,7 @@ class RiskReportActionBar extends StatelessWidget {
                     onPressed: submitting ? null : onTakeOver,
                     style: FilledButton.styleFrom(
                       minimumSize: const Size(0, 48),
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: AppColors.accent,
                       foregroundColor: AppColors.textOnDark,
                     ),
                     icon: const Icon(Icons.admin_panel_settings_outlined),
@@ -143,7 +143,7 @@ class RiskReportActionBar extends StatelessWidget {
                         : () => onTransition(primaryTransition),
                     style: FilledButton.styleFrom(
                       minimumSize: const Size(0, 48),
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: AppColors.accent,
                       foregroundColor: AppColors.textOnDark,
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.xl,

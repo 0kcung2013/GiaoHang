@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
 import '../models/risk_report.dart';
+import '../constants/risk_report_strings.dart';
 import '../utils/risk_report_ui.dart';
 
 class RiskReportDetailHeader extends StatelessWidget {
@@ -23,19 +24,24 @@ class RiskReportDetailHeader extends StatelessWidget {
         AppSpacing.lg,
         AppSpacing.lg,
       ),
-      decoration: const BoxDecoration(color: AppColors.primary),
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
+        border: Border(
+          bottom: BorderSide(color: AppColors.accent.withValues(alpha: 0.22)),
+        ),
+      ),
       child: Row(
         children: [
           Container(
             width: 44,
             height: 44,
             decoration: const BoxDecoration(
-              color: AppColors.accent,
+              color: AppColors.accentLight,
               borderRadius: AppRadius.md,
             ),
             child: const Icon(
               Icons.gpp_maybe_outlined,
-              color: AppColors.textOnAccent,
+              color: AppColors.accent,
             ),
           ),
           const SizedBox(width: AppSpacing.md),
@@ -48,14 +54,14 @@ class RiskReportDetailHeader extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.headingMedium.copyWith(
-                    color: AppColors.textOnDark,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 Text(
                   '${report.isSystemIncident ? 'Sự cố hệ thống' : report.order.trackingCode} · '
                   '${RiskReportUi.formatDateTime(report.createdAt)}',
                   style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textOnDark.withValues(alpha: 0.62),
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ],
@@ -64,7 +70,7 @@ class RiskReportDetailHeader extends StatelessWidget {
           IconButton(
             tooltip: 'Đóng',
             onPressed: onClose,
-            color: AppColors.textOnDark,
+            color: AppColors.textSecondary,
             icon: const Icon(Icons.close_rounded),
           ),
         ],
@@ -122,7 +128,20 @@ class RiskOrderRoute extends StatelessWidget {
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Text(
+            RiskReportStrings.orderOverview,
+            style: AppTextStyles.labelSmall,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          SelectableText(report.order.trackingCode, style: AppTextStyles.mono),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            RiskReportUi.orderStatusLabel(report.order.status),
+            style: AppTextStyles.labelMedium.copyWith(color: AppColors.info),
+          ),
+          const SizedBox(height: AppSpacing.lg),
           _RouteLine(
             icon: Icons.radio_button_checked_rounded,
             color: AppColors.markerPickup,

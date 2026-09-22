@@ -34,6 +34,7 @@ class TrackingMapCanvas extends StatelessWidget {
     required this.pickupPoint,
     required this.deliveryPoint,
     required this.driverPosition,
+    required this.driverBearing,
     required this.completed,
     required this.isFullscreen,
     required this.phaseLegend,
@@ -48,6 +49,7 @@ class TrackingMapCanvas extends StatelessWidget {
   final LatLng pickupPoint;
   final LatLng deliveryPoint;
   final LatLng? driverPosition;
+  final double? driverBearing;
   final bool completed;
   final bool isFullscreen;
   final String phaseLegend;
@@ -89,15 +91,8 @@ class TrackingMapCanvas extends StatelessWidget {
                 DeliveryMapMarkers.dropoff(deliveryPoint),
                 if (driverPosition != null)
                   DeliveryMapMarkers.driver(
-                    completed
-                        ? driverPosition!
-                        : DeliveryMapMarkers.offsetIfNear(
-                            DeliveryMapMarkers.offsetIfNear(
-                              driverPosition!,
-                              pickupPoint,
-                            ),
-                            deliveryPoint,
-                          ),
+                    driverPosition!,
+                    bearingDegrees: driverBearing,
                   ),
               ],
             ),
@@ -112,11 +107,11 @@ class TrackingMapCanvas extends StatelessWidget {
           ),
         Positioned(
           left: 10,
-          bottom: 10,
+          bottom: isFullscreen ? 10 : 72,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.94),
+              color: AppColors.bgCard.withValues(alpha: 0.96),
               borderRadius: AppRadius.md,
               boxShadow: AppShadow.subtle,
             ),
@@ -132,7 +127,7 @@ class TrackingMapCanvas extends StatelessWidget {
         if (!isFullscreen)
           Positioned(
             right: AppSpacing.sm,
-            bottom: AppSpacing.sm,
+            bottom: 72,
             child: _TrackingMapActionButton(
               icon: Icons.fullscreen_rounded,
               label: 'Xem bản đồ',
@@ -212,12 +207,12 @@ class _TrackingMapActionButton extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, color: AppColors.primary, size: 22),
+                  Icon(icon, color: AppColors.accent, size: 22),
                   const SizedBox(width: AppSpacing.xs),
                   Text(
                     label,
                     style: AppTextStyles.labelMedium.copyWith(
-                      color: AppColors.primary,
+                      color: AppColors.accent,
                       fontWeight: FontWeight.w800,
                     ),
                   ),

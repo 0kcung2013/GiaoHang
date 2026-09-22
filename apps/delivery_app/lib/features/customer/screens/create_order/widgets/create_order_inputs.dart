@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import '../utils/order_form_validators.dart';
+import 'order_field_label.dart';
 
 const createOrderSectionCardKey = Key('create-order-section-card');
 const createOrderTextFieldKey = Key('create-order-text-field');
@@ -13,6 +15,7 @@ class CreateOrderSection extends StatelessWidget {
     required this.icon,
     required this.title,
     this.subtitle,
+    this.requiredField = false,
     this.accentColor = AppColors.accent,
     required this.children,
   });
@@ -21,6 +24,7 @@ class CreateOrderSection extends StatelessWidget {
   final IconData icon;
   final String title;
   final String? subtitle;
+  final bool requiredField;
   final Color accentColor;
   final List<Widget> children;
 
@@ -57,8 +61,9 @@ class CreateOrderSection extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      OrderFieldLabel(
                         title,
+                        requiredField: requiredField,
                         style: AppTextStyles.headingSmall.copyWith(
                           color: AppColors.textPrimary,
                           fontWeight: FontWeight.w800,
@@ -159,26 +164,13 @@ class _CreateOrderTextFieldState extends State<CreateOrderTextField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              widget.label,
-              style: AppTextStyles.labelMedium.copyWith(
-                color: _hasFocus ? AppColors.accent : AppColors.textPrimary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            if (widget.requiredField) ...[
-              const SizedBox(width: AppSpacing.xs),
-              Text(
-                '•',
-                style: AppTextStyles.labelMedium.copyWith(
-                  color: AppColors.accent,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ],
+        OrderFieldLabel(
+          widget.label,
+          requiredField: widget.requiredField,
+          style: AppTextStyles.labelMedium.copyWith(
+            color: _hasFocus ? AppColors.accent : AppColors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         const SizedBox(height: AppSpacing.sm),
         Focus(
@@ -199,7 +191,14 @@ class _CreateOrderTextFieldState extends State<CreateOrderTextField> {
             maxLines: widget.maxLines,
             maxLength: widget.maxLength,
             inputFormatters: widget.inputFormatters,
-            validator: widget.validator,
+            validator:
+                widget.validator ??
+                (widget.requiredField
+                    ? requiredOrderText(
+                        'Vui lòng nhập ${widget.label.toLowerCase()}.',
+                      )
+                    : null),
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             textAlignVertical: isMultiline
                 ? TextAlignVertical.top
                 : TextAlignVertical.center,

@@ -1,7 +1,17 @@
+import 'package:giaohang_storage/giaohang_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'risk_dashboard_metrics.dart';
+import 'risk_report_attachment_repository.dart';
+import 'risk_report_collaboration_repository.dart';
+import 'risk_report_selection.dart';
 
 import '../models/risk_message_evidence.dart';
 import '../models/risk_report.dart';
+
+export 'risk_dashboard_metrics.dart';
+export 'risk_report_attachment_repository.dart';
+export 'risk_report_collaboration_repository.dart';
 
 abstract interface class RiskReportRepository {
   Future<List<RiskReport>> fetchReports();
@@ -21,67 +31,8 @@ abstract interface class RiskReportRepository {
   });
 }
 
-abstract interface class RiskReportChangesRepository {
-  Stream<void> watchReportChanges();
-}
-
-abstract interface class RiskCaseConversationRepository {
-  Future<List<CaseMessage>> fetchCaseMessages(String reportId);
-  Future<void> postCaseMessage(
-    String reportId,
-    String body, {
-    required CaseMessageVisibility visibility,
-  });
-}
-
-abstract interface class RiskOwnershipCommandRepository {
-  Future<void> takeOverReport(String reportId);
-}
-
-class RiskDashboardMetrics {
-  const RiskDashboardMetrics({
-    required this.active,
-    required this.slaOverdue,
-    required this.criticalActive,
-    required this.waitingAdmin,
-    required this.systemActive,
-    required this.averageFirstResponseMinutes,
-  });
-
-  final int active;
-  final int slaOverdue;
-  final int criticalActive;
-  final int waitingAdmin;
-  final int systemActive;
-  final double? averageFirstResponseMinutes;
-
-  factory RiskDashboardMetrics.fromJson(Map<String, dynamic> json) {
-    int number(String key) => (json[key] as num?)?.toInt() ?? 0;
-    return RiskDashboardMetrics(
-      active: number('active'),
-      slaOverdue: number('sla_overdue'),
-      criticalActive: number('critical_active'),
-      waitingAdmin: number('waiting_admin'),
-      systemActive: number('system_active'),
-      averageFirstResponseMinutes: (json['avg_first_response_minutes'] as num?)
-          ?.toDouble(),
-    );
-  }
-}
-
 abstract interface class RiskDashboardRepository {
   Future<RiskDashboardMetrics> fetchDashboardMetrics();
-}
-
-class RiskReportAttachmentView {
-  const RiskReportAttachmentView({required this.attachment, this.signedUrl});
-
-  final RiskReportAttachment attachment;
-  final String? signedUrl;
-}
-
-abstract interface class RiskReportAttachmentRepository {
-  Future<List<RiskReportAttachmentView>> fetchAttachments(String reportId);
 }
 
 abstract interface class RiskInterventionCommandRepository {
@@ -108,65 +59,17 @@ class SupabaseRiskReportRepository
         RiskDashboardRepository,
         RiskReportAttachmentRepository,
         RiskInterventionCommandRepository {
-  SupabaseRiskReportRepository(this._client);
+  SupabaseRiskReportRepository(this._client, {R2MediaClient? r2Client})
+    : _r2Client = r2Client ?? R2MediaClient.supabase(client: _client);
 
   final SupabaseClient _client;
-
-  static const _reportSelection = '''
-    id,
-    order_id,
-    reported_by,
-    assigned_to,
-    reporter_role_snapshot,
-    scope,
-    component,
-    triage_due_at,
-    first_response_at,
-    response_due_at,
-    escalated_at,
-    category,
-    severity,
-    status,
-    title,
-    description,
-    resolution,
-    created_at,
-    updated_at,
-    reporter:users!risk_reports_reported_by_fkey(
-      full_name,
-      role,
-      avatar_url,
-      phone,
-      email
-    ),
-    assignee:users!risk_reports_assigned_to_fkey(
-      full_name
-    ),
-    intervention:risk_report_interventions!risk_report_interventions_risk_report_id_fkey(
-      decision_due_at,
-      escalated_at,
-      state
-    ),
-    orders!risk_reports_order_id_fkey(
-      tracking_code,
-      status,
-      customer_id,
-      driver_id,
-      pickup_address,
-      pickup_lat,
-      pickup_lng,
-      delivery_address,
-      delivery_lat,
-      delivery_lng,
-      delivery_fee
-    )
-  ''';
+  final R2MediaClient _r2Client;
 
   @override
   Future<List<RiskReport>> fetchReports() async {
     final rows = await _client
         .from('risk_reports')
-        .select(_reportSelection)
+        .select(riskReportSelection)
         .order('updated_at', ascending: false)
         .limit(200);
     return List<Map<String, dynamic>>.from(
@@ -229,9 +132,14 @@ class SupabaseRiskReportRepository
       String? signedUrl;
       if (attachment.evidenceType == RiskEvidenceType.photo &&
           attachment.storagePath != null) {
-        signedUrl = await _client.storage
-            .from('risk-report-evidence')
-            .createSignedUrl(attachment.storagePath!, 3600);
+        signedUrl = R2ObjectReference.isR2(attachment.storagePath)
+            ? await _r2Client.resolveUrl(
+                attachment.storagePath!,
+                expiresInSeconds: 3600,
+              )
+            : await _client.storage
+                  .from('risk-report-evidence')
+                  .createSignedUrl(attachment.storagePath!, 3600);
       }
       result.add(
         RiskReportAttachmentView(attachment: attachment, signedUrl: signedUrl),
@@ -253,16 +161,17 @@ class SupabaseRiskReportRepository
   @override
   Future<List<RiskReportNote>> fetchNotes(String reportId) async {
     final rows = await _client
-        .from('risk_report_notes')
+        .from('risk_report_messages')
         .select('''
           id,
           risk_report_id,
-          author_id,
+          author_id:sender_id,
           body,
           created_at,
-          author:users!risk_report_notes_author_id_fkey(full_name)
+          author:users!risk_report_messages_sender_id_fkey(full_name)
         ''')
         .eq('risk_report_id', reportId)
+        .eq('visibility', 'internal')
         .order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(
       rows,

@@ -64,11 +64,9 @@ class _ScopeChoice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppColors.primary : AppColors.textSecondary;
+    final color = selected ? AppColors.accent : AppColors.textSecondary;
     return Material(
-      color: selected
-          ? AppColors.primary.withValues(alpha: 0.06)
-          : AppColors.bgLight,
+      color: selected ? AppColors.accentLight : AppColors.bgLight,
       borderRadius: AppRadius.md,
       child: InkWell(
         onTap: onTap,
@@ -80,7 +78,7 @@ class _ScopeChoice extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: AppRadius.md,
             border: Border.all(
-              color: selected ? AppColors.primary : AppColors.border,
+              color: selected ? AppColors.accent : AppColors.border,
               width: selected ? 1.5 : 1,
             ),
           ),

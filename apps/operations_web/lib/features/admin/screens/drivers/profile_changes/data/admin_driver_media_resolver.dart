@@ -1,3 +1,4 @@
+import 'package:giaohang_storage/giaohang_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 abstract interface class AdminDriverMediaResolver {
@@ -14,16 +15,26 @@ bool isLegacyDriverMediaUrl(String value) {
 }
 
 class SupabaseAdminDriverMediaResolver implements AdminDriverMediaResolver {
-  SupabaseAdminDriverMediaResolver({AdminDriverMediaGateway? gateway})
-    : _gateway = gateway ?? SupabaseAdminDriverMediaGateway();
+  SupabaseAdminDriverMediaResolver({
+    AdminDriverMediaGateway? gateway,
+    R2MediaClient? r2Client,
+  }) : _gateway = gateway ?? SupabaseAdminDriverMediaGateway(),
+       _r2Client = r2Client;
 
   final AdminDriverMediaGateway _gateway;
+  final R2MediaClient? _r2Client;
 
   @override
   Future<String?> resolve(String? storedValue) async {
     final normalized = storedValue?.trim();
     if (normalized == null || normalized.isEmpty) return null;
     if (isLegacyDriverMediaUrl(normalized)) return normalized;
+    if (R2ObjectReference.isR2(normalized)) {
+      return (_r2Client ?? R2MediaClient.supabase()).resolveUrl(
+        normalized,
+        expiresInSeconds: 300,
+      );
+    }
     return _gateway.createSignedUrl(normalized, expiresIn: 300);
   }
 }

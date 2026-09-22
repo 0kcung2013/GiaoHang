@@ -3,6 +3,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 
 import '../constants/risk_report_strings.dart';
 import '../models/risk_report.dart';
+import '../../support/widgets/support_queue_hero.dart';
 
 class RiskReportHeader extends StatelessWidget {
   const RiskReportHeader({
@@ -31,6 +32,43 @@ class RiskReportHeader extends StatelessWidget {
     final resolved = reports
         .where((item) => item.status == RiskStatus.resolved)
         .length;
+    final overdue = reports
+        .where((item) => item.responseOverdue || item.triageOverdue)
+        .length;
+
+    if (!showMetrics) {
+      return SupportQueueHero(
+        title: RiskReportStrings.supportTitle,
+        subtitle: 'Xác minh sự cố, bảo vệ khách hàng và tài xế',
+        icon: Icons.shield_rounded,
+        metrics: [
+          SupportQueueMetric(
+            label: 'Mới tiếp nhận',
+            value: unassigned,
+            icon: Icons.fiber_new_rounded,
+            color: AppColors.accent,
+          ),
+          SupportQueueMetric(
+            label: 'Đang mở',
+            value: active,
+            icon: Icons.radar_rounded,
+            color: AppColors.info,
+          ),
+          SupportQueueMetric(
+            label: 'Quá hạn SLA',
+            value: overdue,
+            icon: Icons.timer_off_rounded,
+            color: AppColors.error,
+          ),
+          SupportQueueMetric(
+            label: 'Đã xử lý',
+            value: resolved,
+            icon: Icons.task_alt_rounded,
+            color: AppColors.success,
+          ),
+        ],
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

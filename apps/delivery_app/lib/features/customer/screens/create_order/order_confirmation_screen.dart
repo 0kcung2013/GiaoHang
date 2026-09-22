@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:giaohang_storage/giaohang_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -10,6 +11,7 @@ import '../../../../core/providers/address_providers.dart';
 import '../../../../core/providers/customer_providers.dart';
 import 'services/order_confirmation_completion_service.dart';
 import 'utils/order_form_data.dart';
+import 'utils/order_form_validators.dart';
 import 'widgets/order_confirmation_app_bar.dart';
 import 'widgets/order_confirmation_content.dart';
 import 'widgets/order_confirmation_submit_bar.dart';
@@ -48,6 +50,18 @@ class _OrderConfirmationScreenState
 
   Future<void> _submitOrder() async {
     if (_isSubmitting) return;
+    final data = widget.formData;
+    final error = validateOrderDetails(
+      recipientName: data.recipientName,
+      recipientPhone: data.recipientPhone,
+      itemName: data.itemName,
+      itemCategory: data.itemCategory,
+      hasPhoto: data.cargoImage != null,
+    );
+    if (error != null) {
+      _showSnackBar(error, isError: true);
+      return;
+    }
 
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
@@ -66,12 +80,9 @@ class _OrderConfirmationScreenState
           itemImageUrl = await ref
               .read(cargoImageServiceProvider)
               .uploadOrderCargoImage(userId: user.id, image: cargoImage);
-        } catch (_) {
+        } catch (error) {
           if (mounted) {
-            _showSnackBar(
-              'Không thể tải ảnh hàng hoá lên. Vui lòng thử lại.',
-              isError: true,
-            );
+            _showSnackBar(_cargoImageUploadMessage(error), isError: true);
           }
           setState(() => _isSubmitting = false);
           return;
@@ -196,5 +207,16 @@ class _OrderConfirmationScreenState
         shape: RoundedRectangleBorder(borderRadius: AppRadius.md),
       ),
     );
+  }
+
+  String _cargoImageUploadMessage(Object error) {
+    if (error is! R2MediaException) {
+      return 'Không thể tải ảnh hàng hoá lên. Vui lòng thử lại.';
+    }
+    return switch (error.statusCode) {
+      401 => 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+      413 => 'Ảnh hàng hoá phải có dung lượng không quá 8 MB.',
+      _ => 'Không thể tải ảnh hàng hoá lên R2: ${error.message}',
+    };
   }
 }

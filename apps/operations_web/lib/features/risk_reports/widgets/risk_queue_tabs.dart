@@ -57,7 +57,7 @@ class _QueueTab extends StatelessWidget {
       selected: selected,
       label: '${_label(scope)}, $count báo cáo',
       child: Material(
-        color: selected ? AppColors.primary : AppColors.bgCard,
+        color: selected ? AppColors.accent : AppColors.bgCard,
         borderRadius: AppRadius.full,
         child: InkWell(
           key: ValueKey('risk-queue-${scope.name}'),
@@ -72,7 +72,7 @@ class _QueueTab extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: AppRadius.full,
               border: Border.all(
-                color: selected ? AppColors.primary : AppColors.border,
+                color: selected ? AppColors.accent : AppColors.border,
               ),
             ),
             child: Row(
@@ -82,7 +82,7 @@ class _QueueTab extends StatelessWidget {
                   _icon(scope),
                   size: 18,
                   color: selected
-                      ? AppColors.textOnDark
+                      ? AppColors.textOnAccent
                       : AppColors.textSecondary,
                 ),
                 const SizedBox(width: AppSpacing.xs),
@@ -90,7 +90,7 @@ class _QueueTab extends StatelessWidget {
                   _label(scope),
                   style: AppTextStyles.labelMedium.copyWith(
                     color: selected
-                        ? AppColors.textOnDark
+                        ? AppColors.textOnAccent
                         : AppColors.textSecondary,
                   ),
                 ),
@@ -102,7 +102,7 @@ class _QueueTab extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: selected
-                        ? AppColors.textOnDark.withValues(alpha: 0.14)
+                        ? AppColors.textOnAccent.withValues(alpha: 0.16)
                         : AppColors.bgLight,
                     borderRadius: AppRadius.full,
                   ),
@@ -110,7 +110,7 @@ class _QueueTab extends StatelessWidget {
                     '$count',
                     style: AppTextStyles.labelSmall.copyWith(
                       color: selected
-                          ? AppColors.textOnDark
+                          ? AppColors.textOnAccent
                           : AppColors.textSecondary,
                     ),
                   ),
