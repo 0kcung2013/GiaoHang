@@ -14,6 +14,9 @@ class SupportLiveConversation extends StatefulWidget {
     required this.currentUserId,
     required this.canReply,
     required this.onSend,
+    this.recipientLabel = 'người yêu cầu',
+    this.lockedMessage = 'Nhận xử lý hồ sơ để bắt đầu phản hồi',
+    this.replyTemplate,
     super.key,
   });
 
@@ -21,6 +24,9 @@ class SupportLiveConversation extends StatefulWidget {
   final String currentUserId;
   final bool canReply;
   final SupportMessageSender onSend;
+  final String recipientLabel;
+  final String lockedMessage;
+  final String? replyTemplate;
 
   @override
   State<SupportLiveConversation> createState() =>
@@ -62,6 +68,7 @@ class _SupportLiveConversationState extends State<SupportLiveConversation> {
   }
 
   Future<void> _send() async {
+    if (_sending || !widget.canReply) return;
     final body = _controller.text.trim();
     if (body.isEmpty) {
       setState(() => _error = 'Vui lòng nhập nội dung.');
@@ -105,29 +112,39 @@ class _SupportLiveConversationState extends State<SupportLiveConversation> {
   Widget build(BuildContext context) {
     return ColoredBox(
       color: AppColors.bgLight,
-      child: Column(
-        children: [
-          Expanded(
-            child: SupportLiveMessages(
-              messages: _messages,
-              currentUserId: widget.currentUserId,
-              scrollController: _scrollController,
-            ),
-          ),
-          const Divider(height: 1, color: AppColors.border),
-          if (widget.canReply)
-            SupportLiveComposer(
-              controller: _controller,
-              visibility: _visibility,
-              sending: _sending,
-              error: _error,
-              onVisibilityChanged: (value) =>
-                  setState(() => _visibility = value),
-              onSend: _send,
-            )
-          else
-            const SupportReplyLocked(),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxHeight < 400;
+          final messages = SupportLiveMessages(
+            messages: _messages,
+            currentUserId: widget.currentUserId,
+            scrollController: _scrollController,
+          );
+          final content = Column(
+            children: [
+              if (compact)
+                SizedBox(height: 220, child: messages)
+              else
+                Expanded(child: messages),
+              const Divider(height: 1, color: AppColors.border),
+              if (widget.canReply)
+                SupportLiveComposer(
+                  replyTemplate: widget.replyTemplate,
+                  recipientLabel: widget.recipientLabel,
+                  controller: _controller,
+                  visibility: _visibility,
+                  sending: _sending,
+                  error: _error,
+                  onVisibilityChanged: (value) =>
+                      setState(() => _visibility = value),
+                  onSend: _send,
+                )
+              else
+                SupportReplyLocked(message: widget.lockedMessage),
+            ],
+          );
+          return compact ? SingleChildScrollView(child: content) : content;
+        },
       ),
     );
   }

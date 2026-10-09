@@ -21,7 +21,10 @@ class DriverOrderService {
   static const String _statusReturning = 'returning';
   static const String _statusReturned = 'returned';
 
-  Future<List<OrderModel>> getAvailableOrders({String? driverId}) async {
+  Future<List<OrderModel>> getAvailableOrders({
+    String? driverId,
+    DateTime Function()? now,
+  }) async {
     final normalizedDriverId = driverId?.trim() ?? '';
     if (normalizedDriverId.isEmpty) return const [];
 
@@ -41,7 +44,7 @@ class DriverOrderService {
       final orders = filterPersistedDriverOffers(
         response.map(OrderModel.fromJson),
         driverUserId: normalizedDriverId,
-        now: DateTime.now(),
+        now: (now ?? DateTime.now)(),
       );
 
       _debugOrders('available:result', orders);
@@ -52,7 +55,10 @@ class DriverOrderService {
     }
   }
 
-  Stream<List<OrderModel>> watchAvailableOrders({String? driverId}) {
+  Stream<List<OrderModel>> watchAvailableOrders({
+    String? driverId,
+    DateTime Function()? now,
+  }) {
     final normalizedDriverId = driverId?.trim() ?? '';
     if (normalizedDriverId.isEmpty) {
       return Stream.value(const <OrderModel>[]);
@@ -69,6 +75,7 @@ class DriverOrderService {
     return watchPersistedDriverOffers(
       realtimeOrders,
       driverUserId: normalizedDriverId,
+      now: now,
     ).map((orders) {
       _debugOrders('watch:available', orders);
       return orders;

@@ -23,6 +23,7 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
   TrackingTrafficRouteProgress? _trafficProgress;
   List<DeliveryTrafficSegment> _visibleTrafficSegments = const [];
   TrackingRouteRequestGate _routeRequests = TrackingRouteRequestGate();
+  bool _routeHasDriverOrigin = false;
   LatLng? _stableDriverPos;
   LatLng? _displayedDriverPos;
   LatLng? _motionStart;
@@ -73,6 +74,7 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
       _fullRoute = null;
       _trafficSnapshot = null;
       _trafficProgress = null;
+      _routeHasDriverOrigin = false;
       _visibleTrafficSegments = const [];
       if (!_phase.tracksLiveDriver) {
         _stableDriverPos = null;
@@ -107,13 +109,24 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
       return;
     }
     _pollInFlight = true;
+    final request = (
+      driverId: widget.order.driverId!,
+      orderId: widget.order.id,
+    );
+    final freshness = ref.read(trackingLocationFreshnessProvider(request));
+    final startedAtRevision = freshness.revision;
     try {
       // Gọi service trực tiếp để đây là polling thật. Đọc FutureProvider đã
       // hoàn tất chỉ trả lại cache và không đảm bảo có tọa độ mới.
       final driver = await ref
           .read(driverServiceProvider)
           .getDriverForOrder(widget.order.id);
-      if (!mounted || !_phase.tracksLiveDriver) return;
+      if (!mounted ||
+          !_phase.tracksLiveDriver ||
+          widget.order.id != request.orderId ||
+          widget.order.driverId != request.driverId) {
+        return;
+      }
       final lat = driver?.currentLat;
       final lng = driver?.currentLng;
       if (lat == null || lng == null || lat == 0.0 || lng == 0.0) return;
@@ -122,9 +135,11 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
         live: null,
         profile: LatLng(lat, lng),
         stable: null,
-        demoEmail: driver?.email,
       );
       if (pos == null) return;
+      if (!freshness.acceptProfilePoll(startedAtRevision: startedAtRevision)) {
+        return;
+      }
       _isPublishingPollFallback = true;
       ref.read(liveDriverLatLngProvider(widget.order.id).notifier).state = (
         lat: pos.latitude,
@@ -136,6 +151,7 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
       if (TrackingRouteRefreshPolicy.shouldReload(
         snapshot: _trafficSnapshot,
         current: pos,
+        hasDriverOrigin: _routeHasDriverOrigin,
       )) {
         await _loadRoute(explicitDriverPos: pos);
       }
@@ -159,7 +175,6 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
       live: livePoint,
       profile: profilePoint,
       stable: _stableDriverPos,
-      demoEmail: driver?.email,
     );
     return resolved;
   }
@@ -212,14 +227,30 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
       );
       if (!mounted || !_routeRequests.isCurrent(request)) return;
 
+      // A route response must not restore the GPS captured at request start.
+      final currentDriverPos = phase.tracksLiveDriver
+          ? _resolveDriverPos(
+              ref.read(assignedDriverProvider(widget.order.id)).valueOrNull,
+              ref.read(liveDriverLatLngProvider(widget.order.id)),
+            )
+          : driverPos;
+
       if (result != null && result.points.length >= 2) {
-        _acceptRoute(result.points, current: driverPos);
+        _acceptRoute(
+          result.points,
+          current: currentDriverPos,
+          hasDriverOrigin: driverPos != null,
+        );
         accepted = true;
-        _fitCamera(driverPos);
+        _fitCamera(currentDriverPos);
       } else if (_fullRoute == null && waypoints.length >= 2) {
-        _acceptRoute(waypoints, current: driverPos);
+        _acceptRoute(
+          waypoints,
+          current: currentDriverPos,
+          hasDriverOrigin: driverPos != null,
+        );
         accepted = true;
-        _fitCamera(driverPos);
+        _fitCamera(currentDriverPos);
       }
     } catch (_) {
       // Keep the accepted snapshot while OSRM is temporarily unavailable.
@@ -228,7 +259,11 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
     }
   }
 
-  void _acceptRoute(List<LatLng> route, {LatLng? current}) {
+  void _acceptRoute(
+    List<LatLng> route, {
+    LatLng? current,
+    required bool hasDriverOrigin,
+  }) {
     final snapshot = TrackingTrafficRouteSnapshot.build(
       routePoints: route,
       evaluatedAt: DateTime.now(),
@@ -243,8 +278,12 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
     _driverMotionController.stop();
     _motionStartProjection = null;
     _motionTargetProjection = null;
+    if (hasDriverOrigin && !_routeHasDriverOrigin) {
+      _hasInitialCameraFit = false;
+    }
     setState(() {
       _fullRoute = snapshot.routePoints;
+      _routeHasDriverOrigin = hasDriverOrigin;
       _trafficSnapshot = snapshot;
       _trafficProgress = progress;
       _visibleTrafficSegments = progress.advanceTo(snappedCurrent);
@@ -256,7 +295,18 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
   }
 
   void _animateDriverPosition(LatLng target) {
-    final route = _fullRoute;
+    if (!_routeHasDriverOrigin && _fullRoute != null) {
+      // Tuyến tạm L → G không còn đúng khi đã biết vị trí tài xế.
+      _driverMotionController.stop();
+      _motionStartProjection = null;
+      _motionTargetProjection = null;
+      _fullRoute = null;
+      _trafficSnapshot = null;
+      _trafficProgress = null;
+      _visibleTrafficSegments = const [];
+      _hasInitialCameraFit = false;
+    }
+    final route = _routeHasDriverOrigin ? _fullRoute : null;
     final targetProjection = route == null
         ? null
         : TrackingLocationMotion.projectOntoRoute(target, route);
@@ -355,18 +405,17 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
           if (next == null) return;
           if (_isPublishingPollFallback) return;
           _lastRealtimeAt = DateTime.now();
-          final driver = ref.read(assignedDriverProvider(order.id)).valueOrNull;
           final pos = TrackingDriverPositionResolver.resolve(
             live: LatLng(next.lat, next.lng),
             profile: null,
             stable: null,
-            demoEmail: driver?.email,
           );
           if (pos == null) return;
           _animateDriverPosition(pos);
           if (TrackingRouteRefreshPolicy.shouldReload(
             snapshot: _trafficSnapshot,
             current: pos,
+            hasDriverOrigin: _routeHasDriverOrigin,
           )) {
             unawaited(_loadRoute(explicitDriverPos: pos));
           }
@@ -431,6 +480,7 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
   }
 
   LatLng _snapToRoute(LatLng position) {
+    if (!_routeHasDriverOrigin) return position;
     final route = _fullRoute;
     if (route == null) return position;
     return TrackingLocationMotion.projectOntoRoute(position, route)?.point ??

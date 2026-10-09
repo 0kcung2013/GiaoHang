@@ -162,10 +162,12 @@ class DriverDeliveryWorkflow {
     required String status,
     required bool pickupConfirmed,
     required bool arrivedAtTarget,
+    bool routeCompleted = false,
   }) {
-    // Khi đã vào bán kính đến nơi, giữ nguyên vị trí đã lưu. Điều này đặc biệt
-    // quan trọng sau khi mở lại app: route mới không được chạy lại từ đầu.
-    if (arrivedAtTarget || pickupConfirmed) return false;
+    // Mốc 100 m chỉ mở khóa xác nhận; mô phỏng vẫn đi tới cuối tuyến.
+    // Khi đã xác nhận lấy hàng, chờ tài xế chủ động bắt đầu chặng tiếp theo.
+    if (routeCompleted) return false;
+    if (status == 'picking_up' && pickupConfirmed) return false;
     return status == 'picking_up' || status == 'delivering';
   }
 }

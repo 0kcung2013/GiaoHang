@@ -1,5 +1,6 @@
 import 'package:delivery_app/core/utils/delivery_traffic_route_analyzer.dart';
 import 'package:delivery_app/features/customer/screens/tracking/utils/tracking_traffic_route.dart';
+import 'package:delivery_app/features/customer/screens/tracking/utils/tracking_map_phase.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -10,6 +11,25 @@ void main() {
     LatLng(10.7770, 106.6820),
     LatLng(10.7780, 106.6830),
   ];
+
+  test('live route starts at the driver and ends at the current stop', () {
+    const driver = LatLng(10.7750, 106.6800);
+    const pickup = LatLng(10.7760, 106.6810);
+    const delivery = LatLng(10.7780, 106.6830);
+
+    expect(
+      TrackingMapPhase.fromStatus(
+        'picking_up',
+      ).routeWaypoints(driver: driver, pickup: pickup, delivery: delivery),
+      [driver, pickup],
+    );
+    expect(
+      TrackingMapPhase.fromStatus(
+        'delivering',
+      ).routeWaypoints(driver: driver, pickup: pickup, delivery: delivery),
+      [driver, delivery],
+    );
+  });
 
   test('build captures one historical traffic evaluation for the route', () {
     final evaluatedAt = DateTime(2026, 8, 11, 17, 30);
@@ -91,6 +111,23 @@ void main() {
     expect(snapshot.isOffRoute(const LatLng(10.7900, 106.7000)), isTrue);
   });
 
+  test('replaces pickup-to-delivery placeholder when driver first appears', () {
+    final snapshot = TrackingTrafficRouteSnapshot(
+      routePoints: route,
+      segments: const [],
+      evaluatedAt: DateTime(2026, 8, 11, 17, 30),
+    );
+
+    expect(
+      TrackingRouteRefreshPolicy.shouldReload(
+        snapshot: snapshot,
+        current: route[1],
+        hasDriverOrigin: false,
+      ),
+      isTrue,
+    );
+  });
+
   test('GPS midway along a sparse route segment does not trigger reroute', () {
     const sparseRoute = [LatLng(10.7750, 106.6800), LatLng(10.7750, 106.6900)];
     final snapshot = TrackingTrafficRouteSnapshot(
@@ -115,6 +152,7 @@ void main() {
         TrackingRouteRefreshPolicy.shouldReload(
           snapshot: snapshot,
           current: route[1],
+          hasDriverOrigin: true,
         ),
         isFalse,
       );
@@ -122,6 +160,7 @@ void main() {
         TrackingRouteRefreshPolicy.shouldReload(
           snapshot: snapshot,
           current: const LatLng(10.7900, 106.7000),
+          hasDriverOrigin: true,
         ),
         isTrue,
       );
@@ -129,6 +168,7 @@ void main() {
         TrackingRouteRefreshPolicy.shouldReload(
           snapshot: null,
           current: route[1],
+          hasDriverOrigin: true,
         ),
         isTrue,
       );

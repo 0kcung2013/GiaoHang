@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/support_ticket.dart';
+import 'case_pagination.dart';
 
 abstract interface class SupportTicketCommandRepository {
   Future<void> acceptTicket(String ticketId);
@@ -37,6 +38,11 @@ abstract interface class SupportTicketChangesRepository {
   Stream<void> watchTicketChanges();
 }
 
+abstract interface class SupportTicketDetailRepository {
+  Future<SupportTicket> fetchTicket(String ticketId);
+  Stream<void> watchTicket(String ticketId);
+}
+
 abstract interface class SupportTicketRepository {
   Future<List<SupportTicket>> fetchTickets();
   Future<void> createTicket(SupportTicketDraft draft, String actorId);
@@ -49,24 +55,57 @@ class SupabaseSupportTicketRepository
         SupportTicketCommandRepository,
         SupportTicketConversationRepository,
         SupportTicketRiskRepository,
+        SupportTicketDetailRepository,
         SupportTicketChangesRepository {
   SupabaseSupportTicketRepository(this._client);
 
   final SupabaseClient _client;
 
+  static const selection =
+      'id, order_id, requester_id, assigned_to, subject, message, '
+      'risk_report_id, resolution, status, priority, first_response_at, '
+      'response_due_at, escalated_at, created_at, updated_at, '
+      'requester:users!support_tickets_requester_id_fkey(full_name, role), '
+      'assignee:users!support_tickets_assigned_to_fkey(full_name), '
+      'order_context:orders!support_tickets_order_id_fkey(tracking_code)';
+
+  @override
+  Future<SupportTicket> fetchTicket(String ticketId) async =>
+      SupportTicket.fromJson(
+        await _client
+            .from('support_tickets')
+            .select(selection)
+            .eq('id', ticketId)
+            .single(),
+      );
+
+  @override
+  Stream<void> watchTicket(String ticketId) => _client
+      .from('support_tickets')
+      .stream(primaryKey: ['id'])
+      .eq('id', ticketId)
+      .map<void>((_) {});
+
   @override
   Future<List<SupportTicket>> fetchTickets() async {
-    final rows = await _client
-        .from('support_tickets')
-        .select(
-          'id, order_id, requester_id, assigned_to, subject, message, '
-          'risk_report_id, resolution, status, priority, first_response_at, '
-          'response_due_at, escalated_at, created_at, updated_at, '
-          'requester:users!support_tickets_requester_id_fkey(full_name, role), '
-          'assignee:users!support_tickets_assigned_to_fkey(full_name)',
-        )
-        .order('updated_at', ascending: false)
-        .limit(200);
+    final rows = await readCasePages((afterId) async {
+      var query = _client
+          .from('support_tickets')
+          .select(
+            '$selection, last_message:case_messages(body,sender_role_snapshot,visibility,created_at)',
+          )
+          .eq('last_message.visibility', 'public');
+      if (afterId != null) query = query.gt('id', afterId);
+      return await query
+          .order('id', ascending: true)
+          .order(
+            'created_at',
+            referencedTable: 'last_message',
+            ascending: false,
+          )
+          .limit(1, referencedTable: 'last_message')
+          .limit(200);
+    });
     return List<Map<String, dynamic>>.from(
       rows,
     ).map(SupportTicket.fromJson).toList();
@@ -126,7 +165,7 @@ class SupabaseSupportTicketRepository
   @override
   Future<List<CaseMessage>> fetchMessages(String ticketId) async {
     final rows = await _client
-        .from('support_ticket_messages')
+        .from('case_messages')
         .select(
           'id, ticket_id, sender_id, sender_role_snapshot, visibility, '
           'body, created_at',
@@ -141,7 +180,7 @@ class SupabaseSupportTicketRepository
   @override
   Stream<List<CaseMessage>> watchMessages(String ticketId) {
     return _client
-        .from('support_ticket_messages')
+        .from('case_messages')
         .stream(primaryKey: ['id'])
         .eq('ticket_id', ticketId)
         .order('created_at', ascending: true)

@@ -12,6 +12,8 @@ class ParticipantRiskReportSummary {
     required this.updatedAt,
     this.resolution,
     this.triageDueAt,
+    this.reportedBy,
+    this.reporterRole = RiskReporterRole.unknown,
   });
 
   final String id;
@@ -24,6 +26,8 @@ class ParticipantRiskReportSummary {
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? triageDueAt;
+  final String? reportedBy;
+  final RiskReporterRole reporterRole;
 
   factory ParticipantRiskReportSummary.fromJson(Map<String, dynamic> json) {
     return ParticipantRiskReportSummary(
@@ -37,6 +41,10 @@ class ParticipantRiskReportSummary {
       createdAt: _date(json['created_at']),
       updatedAt: _date(json['updated_at']),
       triageDueAt: _optionalDate(json['triage_due_at']),
+      reportedBy: json['reported_by']?.toString(),
+      reporterRole: RiskReporterRole.fromDatabase(
+        json['reporter_role_snapshot']?.toString(),
+      ),
     );
   }
 }

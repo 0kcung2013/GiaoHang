@@ -5,22 +5,10 @@ abstract final class SupportTicketPolicy {
     SupportTicketStatus status,
   ) => switch (status) {
     SupportTicketStatus.open => const [],
-    SupportTicketStatus.inProgress => const [
-      SupportTicketStatus.waitingCustomer,
-      SupportTicketStatus.waitingAdmin,
-      SupportTicketStatus.resolved,
-      SupportTicketStatus.closed,
-    ],
+    SupportTicketStatus.inProgress => const [SupportTicketStatus.resolved],
     SupportTicketStatus.waitingCustomer ||
-    SupportTicketStatus.waitingAdmin => const [
-      SupportTicketStatus.inProgress,
-      SupportTicketStatus.resolved,
-      SupportTicketStatus.closed,
-    ],
-    SupportTicketStatus.resolved => const [
-      SupportTicketStatus.inProgress,
-      SupportTicketStatus.closed,
-    ],
+    SupportTicketStatus.waitingAdmin => const [SupportTicketStatus.resolved],
+    SupportTicketStatus.resolved => const [SupportTicketStatus.inProgress],
     SupportTicketStatus.closed => const [SupportTicketStatus.inProgress],
   };
 }

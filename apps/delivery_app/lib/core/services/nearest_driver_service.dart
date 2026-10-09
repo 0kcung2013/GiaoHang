@@ -130,7 +130,7 @@ class NearestDriverService {
     return null;
   }
 
-  /// Redis là hot path; RPC Postgres là source-of-truth fallback.
+  /// Server ranks OSRM routes; unavailable routing leaves the order waiting.
   Future<List<AssignableDriverPoint>> loadAssignableDrivers({
     double? nearLat,
     double? nearLng,
@@ -142,48 +142,17 @@ class NearestDriverService {
       return injectedLoader(nearLat: nearLat, nearLng: nearLng);
     }
 
-    final fromRedis = await _loadAssignableDriversFromRedis(
+    final fromServer = await _loadAssignableDriversFromServer(
       aroundLat: nearLat,
       aroundLng: nearLng,
     );
-    if (fromRedis != null) return fromRedis;
+    if (fromServer != null) return fromServer;
 
-    final fromRpc = await _loadAssignableDriversFromRpc(
-      aroundLat: nearLat,
-      aroundLng: nearLng,
-    );
-    return fromRpc ?? const [];
+    return const [];
   }
 
-  Future<List<AssignableDriverPoint>?> _loadAssignableDriversFromRpc({
-    required double aroundLat,
-    required double aroundLng,
-  }) async {
-    try {
-      final response = await _supabase.rpc(
-        'find_nearest_drivers',
-        params: {
-          'pickup_lat': aroundLat,
-          'pickup_lng': aroundLng,
-          'radius_meters': radiusMeters,
-          'max_results': _maxCandidates,
-        },
-      );
-      final rows = response as List<dynamic>? ?? const [];
-      return rows
-          .whereType<Map>()
-          .map((row) => Map<String, dynamic>.from(row))
-          .map(_candidateFromMap)
-          .whereType<AssignableDriverPoint>()
-          .toList();
-    } catch (error) {
-      _log('load-drivers:rpc failed $error');
-      return null;
-    }
-  }
-
-  /// null = Edge/Redis không dùng được; [] = dùng được nhưng không có ứng viên.
-  Future<List<AssignableDriverPoint>?> _loadAssignableDriversFromRedis({
+  /// null = routing unavailable; [] = no eligible road routes.
+  Future<List<AssignableDriverPoint>?> _loadAssignableDriversFromServer({
     required double aroundLat,
     required double aroundLng,
   }) async {
@@ -212,10 +181,10 @@ class NearestDriverService {
           .map(_candidateFromMap)
           .whereType<AssignableDriverPoint>()
           .toList();
-      _log('load-drivers:redis count=${drivers.length}');
+      _log('load-drivers:road count=${drivers.length}');
       return drivers;
     } catch (error) {
-      _log('load-drivers:redis skip $error');
+      _log('load-drivers:road unavailable $error');
       return null;
     }
   }

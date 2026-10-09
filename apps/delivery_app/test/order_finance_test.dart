@@ -19,20 +19,24 @@ void main() {
       expect(finance.requiredWalletBalance, 120000);
     });
 
-    test('prepaid requires no advance or receiver collection', () {
-      const finance = OrderFinance.calculate(
-        deliveryFeePayer: DeliveryFeePayer.sender,
-        goodsValue: 120000,
-        codCollectionAmount: 0,
-        deliveryFee: 25000,
-      );
+    test(
+      'paid goods require a refundable deposit but no receiver collection',
+      () {
+        const finance = OrderFinance.calculate(
+          deliveryFeePayer: DeliveryFeePayer.sender,
+          goodsValue: 120000,
+          codCollectionAmount: 0,
+          deliveryFee: 25000,
+        );
 
-      expect(finance.driverAdvanceAmount, 0);
-      expect(finance.receiverCollectionAmount, 0);
-      expect(finance.requiredWalletBalance, 0);
-      expect(finance.driverNetEarning, 25000);
-      expect(finance.totalPrice, 25000);
-    });
+        expect(finance.driverAdvanceAmount, 120000);
+        expect(finance.receiverCollectionAmount, 0);
+        expect(finance.requiredWalletBalance, 120000);
+        expect(finance.driverNetEarning, 25000);
+        expect(finance.totalPrice, 25000);
+        expect(finance.senderVnpayAmount, 25000);
+      },
+    );
 
     test('total price equals goods value plus delivery fee', () {
       const finance = OrderFinance.calculate(

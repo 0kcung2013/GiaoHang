@@ -15,6 +15,10 @@ import 'utils/order_form_validators.dart';
 import 'widgets/order_confirmation_app_bar.dart';
 import 'widgets/order_confirmation_content.dart';
 import 'widgets/order_confirmation_submit_bar.dart';
+import 'widgets/order_payment_pending_card.dart';
+import 'controllers/order_confirmation_payment_controller.dart';
+import 'utils/order_form_submission.dart';
+import 'utils/order_payment_strings.dart';
 
 class OrderConfirmationScreen extends ConsumerStatefulWidget {
   const OrderConfirmationScreen({super.key, required this.formData});
@@ -29,27 +33,77 @@ class OrderConfirmationScreen extends ConsumerStatefulWidget {
 class _OrderConfirmationScreenState
     extends ConsumerState<OrderConfirmationScreen> {
   bool _isSubmitting = false;
+  late final OrderConfirmationPaymentController _payment;
+
+  @override
+  void initState() {
+    super.initState();
+    _payment = OrderConfirmationPaymentController(
+      service: ref.read(customerOrderPaymentServiceProvider),
+      onPaid: (session, order) async {
+        if (!mounted) return;
+        await _finishCreatedOrder(
+          orderId: session.orderId!,
+          trackingCode: session.trackingCode ?? '',
+          fallbackOrder: order.copyWith(paymentStatus: OrderPaymentStatus.paid),
+          userId: order.customerId,
+          addressTimestamp: order.createdAt,
+        );
+      },
+    )..addListener(_onPaymentChanged);
+  }
+
+  void _onPaymentChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _payment.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final prepaid = widget.formData.deliveryFeePayer == DeliveryFeePayer.sender;
+    final busy = _isSubmitting || _payment.isBusy;
+    final session = _payment.session;
     return Scaffold(
       backgroundColor: AppColors.bgLight,
       appBar: OrderConfirmationAppBar(
-        canEdit: !_isSubmitting,
+        canEdit: !busy && !_payment.hasActiveSession,
         onEdit: () => context.pop(),
       ),
       bottomNavigationBar: OrderConfirmationSubmitBar(
-        isSubmitting: _isSubmitting,
+        isSubmitting: busy,
         onSubmit: _submitOrder,
-        idleLabel: 'Xác nhận đặt đơn',
+        idleLabel: !prepaid
+            ? 'Xác nhận đặt đơn'
+            : _payment.hasActiveSession
+            ? OrderPaymentText.reopenPayment
+            : OrderPaymentText.payAndCreate,
         submittingLabel: 'Đang tạo đơn...',
       ),
-      body: SafeArea(child: OrderConfirmationContent(data: widget.formData)),
+      body: SafeArea(
+        child: Column(
+          children: [
+            if (session != null)
+              OrderPaymentPendingCard(
+                amount: session.amount,
+                expiresAt: session.expiresAt,
+                onCheck: () => _payment.refresh(),
+                isChecking: _payment.isChecking || busy,
+                error: _payment.error,
+              ),
+            Expanded(child: OrderConfirmationContent(data: widget.formData)),
+          ],
+        ),
+      ),
     );
   }
 
   Future<void> _submitOrder() async {
-    if (_isSubmitting) return;
+    if (_isSubmitting || _payment.isBusy) return;
     final data = widget.formData;
     final error = validateOrderDetails(
       recipientName: data.recipientName,
@@ -66,6 +120,15 @@ class _OrderConfirmationScreenState
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
       _showSnackBar('Vui lòng đăng nhập để tạo đơn hàng.', isError: true);
+      return;
+    }
+
+    final existing = _payment.orderSnapshot;
+    if (existing != null) {
+      await _payment.submit(existing);
+      if (mounted && _payment.session == null && _payment.error != null) {
+        _showSnackBar(_payment.error!, isError: true);
+      }
       return;
     }
 
@@ -90,50 +153,20 @@ class _OrderConfirmationScreenState
       }
 
       final now = DateTime.now();
-      final order = OrderModel(
-        id: '',
+      final order = buildOrderFromForm(
+        data: data,
         customerId: user.id,
-        driverId: null,
-        status: 'pending',
-        pickupAddress: data.pickupAddress.trim(),
-        pickupLat: data.pickupLat,
-        pickupLng: data.pickupLng,
-        deliveryAddress: data.deliveryAddress.trim(),
-        deliveryLat: data.deliveryLat,
-        deliveryLng: data.deliveryLng,
-        totalPrice: data.finance.totalPrice.toDouble(),
-        note: data.combinedDriverNote.isEmpty ? null : data.combinedDriverNote,
-        createdAt: now,
-        trackingCode: '',
-        estimatedPickupAt: null,
-        estimatedDeliveryAt: null,
-        actualPickedUpAt: null,
-        actualDeliveredAt: null,
-        cancelledAt: null,
-        recipientName: data.recipientName.trim(),
-        recipientPhone: data.recipientPhone.trim(),
-        itemName: data.itemName.trim(),
-        itemCategory: data.itemCategory,
-        itemDescription: data.itemDescription.trim().isEmpty
-            ? null
-            : data.itemDescription.trim(),
+        now: now,
         itemImageUrl: itemImageUrl,
-        deliveryFee: data.deliveryFee,
-        serviceType: 'standard',
-        paymentMethod: data.paymentMethod,
-        paymentMode: data.paymentMode,
-        deliveryFeePayer: data.deliveryFeePayer,
-        paymentStatus: OrderPaymentStatus.notRequired,
-        goodsValue: data.goodsValue,
-        codCollectionAmount: data.codCollectionAmount,
-        platformFeeRateBps: 0,
-        platformFeeAmount: 0,
-        driverNetEarning: data.finance.driverNetEarning,
-        driverAdvanceAmount: data.finance.driverAdvanceAmount,
-        receiverCollectionAmount: data.finance.receiverCollectionAmount,
-        statusNote: null,
-        updatedAt: now,
       );
+
+      if (order.deliveryFeePayer == DeliveryFeePayer.sender) {
+        await _payment.submit(order);
+        if (mounted && _payment.session == null && _payment.error != null) {
+          _showSnackBar(_payment.error!, isError: true);
+        }
+        return;
+      }
 
       final service = ref.read(customerOrderServiceProvider);
       final created = await service.createOrderWithTracking(order);

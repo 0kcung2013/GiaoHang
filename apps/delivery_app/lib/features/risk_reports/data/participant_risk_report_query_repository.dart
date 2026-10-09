@@ -18,18 +18,58 @@ abstract interface class ParticipantRiskConversationRepository {
   Future<void> postMessage(String reportId, String body);
 }
 
+abstract interface class ParticipantRiskLiveRepository {
+  Stream<List<CaseMessage>> watchMessages(String reportId);
+  Stream<ParticipantRiskReportSummary?> watchReport(String reportId);
+}
+
 class SupabaseParticipantRiskReportQueryRepository
     implements
         ParticipantRiskReportQueryRepository,
+        ParticipantRiskLiveRepository,
         ParticipantRiskConversationRepository {
   SupabaseParticipantRiskReportQueryRepository({SupabaseClient? client})
     : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
 
+  @override
+  Stream<List<CaseMessage>> watchMessages(String reportId) => _client
+      .from('case_messages')
+      .stream(primaryKey: ['id'])
+      .eq('risk_report_id', reportId)
+      .order('created_at')
+      .map(
+        (rows) => rows
+            .map(
+              (row) => CaseMessage.fromJson(row, caseIdKey: 'risk_report_id'),
+            )
+            .toList(),
+      );
+
+  @override
+  Stream<ParticipantRiskReportSummary?> watchReport(String reportId) => _client
+      .from('risk_reports')
+      .stream(primaryKey: ['id'])
+      .eq('id', reportId)
+      .map(
+        (rows) => rows.isEmpty
+            ? null
+            : ParticipantRiskReportSummary.fromJson(rows.single),
+      );
+
   static const _selection =
       'id, order_id, category, status, title, description, resolution, '
-      'triage_due_at, created_at, updated_at';
+      'triage_due_at, created_at, updated_at, reported_by, reporter_role_snapshot';
+
+  Future<ParticipantRiskReportSummary> fetchById(String id) async =>
+      ParticipantRiskReportSummary.fromJson(
+        await _client
+            .from('risk_reports')
+            .select(_selection)
+            .eq('id', id)
+            .single(),
+      );
 
   @override
   Future<List<ParticipantRiskReportSummary>> fetchForOrder(
@@ -91,7 +131,7 @@ class SupabaseParticipantRiskReportQueryRepository
   @override
   Future<List<CaseMessage>> fetchMessages(String reportId) async {
     final rows = await _client
-        .from('risk_report_messages')
+        .from('case_messages')
         .select(
           'id, risk_report_id, sender_id, sender_role_snapshot, visibility, '
           'body, created_at',

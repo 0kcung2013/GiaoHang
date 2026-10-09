@@ -96,6 +96,7 @@ class DriverOrdersList extends StatelessWidget {
                         : DriverOrderCard(
                             order: orders[index],
                             acceptDriverId: acceptDriverId,
+                            showCancelAction: true,
                           ),
                   ),
                 ),

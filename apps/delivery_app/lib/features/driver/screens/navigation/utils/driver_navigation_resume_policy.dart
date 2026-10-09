@@ -1,3 +1,4 @@
+import '../../../../../core/location/driver_location_producer_policy.dart';
 import '../../../../../core/utils/geo_utils.dart';
 
 /// Quyết định nguồn tọa độ sau khi khôi phục một hành trình đang dở.
@@ -10,7 +11,10 @@ class DriverNavigationResumePolicy {
   static bool shouldKeepRestoredPosition({
     required bool hasRestoredPosition,
     required String? driverEmail,
+    required DriverLocationMode locationMode,
   }) {
-    return hasRestoredPosition && GeoUtils.hasTestDriverOffset(driverEmail);
+    return hasRestoredPosition &&
+        locationMode == DriverLocationMode.demoHcm &&
+        GeoUtils.hasTestDriverOffset(driverEmail);
   }
 }

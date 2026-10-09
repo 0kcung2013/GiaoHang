@@ -7,6 +7,39 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
 void main() {
+  test(
+    'recipient report requires call screenshots and confirmed server wait',
+    () async {
+      var allowed = false;
+      final repository = _FakeRepository();
+      final controller = RiskReportFormController(
+        orderId: 'order-1',
+        repository: repository,
+        requireRecipientEvidence: true,
+        canReportRecipient: () async => allowed,
+      );
+      controller.selectCategory(RiskCategory.contactIssue);
+      controller.next();
+      controller.setDescription('Khách không nghe máy sau ba lần gọi.');
+      expect(controller.next(), isFalse);
+      expect(controller.state.photoError, isNotNull);
+      expect(await controller.submit(), isNull);
+      expect(repository.submitCalls, 0);
+      controller.setPhotos([_photo(0)]);
+      expect(
+        controller.next(),
+        isTrue,
+        reason: 'One screenshot can show three calls',
+      );
+      expect(await controller.submit(), isNull);
+      expect(repository.submitCalls, 0);
+      allowed = true;
+      expect(await controller.submit(), isNotNull);
+      expect(repository.submitCalls, 1);
+      controller.dispose();
+    },
+  );
+
   test('shows role-aware reasons without exposing internal severity', () {
     final customer = riskOptionsFor(RiskReporterRole.customer);
     final driver = riskOptionsFor(RiskReporterRole.driver);

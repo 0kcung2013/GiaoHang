@@ -55,6 +55,9 @@ class SupportTicket {
     this.firstResponseAt,
     this.responseDueAt,
     this.escalatedAt,
+    this.lastMessageBody,
+    this.lastMessageRole,
+    this.trackingCode,
   }) : assert(requesterId != null || customerId != null),
        requesterId = requesterId ?? customerId ?? '',
        requesterName = requesterName ?? customerName;
@@ -77,6 +80,13 @@ class SupportTicket {
   final DateTime? firstResponseAt;
   final DateTime? responseDueAt;
   final DateTime? escalatedAt;
+  final String? lastMessageBody;
+  final String? lastMessageRole;
+  final String? trackingCode;
+
+  bool get needsReply =>
+      !status.isClosed &&
+      (lastMessageRole == 'customer' || lastMessageRole == 'driver');
 
   bool get isDriverRequester => requesterRole == 'driver';
 
@@ -95,6 +105,11 @@ class SupportTicket {
   factory SupportTicket.fromJson(Map<String, dynamic> json) {
     final requester = _ticketNestedMap(json['requester'] ?? json['customer']);
     final assignee = _ticketNestedMap(json['assignee']);
+    final messages = json['last_message'];
+    final lastMessage = messages is List && messages.isNotEmpty
+        ? _ticketNestedMap(messages.first)
+        : const <String, dynamic>{};
+    final order = _ticketNestedMap(json['order_context']);
     return SupportTicket(
       id: json['id']?.toString() ?? '',
       requesterId:
@@ -124,6 +139,15 @@ class SupportTicket {
       firstResponseAt: _ticketOptionalDate(json['first_response_at']),
       responseDueAt: _ticketOptionalDate(json['response_due_at']),
       escalatedAt: _ticketOptionalDate(json['escalated_at']),
+      lastMessageBody:
+          lastMessage['body']?.toString() ??
+          json['last_message_body']?.toString(),
+      lastMessageRole:
+          lastMessage['sender_role_snapshot']?.toString() ??
+          json['last_message_role']?.toString(),
+      trackingCode:
+          order['tracking_code']?.toString() ??
+          json['tracking_code']?.toString(),
     );
   }
 
@@ -146,6 +170,9 @@ class SupportTicket {
     'first_response_at': firstResponseAt?.toUtc().toIso8601String(),
     'response_due_at': responseDueAt?.toUtc().toIso8601String(),
     'escalated_at': escalatedAt?.toUtc().toIso8601String(),
+    'last_message_body': lastMessageBody,
+    'last_message_role': lastMessageRole,
+    'tracking_code': trackingCode,
   };
 }
 

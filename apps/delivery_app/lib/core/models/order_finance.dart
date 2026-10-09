@@ -49,7 +49,9 @@ class OrderFinance {
     required this.codCollectionAmount,
     required this.deliveryFee,
   }) : driverNetEarning = deliveryFee,
-       driverAdvanceAmount = codCollectionAmount,
+       driverAdvanceAmount = codCollectionAmount > 0
+           ? codCollectionAmount
+           : (deliveryFeePayer == DeliveryFeePayer.sender ? goodsValue : 0),
        receiverCollectionAmount =
            codCollectionAmount +
            (deliveryFeePayer == DeliveryFeePayer.recipient ? deliveryFee : 0),

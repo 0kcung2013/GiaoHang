@@ -9,6 +9,10 @@ class SupportChatComposer extends StatelessWidget {
     required this.closed,
     required this.onSend,
     this.error,
+    this.onReopen,
+    this.unrestricted = false,
+    this.onAttach,
+    this.attachmentPreview,
     super.key,
   });
 
@@ -18,6 +22,10 @@ class SupportChatComposer extends StatelessWidget {
   final bool closed;
   final String? error;
   final VoidCallback onSend;
+  final VoidCallback? onReopen;
+  final bool unrestricted;
+  final VoidCallback? onAttach;
+  final Widget? attachmentPreview;
 
   @override
   Widget build(BuildContext context) {
@@ -31,8 +39,10 @@ class SupportChatComposer extends StatelessWidget {
         ),
         child: SafeArea(
           top: false,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: AppSpacing.sm,
             children: [
               const Icon(
                 Icons.check_circle_outline_rounded,
@@ -46,6 +56,11 @@ class SupportChatComposer extends StatelessWidget {
                   color: AppColors.textSecondary,
                 ),
               ),
+              if (onReopen != null)
+                TextButton(
+                  onPressed: sending ? null : onReopen,
+                  child: const Text('Vấn đề chưa được giải quyết'),
+                ),
             ],
           ),
         ),
@@ -100,9 +115,23 @@ class SupportChatComposer extends StatelessWidget {
                       ),
                     ),
             ),
+            if (attachmentPreview != null) attachmentPreview!,
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                if (onAttach != null) ...[
+                  IconButton(
+                    key: const Key('attach-support-chat-image'),
+                    tooltip: 'Đính kèm ảnh',
+                    onPressed: sending ? null : onAttach,
+                    style: IconButton.styleFrom(
+                      foregroundColor: AppColors.accent,
+                      minimumSize: const Size.square(AppSpacing.xl5),
+                    ),
+                    icon: const Icon(Icons.add_photo_alternate_outlined),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                ],
                 Expanded(
                   child: TextField(
                     key: const Key('support-chat-composer'),
@@ -110,11 +139,12 @@ class SupportChatComposer extends StatelessWidget {
                     enabled: !sending,
                     minLines: 1,
                     maxLines: 4,
-                    maxLength: 4000,
+                    maxLength: unrestricted ? null : 4000,
                     textCapitalization: TextCapitalization.sentences,
                     keyboardType: TextInputType.multiline,
                     decoration: InputDecoration(
-                      hintText: started
+                      hintMaxLines: 1,
+                      hintText: started || unrestricted
                           ? 'Nhập tin nhắn...'
                           : 'Mô tả vấn đề cần hỗ trợ...',
                       counterText: '',
@@ -166,7 +196,7 @@ class SupportChatComposer extends StatelessWidget {
                 ),
               ],
             ),
-            if (!started) ...[
+            if (!started && !unrestricted) ...[
               const SizedBox(height: AppSpacing.sm),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),

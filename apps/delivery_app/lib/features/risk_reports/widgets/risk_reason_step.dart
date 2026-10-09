@@ -3,8 +3,9 @@ import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
 import '../utils/risk_report_options.dart';
+import '../utils/risk_report_strings.dart';
 
-class RiskReasonStep extends StatelessWidget {
+class RiskReasonStep extends StatefulWidget {
   const RiskReasonStep({
     required this.role,
     required this.selected,
@@ -19,8 +20,28 @@ class RiskReasonStep extends StatelessWidget {
   final ValueChanged<RiskCategory> onSelected;
 
   @override
+  State<RiskReasonStep> createState() => _RiskReasonStepState();
+}
+
+class _RiskReasonStepState extends State<RiskReasonStep> {
+  bool _showMore = false;
+
+  @override
   Widget build(BuildContext context) {
-    final options = riskOptionsFor(role);
+    final selected = widget.selected;
+    final errorText = widget.errorText;
+    final options = riskOptionsFor(widget.role);
+    final compact = widget.role == RiskReporterRole.driver;
+    final secondary = options
+        .where(
+          (option) =>
+              option.category == RiskCategory.payment ||
+              option.category == RiskCategory.other,
+        )
+        .toList();
+    final primary = compact
+        ? options.where((option) => !secondary.contains(option)).toList()
+        : options;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -33,18 +54,42 @@ class RiskReasonStep extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
-        for (final option in options) ...[
+        for (final option in primary) ...[
           _ReasonTile(
             option: option,
             selected: selected == option.category,
-            onTap: () => onSelected(option.category),
+            onTap: () => widget.onSelected(option.category),
           ),
           const SizedBox(height: AppSpacing.sm),
+        ],
+        if (compact) ...[
+          TextButton(
+            onPressed: () => setState(() => _showMore = !_showMore),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              minimumSize: const Size(48, 48),
+              textStyle: AppTextStyles.labelMedium,
+            ),
+            child: Text(
+              _showMore
+                  ? RiskReportStrings.hideOtherReasons
+                  : RiskReportStrings.otherReasons,
+            ),
+          ),
+          for (final option in secondary)
+            if (_showMore || selected == option.category) ...[
+              _ReasonTile(
+                option: option,
+                selected: selected == option.category,
+                onTap: () => widget.onSelected(option.category),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
         ],
         if (errorText != null) ...[
           const SizedBox(height: AppSpacing.xs),
           Text(
-            errorText!,
+            errorText,
             style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
           ),
         ],
@@ -78,8 +123,8 @@ class _ReasonTile extends StatelessWidget {
           borderRadius: AppRadius.md,
           child: AnimatedContainer(
             duration: AppDuration.fast,
-            constraints: const BoxConstraints(minHeight: 68),
-            padding: const EdgeInsets.all(AppSpacing.md),
+            constraints: const BoxConstraints(minHeight: 56),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             decoration: BoxDecoration(
               borderRadius: AppRadius.md,
               border: Border.all(
@@ -87,45 +132,42 @@ class _ReasonTile extends StatelessWidget {
                 width: selected ? 1.5 : 1,
               ),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: const BoxDecoration(
-                    color: AppColors.bgWarm,
-                    borderRadius: AppRadius.sm,
-                  ),
-                  child: Icon(
-                    _iconFor(option.category),
-                    color: selected ? AppColors.accent : AppColors.primary,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(option.label, style: AppTextStyles.labelLarge),
-                      const SizedBox(height: AppSpacing.xs),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        option.label,
+                        style: AppTextStyles.labelLarge.copyWith(
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (selected) ...[
+                      const SizedBox(width: AppSpacing.sm),
                       Text(
-                        option.description,
-                        style: AppTextStyles.bodySmall.copyWith(
+                        RiskReportStrings.selectedReason,
+                        style: AppTextStyles.labelSmall.copyWith(
                           color: AppColors.textSecondary,
                         ),
                       ),
                     ],
+                  ],
+                ),
+                if (selected) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    option.description,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Icon(
-                  selected
-                      ? Icons.check_circle_rounded
-                      : Icons.radio_button_unchecked_rounded,
-                  color: selected ? AppColors.accent : AppColors.textMuted,
-                  size: 22,
-                ),
+                ],
               ],
             ),
           ),
@@ -134,13 +176,3 @@ class _ReasonTile extends StatelessWidget {
     );
   }
 }
-
-IconData _iconFor(RiskCategory category) => switch (category) {
-  RiskCategory.deliveryDelay => Icons.schedule_rounded,
-  RiskCategory.suspiciousAddress => Icons.location_off_rounded,
-  RiskCategory.contactIssue => Icons.phone_disabled_rounded,
-  RiskCategory.cargoIssue => Icons.inventory_2_outlined,
-  RiskCategory.payment => Icons.payments_outlined,
-  RiskCategory.safety => Icons.health_and_safety_outlined,
-  _ => Icons.more_horiz_rounded,
-};

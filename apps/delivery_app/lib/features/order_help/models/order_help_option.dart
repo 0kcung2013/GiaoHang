@@ -75,3 +75,37 @@ const driverOrderSupportOption = OrderHelpOption(
   description: 'Hỏi về lấy hàng, giao hàng, thanh toán hoặc ứng dụng.',
   icon: Icons.support_agent_rounded,
 );
+
+const driverOrderHelpOptions = [
+  OrderHelpOption(
+    category: RiskCategory.contactIssue,
+    channel: OrderHelpChannel.support,
+    label: 'Không liên hệ được người nhận',
+    description: 'Đã thử liên hệ nhưng chưa thống nhất được việc giao hàng.',
+    icon: Icons.phone_disabled_rounded,
+    priority: SupportTicketPriority.high,
+  ),
+  OrderHelpOption(
+    category: RiskCategory.deliveryDelay,
+    channel: OrderHelpChannel.support,
+    label: 'Giao hàng chậm',
+    description: 'Cần hỗ trợ khi chuyến giao bị chậm.',
+    icon: Icons.schedule_rounded,
+  ),
+  OrderHelpOption(
+    category: RiskCategory.cargoIssue,
+    channel: OrderHelpChannel.support,
+    label: 'Hàng hóa có vấn đề',
+    description: 'Hàng thiếu hoặc hư hỏng cần xác minh.',
+    icon: Icons.inventory_2_outlined,
+    priority: SupportTicketPriority.high,
+  ),
+  OrderHelpOption(
+    category: RiskCategory.payment,
+    channel: OrderHelpChannel.support,
+    label: 'Thanh toán hoặc phí',
+    description: 'Khoản thu hoặc phí cần kiểm tra.',
+    icon: Icons.payments_outlined,
+  ),
+  driverOrderSupportOption,
+];

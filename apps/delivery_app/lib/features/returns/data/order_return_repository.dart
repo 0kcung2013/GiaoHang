@@ -32,7 +32,7 @@ class SupabaseOrderReturnRepository implements OrderReturnRepository {
   @override
   Future<(double, double)?> fetchIncidentOrigin(String riskReportId) async {
     final row = await _client
-        .from('risk_report_attachments')
+        .from('risk_report_evidence')
         .select('latitude,longitude')
         .eq('risk_report_id', riskReportId)
         .eq('evidence_type', 'location')

@@ -3,6 +3,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 
 import '../data/risk_report_repository.dart';
 import '../utils/risk_report_strings.dart';
+import '../../driver/screens/navigation/utils/driver_delivery_arrival_strings.dart';
 
 class RiskEvidenceStep extends StatelessWidget {
   const RiskEvidenceStep({
@@ -18,6 +19,7 @@ class RiskEvidenceStep extends StatelessWidget {
     required this.onDescriptionChanged,
     required this.onPickPhotos,
     required this.onCaptureLocation,
+    this.callEvidenceRequired = false,
     super.key,
   });
 
@@ -33,6 +35,7 @@ class RiskEvidenceStep extends StatelessWidget {
   final ValueChanged<String> onDescriptionChanged;
   final VoidCallback onPickPhotos;
   final VoidCallback onCaptureLocation;
+  final bool callEvidenceRequired;
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +47,9 @@ class RiskEvidenceStep extends StatelessWidget {
         Text('Thêm thông tin', style: AppTextStyles.headingMedium),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          'Mô tả ngắn gọn; bằng chứng là tùy chọn.',
+          callEvidenceRequired
+              ? RiskReportStrings.callEvidenceSummary
+              : 'Mô tả ngắn gọn; bằng chứng là tùy chọn.',
           style: AppTextStyles.bodyMedium.copyWith(
             color: AppColors.textSecondary,
           ),
@@ -84,11 +89,20 @@ class RiskEvidenceStep extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.md),
         _EvidenceAction(
-          icon: Icons.add_photo_alternate_outlined,
           label: 'Thêm ảnh',
           value: photos.isEmpty ? 'Tối đa 5 ảnh' : '${photos.length}/5 ảnh',
           onTap: onPickPhotos,
         ),
+        if (callEvidenceRequired)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.sm),
+            child: Text(
+              DriverDeliveryArrivalStrings.evidenceHint,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
         if (photoError != null)
           Padding(
             padding: const EdgeInsets.only(top: AppSpacing.xs),
@@ -99,7 +113,6 @@ class RiskEvidenceStep extends StatelessWidget {
           ),
         const SizedBox(height: AppSpacing.sm),
         _EvidenceAction(
-          icon: Icons.my_location_rounded,
           label: 'Gửi vị trí hiện tại',
           value: !hasLocation
               ? locationRequired
@@ -129,7 +142,6 @@ class RiskEvidenceStep extends StatelessWidget {
 
 class _EvidenceAction extends StatelessWidget {
   const _EvidenceAction({
-    required this.icon,
     required this.label,
     required this.value,
     required this.onTap,
@@ -139,7 +151,6 @@ class _EvidenceAction extends StatelessWidget {
     this.semanticsLabel,
   });
 
-  final IconData icon;
   final String label;
   final String value;
   final VoidCallback? onTap;
@@ -150,7 +161,6 @@ class _EvidenceAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = muted ? AppColors.textMuted : AppColors.primary;
     return Semantics(
       key: semanticsKey,
       button: !muted,
@@ -172,45 +182,37 @@ class _EvidenceAction extends StatelessWidget {
               borderRadius: AppRadius.md,
               border: Border.all(color: AppColors.border),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, color: foreground, size: 22),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: AppTextStyles.labelMedium.copyWith(
-                      color: muted ? AppColors.textMuted : null,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: AppTextStyles.labelMedium.copyWith(
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (complete) ...[
+                      const SizedBox(width: AppSpacing.sm),
+                      Text(
+                        RiskReportStrings.attached,
+                        style: AppTextStyles.labelSmall.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                Flexible(
-                  child: Text(
-                    value,
-                    textAlign: TextAlign.end,
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: muted
-                          ? AppColors.textMuted
-                          : complete
-                          ? AppColors.success
-                          : AppColors.textSecondary,
-                    ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  value,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
                   ),
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                Icon(
-                  muted
-                      ? Icons.lock_rounded
-                      : complete
-                      ? Icons.check_circle_rounded
-                      : Icons.chevron_right_rounded,
-                  color: muted
-                      ? AppColors.textMuted
-                      : complete
-                      ? AppColors.success
-                      : AppColors.textMuted,
-                  size: 20,
                 ),
               ],
             ),

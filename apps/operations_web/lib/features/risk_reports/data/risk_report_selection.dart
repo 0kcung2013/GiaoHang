@@ -37,6 +37,7 @@ const riskReportSelection = '''
       tracking_code,
       status,
       customer_id,
+      actual_picked_up_at,
       driver_id,
       pickup_address,
       pickup_lat,

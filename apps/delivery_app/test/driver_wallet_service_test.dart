@@ -1,12 +1,75 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:delivery_app/core/models/driver_wallet.dart';
 import 'package:delivery_app/core/providers/driver_wallet_providers.dart';
 import 'package:delivery_app/core/services/driver_wallet_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
+  test(
+    'loads a full order deposit ledger with scoped PostgREST filters',
+    () async {
+      final client = SupabaseClient(
+        'https://deposit-test.invalid',
+        'test-key',
+        httpClient: MockClient((request) async {
+          expect(request.url.path, '/rest/v1/driver_wallet_transactions');
+          expect(request.url.queryParameters['order_id'], 'eq.paid-order');
+          expect(request.url.queryParameters['driver_id'], 'eq.driver-1');
+          expect(
+            request.url.queryParameters['metadata->>purpose'],
+            'eq.paid_goods_deposit',
+          );
+          expect(request.url.queryParameters.containsKey('limit'), isFalse);
+          expect(request.url.queryParameters.containsKey('offset'), isFalse);
+          return http.Response(
+            jsonEncode([
+              {
+                'id': 'hold',
+                'order_id': 'paid-order',
+                'driver_id': 'driver-1',
+                'transaction_type': 'cod_hold',
+                'status': 'completed',
+                'amount': 120000,
+                'available_delta': -120000,
+                'held_delta': 120000,
+                'metadata': {'purpose': 'paid_goods_deposit'},
+              },
+              {
+                'id': 'refund',
+                'order_id': 'paid-order',
+                'driver_id': 'driver-1',
+                'transaction_type': 'cod_release',
+                'status': 'completed',
+                'amount': 120000,
+                'available_delta': 120000,
+                'held_delta': -120000,
+                'metadata': {'purpose': 'paid_goods_deposit'},
+              },
+            ]),
+            200,
+            headers: {'content-type': 'application/json'},
+            request: request,
+          );
+        }),
+      );
+      addTearDown(client.dispose);
+      final receipts = await DriverWalletService(
+        client: client,
+      ).getOrderTransactions(orderId: 'paid-order', driverId: 'driver-1');
+      expect(receipts.map((tx) => tx.label), [
+        'Giữ tiền làm tin',
+        'Hoàn tiền làm tin',
+      ]);
+      expect(receipts.every((tx) => !tx.isIncome), isTrue);
+    },
+  );
+
   test('loads wallet summary and transaction history from RPCs', () async {
     final service = DriverWalletService(
       rpcInvoker: (name, params) async {

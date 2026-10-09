@@ -4,26 +4,30 @@ import 'package:giaohang_design/giaohang_design.dart';
 import '../models/order_help_option.dart';
 import '../order_help_strings.dart';
 
-Future<OrderHelpOption?> showOrderHelpCategorySheet(BuildContext context) {
+Future<OrderHelpOption?> showOrderHelpCategorySheet(
+  BuildContext context, {
+  List<OrderHelpOption> options = customerOrderHelpOptions,
+}) {
   return showModalBottomSheet<OrderHelpOption>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
     barrierColor: AppColors.primary.withValues(alpha: 0.42),
-    builder: (_) => const _OrderHelpCategorySheet(),
+    builder: (_) => _OrderHelpCategorySheet(options: options),
   );
 }
 
 class _OrderHelpCategorySheet extends StatelessWidget {
-  const _OrderHelpCategorySheet();
+  const _OrderHelpCategorySheet({required this.options});
+  final List<OrderHelpOption> options;
 
   @override
   Widget build(BuildContext context) {
-    final supportOptions = customerOrderHelpOptions
+    final supportOptions = options
         .where((option) => option.channel == OrderHelpChannel.support)
         .toList();
-    final riskOptions = customerOrderHelpOptions
+    final riskOptions = options
         .where((option) => option.channel == OrderHelpChannel.risk)
         .toList();
     return FractionallySizedBox(
@@ -60,20 +64,22 @@ class _OrderHelpCategorySheet extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                   ],
-                  const SizedBox(height: AppSpacing.md),
-                  const _ChannelHeader(
-                    icon: Icons.report_problem_outlined,
-                    title: OrderHelpStrings.reportChannel,
-                    subtitle: OrderHelpStrings.reportChannelHint,
-                    color: AppColors.error,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  for (final option in riskOptions) ...[
-                    _OptionTile(
-                      option: option,
-                      onTap: () => Navigator.pop(context, option),
+                  if (riskOptions.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    const _ChannelHeader(
+                      icon: Icons.report_problem_outlined,
+                      title: OrderHelpStrings.reportChannel,
+                      subtitle: OrderHelpStrings.reportChannelHint,
+                      color: AppColors.error,
                     ),
                     const SizedBox(height: AppSpacing.sm),
+                    for (final option in riskOptions) ...[
+                      _OptionTile(
+                        option: option,
+                        onTap: () => Navigator.pop(context, option),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                    ],
                   ],
                 ],
               ),

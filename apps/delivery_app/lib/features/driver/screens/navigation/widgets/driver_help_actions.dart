@@ -144,7 +144,7 @@ class _DriverHelpActionSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.screenH,
           AppSpacing.sm,

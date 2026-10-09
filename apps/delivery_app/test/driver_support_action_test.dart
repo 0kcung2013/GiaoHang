@@ -12,6 +12,41 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
 void main() {
+  for (final sameIssue in [true, false]) {
+    testWidgets(
+      'driver reuses an active conversation regardless of its original subject ($sameIssue)',
+      (tester) async {
+        final repository = _FakeParticipantSupportRepository();
+        repository.existing = [
+          SupportTicket.fromJson({
+            'id': 'existing-ticket',
+            'requester_id': 'driver-1',
+            'order_id': 'order-1',
+            'subject': sameIssue
+                ? 'Không liên hệ được người nhận'
+                : 'Thanh toán hoặc phí',
+            'message': 'Thông tin yêu cầu trước',
+            'status': 'in_progress',
+          }),
+        ];
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: DriverHelpActionsForTest(
+                order: _order,
+                repository: repository,
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Trao đổi với CSKH'));
+        await tester.pumpAndSettle();
+        expect(find.text('Đang xử lý'), findsOneWidget);
+        expect(repository.created, isEmpty);
+      },
+    );
+  }
+
   testWidgets('driver support is separate from incident reporting', (
     tester,
   ) async {
@@ -41,6 +76,7 @@ void main() {
     expect(repository.created, hasLength(1));
     expect(repository.created.single.requesterId, 'driver-1');
     expect(repository.created.single.orderId, 'order-1');
+    expect(repository.created.single.subject, 'Trao đổi với CSKH');
   });
 
   testWidgets('navigation condenses help actions into one map control', (
@@ -88,7 +124,7 @@ void main() {
     await tester.tap(find.text('Trao đổi với CSKH'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Đang kết nối thời gian thực'), findsOneWidget);
+    expect(find.text('Đang chờ cập nhật · Chạm để tải lại'), findsOneWidget);
     repository.emitSupportReply('CSKH đang kiểm tra đơn hàng cho bạn.');
     await tester.pumpAndSettle();
 
@@ -214,6 +250,7 @@ class DriverHelpActionsForTest extends StatelessWidget {
 class _FakeParticipantSupportRepository
     implements ParticipantSupportTicketRepository {
   final created = <SupportTicketDraft>[];
+  List<SupportTicket> existing = const [];
 
   @override
   Future<SupportTicket> create(SupportTicketDraft draft) async {
@@ -233,7 +270,7 @@ class _FakeParticipantSupportRepository
   }
 
   @override
-  Future<List<SupportTicket>> fetchForOrder(String orderId) async => const [];
+  Future<List<SupportTicket>> fetchForOrder(String orderId) async => existing;
 
   @override
   Stream<List<SupportTicket>> watchForOrder(String orderId) =>

@@ -31,8 +31,17 @@ void main() {
     );
 
     expect(find.text('GH-DEMO-one'), findsOneWidget);
+    expect(find.text('FreePick 1/2 • Đến điểm lấy 2.8 km'), findsOneWidget);
     expect(find.textContaining('Hết hạn'), findsNothing);
     expect(find.textContaining('giây'), findsNothing);
+
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final size in [const Size(320, 568), const Size(390, 844)]) {
+      await tester.binding.setSurfaceSize(size);
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(find.text('FreePick 1/2 • Đến điểm lấy 2.8 km'), findsOneWidget);
+    }
 
     await tester.fling(
       find.byKey(const Key('free-pick-order-page-view')),
@@ -55,7 +64,7 @@ OrderModel _order(String id) {
     customerId: 'customer',
     status: 'confirmed',
     pickupAddress: 'Điểm lấy $id',
-    pickupLat: id == 'one' ? 10.81 : 10.82,
+    pickupLat: id == 'one' ? 10.799 : 10.8,
     pickupLng: 106.68,
     deliveryAddress: 'Điểm giao $id',
     deliveryLat: id == 'one' ? 10.83 : 10.84,
@@ -71,5 +80,6 @@ OrderModel _order(String id) {
     receiverCollectionAmount: 68000,
     assignmentExpiresAt: now,
     updatedAt: now,
+    pickupRoadDistanceMeters: 2800,
   );
 }

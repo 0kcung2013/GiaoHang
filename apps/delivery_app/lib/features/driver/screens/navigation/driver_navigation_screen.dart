@@ -8,6 +8,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/location/driver_active_delivery_tracking_policy.dart';
 import '../../../../core/location/driver_location_producer_policy.dart';
 import '../../../../core/location/driver_foreground_location_service.dart';
 import '../../../../core/models/delivery_proof_model.dart';
@@ -17,6 +19,7 @@ import '../../../../core/providers/driver_nav_session_provider.dart';
 import '../../../../core/providers/driver_wallet_providers.dart';
 import '../../../../core/providers/location_providers.dart';
 import '../../../../core/services/osrm_service.dart';
+import '../../../../core/services/driver_order_acceptance_gateway.dart';
 import '../../../../core/services/delivery_proof_watermark_service.dart';
 import '../../../../core/utils/delivery_map_utils.dart';
 import '../../../reviews/widgets/driver_rate_customer_sheet.dart';
@@ -26,8 +29,13 @@ import '../../../order_contact/widgets/arrival_contact_sheet.dart';
 import '../../../order_contact/widgets/demo_call_sheet.dart';
 import '../../../order_contact/widgets/order_contact_chat_sheet.dart';
 import '../../../risk_reports/data/risk_intervention_repository.dart';
+import '../../../risk_reports/data/participant_risk_report_query_repository.dart';
+import '../../../risk_reports/widgets/risk_report_sheet.dart';
+import 'package:giaohang_domain/giaohang_domain.dart';
 import 'models/driver_arrival_policy.dart';
 import 'models/driver_delivery_workflow.dart';
+import 'models/driver_late_delivery_notice.dart';
+import 'widgets/driver_late_delivery_notice_dialog.dart';
 import 'utils/driver_navigation_motion.dart';
 import 'utils/driver_navigation_route_logic.dart';
 import 'utils/driver_navigation_position_smoother.dart';
@@ -37,9 +45,19 @@ import 'widgets/driver_delivery_success_dialog.dart';
 import 'widgets/driver_navigation_map.dart';
 import 'widgets/driver_navigation_view.dart';
 import 'widgets/driver_wallet_debit_dialog.dart';
+import '../../cancellation/driver_cancellation_providers.dart';
+import '../../cancellation/driver_cancellation_strings.dart';
+import '../../cancellation/dialogs/driver_support_cancellation_dialog.dart';
+import '../../finance/models/driver_goods_deposit.dart';
+import '../../finance/providers/driver_goods_deposit_provider.dart';
+import '../../finance/widgets/driver_goods_deposit_panel.dart';
 
 part 'driver_navigation_delivery_actions.dart';
 part 'driver_navigation_contact_actions.dart';
+part 'driver_navigation_arrival_actions.dart';
+part 'driver_navigation_deadline_actions.dart';
+part 'driver_navigation_support_actions.dart';
+part 'driver_navigation_finance_actions.dart';
 
 class DriverNavigationScreen extends ConsumerStatefulWidget {
   final OrderModel order;
@@ -80,15 +98,19 @@ class _DriverNavigationScreenState
   LatLng? _lastCameraFollowPosition;
 
   bool _arrivedAtTarget = false;
+  bool _routeCompleted = false;
   bool _pickupConfirmed = false;
   bool _hasRestoredNavigationPosition = false;
+  bool _exitingForOrderCancellation = false;
 
   static const Duration _simulationTick = Duration(milliseconds: 250);
   static const double _simulationSpeedMetersPerSecond = 15.0;
 
   late final StateController<String?> _navigationOwner;
+  late final StateController<DriverLocationMode> _navigationLocationMode;
   late final DriverNavSessionsNotifier _navSessionsNotifier;
   late final RiskInterventionRepository? _riskInterventionRepository;
+  late final ParticipantRiskReportQueryRepository? _recipientReportsRepository;
 
   void _updateUi(VoidCallback update) => setState(update);
 
@@ -101,13 +123,31 @@ class _DriverNavigationScreenState
     }
   }
 
+  bool get _usesRouteSimulation =>
+      DriverActiveDeliveryTrackingPolicy.usesRouteSimulation(
+        isWeb: kIsWeb,
+        locationMode: ref.read(driverLocationModeProvider),
+      );
+
+  bool get _canSimulateMovement => DriverDeliveryWorkflow.canSimulateMovement(
+    status: _currentOrder.status,
+    pickupConfirmed: _pickupConfirmed,
+    arrivedAtTarget: _arrivedAtTarget,
+    routeCompleted: _routeCompleted,
+  );
+
   @override
   void initState() {
     super.initState();
     _currentOrder = widget.order;
+    _pickupConfirmed =
+        widget.order.status == 'picking_up' &&
+        widget.order.actualPickedUpAt != null;
     _riskInterventionRepository =
         widget.riskInterventionRepository ?? _createRiskRepository();
+    _recipientReportsRepository = _createRecipientReportsRepository();
     _navigationOwner = ref.read(activeDriverNavigationOrderProvider.notifier);
+    _navigationLocationMode = ref.read(driverLocationModeProvider.notifier);
     _navSessionsNotifier = ref.read(driverNavSessionsProvider.notifier);
     _restoreNavSession();
     _startRouteRefresh();
@@ -119,6 +159,7 @@ class _DriverNavigationScreenState
       _navigationOwner.state = orderId;
       unawaited(_startForegroundLocationService());
       unawaited(_ensureInitialRoute());
+      unawaited(_ensureDeliveryDeadline());
     });
   }
 
@@ -131,8 +172,19 @@ class _DriverNavigationScreenState
     }
   }
 
+  ParticipantRiskReportQueryRepository? _createRecipientReportsRepository() {
+    try {
+      return SupabaseParticipantRiskReportQueryRepository();
+    } on AssertionError {
+      return null;
+    }
+  }
+
   Future<void> _startForegroundLocationService() async {
-    if (kIsWeb) return;
+    if (_usesRouteSimulation) {
+      await DriverForegroundLocationService.stop();
+      return;
+    }
     final driverUserId = _currentOrder.driverId;
     if (driverUserId == null || driverUserId.isEmpty) return;
     final driver = await ref.read(driverByUserIdProvider(driverUserId).future);
@@ -190,12 +242,23 @@ class _DriverNavigationScreenState
   @override
   void didUpdateWidget(covariant DriverNavigationScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.order.estimatedDeliveryAt != null &&
+        widget.order.estimatedDeliveryAt != _currentOrder.estimatedDeliveryAt) {
+      _currentOrder = _currentOrder.copyWith(
+        estimatedDeliveryAt: widget.order.estimatedDeliveryAt,
+      );
+    }
     if (oldWidget.order.status != widget.order.status) {
-      _currentOrder = widget.order;
+      _currentOrder = widget.order.copyWith(
+        estimatedDeliveryAt: _currentOrder.estimatedDeliveryAt,
+      );
       _lastRouteStatus = null;
       _arrivedAtTarget =
           false; // Reset trạng thái đến nơi để kiểm tra cho chặng tiếp theo
-      _pickupConfirmed = false;
+      _routeCompleted = false;
+      _pickupConfirmed =
+          widget.order.status == 'picking_up' &&
+          widget.order.actualPickedUpAt != null;
       _simRouteIndex = 0;
       _loadRoute();
     }
@@ -210,7 +273,7 @@ class _DriverNavigationScreenState
         _navigationOwner.state = null;
       }
     });
-    _persistNavSession();
+    if (!_exitingForOrderCancellation) _persistNavSession();
     _routeRefreshTimer?.cancel();
     _simTimer?.cancel();
     _posStream?.cancel();
@@ -224,6 +287,7 @@ class _DriverNavigationScreenState
     if (!saved.canRestoreFor(
       activeOrderId: _currentOrder.id,
       activeStatus: _currentOrder.status,
+      activeLocationMode: ref.read(driverLocationModeProvider),
     )) {
       unawaited(_navSessionsNotifier.remove(_currentOrder.id));
       return;
@@ -237,12 +301,20 @@ class _DriverNavigationScreenState
     // Chỉ giữ cờ arrived nếu cùng chặng (tránh kẹt banner chặng cũ).
     if (saved.status == _currentOrder.status) {
       // Giữ bước trung gian "đã nhận" để tài xế chủ động gạt bắt đầu giao.
-      _pickupConfirmed = saved.pickupConfirmed;
+      _pickupConfirmed = false;
+      if (_currentOrder.status == 'picking_up') {
+        _pickupConfirmed = saved.pickupConfirmed;
+        if (_currentOrder.actualPickedUpAt != null) _pickupConfirmed = true;
+      }
       _arrivedAtTarget = saved.arrivedAtTarget;
+      _routeCompleted = _usesRouteSimulation && saved.routeCompleted;
       _simRouteIndex = saved.simRouteIndex;
     } else {
       _arrivedAtTarget = false;
-      _pickupConfirmed = false;
+      _routeCompleted = false;
+      _pickupConfirmed =
+          _currentOrder.status == 'picking_up' &&
+          _currentOrder.actualPickedUpAt != null;
       _simRouteIndex = 0;
     }
     debugPrint(
@@ -255,6 +327,7 @@ class _DriverNavigationScreenState
   }
 
   void _persistNavSession() {
+    if (_exitingForOrderCancellation) return;
     final pos = _driverPos;
     if (pos == null) return;
     final next = DriverNavSession(
@@ -263,15 +336,17 @@ class _DriverNavigationScreenState
       lat: pos.latitude,
       lng: pos.longitude,
       arrivedAtTarget: _arrivedAtTarget,
+      routeCompleted: _routeCompleted,
       pickupConfirmed: _pickupConfirmed,
       simRouteIndex: _simRouteIndex,
+      locationMode: _navigationLocationMode.state,
       updatedAt: DateTime.now(),
     );
     unawaited(_navSessionsNotifier.upsert(next));
   }
 
   void _startRouteRefresh() {
-    if (kIsWeb) {
+    if (_usesRouteSimulation) {
       return;
     }
     _routeRefreshTimer = Timer.periodic(const Duration(seconds: 20), (_) {
@@ -283,9 +358,9 @@ class _DriverNavigationScreenState
   }
 
   Future<void> _startMovement() async {
-    if (kIsWeb) {
-      // Web không có GPS stream liên tục → dùng fallback pickup + simulate
-      await _initWebFallback();
+    if (_usesRouteSimulation) {
+      // Web và chế độ demo dùng cùng một tuyến mô phỏng, không phụ thuộc GPS thật.
+      await _initSimulationFallback();
     } else {
       await _startGpsStream();
     }
@@ -324,6 +399,7 @@ class _DriverNavigationScreenState
     if (DriverNavigationResumePolicy.shouldKeepRestoredPosition(
       hasRestoredPosition: _hasRestoredNavigationPosition,
       driverEmail: _authenticatedUser?.email,
+      locationMode: ref.read(driverLocationModeProvider),
     )) {
       return;
     }
@@ -347,14 +423,14 @@ class _DriverNavigationScreenState
         );
   }
 
-  Future<void> _initWebFallback() async {
+  Future<void> _initSimulationFallback() async {
     final order = _currentOrder;
     final driverId = order.driverId;
 
     // Đã có session restore → chỉ load route / tiếp tục sim, không nhảy về pickup.
     if (_driverPos != null) {
       debugPrint(
-        '[GPS_WEB] Using restored session pos: '
+        '[GPS_SIM] Using restored session pos: '
         '(${_driverPos!.latitude}, ${_driverPos!.longitude})',
       );
       await _loadRoute();
@@ -364,18 +440,49 @@ class _DriverNavigationScreenState
     LatLng? startPos;
     var source = DriverPositionSource.targetFallback;
 
-    // 1. Thử lấy GPS thực tế của trình duyệt web
+    final locationMode = ref.read(driverLocationModeProvider);
+    if (locationMode == DriverLocationMode.demoHcm) {
+      final demoPosition = locationMode.resolveRawGps(
+        email: _authenticatedUser?.email,
+        lat: 0,
+        lng: 0,
+      );
+      if (demoPosition.latitude != 0 || demoPosition.longitude != 0) {
+        startPos = demoPosition;
+        debugPrint(
+          '[GPS_SIM] Initialized driver at configured demo location: '
+          '(${startPos.latitude}, ${startPos.longitude})',
+        );
+      }
+    }
+
+    if (startPos == null &&
+        locationMode == DriverLocationMode.demoCurrentPosition) {
+      final current = await ref
+          .read(locationServiceProvider)
+          .getCurrentPosition();
+      if (!mounted) return;
+      if (current != null) {
+        startPos = LatLng(current.latitude, current.longitude);
+        source = DriverPositionSource.deviceGps;
+      }
+    }
+
+    // Nếu không có điểm demo, thử vị trí do nền tảng cung cấp.
     final gpsPos = ref.read(currentPositionProvider).valueOrNull;
-    if (gpsPos != null && gpsPos.latitude != 0.0 && gpsPos.longitude != 0.0) {
+    if (startPos == null &&
+        gpsPos != null &&
+        gpsPos.latitude != 0.0 &&
+        gpsPos.longitude != 0.0) {
       startPos = LatLng(gpsPos.latitude, gpsPos.longitude);
       source = DriverPositionSource.browserGps;
       debugPrint(
-        '[GPS_WEB] Initialized driver at browser GPS location: '
+        '[GPS_SIM] Initialized driver at platform GPS location: '
         '(${startPos.latitude}, ${startPos.longitude})',
       );
     }
-    // 2. Profile tài xế trên Supabase (vị trí đã upload trước đó)
-    else if (driverId != null && driverId.isNotEmpty) {
+    // Cuối cùng dùng profile tài xế trên Supabase (vị trí đã upload trước đó).
+    if (startPos == null && driverId != null && driverId.isNotEmpty) {
       try {
         final driverModel = await ref.read(
           driverByUserIdProvider(driverId).future,
@@ -388,14 +495,14 @@ class _DriverNavigationScreenState
           startPos = LatLng(driverModel.currentLat!, driverModel.currentLng!);
           source = DriverPositionSource.serverProfile;
           debugPrint(
-            '[GPS_WEB] Initialized driver at profile location: '
+            '[GPS_SIM] Initialized driver at profile location: '
             '(${startPos.latitude}, ${startPos.longitude})',
           );
         } else {
-          debugPrint('[GPS_WEB] Driver profile has no usable coordinates.');
+          debugPrint('[GPS_SIM] Driver profile has no usable coordinates.');
         }
       } catch (e) {
-        debugPrint('[GPS_WEB] Failed to fetch driver profile: $e.');
+        debugPrint('[GPS_SIM] Failed to fetch driver profile: $e.');
       }
     }
 
@@ -410,6 +517,7 @@ class _DriverNavigationScreenState
 
   void _startSimulation({bool resume = true}) {
     _simTimer?.cancel();
+    if (!_canSimulateMovement) return;
     final points = _routePoints;
     if (points == null || points.length < 2) {
       debugPrint(
@@ -448,11 +556,7 @@ class _DriverNavigationScreenState
         timer.cancel();
         return;
       }
-      if (!DriverDeliveryWorkflow.canSimulateMovement(
-        status: _currentOrder.status,
-        pickupConfirmed: _pickupConfirmed,
-        arrivedAtTarget: _arrivedAtTarget,
-      )) {
+      if (!_canSimulateMovement) {
         timer.cancel();
         _persistNavSession();
         return;
@@ -478,10 +582,13 @@ class _DriverNavigationScreenState
       if (step.reachedEnd) {
         debugPrint('[SIM] Reached end of simulation route');
         timer.cancel();
-        _persistNavSession();
       }
       unawaited(
-        _onDriverMoved(step.position, source: DriverPositionSource.simulation),
+        _onDriverMoved(
+          step.position,
+          source: DriverPositionSource.simulation,
+          reachedRouteEnd: step.reachedEnd,
+        ),
       );
     });
   }
@@ -490,14 +597,10 @@ class _DriverNavigationScreenState
     LatLng newPos, {
     required DriverPositionSource source,
     bool forceSync = false,
+    bool reachedRouteEnd = false,
   }) async {
     if (!mounted) return;
-    if (source == DriverPositionSource.simulation &&
-        !DriverDeliveryWorkflow.canSimulateMovement(
-          status: _currentOrder.status,
-          pickupConfirmed: _pickupConfirmed,
-          arrivedAtTarget: _arrivedAtTarget,
-        )) {
+    if (source == DriverPositionSource.simulation && !_canSimulateMovement) {
       return;
     }
 
@@ -548,7 +651,8 @@ class _DriverNavigationScreenState
     final needRoute = isFirstPos || _routePoints == null;
     setState(() {
       _driverPos = published;
-      if (justArrived) {
+      if (reachedRouteEnd) _routeCompleted = true;
+      if (justArrived || _routeCompleted) {
         _totalDistance = 0;
         _totalDuration = 0;
       }
@@ -598,7 +702,7 @@ class _DriverNavigationScreenState
     }
 
     // Cập nhật km còn lại theo polyline đã cắt
-    if (_routePoints != null && _routePoints!.length >= 2) {
+    if (!_routeCompleted && _routePoints != null && _routePoints!.length >= 2) {
       final remaining = DeliveryMapUtils.remainingRoute(
         fullRoute: _routePoints!,
         current: published,
@@ -644,6 +748,16 @@ class _DriverNavigationScreenState
   }
 
   Future<void> _loadRoute() async {
+    if (_routeCompleted && _usesRouteSimulation) {
+      _simTimer?.cancel();
+      setState(() {
+        _totalDistance = 0;
+        _totalDuration = 0;
+        _navigationSteps = const [];
+        _activeNavigationStepIndex = 0;
+      });
+      return;
+    }
     final pos = ref.read(currentPositionProvider).valueOrNull;
     final order = _currentOrder;
 
@@ -691,7 +805,7 @@ class _DriverNavigationScreenState
       waypoints: waypoints,
     );
 
-    if (!mounted || myKey != _routeKey) return;
+    if (!mounted || myKey != _routeKey || _routeCompleted) return;
 
     if (result == null || result.points.length < 2) {
       debugPrint('[OSRM_DEBUG_DRIVER] OSRM null/short — keep previous route');
@@ -729,19 +843,16 @@ class _DriverNavigationScreenState
         _totalDuration = result.durationSeconds;
       });
       _fitMapBounds();
+    }
 
-      // Web sim chỉ chạy trong một chặng đang hoạt động.
-      if (kIsWeb &&
-          _driverPos != null &&
-          DriverDeliveryWorkflow.canSimulateMovement(
-            status: order.status,
-            pickupConfirmed: _pickupConfirmed,
-            arrivedAtTarget: _arrivedAtTarget,
-          )) {
-        if (_simTimer == null || !_simTimer!.isActive) {
-          _startSimulation(resume: true);
-        }
-      }
+    // Demo vẫn đi tiếp trên tuyến dự phòng khi OSRM không trả về tuyến đường.
+    if (_usesRouteSimulation &&
+        _driverPos != null &&
+        _routePoints != null &&
+        _routePoints!.length >= 2 &&
+        _canSimulateMovement &&
+        (_simTimer == null || !_simTimer!.isActive)) {
+      _startSimulation(resume: true);
     }
   }
 
@@ -776,12 +887,14 @@ class _DriverNavigationScreenState
         );
 
     return DriverNavigationView(
+      showOrderDetails: true,
       order: order,
       totalDistance: _totalDistance,
       totalDuration: _totalDuration,
       driverLatitude: _driverPos?.latitude,
       driverLongitude: _driverPos?.longitude,
       arrivedAtTarget: _arrivedAtTarget,
+      routeCompleted: _routeCompleted,
       pickupConfirmed: _pickupConfirmed,
       isUpdatingStatus: _isUpdatingStatus,
       navigationStep: navigationStep,
@@ -789,10 +902,16 @@ class _DriverNavigationScreenState
       onBack: () => Navigator.of(context).maybePop(),
       onFitMap: _fitMapBounds,
       onPrimaryAction: _handlePrimaryAction,
+      onConfirmPickupArrival: _confirmPickupArrival,
+      onPrepareDeliveryArrival: _prepareDeliveryArrival,
+      onReportRecipient: _reportUnreachableRecipient,
       onContact: _openActiveOrderContact,
       currentUserId: _authenticatedUser?.id,
       onOpenMessageChat: _openOrderChat,
       riskInterventionRepository: _riskInterventionRepository,
+      onDriverReleased: _handleSupportCancellation,
+      onOrderCancelled: _handleDriverOrderCancellation,
+      recipientReportsRepository: _recipientReportsRepository,
       map: DriverNavigationMap(
         mapController: _mapController,
         order: order,

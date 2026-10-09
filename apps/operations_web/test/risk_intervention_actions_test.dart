@@ -25,7 +25,7 @@ void main() {
     );
 
     expect(
-      find.text('Trạng thái được khóa khi tài xế đang hoàn hàng'),
+      find.text('Chưa thể kết thúc: còn hoàn hoặc bàn giao hàng'),
       findsWidgets,
     );
     expect(find.text('Đang xác minh'), findsNothing);
@@ -67,7 +67,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: RiskInterventionPanel(
-            report: _report(),
+            report: _report(orderStatus: 'assigned'),
             intervention: _intervention(RiskInterventionState.awaitingTriage),
             orderStatus: 'assigned',
             onHoldBeforePickup: () async => held = true,
@@ -211,27 +211,29 @@ void main() {
   });
 }
 
-RiskReport _report({RiskStatus status = RiskStatus.investigating}) =>
-    RiskReport(
-      id: 'risk-1',
-      orderId: 'order-1',
-      reportedBy: 'customer-1',
-      assignedTo: 'staff-1',
-      category: RiskCategory.safety,
-      severity: RiskSeverity.medium,
-      status: status,
-      title: 'Vấn đề an toàn',
-      description: 'Khu vực giao hàng không an toàn.',
-      resolution: null,
-      createdAt: DateTime(2026),
-      updatedAt: DateTime(2026),
-      order: const RiskOrderSummary(
-        trackingCode: 'GH123',
-        status: 'delivering',
-        pickupAddress: 'Điểm lấy',
-        deliveryAddress: 'Điểm giao',
-      ),
-    );
+RiskReport _report({
+  RiskStatus status = RiskStatus.investigating,
+  String orderStatus = 'delivering',
+}) => RiskReport(
+  id: 'risk-1',
+  orderId: 'order-1',
+  reportedBy: 'customer-1',
+  assignedTo: 'staff-1',
+  category: RiskCategory.safety,
+  severity: RiskSeverity.medium,
+  status: status,
+  title: 'Vấn đề an toàn',
+  description: 'Khu vực giao hàng không an toàn.',
+  resolution: null,
+  createdAt: DateTime(2026),
+  updatedAt: DateTime(2026),
+  order: RiskOrderSummary(
+    trackingCode: 'GH123',
+    status: orderStatus,
+    pickupAddress: 'Điểm lấy',
+    deliveryAddress: 'Điểm giao',
+  ),
+);
 
 RiskIntervention _intervention(RiskInterventionState state) => RiskIntervention(
   riskReportId: 'risk-1',

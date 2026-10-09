@@ -9,33 +9,15 @@ class RiskReportPolicy {
     required bool isAdmin,
     RiskInterventionState? interventionState,
   }) {
-    if (interventionState == RiskInterventionState.returnRequired) {
+    if (interventionState == RiskInterventionState.returnRequired ||
+        interventionState == RiskInterventionState.handoffRequired) {
       return const [];
     }
 
     final transitions = switch (status) {
-      RiskStatus.open => [RiskStatus.investigating, RiskStatus.dismissed],
-      RiskStatus.investigating => [
-        RiskStatus.actionRequired,
-        RiskStatus.waitingCustomer,
-        RiskStatus.waitingAdmin,
-        RiskStatus.resolved,
-        RiskStatus.dismissed,
-      ],
-      RiskStatus.actionRequired => [
-        RiskStatus.investigating,
-        RiskStatus.waitingCustomer,
-        RiskStatus.waitingAdmin,
-        RiskStatus.resolved,
-        RiskStatus.dismissed,
-      ],
-      RiskStatus.waitingCustomer || RiskStatus.waitingAdmin => [
-        RiskStatus.investigating,
-        RiskStatus.actionRequired,
-        RiskStatus.resolved,
-        RiskStatus.dismissed,
-      ],
+      RiskStatus.open => [RiskStatus.investigating],
       RiskStatus.resolved || RiskStatus.dismissed => [RiskStatus.investigating],
+      _ => [RiskStatus.resolved],
     };
 
     if (severity != RiskSeverity.critical || isAdmin) return transitions;

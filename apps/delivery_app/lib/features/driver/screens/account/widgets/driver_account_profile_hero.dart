@@ -12,131 +12,101 @@ class DriverAccountProfileHero extends StatelessWidget {
     super.key,
     required this.data,
     this.isLoading = false,
+    this.hasError = false,
   });
 
   final DriverAccountViewData data;
   final bool isLoading;
+  final bool hasError;
 
   @override
   Widget build(BuildContext context) {
     final badge = _ApprovalBadgeData.from(data.approvalStatus);
 
-    return RepaintBoundary(
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(AppSpacing.xl2),
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppColors.primary, AppColors.bgDark],
-          ),
-          borderRadius: AppRadius.xl2,
-          boxShadow: AppShadow.elevated,
-        ),
-        child: Stack(
-          children: [
-            const Positioned(
-              right: -38,
-              top: -54,
-              child: ExcludeSemantics(child: _DecorativeCircle(size: 132)),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  DriverAccountStrings.profileEyebrow,
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.textOnDark.withValues(alpha: 0.64),
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.3,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: const BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: AppRadius.xl,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _ProfileAvatar(data: data),
+              const SizedBox(width: AppSpacing.lg),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _ProfileAvatar(data: data),
-                    const SizedBox(width: AppSpacing.lg),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            data.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.headingLarge.copyWith(
-                              color: AppColors.textOnDark,
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.xs),
-                          Text(
-                            data.email.isEmpty
-                                ? DriverAccountStrings.notUpdated
-                                : data.email,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: AppColors.textOnDark.withValues(
-                                alpha: 0.68,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          _ApprovalBadge(data: badge),
-                        ],
+                    Text(
+                      data.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.headingMedium.copyWith(
+                        color: AppColors.textOnDark,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
+                    const SizedBox(height: AppSpacing.sm),
+                    if (isLoading || hasError)
+                      Text(
+                        isLoading
+                            ? DriverAccountStrings.loadingProfile
+                            : DriverAccountStrings.loadError,
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.textOnDark,
+                        ),
+                      )
+                    else
+                      _ApprovalBadge(data: badge),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.xl2),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: AppSpacing.md,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.bgCard.withValues(alpha: 0.08),
-                    borderRadius: AppRadius.lg,
-                    border: Border.all(
-                      color: AppColors.bgCard.withValues(alpha: 0.1),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      _Metric(
-                        value: data.totalDeliveries.toString(),
-                        label: DriverAccountStrings.deliveries,
-                      ),
-                      const _MetricDivider(),
-                      _Metric(
-                        value: data.isAvailable
-                            ? DriverAccountStrings.enabled
-                            : DriverAccountStrings.disabled,
-                        label: DriverAccountStrings.availability,
-                        valueColor: data.isAvailable
-                            ? AppColors.success
-                            : AppColors.textOnDark,
-                      ),
-                    ],
-                  ),
+              ),
+            ],
+          ),
+          if (!isLoading && !hasError) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Divider(color: AppColors.bgCard.withValues(alpha: 0.16), height: 1),
+            const SizedBox(height: AppSpacing.md),
+            Wrap(
+              spacing: AppSpacing.xl2,
+              runSpacing: AppSpacing.sm,
+              children: [
+                _Fact(
+                  icon: Icons.local_shipping_outlined,
+                  label:
+                      '${data.totalDeliveries} ${DriverAccountStrings.deliveries}',
                 ),
-                if (isLoading) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  ClipRRect(
-                    borderRadius: AppRadius.full,
-                    child: const LinearProgressIndicator(
-                      minHeight: 2,
-                      backgroundColor: Color(0x24FFFFFF),
-                      color: AppColors.accent,
-                    ),
-                  ),
-                ],
+                _Fact(
+                  icon: data.isAvailable
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  label: data.isAvailable
+                      ? DriverAccountStrings.availabilityEnabled
+                      : DriverAccountStrings.availabilityDisabled,
+                  color: data.isAvailable
+                      ? AppColors.success
+                      : AppColors.textOnDark,
+                ),
               ],
             ),
           ],
-        ),
+          if (isLoading) ...[
+            const SizedBox(height: AppSpacing.md),
+            ClipRRect(
+              borderRadius: AppRadius.full,
+              child: const LinearProgressIndicator(
+                minHeight: 2,
+                backgroundColor: Color(0x24FFFFFF),
+                color: AppColors.accent,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -162,17 +132,15 @@ class _ProfileAvatar extends StatelessWidget {
       image: true,
       label: 'Ảnh đại diện của ${data.name}',
       child: Container(
-        width: 72,
-        height: 72,
-        padding: const EdgeInsets.all(3),
+        width: 56,
+        height: 56,
         decoration: BoxDecoration(
-          color: AppColors.bgCard.withValues(alpha: 0.18),
+          color: AppColors.bgDarkCard,
           shape: BoxShape.circle,
-          border: Border.all(color: AppColors.bgCard.withValues(alpha: 0.72)),
         ),
         child: ClipOval(
           child: ColoredBox(
-            color: AppColors.accent,
+            color: AppColors.bgDarkCard,
             child: data.avatarUrl == null
                 ? fallback
                 : StoredMediaImage(
@@ -227,69 +195,28 @@ class _ApprovalBadge extends StatelessWidget {
   }
 }
 
-class _Metric extends StatelessWidget {
-  const _Metric({required this.value, required this.label, this.valueColor});
+class _Fact extends StatelessWidget {
+  const _Fact({required this.icon, required this.label, this.color});
 
-  final String value;
+  final IconData icon;
   final String label;
-  final Color? valueColor;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.headingSmall.copyWith(
-              color: valueColor ?? AppColors.textOnDark,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
+    final foreground = color ?? AppColors.textOnDark;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: foreground, size: 17),
+        const SizedBox(width: AppSpacing.sm),
+        Flexible(
+          child: Text(
             label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.labelSmall.copyWith(
-              color: AppColors.textOnDark.withValues(alpha: 0.58),
-            ),
+            style: AppTextStyles.labelMedium.copyWith(color: foreground),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricDivider extends StatelessWidget {
-  const _MetricDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 32,
-      color: AppColors.bgCard.withValues(alpha: 0.12),
-    );
-  }
-}
-
-class _DecorativeCircle extends StatelessWidget {
-  const _DecorativeCircle({required this.size});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: AppColors.accent.withValues(alpha: 0.08),
-      ),
+        ),
+      ],
     );
   }
 }

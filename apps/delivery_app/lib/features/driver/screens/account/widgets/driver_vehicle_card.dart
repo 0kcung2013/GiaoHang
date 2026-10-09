@@ -20,7 +20,7 @@ class DriverVehicleCard extends StatelessWidget {
 
     return DriverAccountSectionCard(
       child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -30,7 +30,7 @@ class DriverVehicleCard extends StatelessWidget {
               color: AppColors.accent,
               isProtected: true,
             ),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.md),
             Text(
               vehicleName,
               style: AppTextStyles.headingSmall.copyWith(
@@ -38,46 +38,17 @@ class DriverVehicleCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.md,
-              ),
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: AppRadius.md,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    DriverAccountStrings.licensePlate,
-                    style: AppTextStyles.labelSmall.copyWith(
-                      color: AppColors.textOnDark.withValues(alpha: 0.58),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    driverAccountValue(data.licensePlate),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.mono.copyWith(
-                      color: AppColors.textOnDark,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.4,
-                    ),
-                  ),
-                ],
-              ),
+            _DetailRow(
+              label: DriverAccountStrings.licensePlate,
+              value: driverAccountValue(data.licensePlate),
+              monospace: true,
             ),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.sm),
             _DetailRow(
               label: DriverAccountStrings.vehicleType,
               value: driverVehicleTypeLabel(data.vehicleType),
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
             _DetailRow(
               label: DriverAccountStrings.vehicleColor,
               value: driverAccountValue(data.vehicleColor),
@@ -90,10 +61,15 @@ class DriverVehicleCard extends StatelessWidget {
 }
 
 class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
+  const _DetailRow({
+    required this.label,
+    required this.value,
+    this.monospace = false,
+  });
 
   final String label;
   final String value;
+  final bool monospace;
 
   @override
   Widget build(BuildContext context) {
@@ -112,9 +88,8 @@ class _DetailRow extends StatelessWidget {
           child: Text(
             value,
             textAlign: TextAlign.end,
-            style: AppTextStyles.labelMedium.copyWith(
-              color: AppColors.textPrimary,
-            ),
+            style: (monospace ? AppTextStyles.mono : AppTextStyles.labelMedium)
+                .copyWith(color: AppColors.textPrimary),
           ),
         ),
       ],

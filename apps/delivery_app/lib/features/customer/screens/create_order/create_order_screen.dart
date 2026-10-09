@@ -257,6 +257,8 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         itemDescription: _itemDescriptionController.text.trim(),
         cargoImage: _cargoImage,
         codCollectionAmount: _financeController.codCollectionAmount,
+        goodsValue: _financeController.goodsValue,
+        deliveryFeePayer: _financeController.deliveryFeePayer,
         quote: quote,
       );
 
@@ -293,6 +295,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       _itemNameController.text = 'Hộp bánh sinh nhật';
       _itemDescriptionController.text = 'Hàng dễ vỡ, vui lòng giữ thẳng.';
       _financeController.setCodCollectionAmount(50000);
+      _financeController.setGoodsValue(50000);
       _itemCategory = cargoCategories.first;
     });
     _showSnackBar('Đã điền dữ liệu demo.');

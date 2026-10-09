@@ -433,8 +433,9 @@ class RealtimeService {
   /// Khách subscribe broadcast vị trí TX của đơn.
   RealtimeChannel subscribeToOrderDriverBroadcast(
     String orderId,
-    void Function(double lat, double lng) onLocation,
-  ) {
+    void Function(double lat, double lng) onLocation, {
+    void Function(DateTime? sampledAt)? onSampleTime,
+  }) {
     final channelName = 'order_driver_loc:$orderId';
     _removeChannel(channelName);
     debugPrint('[RealtimeService] Subscribing broadcast $channelName');
@@ -451,6 +452,9 @@ class RealtimeService {
             final lat = _asDouble(data['lat']);
             final lng = _asDouble(data['lng']);
             if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
+              onSampleTime?.call(
+                DateTime.tryParse(data['ts']?.toString() ?? ''),
+              );
               onLocation(lat, lng);
             }
           },

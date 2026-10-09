@@ -5,6 +5,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/order_contact_message.dart';
+import '../models/order_contact_timeline.dart';
 import '../services/order_contact_transport.dart';
 import '../utils/order_contact_time_formatter.dart';
 
@@ -63,7 +64,11 @@ class OrderContactChatSheet extends StatefulWidget {
 
 class _OrderContactChatSheetState extends State<OrderContactChatSheet> {
   final _controller = TextEditingController();
-  final _messages = <OrderContactMessage>[];
+  final _timeline = OrderContactTimeline();
+  Timer? _syncTimer;
+  bool _refreshInFlight = false;
+  bool _hasLoadedConversation = false;
+  String? _lastReadMessageId;
   bool _connected = false;
   bool _connectionFailed = false;
   bool _sending = false;
@@ -76,21 +81,47 @@ class _OrderContactChatSheetState extends State<OrderContactChatSheet> {
   }
 
   Future<void> _initialize() async {
+    // Register realtime before starting the history read, then catch up once
+    // the channel joins. A message sent between those steps is never erased.
+    final connecting = _connect();
+    _syncTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      unawaited(_refreshConversation());
+    });
+    await _refreshConversation();
+    await connecting;
+    if (mounted && _connected) await _refreshConversation();
+  }
+
+  Future<void> _refreshConversation() async {
+    if (!mounted || _refreshInFlight) return;
+    _refreshInFlight = true;
     try {
       final conversation = await widget.transport.loadConversation();
       if (!mounted) return;
       setState(() {
-        _messages
-          ..clear()
-          ..addAll(conversation.messages);
+        _timeline.merge(conversation.messages);
         _canSend = conversation.canSend;
+        _hasLoadedConversation = true;
+        if (_connected) _connectionFailed = false;
       });
-      if (_messages.isNotEmpty) {
-        unawaited(widget.transport.markRead(_messages.last.id));
-      }
-      await _connect();
+      unawaited(_markLatestRead());
     } catch (_) {
-      if (mounted) setState(() => _connectionFailed = true);
+      if (mounted && !_hasLoadedConversation) {
+        setState(() => _connectionFailed = true);
+      }
+    } finally {
+      _refreshInFlight = false;
+    }
+  }
+
+  Future<void> _markLatestRead() async {
+    final message = _timeline.latestPersisted;
+    if (message == null || message.id == _lastReadMessageId) return;
+    _lastReadMessageId = message.id;
+    try {
+      await widget.transport.markRead(message.id);
+    } catch (_) {
+      if (_lastReadMessageId == message.id) _lastReadMessageId = null;
     }
   }
 
@@ -98,19 +129,11 @@ class _OrderContactChatSheetState extends State<OrderContactChatSheet> {
     try {
       await widget.transport.connect(
         onMessage: (message) {
-          if (!mounted ||
-              _messages.any(
-                (item) =>
-                    item.id == message.id ||
-                    item.clientMessageId == message.clientMessageId,
-              )) {
+          if (!mounted || message.orderId != widget.orderId) {
             return;
           }
-          setState(() {
-            _messages.add(message);
-            _messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
-          });
-          unawaited(widget.transport.markRead(message.id));
+          setState(() => _timeline.merge([message]));
+          unawaited(_markLatestRead());
         },
         onConnectionChanged: (connected) {
           if (!mounted) return;
@@ -118,6 +141,9 @@ class _OrderContactChatSheetState extends State<OrderContactChatSheet> {
             _connected = connected;
             if (connected) _connectionFailed = false;
           });
+          if (connected && _hasLoadedConversation) {
+            unawaited(_refreshConversation());
+          }
         },
       );
     } catch (_) {
@@ -127,6 +153,7 @@ class _OrderContactChatSheetState extends State<OrderContactChatSheet> {
 
   @override
   void dispose() {
+    _syncTimer?.cancel();
     _controller.dispose();
     unawaited(widget.transport.close());
     super.dispose();
@@ -146,21 +173,22 @@ class _OrderContactChatSheetState extends State<OrderContactChatSheet> {
     final clientMessageId = message.clientMessageId;
     setState(() {
       _sending = true;
-      _messages.add(message);
+      _timeline.merge([message]);
     });
     _controller.clear();
     try {
       final saved = await widget.transport.send(message);
       if (!mounted) return;
-      setState(() {
-        final index = _messages.indexWhere(
-          (item) => item.clientMessageId == clientMessageId,
-        );
-        if (index >= 0) _messages[index] = saved;
-      });
+      setState(() => _timeline.merge([saved]));
     } catch (_) {
       if (!mounted) return;
-      setState(() => _messages.removeWhere((item) => item.id == message.id));
+      if (_timeline.hasPersisted(
+        clientMessageId: clientMessageId,
+        senderId: widget.currentUserId,
+      )) {
+        return;
+      }
+      setState(() => _timeline.removePending(clientMessageId));
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Chưa gửi được tin nhắn. Vui lòng thử lại.'),
@@ -220,7 +248,7 @@ class _OrderContactChatSheetState extends State<OrderContactChatSheet> {
             ),
             Expanded(
               child: _MessageList(
-                messages: _messages,
+                messages: _timeline.messages,
                 currentUserId: widget.currentUserId,
               ),
             ),

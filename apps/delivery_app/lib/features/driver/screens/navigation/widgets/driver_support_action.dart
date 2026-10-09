@@ -14,19 +14,22 @@ Future<void> showDriverSupportFlow(
 }) async {
   final requesterId = order.driverId;
   if (requesterId == null) return;
-
   final supportRepository =
       repository ?? SupabaseParticipantSupportTicketRepository();
   SupportTicket? active;
   try {
     final tickets = await supportRepository.fetchForOrder(order.id);
-    active = tickets.cast<SupportTicket?>().firstWhere(
-      (ticket) =>
-          ticket != null &&
-          !ticket.status.isClosed &&
-          ticket.subject == driverOrderSupportOption.label,
-      orElse: () => null,
-    );
+    final ownActive =
+        tickets
+            .where(
+              (ticket) =>
+                  !ticket.status.isClosed &&
+                  ticket.requesterId == requesterId &&
+                  ticket.orderId == order.id,
+            )
+            .toList()
+          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    active = ownActive.firstOrNull;
   } catch (_) {
     // Vẫn mở chat mới khi bước tìm cuộc trò chuyện cũ tạm thời thất bại.
   }

@@ -27,15 +27,24 @@ void main() {
       expect(result, stable);
     });
 
-    test('uses the fixed TP.HCM point for a configured demo driver', () {
+    test('keeps published realtime coordinates for a demo driver', () {
       final result = TrackingDriverPositionResolver.resolve(
         live: const LatLng(11.02516, 106.62344),
         profile: const LatLng(11.02516, 106.62344),
         stable: null,
-        demoEmail: 'taixe@gmail.com',
       );
 
-      expect(result, const LatLng(10.7790, 106.6765));
+      expect(result, const LatLng(11.02516, 106.62344));
+    });
+
+    test('keeps polled map coordinates for a demo driver', () {
+      final result = TrackingDriverPositionResolver.resolve(
+        live: null,
+        profile: const LatLng(10.7820, 106.6880),
+        stable: null,
+      );
+
+      expect(result, const LatLng(10.7820, 106.6880));
     });
 
     test('tracking map polls a fresh profile and uses the resolver', () {

@@ -55,12 +55,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text(DriverHomeStrings.activityBusy), findsOneWidget);
+    expect(find.text(DriverHomeStrings.activityOnline), findsOneWidget);
     expect(find.byType(Switch), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('active delivery keeps availability on and locked', (
+  testWidgets('active delivery keeps receiving preference off and editable', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -73,9 +73,9 @@ void main() {
     await tester.pumpAndSettle();
 
     final toggle = tester.widget<Switch>(find.byType(Switch));
-    expect(find.text(DriverHomeStrings.activityBusy), findsOneWidget);
-    expect(toggle.value, isTrue);
-    expect(toggle.onChanged, isNull);
+    expect(find.text(DriverHomeStrings.activityOffline), findsOneWidget);
+    expect(toggle.value, isFalse);
+    expect(toggle.onChanged, isNotNull);
   });
 }
 

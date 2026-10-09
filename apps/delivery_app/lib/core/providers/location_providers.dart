@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../location/driver_location_producer_policy.dart';
 import '../location/location_ingest_config.dart';
+import '../location/tracking_location_freshness.dart';
 import '../models/driver_location_model.dart';
 import '../services/location_service.dart';
 import 'customer_providers.dart';
@@ -118,6 +119,12 @@ final driverLocationStreamProvider = StreamProvider.autoDispose
 
 typedef LocationRealtimeRequest = ({String driverId, String orderId});
 
+// Retain freshness with the cached live position across tab/map remounts.
+final trackingLocationFreshnessProvider =
+    Provider.family<TrackingLocationFreshness, LocationRealtimeRequest>(
+      (ref, request) => TrackingLocationFreshness(),
+    );
+
 /// Vị trí tài xế live từ Realtime payload (tránh nhảy về tọa độ cũ khi re-fetch).
 final liveDriverLatLngProvider =
     StateProvider.family<({double lat, double lng})?, String>(
@@ -127,35 +134,46 @@ final liveDriverLatLngProvider =
 final driverLocationRealtimeProvider = FutureProvider.autoDispose
     .family<void, LocationRealtimeRequest>((ref, request) async {
       final realtimeService = ref.watch(realtimeServiceProvider);
+      final freshness = ref.read(trackingLocationFreshnessProvider(request));
+      DateTime? broadcastSampleTime;
       debugPrint(
         '[LocationRealtime] subscribing driver=${request.driverId} '
         'order=${request.orderId}',
       );
 
       // A) Broadcast tức thì từ map tài xế
-      realtimeService.subscribeToOrderDriverBroadcast(request.orderId, (
-        lat,
-        lng,
-      ) {
-        debugPrint(
-          '[LocationRealtime] broadcast loc order=${request.orderId} '
-          '$lat,$lng',
-        );
-        ref.read(liveDriverLatLngProvider(request.orderId).notifier).state = (
-          lat: lat,
-          lng: lng,
-        );
-      });
+      realtimeService.subscribeToOrderDriverBroadcast(
+        request.orderId,
+        (lat, lng) {
+          if (!freshness.acceptBroadcast(
+            sampledAt: broadcastSampleTime ?? DateTime.now().toUtc(),
+          )) {
+            return;
+          }
+          debugPrint(
+            '[LocationRealtime] broadcast loc order=${request.orderId} '
+            '$lat,$lng',
+          );
+          ref.read(liveDriverLatLngProvider(request.orderId).notifier).state = (
+            lat: lat,
+            lng: lng,
+          );
+        },
+        onSampleTime: (sampledAt) => broadcastSampleTime = sampledAt,
+      );
 
       // B) Postgres drivers UPDATE (backup)
       realtimeService.subscribeToDriverLocation(request.driverId, (newRecord) {
         final lat = _parseCoord(newRecord?['current_lat']);
         final lng = _parseCoord(newRecord?['current_lng']);
         if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
-          ref.read(liveDriverLatLngProvider(request.orderId).notifier).state = (
-            lat: lat,
-            lng: lng,
+          final sampledAt = DateTime.tryParse(
+            newRecord?['location_updated_at']?.toString() ?? '',
           );
+          if (freshness.acceptPersisted(sampledAt: sampledAt)) {
+            ref.read(liveDriverLatLngProvider(request.orderId).notifier).state =
+                (lat: lat, lng: lng);
+          }
         }
         ref.invalidate(assignedDriverProvider(request.orderId));
       });

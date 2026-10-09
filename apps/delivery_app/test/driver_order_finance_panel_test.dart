@@ -21,9 +21,9 @@ void main() {
     );
 
     expect(find.text('Lấy'), findsOneWidget);
-    expect(find.text('Trả'), findsOneWidget);
-    expect(find.text('120.000đ'), findsOneWidget);
-    expect(find.text('Ứng qua ví · không trả tiền mặt'), findsOneWidget);
+    expect(find.text('Thu'), findsOneWidget);
+    expect(find.text('0đ'), findsOneWidget);
+    expect(find.text('Ứng ví 120.000đ'), findsOneWidget);
     expect(find.text('Thực nhận 25.000đ'), findsOneWidget);
     expect(find.text('Nạp thêm 70.000đ'), findsOneWidget);
     await tester.tap(find.text('Giao'));
@@ -32,7 +32,7 @@ void main() {
     expect(find.text('145.000đ'), findsOneWidget);
     await tester.tap(find.text('Lấy'));
     await tester.pump();
-    expect(find.text('120.000đ'), findsOneWidget);
+    expect(find.text('0đ'), findsOneWidget);
   });
 
   testWidgets('prepaid panel shows zero collection and net earning', (
@@ -48,7 +48,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Không cần ứng tiền'), findsOneWidget);
+    expect(find.text('Thu'), findsOneWidget);
+    expect(find.text('0đ'), findsOneWidget);
     await tester.tap(find.text('Giao'));
     await tester.pump();
     expect(find.text('0đ'), findsOneWidget);
@@ -90,7 +91,7 @@ void main() {
         ),
       ),
     );
-    expect(find.text('Trả'), findsOneWidget);
+    expect(find.text('Thu'), findsOneWidget);
     expect(find.text('0đ'), findsOneWidget);
     expect(find.textContaining('Nạp thêm'), findsNothing);
     await tester.tap(find.text('Giao'));

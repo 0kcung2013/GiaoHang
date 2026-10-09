@@ -49,64 +49,67 @@ class _OperationConfirmationDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 460),
-        padding: const EdgeInsets.all(AppSpacing.xl2),
-        decoration: const BoxDecoration(
-          color: AppColors.bgCard,
-          borderRadius: AppRadius.xl,
-          boxShadow: AppShadow.elevated,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: const BoxDecoration(
-                    color: AppColors.accentLight,
-                    borderRadius: AppRadius.md,
+      child: SingleChildScrollView(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 460),
+          padding: const EdgeInsets.all(AppSpacing.xl2),
+          decoration: const BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: AppRadius.xl,
+            boxShadow: AppShadow.elevated,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      color: AppColors.accentLight,
+                      borderRadius: AppRadius.md,
+                    ),
+                    child: Icon(icon, color: AppColors.accent),
                   ),
-                  child: Icon(icon, color: AppColors.accent),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(title, style: AppTextStyles.headingMedium),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              message,
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(title, style: AppTextStyles.headingMedium),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Quay lại'),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                message,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                FilledButton(
-                  key: const Key('confirm-risk-operation'),
-                  onPressed: () => Navigator.pop(context, true),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    minimumSize: const Size(48, 48),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Quay lại'),
                   ),
-                  child: Text(confirmLabel),
-                ),
-              ],
-            ),
-          ],
+                  FilledButton(
+                    key: const Key('confirm-risk-operation'),
+                    onPressed: () => Navigator.pop(context, true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.accent,
+                      minimumSize: const Size(48, 48),
+                    ),
+                    child: Text(confirmLabel),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -196,14 +199,15 @@ class _InstructionDialogState extends State<_InstructionDialog> {
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
                     child: const Text('Hủy'),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
                   FilledButton(
                     onPressed: _submit,
                     style: FilledButton.styleFrom(

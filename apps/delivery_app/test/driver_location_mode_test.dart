@@ -1,11 +1,16 @@
 import 'package:delivery_app/core/location/driver_location_producer_policy.dart';
 import 'package:delivery_app/core/providers/location_providers.dart';
+import 'package:delivery_app/core/utils/geo_utils.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 
 void main() {
   group('DriverLocationMode', () {
+    test('keeps configured demo accounts enabled in installed builds', () {
+      expect(GeoUtils.enableTestDriverOffsets, isTrue);
+    });
+
     test('defaults the app session to device GPS', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
@@ -40,6 +45,19 @@ void main() {
       expect(resolved, const LatLng(21.0285, 105.8542));
       expect(
         DriverLocationMode.deviceGps.rawGpsCoordinateSpace,
+        LocationIngestCoordinateSpace.mapCoordinates,
+      );
+    });
+
+    test('current-position demo starts at raw GPS without a fixed offset', () {
+      final resolved = DriverLocationMode.demoCurrentPosition.resolveRawGps(
+        email: 'taixe@gmail.com',
+        lat: 21.0285,
+        lng: 105.8542,
+      );
+      expect(resolved, const LatLng(21.0285, 105.8542));
+      expect(
+        DriverLocationMode.demoCurrentPosition.rawGpsCoordinateSpace,
         LocationIngestCoordinateSpace.mapCoordinates,
       );
     });

@@ -7,20 +7,60 @@ typedef DriverWalletRpcInvoker =
 typedef DriverWalletFunctionInvoker =
     Future<dynamic> Function(String functionName, Map<String, dynamic> body);
 typedef DriverWalletChangeWatcher = Stream<Object?> Function();
+typedef DriverOrderWalletLoader =
+    Future<dynamic> Function(String orderId, String driverId);
 
 class DriverWalletService {
+  static const _orderLedgerError = 'Không tải được giao dịch ví của đơn.';
+
   DriverWalletService({
     SupabaseClient? client,
     DriverWalletRpcInvoker? rpcInvoker,
     DriverWalletFunctionInvoker? functionInvoker,
     DriverWalletChangeWatcher? changeWatcher,
+    DriverOrderWalletLoader? orderTransactionsLoader,
   }) : _rpcInvoker = rpcInvoker ?? _defaultRpc(client),
        _functionInvoker = functionInvoker ?? _defaultFunction(client),
-       _changeWatcher = changeWatcher ?? _defaultChangeWatcher(client);
+       _changeWatcher = changeWatcher ?? _defaultChangeWatcher(client),
+       _orderTransactionsLoader =
+           orderTransactionsLoader ?? _defaultOrderTransactions(client);
 
   final DriverWalletRpcInvoker _rpcInvoker;
   final DriverWalletFunctionInvoker _functionInvoker;
   final DriverWalletChangeWatcher _changeWatcher;
+  final DriverOrderWalletLoader _orderTransactionsLoader;
+
+  /// Full, RLS-protected ledger for this order/driver, independent of history pages.
+  Future<List<DriverWalletTransaction>> getOrderTransactions({
+    required String orderId,
+    required String driverId,
+  }) async {
+    final response = await _orderTransactionsLoader(orderId, driverId);
+    if (response is! List) {
+      throw const DriverWalletException(_orderLedgerError);
+    }
+    return response
+        .whereType<Map>()
+        .map(
+          (row) =>
+              DriverWalletTransaction.fromJson(Map<String, dynamic>.from(row)),
+        )
+        .toList();
+  }
+
+  static DriverOrderWalletLoader _defaultOrderTransactions(
+    SupabaseClient? client,
+  ) =>
+      (orderId, driverId) async => (client ?? Supabase.instance.client)
+          .from('driver_wallet_transactions')
+          .select()
+          .eq('order_id', orderId)
+          .eq('driver_id', driverId)
+          .eq(
+            'metadata->>purpose',
+            DriverWalletTransaction.paidGoodsDepositPurpose,
+          )
+          .order('created_at');
 
   Future<DriverWalletSummary> getSummary() async {
     final response = await _rpcInvoker('get_driver_wallet_summary', const {});

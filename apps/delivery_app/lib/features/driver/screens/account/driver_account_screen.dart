@@ -83,6 +83,8 @@ class _DriverAccountScreenState extends ConsumerState<DriverAccountScreen> {
 
           final driverAsync = ref.watch(currentDriverAccountProfileProvider);
           final requestAsync = ref.watch(currentDriverProfileChangeProvider);
+          final hasProfile = driverAsync.valueOrNull != null;
+          final profileUnavailable = !driverAsync.isLoading && !hasProfile;
           final data = DriverAccountViewData.from(
             user: user,
             driver: driverAsync.valueOrNull,
@@ -99,7 +101,7 @@ class _DriverAccountScreenState extends ConsumerState<DriverAccountScreen> {
               ),
               padding: EdgeInsets.fromLTRB(
                 layout.horizontalPadding,
-                layout.topPadding,
+                AppSpacing.lg,
                 layout.horizontalPadding,
                 AppSpacing.xl4,
               ),
@@ -112,8 +114,9 @@ class _DriverAccountScreenState extends ConsumerState<DriverAccountScreen> {
                       DriverAccountProfileHero(
                         data: data,
                         isLoading: driverAsync.isLoading,
+                        hasError: profileUnavailable,
                       ),
-                      if (driverAsync.hasError) ...[
+                      if (profileUnavailable) ...[
                         const SizedBox(height: AppSpacing.md),
                         DriverAccountLoadNotice(
                           onRetry: () => ref.invalidate(
@@ -121,27 +124,25 @@ class _DriverAccountScreenState extends ConsumerState<DriverAccountScreen> {
                           ),
                         ),
                       ],
-                      SizedBox(height: layout.sectionGap),
-                      DriverVehicleCard(data: data),
-                      SizedBox(height: layout.sectionGap),
-                      DriverVerificationCard(data: data),
-                      SizedBox(height: layout.sectionGap),
-                      DriverContactCard(data: data),
-                      if (requestAsync.valueOrNull case final request?) ...[
-                        SizedBox(height: layout.sectionGap),
-                        DriverProfileChangeStatusCard(
-                          request: request,
-                          onView: () =>
+                      if (hasProfile) ...[
+                        const SizedBox(height: AppSpacing.lg),
+                        DriverProfileChangeAction(
+                          request: requestAsync.valueOrNull,
+                          onCreate: () => _openProfileChange(data),
+                          onView: (request) =>
                               _openProfileChange(data, request: request),
                         ),
+                        if (requestAsync.valueOrNull case final request?) ...[
+                          const SizedBox(height: AppSpacing.lg),
+                          DriverProfileChangeStatusCard(request: request),
+                        ],
+                        const SizedBox(height: AppSpacing.lg),
+                        DriverContactCard(data: data),
+                        const SizedBox(height: AppSpacing.lg),
+                        DriverVehicleCard(data: data),
+                        const SizedBox(height: AppSpacing.lg),
+                        DriverVerificationCard(data: data),
                       ],
-                      SizedBox(height: layout.sectionGap),
-                      DriverProfileChangeAction(
-                        request: requestAsync.valueOrNull,
-                        onCreate: () => _openProfileChange(data),
-                        onView: (request) =>
-                            _openProfileChange(data, request: request),
-                      ),
                       const SizedBox(height: AppSpacing.xl2),
                       DriverAccountLogoutButton(
                         isSigningOut: _isSigningOut,

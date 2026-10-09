@@ -125,14 +125,14 @@ void main() {
       );
     });
 
-    test('does not restart simulation after arrival is restored', () {
+    test('simulation continues through the 100 m arrival zone', () {
       expect(
         DriverDeliveryWorkflow.canSimulateMovement(
           status: 'picking_up',
           pickupConfirmed: false,
           arrivedAtTarget: true,
         ),
-        isFalse,
+        isTrue,
       );
       expect(
         DriverDeliveryWorkflow.canSimulateMovement(
@@ -149,6 +149,15 @@ void main() {
           arrivedAtTarget: false,
         ),
         isTrue,
+      );
+      expect(
+        DriverDeliveryWorkflow.canSimulateMovement(
+          status: 'delivering',
+          pickupConfirmed: true,
+          arrivedAtTarget: false,
+        ),
+        isTrue,
+        reason: 'A pickup flag from the previous leg must not stop delivery',
       );
     });
   });

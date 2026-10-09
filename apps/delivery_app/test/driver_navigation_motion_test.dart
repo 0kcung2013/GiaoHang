@@ -1,4 +1,6 @@
 import 'package:delivery_app/features/driver/screens/navigation/utils/driver_navigation_motion.dart';
+import 'package:delivery_app/features/driver/screens/navigation/models/driver_arrival_policy.dart';
+import 'package:delivery_app/features/driver/screens/navigation/models/driver_delivery_workflow.dart';
 import 'package:delivery_app/features/driver/screens/navigation/widgets/driver_navigation_map.dart';
 import 'package:delivery_app/core/utils/delivery_map_utils.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +8,40 @@ import 'package:latlong2/latlong.dart';
 
 void main() {
   group('DriverNavigationMotion', () {
+    test('route continues after pickup arrival unlocks at 100 m', () {
+      const current = LatLng(10.0008, 106.0);
+      const target = LatLng(10.0, 106.0);
+      final arrival = DriverArrivalPolicy.resolveArrival(
+        status: 'picking_up',
+        current: current,
+        target: target,
+        source: DriverPositionSource.simulation,
+      );
+
+      expect(arrival, current);
+      expect(
+        DriverDeliveryWorkflow.canSimulateMovement(
+          status: 'picking_up',
+          pickupConfirmed: false,
+          arrivedAtTarget: arrival != null,
+        ),
+        isTrue,
+      );
+
+      final step = DriverNavigationMotion.advanceAlongRoute(
+        route: const [current, target],
+        current: current,
+        nextRouteIndex: 1,
+        maxDistanceMeters: 15,
+      );
+      final distance = const Distance();
+      expect(
+        distance.as(LengthUnit.Meter, step.position, target),
+        lessThan(distance.as(LengthUnit.Meter, current, target)),
+      );
+      expect(step.reachedEnd, isFalse);
+    });
+
     test('interpolates the marker halfway between two GPS samples', () {
       final position = DriverNavigationMotion.interpolate(
         const LatLng(10.7600, 106.6600),

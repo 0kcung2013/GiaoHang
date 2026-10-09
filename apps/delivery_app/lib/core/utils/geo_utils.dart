@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
 /// Tiện ích khoảng cách địa lý (Haversine).
@@ -23,19 +22,19 @@ class GeoUtils {
 
   /// Offset test 3 tài xế / 1 vị trí GPS thật.
   ///
-  /// Mặc định chỉ bật trong debug (`flutter run`) và tự tắt ở release.
-  /// Có thể ghi đè bằng:
+  /// Bật mặc định trên Web và bản cài Android để các tài khoản demo có cùng
+  /// hành vi khi trình diễn. Có thể tắt rõ ràng cho bản production bằng:
   /// `--dart-define=ENABLE_TEST_DRIVER_OFFSETS=false`.
   static const bool enableTestDriverOffsets = bool.fromEnvironment(
     'ENABLE_TEST_DRIVER_OFFSETS',
-    defaultValue: kDebugMode,
+    defaultValue: true,
   );
 
   /// Ba GPS cố định quanh hai tuyến AI mẫu ở TP.HCM.
   ///
   /// `taixe` và `taixe2` nằm trên/gần hai tuyến AI mẫu trung tâm; `taixe3`
   /// nằm ở phía bắc để kiểm thử tải đơn. Vì vậy test phân công và OSRM luôn
-  /// tái lập được dù GPS thiết bị thật đang ở đâu. Chỉ có hiệu lực ở debug.
+  /// tái lập được dù GPS thiết bị thật đang ở đâu.
   static const Map<String, LatLng> testDriverDemoPositions = {
     'taixe@gmail.com': LatLng(10.7790, 106.6765),
     'taixe2@gmail.com': LatLng(10.8080, 106.6810),

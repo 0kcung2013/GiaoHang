@@ -151,8 +151,9 @@ class TrackingRouteRefreshPolicy {
   static bool shouldReload({
     required TrackingTrafficRouteSnapshot? snapshot,
     required LatLng current,
+    required bool hasDriverOrigin,
   }) {
-    return snapshot == null || snapshot.isOffRoute(current);
+    return !hasDriverOrigin || snapshot == null || snapshot.isOffRoute(current);
   }
 }
 

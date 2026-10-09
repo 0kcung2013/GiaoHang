@@ -2,11 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:giaohang_domain/giaohang_domain.dart' show SupportIssue;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../data/support_ticket_repository.dart';
+import '../data/support_completion_repository.dart';
+import '../models/support_completion_context.dart';
 import '../models/support_ticket.dart';
-import '../models/support_ticket_policy.dart';
+import '../widgets/support_ticket_actions.dart';
 import '../utils/support_ticket_ui.dart';
 import '../widgets/support_live_conversation.dart';
 import '../widgets/support_ticket_chat_sidebar.dart';
@@ -19,6 +22,7 @@ class SupportTicketDetailDialog extends StatefulWidget {
     required this.currentUserId,
     required this.isAdmin,
     required this.repository,
+    this.completionRepository,
     super.key,
   });
 
@@ -26,6 +30,7 @@ class SupportTicketDetailDialog extends StatefulWidget {
   final String currentUserId;
   final bool isAdmin;
   final SupportTicketRepository repository;
+  final SupportCompletionRepository? completionRepository;
 
   @override
   State<SupportTicketDetailDialog> createState() =>
@@ -36,21 +41,131 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
   List<CaseMessage>? _messages;
   StreamSubscription<List<CaseMessage>>? _messageSubscription;
   bool _busy = false;
+  bool _retrying = false;
   String? _error;
+  late SupportTicket _ticket;
+  StreamSubscription<void>? _ticketSubscription;
+  int _revision = 0;
+  int _messageRevision = 0;
+  bool _showContext = false;
+  final _conversationKey = GlobalKey();
+  final _contextScrollController = ScrollController();
+  SupportCompletionContext? _completion;
+  bool _checkingCompletion = false;
+  String? _completionError;
+  String? _messageError;
+  int _completionRevision = 0;
+  late final SupportCompletionRepository? _completionRepository =
+      widget.completionRepository ??
+      (widget.repository is SupabaseSupportTicketRepository
+          ? SupabaseSupportCompletionRepository(Supabase.instance.client)
+          : null);
 
-  bool get _assignedToMe => widget.ticket.assignedTo == widget.currentUserId;
+  bool get _assignedToMe => _ticket.assignedTo == widget.currentUserId;
 
   @override
   void initState() {
     super.initState();
+    _ticket = widget.ticket;
+    _subscribeToTicket();
     _subscribeToMessages();
-    _loadMessages();
+    unawaited(_loadMessages());
+    unawaited(_checkCompletion());
+  }
+
+  void _subscribeToTicket() {
+    final repository = widget.repository;
+    if (repository is SupportTicketDetailRepository) {
+      _ticketSubscription = (repository as SupportTicketDetailRepository)
+          .watchTicket(_ticket.id)
+          .listen(
+            (_) => unawaited(_refreshTicket()),
+            onError: (_) {
+              if (mounted) {
+                setState(() => _error = 'Mất kết nối hồ sơ. Hãy tải lại.');
+              }
+            },
+          );
+    }
+  }
+
+  Future<void> _retry() async {
+    if (_retrying) return;
+    setState(() => _retrying = true);
+    try {
+      await _messageSubscription?.cancel();
+      await _ticketSubscription?.cancel();
+      if (!mounted) return;
+      _subscribeToTicket();
+      _subscribeToMessages();
+      await Future.wait([_refreshTicket(), _loadMessages()]);
+    } finally {
+      if (mounted) setState(() => _retrying = false);
+    }
+  }
+
+  Future<bool> _checkCompletion() async {
+    final repository = _completionRepository;
+    if (repository == null) return true;
+    final revision = ++_completionRevision;
+    setState(() {
+      _checkingCompletion = true;
+      _completionError = null;
+    });
+    try {
+      final result = await repository.fetchCompletionContext(_ticket);
+      if (!mounted || revision != _completionRevision) return false;
+      setState(() => _completion = result);
+      return result.blockers.isEmpty;
+    } catch (_) {
+      if (mounted && revision == _completionRevision) {
+        setState(
+          () => _completionError =
+              'Chưa kiểm tra được điều kiện kết thúc. Hãy thử lại.',
+        );
+      }
+      return false;
+    } finally {
+      if (mounted && revision == _completionRevision) {
+        setState(() => _checkingCompletion = false);
+      }
+    }
   }
 
   @override
   void dispose() {
+    _contextScrollController.dispose();
     unawaited(_messageSubscription?.cancel());
+    unawaited(_ticketSubscription?.cancel());
     super.dispose();
+  }
+
+  Future<void> _refreshTicket() async {
+    final revision = ++_revision;
+    try {
+      final repository = widget.repository;
+      final ticket = repository is SupportTicketDetailRepository
+          ? await (repository as SupportTicketDetailRepository).fetchTicket(
+              _ticket.id,
+            )
+          : (await repository.fetchTickets()).firstWhere(
+              (item) => item.id == _ticket.id,
+            );
+      if (mounted && revision == _revision) {
+        setState(() {
+          _ticket = ticket;
+          _error = null;
+        });
+        await _checkCompletion();
+      }
+    } catch (_) {
+      if (mounted && revision == _revision) {
+        setState(
+          () => _error =
+              'Chưa đồng bộ được hồ sơ. Hãy tải lại trước khi tiếp tục.',
+        );
+      }
+    }
   }
 
   void _subscribeToMessages() {
@@ -61,12 +176,19 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
         .watchMessages(widget.ticket.id)
         .listen(
           (messages) {
-            if (mounted) setState(() => _messages = messages);
+            ++_messageRevision;
+            if (mounted) {
+              setState(() {
+                _messages = messages;
+                _messageError = null;
+              });
+            }
           },
           onError: (_) {
             if (mounted) {
               setState(
-                () => _error = 'Mất kết nối hội thoại. Vui lòng thử lại.',
+                () =>
+                    _messageError = 'Mất kết nối hội thoại. Vui lòng thử lại.',
               );
             }
           },
@@ -80,12 +202,17 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
       return;
     }
     final conversations = repository as SupportTicketConversationRepository;
+    final revision = ++_messageRevision;
     try {
       final messages = await conversations.fetchMessages(widget.ticket.id);
-      if (mounted) setState(() => _messages = messages);
+      if (mounted && revision == _messageRevision) {
+        setState(() {
+          _messages = messages;
+        });
+      }
     } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'Không tải được lịch sử hội thoại.');
+      if (mounted && revision == _messageRevision) {
+        setState(() => _messageError = 'Không tải được lịch sử hội thoại.');
       }
     }
   }
@@ -97,7 +224,7 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
     });
     try {
       await action();
-      if (mounted) Navigator.pop(context, true);
+      await _refreshTicket();
     } on PostgrestException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
@@ -132,6 +259,10 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
     if (repository is! SupportTicketCommandRepository) return;
     String? resolution;
     if (status.isClosed) {
+      if (!await _checkCompletion() || !mounted) {
+        if (mounted) setState(() => _showContext = true);
+        return;
+      }
       resolution = await showSupportResolutionDialog(context);
       if (resolution == null || !mounted) return;
     }
@@ -165,7 +296,7 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
     final draft = await showSupportRiskConversionDialog(
       context,
       initialTitle: widget.ticket.subject,
-      initialDescription: widget.ticket.message,
+      initialDescription: CaseMessageContent.decode(widget.ticket.message).text,
       needsComponent: widget.ticket.orderId == null,
     );
     if (draft == null || !mounted) return;
@@ -183,7 +314,7 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final ticket = widget.ticket;
+    final ticket = _ticket;
     final screen = MediaQuery.sizeOf(context);
     return Dialog(
       insetPadding: const EdgeInsets.all(AppSpacing.lg),
@@ -200,45 +331,101 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
           clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
-              SupportTicketDetailHeader(ticket: ticket),
+              SupportTicketDetailHeader(
+                ticket: ticket,
+                onRefresh: _busy || _retrying ? null : _retry,
+              ),
+              if (_retrying)
+                const LinearProgressIndicator(color: AppColors.accent),
               if (_error != null) _ErrorBanner(message: _error!),
+              if (_messageError != null) _ErrorBanner(message: _messageError!),
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final chat = SupportLiveConversation(
+                      key: _conversationKey,
+                      replyTemplate: SupportIssue.fromSubject(
+                        ticket.subject,
+                      ).replyTemplate(forDriver: ticket.isDriverRequester),
                       messages: _messages,
                       currentUserId: widget.currentUserId,
                       canReply: _assignedToMe && !ticket.status.isClosed,
+                      recipientLabel:
+                          '${SupportTicketUi.requesterRoleLabel(ticket.requesterRole)} — ${ticket.requesterName ?? SupportTicketUi.shortId(ticket.requesterId)}',
+                      lockedMessage: ticket.status.isClosed
+                          ? 'Hồ sơ đã kết thúc. Mở lại để tiếp tục trao đổi.'
+                          : 'Nhận xử lý hồ sơ để bắt đầu phản hồi',
                       onSend: _sendMessage,
                     );
-                    final sidebar = SupportTicketChatSidebar(ticket: ticket);
+                    final sidebar = SupportTicketChatSidebar(
+                      ticket: ticket,
+                      scrollController: _contextScrollController,
+                      completion: _completion,
+                      completionLoading: _checkingCompletion,
+                      completionError: _completionError,
+                      onCheckCompletion: _completionRepository == null
+                          ? null
+                          : _checkCompletion,
+                      showOrderContext:
+                          widget.repository is SupabaseSupportTicketRepository,
+                    );
                     if (constraints.maxWidth < 720) {
                       return Column(
                         children: [
-                          SizedBox(height: 210, child: sidebar),
+                          Wrap(
+                            spacing: AppSpacing.sm,
+                            children: [
+                              TextButton.icon(
+                                onPressed: () =>
+                                    setState(() => _showContext = false),
+                                icon: const Icon(Icons.forum_outlined),
+                                label: const Text('Trao đổi'),
+                              ),
+                              TextButton.icon(
+                                onPressed: () =>
+                                    setState(() => _showContext = true),
+                                icon: const Icon(Icons.inventory_2_outlined),
+                                label: const Text('Thông tin hồ sơ'),
+                              ),
+                            ],
+                          ),
                           const Divider(height: 1, color: AppColors.border),
-                          Expanded(child: chat),
+                          Expanded(
+                            child: IndexedStack(
+                              index: _showContext ? 1 : 0,
+                              children: [chat, sidebar],
+                            ),
+                          ),
                         ],
                       );
                     }
                     return Row(
                       children: [
-                        SizedBox(width: 292, child: sidebar),
+                        Expanded(child: chat),
                         const VerticalDivider(
                           width: 1,
                           color: AppColors.border,
                         ),
-                        Expanded(child: chat),
+                        SizedBox(width: 292, child: sidebar),
                       ],
                     );
                   },
                 ),
               ),
-              _Actions(
+              SupportTicketActions(
                 ticket: ticket,
                 assignedToMe: _assignedToMe,
                 isAdmin: widget.isAdmin,
-                busy: _busy,
+                busy: _busy || _checkingCompletion,
+                completionBlocked:
+                    _completionError != null ||
+                    (_completion?.blockers.isNotEmpty ?? false),
+                onShowContext: () {
+                  setState(() => _showContext = true);
+                  if (_contextScrollController.hasClients) {
+                    _contextScrollController.jumpTo(0);
+                  }
+                },
                 onAccept: _accept,
                 onTakeOver: _takeOver,
                 onTransition: _transition,
@@ -282,103 +469,4 @@ class _ErrorBanner extends StatelessWidget {
       ],
     ),
   );
-}
-
-class _Actions extends StatelessWidget {
-  const _Actions({
-    required this.ticket,
-    required this.assignedToMe,
-    required this.isAdmin,
-    required this.busy,
-    required this.onAccept,
-    required this.onTakeOver,
-    required this.onTransition,
-    required this.onConvert,
-  });
-
-  final SupportTicket ticket;
-  final bool assignedToMe;
-  final bool isAdmin;
-  final bool busy;
-  final VoidCallback onAccept;
-  final VoidCallback onTakeOver;
-  final ValueChanged<SupportTicketStatus> onTransition;
-  final VoidCallback onConvert;
-
-  @override
-  Widget build(BuildContext context) {
-    final transitions = SupportTicketPolicy.allowedTransitions(ticket.status);
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.xl,
-        vertical: AppSpacing.md,
-      ),
-      decoration: const BoxDecoration(
-        color: AppColors.bgCard,
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
-      child: Row(
-        children: [
-          if (assignedToMe && ticket.riskReportId == null)
-            TextButton.icon(
-              onPressed: busy ? null : onConvert,
-              icon: const Icon(Icons.shield_outlined, size: 18),
-              label: const Text('Chuyển báo cáo sự cố'),
-            ),
-          const Spacer(),
-          if (ticket.assignedTo == null)
-            FilledButton.icon(
-              key: const Key('accept-support-ticket'),
-              onPressed: busy ? null : onAccept,
-              icon: const Icon(Icons.person_add_alt_rounded, size: 18),
-              label: const Text('Nhận xử lý'),
-            )
-          else if (!assignedToMe && isAdmin)
-            OutlinedButton.icon(
-              key: const Key('takeover-support-ticket'),
-              onPressed: busy ? null : onTakeOver,
-              icon: const Icon(Icons.admin_panel_settings_outlined, size: 18),
-              label: const Text('Tiếp quản'),
-            )
-          else if (!assignedToMe)
-            Text(
-              'Đã có người phụ trách',
-              style: AppTextStyles.labelMedium.copyWith(
-                color: AppColors.textMuted,
-              ),
-            )
-          else if (transitions.isNotEmpty)
-            PopupMenuButton<SupportTicketStatus>(
-              enabled: !busy,
-              tooltip: 'Cập nhật trạng thái',
-              onSelected: onTransition,
-              itemBuilder: (context) => [
-                for (final status in transitions)
-                  PopupMenuItem(
-                    value: status,
-                    child: Row(
-                      children: [
-                        Icon(
-                          SupportTicketUi.statusIcon(status),
-                          size: 18,
-                          color: SupportTicketUi.statusColor(status),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Text(SupportTicketUi.statusLabel(status)),
-                      ],
-                    ),
-                  ),
-              ],
-              child: IgnorePointer(
-                child: OutlinedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.sync_alt_rounded, size: 18),
-                  label: const Text('Cập nhật trạng thái'),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
 }

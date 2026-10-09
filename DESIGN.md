@@ -1,157 +1,40 @@
 # DATN — Hệ thống Giao Hàng Thông Minh
 
-## Phase 1 Documentation Note
+## Phạm vi và nguồn tham chiếu
 
-- Project hiện là **một monorepo với hai Flutter app**: Delivery App cho customer/driver và Operations Web cho support/admin.
-- Không split repo thành `customer_app/`, `driver_app/`, `admin_web/`, hoặc `shared/`.
-- Preferred design tokens cho UI mới/refactor: `AppColors`, `AppTextStyles`, `AppSpacing`, `AppRadius` trong `packages/giaohang_design/lib/src/app_theme.dart`.
-- `NavColors` và `OrderColors` đang hỗ trợ UI hiện có. Không xóa hoặc migrate hàng loạt trong Phase 1.
-- Phase 1 chỉ align tài liệu và checklist; không đổi runtime UI.
+Tài liệu này quy định ngôn ngữ thị giác và nguyên tắc tương tác cho hai Flutter app:
+`apps/delivery_app` (Customer, Driver) và `apps/operations_web` (Support, Admin).
+`AGENTS.md` quy định kiến trúc và phạm vi thay đổi; luồng, route và trạng thái đang chạy
+phải được kiểm tra trong code của màn hình tương ứng trước khi thiết kế lại.
 
-## Mô tả Project
+Các token đã biên dịch trong `packages/giaohang_design/lib/src/app_theme.dart` là nguồn
+giá trị triển khai. Nếu ví dụ trong tài liệu lệch với code, dùng token trong code và cập
+nhật tài liệu. `NavColors` và `OrderColors` vẫn hỗ trợ UI hiện có; không cần di chuyển
+hàng loạt để làm một màn hình mới.
 
-Hệ thống có hai Flutter app: Delivery App dành cho Customer/Driver và Operations Web dành cho Support/Admin. Mỗi app có bootstrap, router và giao diện riêng nhưng cùng dùng design tokens và Supabase.
+## Nguồn kỹ thuật
 
-## Cấu trúc Project
+Kiến trúc, phạm vi database và quy tắc thay đổi nằm trong `AGENTS.md`.
+Lệnh chạy và dependencies xem `README.md` cùng `pubspec.yaml` của từng app.
+Tiến độ tính năng xem `ROADMAP.md`. Route, auth flow và form đăng ký phải được
+đọc từ code hiện tại trước khi thiết kế UI; không suy ra hành vi từ mockup.
 
-```text
-GiaoHang/
-├── apps/
-│   ├── delivery_app/       # Customer + Driver
-│   └── operations_web/     # Support + Admin
-├── packages/
-│   ├── giaohang_config/
-│   ├── giaohang_design/
-│   └── giaohang_domain/
-└── supabase/
-```
+## Nguyên tắc thiết kế
 
-## Tech Stack
-- **Frontend**: Flutter (Dart) — Android/iOS/Web từ 1 codebase
-- **Backend**: Supabase (PostgreSQL + Realtime + Auth + Storage)
-- **Bản đồ**: flutter_map + OpenStreetMap (tiles)
-- **Routing API**: OSRM (Open Source Routing Machine) — miễn phí
-- **Thuật toán**: VRP (Vehicle Routing Problem) / Nearest Neighbor + 2-opt
-- **State Management**: Riverpod
-- **Navigation**: GoRouter với route guard theo role
-- **Realtime**: Supabase Realtime cho tracking tài xế
-
-## Commands
-```bash
-flutter pub get                # Chạy tại root workspace
-cd apps/delivery_app           # Customer + Driver
-flutter analyze
-flutter test
-flutter build apk
-cd ../operations_web           # Support + Admin
-flutter analyze
-flutter test
-flutter build web
-```
-
-## Dependencies (pubspec.yaml)
-```yaml
-dependencies:
-  flutter_map: ^7.0.0
-  latlong2: ^0.9.0
-  supabase_flutter: ^2.0.0
-  flutter_riverpod: ^2.0.0
-  go_router: ^14.0.0
-  lottie: ^3.1.0
-  google_sign_in: ^6.2.0
-```
-
-## Database Schema (Supabase)
-
-### Enum Types
-- **user_role**: customer, driver, support, admin
-- **order_status**: pending, confirmed, assigned, picking_up, delivering, delivered, cancelled
-
-### Bảng chính
-- **users** — id (UUID), email (UNIQUE), full_name, phone, role (user_role), avatar_url, created_at
-- **drivers** — id, user_id → users, vehicle_type, license_plate, vehicle_brand_model, vehicle_color, is_available, current_lat, current_lng, rating, total_deliveries, approval_status, verified_at, Phase B KYC columns, updated_at
-- **orders** — id, customer_id → users, driver_id → users, status (order_status), pickup_address, pickup_lat, pickup_lng, delivery_address, delivery_lat, delivery_lng, total_price, note, created_at
-- **order_items** — id, order_id → orders (CASCADE), name, quantity, price
-- **routes** — id, driver_id → drivers (CASCADE), date, optimized_path (JSONB), total_distance, total_duration, status
-- **locations** — id, driver_id → drivers (CASCADE), lat, lng, timestamp
-
-### Trigger
-- **on_auth_user_created**: Tự động insert vào bảng users khi có user mới đăng ký qua Supabase Auth
-- Function: handle_new_user() — SECURITY DEFINER
-
-## Routing theo Role
-```
-/ (root)
-├── /onboarding       → OnboardingScreen (lần đầu mở app)
-├── /login            → LoginScreen (chỉ Google OAuth)
-├── /customer         → CustomerHomeScreen (role: customer)
-│   ├── /customer/place-order
-│   ├── /customer/tracking/:orderId
-│   └── /customer/history
-├── /driver           → DriverHomeScreen (role: driver)
-│   ├── /driver/orders
-│   ├── /driver/navigation/:orderId
-│   └── /driver/history
-└── /admin            → AdminHomeScreen (role: admin)
-    ├── /admin/orders
-    ├── /admin/drivers
-    └── /admin/dashboard
-```
-
-## Auth Flow
-1. Mở app → check SharedPreferences → onboarding (lần đầu) hoặc login
-2. Login bằng Google OAuth (Supabase)
-3. Sau login → check role từ bảng users
-4. Navigate đến đúng home screen theo role:
-   - customer → /customer
-   - driver → /driver
-   - admin → /admin
-5. GoRouter redirect guard: chưa login → về /login
-
-## Tính năng theo Priority
-
-### 🔴 Phase 1 — Core (Tháng 1-2)
-- [x] Onboarding screen
-- [x] Auth: đăng nhập Google theo role
-- [ ] Customer home screen
-- [ ] Driver home screen
-- [ ] Admin home screen
-- [ ] Routing theo role hoàn chỉnh
-
-### 🟡 Phase 2 — Map & Ordering (Tháng 3-4)
-- [ ] Customer: đặt đơn + chọn địa chỉ trên bản đồ
-- [ ] Driver: nhận đơn + xem route
-- [ ] Realtime tracking vị trí tài xế
-- [ ] Customer: theo dõi đơn trên bản đồ
-- [ ] Driver: navigation từng bước (OSRM)
-
-### 🟢 Phase 3 — Optimization (Tháng 5-6)
-- [ ] Thuật toán VRP tối ưu route nhiều đơn
-- [ ] Admin: dashboard thống kê
-- [ ] Notification
-- [ ] Rating tài xế
-- [ ] Lịch sử đơn hàng
-
-## Map & Routing Notes
-- Dùng flutter_map (không phải google_maps_flutter) — hỗ trợ Web + Android + iOS
-- Tile server: https://tile.openstreetmap.org/{z}/{x}/{y}.png
-- Routing: OSRM API https://router.project-osrm.org/route/v1/driving/{coords}
-- Tài xế gửi vị trí lên Supabase mỗi 5 giây khi đang giao hàng
-
-## UI Design Rules
-- Luôn đọc DESIGN.md trước khi tạo hoặc sửa bất kỳ UI nào
-- Mọi màn hình phải follow design system bên dưới
-- Target: premium mobile app aesthetic — sạch, nhanh, rõ ràng
-- Tránh generic Flutter/Material default UI
-- Dùng `AppColors`, `AppTextStyles`, `AppSpacing` từ `packages/giaohang_design/lib/src/app_theme.dart`
-- Bắt buộc đọc `docs/design/visual_first_ui.md` cho quy tắc mật độ nội dung,
-  hình minh họa, icon và yêu cầu riêng theo từng màn hình
+- Dùng skill `giaohang-flutter-ui` và đọc `docs/design/visual_first_ui.md` trước khi thay đổi UI.
+- Ưu tiên một hành động chính rõ ràng, thứ bậc thông tin dễ quét và hình ảnh phục vụ tác vụ.
+- Customer/Driver ưu tiên thao tác nhanh trên mobile; Support/Admin ưu tiên đọc dữ liệu và xử lý công việc trên web.
+- Thiết kế đầy đủ trạng thái: mặc định, focus, loading, rỗng, lỗi, thành công, disabled và phản hồi sau thao tác.
+- Giữ các hành vi, validation, điều hướng, phân quyền và hợp đồng dữ liệu của màn hình hiện có khi yêu cầu chỉ đổi phần nhìn.
+- Dùng token trong `app_theme.dart`; native Flutter widgets phải được tạo kiểu phù hợp với hệ thống và có trạng thái tương tác rõ.
+- Kiểm tra viewport ngắn, bàn phím, text scale, thiết bị đích, tương phản, focus, semantics và thao tác chạm.
+- Motion diễn tả chuyển trạng thái và phản hồi. Giảm hoặc bỏ hiệu ứng không thiết yếu khi người dùng yêu cầu giảm chuyển động.
 
 ---
 
 ## Design System
 
-> **Aesthetic Direction**: _Clean Utility Premium_ — giao diện tối giản nhưng có chiều sâu. Thông tin phải đọc được ngay trong 1 giây. Cảm giác như Grab gặp Linear app.
+> **Aesthetic Direction**: _Clean Utility Premium_ — rõ thứ bậc, nhiều khoảng thở, bề mặt có chiều sâu vừa đủ và một điểm nhấn hành động. Ưu tiên nội dung nghiệp vụ đọc được nhanh trong điều kiện sử dụng thực tế.
 
 ---
 
@@ -167,27 +50,27 @@ class AppColors {
   static const accentLight = Color(0xFFFFEDE6); // Orange tint — backgrounds
 
   // === Semantic ===
-  static const success     = Color(0xFF10B981); // Emerald
+  static const success     = Color(0xFF22C55E); // Green — completed
   static const warning     = Color(0xFFF59E0B); // Amber
   static const error       = Color(0xFFEF4444); // Rose
   static const info        = Color(0xFF3B82F6); // Blue — map, links
 
   // === Backgrounds ===
-  static const bgLight     = Color(0xFFF8FAFC); // Screen background (light)
+  static const bgLight     = Color(0xFFFAFAFA); // Screen background (light)
   static const bgCard      = Color(0xFFFFFFFF); // Card surface
   static const bgWarm      = Color(0xFFFFF7F1); // Chibi/visual header surface
   static const bgDark      = Color(0xFF1E293B); // Dark surface (driver night mode)
   static const bgDarkCard  = Color(0xFF243447); // Dark card
 
   // === Text ===
-  static const textPrimary   = Color(0xFF0F172A); // Headings, body
-  static const textSecondary = Color(0xFF475569); // Subtitles, labels
-  static const textMuted     = Color(0xFF94A3B8); // Placeholder, hint
+  static const textPrimary   = Color(0xFF111827); // Headings, body
+  static const textSecondary = Color(0xFF6B7280); // Subtitles, labels
+  static const textMuted     = Color(0xFF9CA3AF); // Placeholder, hint
   static const textOnDark    = Color(0xFFF1F5F9); // Text trên nền tối
   static const textOnAccent  = Color(0xFFFFFFFF); // Text trên nút orange
 
   // === Border ===
-  static const border        = Color(0xFFE2E8F0); // Divider, input border
+  static const border        = Color(0xFFE5E7EB); // Divider, input border
   static const borderFocus   = Color(0xFF0F1B2D); // Input focused
 
   // === Map Markers ===
@@ -210,14 +93,11 @@ class AppColors {
 
 ### Typography
 
-Font duy nhất: **Plus Jakarta Sans** (hỗ trợ đầy đủ tiếng Việt, premium feel).
+Font giao diện chính: **Plus Jakarta Sans**. Mã đơn và dữ liệu đơn cách dùng kiểu
+mono trong `AppTextStyles.mono`. Dùng style từ package chung để đồng bộ hai app;
+phiên bản package được quản lý trong `pubspec.yaml`, không cố định tại đây.
 
-Thêm vào `pubspec.yaml`:
-```yaml
-  google_fonts: ^6.1.0
-```
-
-Dùng qua `GoogleFonts.plusJakartaSans(...)` hoặc định nghĩa sẵn:
+Các style hiện có:
 
 ```dart
 class AppTextStyles {
@@ -309,31 +189,15 @@ class AppShadow {
 ### Component Patterns
 
 #### Button — Primary (CTA)
-```dart
-// Dùng cho: Đặt hàng, Nhận đơn, Xác nhận
-Container(
-  height: 52,
-  decoration: BoxDecoration(
-    color: AppColors.accent,
-    borderRadius: AppRadius.full,
-    boxShadow: AppShadow.accentGlow,
-  ),
-  child: Center(child: Text('Đặt hàng ngay', style: AppTextStyles.labelLarge.copyWith(color: AppColors.textOnAccent))),
-)
-```
+
+- Dùng `accent` và `textOnAccent`, chiều cao tối thiểu 52dp, bo góc theo `AppRadius`.
+- Dùng button có `onPressed`, semantics, focus, phản hồi nhấn và trạng thái disabled/loading.
+- Nhãn CTA nói rõ hành động; không dùng `Container` đơn thuần để giả làm nút.
 
 #### Button — Secondary
-```dart
-// Dùng cho: Hủy, Xem thêm, Back
-Container(
-  height: 52,
-  decoration: BoxDecoration(
-    color: AppColors.bgLight,
-    borderRadius: AppRadius.full,
-    border: Border.all(color: AppColors.border),
-  ),
-)
-```
+
+- Dùng nền `bgLight`, viền `border`, độ bo cùng họ với CTA và độ nhấn thấp hơn.
+- Có nhãn, vùng chạm, focus, trạng thái disabled và phản hồi nhấn tương đương CTA.
 
 #### Card
 ```dart
@@ -362,51 +226,22 @@ Color badgeColor(OrderStatus status) => switch (status) {
 ```
 
 #### Input Field
-```dart
-TextField(
-  decoration: InputDecoration(
-    filled: true,
-    fillColor: AppColors.bgLight,
-    border: OutlineInputBorder(
-      borderRadius: AppRadius.md,
-      borderSide: BorderSide(color: AppColors.border),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: AppRadius.md,
-      borderSide: BorderSide(color: AppColors.primary, width: 1.5),
-    ),
-    contentPadding: EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-    hintStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.textMuted),
-  ),
-)
-```
+
+- Có label luôn nhận biết được, keyboard type, autofill và thứ tự focus phù hợp dữ liệu.
+- Dùng `bgLight`, `border`, `borderFocus`, `AppRadius.md` và khoảng đệm từ `AppSpacing`.
+- Lỗi validation xuất hiện cạnh field, dễ đọc và được thông báo cho công nghệ hỗ trợ.
+- `textMuted` chỉ dùng cho gợi ý; thông tin bắt buộc dùng màu chữ đủ tương phản.
 
 ---
 
 ### Animation & Motion
 
-```dart
-class AppDuration {
-  static const fast   = Duration(milliseconds: 150);
-  static const normal = Duration(milliseconds: 250);
-  static const slow   = Duration(milliseconds: 400);
-  static const page   = Duration(milliseconds: 300);
-}
+Chọn `AppDuration` và `AppCurve` từ package chung theo mục đích của chuyển động:
 
-class AppCurve {
-  static const standard  = Curves.easeInOut;
-  static const decelerate = Curves.easeOut;   // Elements vào màn hình
-  static const accelerate = Curves.easeIn;    // Elements rời màn hình
-  static const spring     = Curves.elasticOut; // Chỉ dùng cho playful moments
-}
-```
-
-**Quy tắc animation:**
-- Transition giữa màn hình: `FadeTransition` + `SlideTransition` 300ms `easeOut`
-- Button press: scale xuống 0.97 trong 100ms
-- Card appear: `FadeTransition` + slide lên 8px, stagger 50ms mỗi card
-- Loading: dùng `Lottie` (đã có trong pubspec) — không dùng `CircularProgressIndicator` mặc định
-- Map marker: `ScaleTransition` khi appear
+- Tập trung vào phản hồi thao tác, thay đổi trạng thái và chuyển màn hình. Không tự động thêm hiệu ứng xuất hiện cho mọi card hoặc thành phần bản đồ.
+- Loading phải cho thấy tác vụ còn đang chạy và chặn thao tác lặp phù hợp. Có thể dùng indicator, skeleton hoặc asset được tạo kiểu; không bắt buộc dùng Lottie.
+- Tôn trọng cài đặt giảm chuyển động. Giữ chuyển động ngắn và tránh blur, shader hoặc ảnh động lớn nếu chưa kiểm tra hiệu năng.
+- Chỉ rebuild vùng đang chuyển động; danh sách, bản đồ và provider không liên quan phải đứng ngoài vùng animation.
 
 ---
 
@@ -415,41 +250,30 @@ class AppCurve {
 Xem tài liệu bắt buộc:
 [`docs/design/visual_first_ui.md`](docs/design/visual_first_ui.md).
 
-### Customer Orders — Visual Order Hub
+### Customer Orders — Đang xử lý và Lịch sử
 
-Màn Đơn hàng của khách hàng dùng pattern **visual order hub** để giảm chữ nhưng vẫn giữ
-thông tin nghiệp vụ rõ ràng:
+- Header gọn gồm tìm kiếm, nút tạo đơn 48×48dp và hai tab có chữ: **Đang xử lý / Lịch sử**.
+  Không lặp tiêu đề hoặc dùng hình trang trí chiếm chiều cao. Bố cục tự tăng chiều cao khi phóng chữ.
+- Search và tab nằm trong `bgCard`, `AppRadius.xl`, viền `border`, shadow `subtle`;
+  input dùng `bgLight`. Trạng thái chọn dùng `accentLight` và viền `accent`.
+- Tab Đang xử lý là mặc định; giữ đơn hết thời gian tìm tài xế, đang hoàn hoặc đang xử lý sự cố
+  để khách vẫn truy cập được hành động hiện có. Đơn đã giao, đã hủy, đã hoàn hàng nằm trong Lịch sử.
+- Lịch sử mặc định tất cả thời gian, mới nhất trước. Lọc theo **ngày tạo đơn**:
+  Tất cả / Hôm nay / 7 ngày qua / Tháng này / một ngày / khoảng ngày, tính cả ngày cuối.
+  Bộ lọc ngày kết hợp tìm kiếm và trạng thái, hiển thị khoảng ngày đã chọn và cho phép bỏ lọc.
+- Bộ lọc lịch sử cuộn cùng danh sách; nhóm theo ngày cho khoảng ngắn (tối đa 31 ngày),
+  theo tháng cho tất cả lịch sử hoặc khoảng dài.
+- Đơn đang xử lý giữ card chi tiết, đơn đầu có nhấn mạnh. Thẻ lịch sử phẳng, viền nhẹ,
+  không ảnh lớn, không panel lồng nhau, không badge giá hoặc status rail.
+- Thẻ lịch sử giữ mã đơn, icon + nhãn trạng thái, địa chỉ lấy/giao tối đa hai dòng,
+  người nhận, ngày tạo, giá bằng chữ đậm. Ảnh và mô tả hàng xem trong chi tiết.
+- Dùng `markerPickup`/`markerDrop` cho địa chỉ; không chỉ dùng màu để phân biệt trạng thái.
+  Toàn card có phản hồi nhấn, semantics và mở luồng chi tiết hiện có.
+- Dùng token chung; kiểm tra mobile 320/390dp, chữ 160%, trạng thái rỗng, lịch ngày và khoảng ngày.
 
-- Không lặp tiêu đề “Đơn hàng” và câu mô tả dài khi bottom navigation đã cho biết vị trí
-  hiện tại. Dùng một visual header chibi không chứa text/logo; visual phải có
-  `semanticLabel` và kích thước cố định để tránh layout shift.
-- Trên mobile, visual chibi và control surface nằm **chung một hàng** trong toolbar cao
-  128dp. Visual rộng 80–96dp theo available width; control surface dùng phần chiều rộng
-  còn lại. Không xếp hai khối full-width theo chiều dọc vì sẽ đẩy danh sách đơn xuống thấp.
-- Header chỉ có một hành động chính: nút icon tạo đơn tối thiểu 48×48dp, có tooltip,
-  semantics và phản hồi nhấn. Không raster hoá CTA vào ảnh.
-- Search và bộ lọc phải nằm trong một `bgCard` control surface riêng trên nền `bgLight`,
-  có `AppColors.border`, `AppRadius.xl` và `AppShadow.subtle`. Input bên trong dùng nền
-  `bgLight` để tạo ba lớp dễ đọc: screen → control surface → input.
-- Toolbar compact dùng bốn filter icon-only 48dp; mọi mục bắt buộc có tooltip và
-  semantic label. Trạng thái chọn dùng `accent`, không trộn thêm màu nhấn không cần thiết.
-- Card đơn hàng luôn dùng `bgCard`, viền nhìn thấy rõ và shadow theo token. Không đặt
-  card trắng không viền trên nền gần trắng.
-- Mỗi card có status rail, status icon và nhãn ngắn; không dùng màu làm tín hiệu duy
-  nhất. Route panel và recipient panel dùng `bgLight` + border để tách khỏi card.
-- Điểm lấy dùng `markerPickup`, điểm giao dùng `markerDrop`. Địa chỉ được phép tối đa
-  hai dòng; không rút gọn thông tin nghiệp vụ bắt buộc chỉ để giảm chữ.
-- Giữ text cho mã đơn, trạng thái, địa chỉ, giá và người nhận. Loại các nhãn dư như
-  “Chi tiết” khi toàn bộ card đã tappable; thay bằng chevron và semantic action.
-- Hình chibi cho màn này dùng nền `bgWarm` (`#FFF7F1`), tông cam–trắng–be, không text,
-  không logo, không mô phỏng control tương tác bên trong raster.
+## Tiêu chí xem lại UI
 
-## Conventions
-- File: snake_case.dart
-- Class: PascalCase
-- Mỗi feature có thư mục riêng trong features/
-- Model có fromJson / toJson
-- Không hardcode string
-- Supabase URL và anon key trong supabase_constants.dart
-- RLS bật cho tất cả bảng
-- Không insert thủ công vào bảng users (trigger tự xử lý)
+- So sánh với luồng đang chạy trước khi sửa: thao tác chính, validation, lỗi, loading, back navigation và kết quả sau submit.
+- Xem màn hình đã render trên viewport đích và một viewport ngắn; với form, kiểm tra bàn phím mở và text scale lớn. Với web, kiểm tra thêm viewport rộng và thao tác bằng bàn phím.
+- Kiểm tra tương phản, focus, semantics, vùng chạm và thông tin quan trọng không phụ thuộc duy nhất vào màu hoặc animation.
+- Ghi lại điểm nào chưa kiểm tra được bằng thiết bị hoặc trình duyệt thực tế.

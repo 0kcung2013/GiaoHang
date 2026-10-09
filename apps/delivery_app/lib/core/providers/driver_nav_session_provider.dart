@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../location/driver_location_producer_policy.dart';
+
 /// Lưu tiến trình điều hướng theo orderId.
 /// Persist SharedPreferences để **hot restart (Shift+R)** không mất vị trí.
 class DriverNavSession {
@@ -13,8 +15,10 @@ class DriverNavSession {
     required this.lat,
     required this.lng,
     this.arrivedAtTarget = false,
+    this.routeCompleted = false,
     this.pickupConfirmed = false,
     this.simRouteIndex = 0,
+    this.locationMode,
     this.updatedAt,
   });
 
@@ -23,13 +27,18 @@ class DriverNavSession {
   final double lat;
   final double lng;
   final bool arrivedAtTarget;
+
+  /// Mô phỏng đã hết chặng; khác với cờ vào vùng xác nhận 100 m.
+  final bool routeCompleted;
   final bool pickupConfirmed;
   final int simRouteIndex;
+  final DriverLocationMode? locationMode;
   final DateTime? updatedAt;
 
   bool canRestoreFor({
     required String activeOrderId,
     required String activeStatus,
+    DriverLocationMode? activeLocationMode,
   }) {
     const activeStatuses = {'assigned', 'picking_up', 'delivering'};
     final hasValidCoordinates =
@@ -43,6 +52,9 @@ class DriverNavSession {
 
     return orderId == activeOrderId &&
         activeStatuses.contains(activeStatus) &&
+        (activeLocationMode == null ||
+            (locationMode ?? DriverLocationMode.deviceGps) ==
+                activeLocationMode) &&
         hasValidCoordinates;
   }
 
@@ -52,8 +64,10 @@ class DriverNavSession {
     double? lat,
     double? lng,
     bool? arrivedAtTarget,
+    bool? routeCompleted,
     bool? pickupConfirmed,
     int? simRouteIndex,
+    DriverLocationMode? locationMode,
     DateTime? updatedAt,
   }) {
     return DriverNavSession(
@@ -62,8 +76,10 @@ class DriverNavSession {
       lat: lat ?? this.lat,
       lng: lng ?? this.lng,
       arrivedAtTarget: arrivedAtTarget ?? this.arrivedAtTarget,
+      routeCompleted: routeCompleted ?? this.routeCompleted,
       pickupConfirmed: pickupConfirmed ?? this.pickupConfirmed,
       simRouteIndex: simRouteIndex ?? this.simRouteIndex,
+      locationMode: locationMode ?? this.locationMode,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
@@ -74,8 +90,10 @@ class DriverNavSession {
     'lat': lat,
     'lng': lng,
     'arrivedAtTarget': arrivedAtTarget,
+    'routeCompleted': routeCompleted,
     'pickupConfirmed': pickupConfirmed,
     'simRouteIndex': simRouteIndex,
+    'locationMode': locationMode?.name,
     'updatedAt': updatedAt?.toIso8601String(),
   };
 
@@ -86,8 +104,18 @@ class DriverNavSession {
       lat: (json['lat'] as num?)?.toDouble() ?? 0,
       lng: (json['lng'] as num?)?.toDouble() ?? 0,
       arrivedAtTarget: json['arrivedAtTarget'] == true,
+      // Phiên cũ chỉ lưu đã đến; không tự cho mô phỏng chạy lại sau reload.
+      routeCompleted: json['routeCompleted'] is bool
+          ? json['routeCompleted'] == true
+          : json['arrivedAtTarget'] == true,
       pickupConfirmed: json['pickupConfirmed'] == true,
       simRouteIndex: (json['simRouteIndex'] as num?)?.toInt() ?? 0,
+      locationMode: DriverLocationMode.values
+          .cast<DriverLocationMode?>()
+          .firstWhere(
+            (mode) => mode?.name == json['locationMode'],
+            orElse: () => null,
+          ),
       updatedAt: json['updatedAt'] != null
           ? DateTime.tryParse(json['updatedAt'].toString())
           : null,

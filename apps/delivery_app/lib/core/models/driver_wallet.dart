@@ -22,6 +22,10 @@ class DriverWalletSummary {
 }
 
 class DriverWalletTransaction {
+  static const paidGoodsDepositPurpose = 'paid_goods_deposit';
+  static const _goodsDepositHoldLabel = 'Giữ tiền làm tin';
+  static const _goodsDepositReleaseLabel = 'Hoàn tiền làm tin';
+
   const DriverWalletTransaction({
     required this.id,
     required this.type,
@@ -30,6 +34,9 @@ class DriverWalletTransaction {
     required this.availableDelta,
     required this.heldDelta,
     required this.createdAt,
+    this.orderId,
+    this.driverId,
+    this.metadata = const {},
   });
 
   final String id;
@@ -39,6 +46,9 @@ class DriverWalletTransaction {
   final int availableDelta;
   final int heldDelta;
   final DateTime createdAt;
+  final String? orderId;
+  final String? driverId;
+  final Map<String, dynamic> metadata;
 
   factory DriverWalletTransaction.fromJson(Map<String, dynamic> json) {
     int money(Object? value) =>
@@ -50,6 +60,13 @@ class DriverWalletTransaction {
       amount: money(json['amount']),
       availableDelta: money(json['available_delta']),
       heldDelta: money(json['held_delta']),
+      orderId: json['order_id']?.toString(),
+      driverId: json['driver_id']?.toString(),
+      metadata: json['metadata'] is Map
+          ? Map<String, dynamic>.unmodifiable(
+              Map<String, dynamic>.from(json['metadata'] as Map),
+            )
+          : const {},
       createdAt:
           DateTime.tryParse(json['created_at']?.toString() ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
@@ -77,16 +94,22 @@ class DriverWalletTransaction {
   bool get isVisibleInHistory =>
       type != 'cod_advance_capture' || availableDelta < 0;
 
-  String get label => switch (type) {
-    'vnpay_topup' => 'Nạp ví',
-    'cod_hold' => 'Ứng tiền hàng',
-    'cod_release' => 'Hoàn tiền ứng COD',
-    'cod_advance_capture' => 'Ứng tiền khi nhận hàng',
-    'platform_fee_capture' => 'Phí nền tảng (chính sách cũ)',
-    'prepaid_earning' => 'Thu nhập trả trước',
-    'cod_settlement' => 'Thu nhập COD',
-    'return_delivery_earning' => 'Cước giao của đơn hoàn',
-    'return_earning' => 'Phí hoàn hàng',
-    _ => 'Giao dịch ví',
-  };
+  String get label {
+    if (metadata['purpose'] == paidGoodsDepositPurpose) {
+      if (type == 'cod_hold') return _goodsDepositHoldLabel;
+      if (type == 'cod_release') return _goodsDepositReleaseLabel;
+    }
+    return switch (type) {
+      'vnpay_topup' => 'Nạp ví',
+      'cod_hold' => 'Ứng tiền hàng',
+      'cod_release' => 'Hoàn tiền ứng COD',
+      'cod_advance_capture' => 'Ứng tiền khi nhận hàng',
+      'platform_fee_capture' => 'Phí nền tảng (chính sách cũ)',
+      'prepaid_earning' => 'Thu nhập trả trước',
+      'cod_settlement' => 'Thu nhập COD',
+      'return_delivery_earning' => 'Cước giao của đơn hoàn',
+      'return_earning' => 'Phí hoàn hàng',
+      _ => 'Giao dịch ví',
+    };
+  }
 }

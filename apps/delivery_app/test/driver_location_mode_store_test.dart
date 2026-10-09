@@ -20,5 +20,8 @@ void main() {
     await store.save(DriverLocationMode.demoHcm);
 
     expect(await store.load(), DriverLocationMode.demoHcm);
+
+    await store.save(DriverLocationMode.demoCurrentPosition);
+    expect(await store.load(), DriverLocationMode.demoCurrentPosition);
   });
 }

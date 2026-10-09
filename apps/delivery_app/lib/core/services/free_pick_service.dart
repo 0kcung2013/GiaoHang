@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/order_model.dart';
 import 'notification_service.dart';
 import 'order_assignment_service.dart';
+import 'driver_order_acceptance_gateway.dart';
 
 typedef FreePickRpcInvoker =
     Future<dynamic> Function(String functionName, Map<String, dynamic> params);
@@ -122,7 +123,26 @@ class FreePickService {
 
   static FreePickRpcInvoker _defaultRpc(SupabaseClient? client) {
     final supabase = client ?? Supabase.instance.client;
-    return (name, params) => supabase.rpc(name, params: params);
+    return (name, params) async {
+      if (name == 'claim_free_pick_order') {
+        return acceptDriverOrderWithDeadline(
+          supabase,
+          params['p_order_id'] as String,
+          freePick: true,
+        );
+      }
+      if (name == 'get_free_pick_orders_in_view') {
+        final response = await supabase.functions.invoke(
+          'find-free-pick-road-orders',
+          body: params,
+        );
+        if (response.status < 200 || response.status >= 300) {
+          throw const FreePickException('ROAD_ROUTING_UNAVAILABLE');
+        }
+        return response.data;
+      }
+      return supabase.rpc(name, params: params);
+    };
   }
 
   static Map<String, dynamic>? _firstRow(dynamic response) {
@@ -151,7 +171,13 @@ class FreePickService {
       return 'Đơn này đang được đề xuất cho tài xế khác.';
     }
     if (message.contains('FREE_PICK_OUT_OF_RANGE')) {
-      return 'Đơn nằm ngoài phạm vi FreePick tối đa 50 km.';
+      return 'FreePick nhận đơn cách điểm lấy trên 2 km đến 3 km theo đường đi.';
+    }
+    if (message.contains('ROAD_ROUTING_UNAVAILABLE')) {
+      return 'Chưa tính được đường đến điểm lấy hàng. Hãy thử lại sau.';
+    }
+    if (message.contains('ROAD_ROUTE_QUOTE_REQUIRED')) {
+      return 'Vị trí hoặc tuyến đường đã thay đổi. Hãy tìm lại đơn.';
     }
     if (message.contains('DRIVER_LOCATION_STALE')) {
       return 'Vị trí GPS đã cũ. Hãy cập nhật vị trí hiện tại rồi thử lại.';

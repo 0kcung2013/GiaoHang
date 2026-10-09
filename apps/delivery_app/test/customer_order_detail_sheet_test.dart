@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
@@ -17,6 +18,7 @@ import 'package:delivery_app/features/customer/screens/order/dialogs/order_detai
 import 'package:delivery_app/features/customer/screens/order/dialogs/widgets/order_cancel_section.dart';
 import 'package:delivery_app/features/customer/screens/order/dialogs/widgets/order_detail_activity.dart';
 import 'package:delivery_app/features/customer/screens/order/dialogs/widgets/order_detail_header.dart';
+import 'package:delivery_app/features/customer/screens/order/dialogs/widgets/order_tracking_action.dart';
 import 'package:delivery_app/features/customer/screens/order/widgets/order_card_image.dart';
 import 'package:delivery_app/features/order_help/data/customer_support_ticket_repository.dart';
 import 'package:delivery_app/features/risk_reports/data/participant_risk_report_query_repository.dart';
@@ -113,6 +115,7 @@ void main() {
     expect(summaryDecoration.color, isNot(AppColors.bgDark));
 
     expect(find.text('Chi tiết đơn hàng'), findsOneWidget);
+    expect(find.byKey(orderTrackingActionKey), findsOneWidget);
     expect(find.text('GH-2026-001'), findsOneWidget);
     expect(find.text('Đang giao'), findsOneWidget);
     expect(find.text('Bánh kem sinh nhật'), findsOneWidget);
@@ -136,6 +139,72 @@ void main() {
     expect(find.text(OrderDetailStrings.paymentTitle), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'tracking action opens the selected order without typing its code',
+    (tester) async {
+      final order = _order();
+      final router = GoRouter(
+        initialLocation: '/customer-home?tab=orders',
+        routes: [
+          GoRoute(
+            path: '/customer-home',
+            builder: (context, state) {
+              final code = state.uri.queryParameters['code'];
+              return Scaffold(
+                body: code == null
+                    ? TextButton(
+                        onPressed: () => showOrderDetailSheet(
+                          context: context,
+                          customerId: order.customerId,
+                          order: order,
+                          supportRepository: const _EmptySupportRepository(),
+                          riskRepository: const _EmptyRiskRepository(),
+                        ),
+                        child: const Text('Mở chi tiết'),
+                      )
+                    : Text('Đang theo dõi $code'),
+              );
+            },
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            orderItemsProvider.overrideWith((ref, orderId) async => const []),
+            orderStatusLogsProvider.overrideWith(
+              (ref, orderId) async => const [],
+            ),
+            orderDeliveryProofsProvider.overrideWith(
+              (ref, orderId) async => const [],
+            ),
+            assignedDriverProvider.overrideWith((ref, orderId) async => null),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+
+      await tester.tap(find.text('Mở chi tiết'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(orderTrackingActionKey));
+      await tester.pumpAndSettle();
+
+      expect(
+        router.routeInformationProvider.value.uri.queryParameters['tab'],
+        'tracking',
+      );
+      expect(
+        router.routeInformationProvider.value.uri.queryParameters['code'],
+        order.trackingCode,
+      );
+      expect(find.text('Đang theo dõi ${order.trackingCode}'), findsOneWidget);
+      expect(find.byKey(orderDetailSheetKey), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('timeline repairs cached mojibake log instances', (tester) async {
     const expectedTitle = 'Giao hàng thành công';

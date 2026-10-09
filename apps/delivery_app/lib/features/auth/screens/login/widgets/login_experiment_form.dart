@@ -113,6 +113,7 @@ class LoginExperimentFormSurface extends StatelessWidget {
                 label: AuthStrings.email,
                 hint: AuthStrings.emailPlaceholder,
                 icon: Icons.alternate_email_rounded,
+                iconColor: AppColors.info,
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
                 autofillHints: const [AutofillHints.email],
@@ -124,6 +125,7 @@ class LoginExperimentFormSurface extends StatelessWidget {
                 label: AuthStrings.password,
                 hint: AuthStrings.passwordPlaceholder,
                 icon: Icons.lock_outline_rounded,
+                iconColor: AppColors.success,
                 textInputAction: TextInputAction.done,
                 obscureText: obscurePassword,
                 autofillHints: const [AutofillHints.password],
@@ -145,7 +147,9 @@ class LoginExperimentFormSurface extends StatelessWidget {
                           ? Icons.visibility_outlined
                           : Icons.visibility_off_outlined,
                       key: ValueKey(obscurePassword),
-                      color: LoginExperimentTokens.muted,
+                      color: obscurePassword
+                          ? AppColors.info
+                          : LoginExperimentTokens.accent,
                       size: 21,
                     ),
                   ),
@@ -165,7 +169,23 @@ class LoginExperimentFormSurface extends StatelessWidget {
                         ),
                       ),
               ),
-              SizedBox(height: compactVertical ? AppSpacing.md : AppSpacing.xl),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                  // UI placeholder; password recovery will be wired separately.
+                  child: Semantics(
+                    button: true,
+                    enabled: false,
+                    child: Text(
+                      AuthStrings.forgotPassword,
+                      style: AppTextStyles.labelMedium.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
               LoginExperimentPrimaryButton(
                 isBusy: isBusy,
                 onPressed: onEmailSignIn,

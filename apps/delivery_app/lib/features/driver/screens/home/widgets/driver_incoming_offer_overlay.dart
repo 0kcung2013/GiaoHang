@@ -4,15 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/providers/customer_providers.dart';
-import '../../../../../core/utils/order_cargo_utils.dart';
-import '../../../../../core/widgets/order_cargo_info_block.dart';
+import '../../navigation/driver_accepted_order_screen.dart';
 import '../driver_home_strings.dart';
 import '../utils/driver_home_formatters.dart';
-import '../utils/driver_order_distance.dart';
-import 'driver_offer_countdown.dart';
 import 'driver_order_card_components.dart';
-import 'driver_order_distance_summary.dart';
-import 'driver_order_finance_panel.dart';
+import 'driver_incoming_offer_presentation.dart';
+import 'driver_offer_expiry_builder.dart';
+import '../../../cancellation/driver_cancellation_providers.dart';
+import '../../../cancellation/driver_cancellation_strings.dart';
 
 OrderModel? selectIncomingOfferForTab({
   required int tabIndex,
@@ -46,6 +45,29 @@ class _DriverIncomingOfferOverlayState
 
   Future<void> _acceptOrder() async {
     if (_isAccepting || _isTransferring) return;
+    final acceptance = ref
+        .read(driverAcceptanceStateProvider(widget.driverUserId))
+        .valueOrNull;
+    if (acceptance == null || acceptance.isLocked) {
+      _showMessage(DriverCancellationStrings.lockError, isError: true);
+      return;
+    }
+    if (!widget.order.isOfferedToDriverAt(
+      widget.driverUserId,
+      acceptance.now(),
+    )) {
+      _refreshOrders();
+      _showMessage(DriverHomeStrings.offerExpiredAction, isError: true);
+      return;
+    }
+    // Realtime có thể gỡ widget trước khi HTTP trả về; giữ các owner còn sống.
+    final container = ProviderScope.containerOf(context, listen: false);
+    final messenger = ScaffoldMessenger.of(context);
+    final driverUserId = widget.driverUserId;
+    final openAccepted = prepareDriverAcceptedOrderNavigation(
+      context,
+      widget.order.id,
+    );
     setState(() => _isAccepting = true);
     try {
       await ref
@@ -56,12 +78,21 @@ class _DriverIncomingOfferOverlayState
             customerIdHint: widget.order.customerId,
             orderCodeHint: displayOrderCode(widget.order),
           );
-      _refreshOrders();
-      if (mounted) {
-        _showMessage(DriverHomeStrings.incomingOfferAcceptSuccess);
-      }
+      container.invalidate(availableOrdersProvider(driverUserId));
+      container.invalidate(driverOrdersProvider(driverUserId));
+      openAccepted();
     } catch (error) {
-      if (mounted) _showMessage(_errorMessage(error), isError: true);
+      container.invalidate(availableOrdersProvider(driverUserId));
+      container.invalidate(driverOrdersProvider(driverUserId));
+      if (messenger.mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(_errorMessage(error)),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isAccepting = false);
     }
@@ -109,214 +140,42 @@ class _DriverIncomingOfferOverlayState
 
   @override
   Widget build(BuildContext context) {
-    final order = widget.order;
-    final orderCode = displayOrderCode(order);
-
-    return Material(
-      key: const ValueKey('driver-incoming-offer-overlay'),
-      color: AppColors.bgDark,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppColors.bgDark, AppColors.primary],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(AppSpacing.screenH),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight - AppSpacing.screenH * 2,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _OfferHero(orderCode: orderCode),
-                      const SizedBox(height: AppSpacing.xl2),
-                      _OfferCard(
-                        order: order,
-                        pickupDistanceMeters: widget.pickupDistanceMeters,
-                        isAccepting: _isAccepting,
-                        isTransferring: _isTransferring,
-                        onAccept: _acceptOrder,
-                        onTransfer: _transferOrder,
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _OfferHero extends StatelessWidget {
-  const _OfferHero({required this.orderCode});
-
-  final String orderCode;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      liveRegion: true,
-      label: DriverHomeStrings.incomingOfferSemantic(orderCode),
-      child: Column(
-        children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: AppColors.accent,
-              shape: BoxShape.circle,
-              boxShadow: AppShadow.accentGlow,
+    final acceptance = ref
+        .watch(driverAcceptanceStateProvider(widget.driverUserId))
+        .valueOrNull;
+    final blocked = acceptance == null || acceptance.isLocked;
+    return DriverIncomingOfferPresentation(
+      order: widget.order,
+      pickupDistanceMeters: widget.pickupDistanceMeters,
+      now: acceptance?.now,
+      actions: DriverOfferExpiryBuilder(
+        order: widget.order,
+        now: acceptance?.now,
+        builder: (context, expired) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DriverAcceptOrderButton(
+              isLoading: _isAccepting,
+              label: acceptance == null
+                  ? DriverHomeStrings.acceptanceChecking
+                  : blocked
+                  ? DriverCancellationStrings.lockTitle
+                  : expired
+                  ? DriverHomeStrings.offerExpiredAction
+                  : DriverHomeStrings.incomingOfferAccept,
+              onTap: _isAccepting || _isTransferring || blocked || expired
+                  ? null
+                  : _acceptOrder,
             ),
-            child: const Icon(
-              Icons.notifications_active_rounded,
-              color: AppColors.textOnAccent,
-              size: 34,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.xs,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.16),
-              borderRadius: AppRadius.full,
-              border: Border.all(
-                color: AppColors.accent.withValues(alpha: 0.4),
-              ),
-            ),
-            child: Text(
-              DriverHomeStrings.incomingOfferBadge,
-              style: AppTextStyles.labelSmall.copyWith(
-                color: AppColors.accent,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            DriverHomeStrings.incomingOfferTitle,
-            textAlign: TextAlign.center,
-            style: AppTextStyles.displayMedium.copyWith(
-              color: AppColors.textOnDark,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            DriverHomeStrings.incomingOfferSubtitle,
-            textAlign: TextAlign.center,
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.textOnDark.withValues(alpha: 0.72),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OfferCard extends StatelessWidget {
-  const _OfferCard({
-    required this.order,
-    required this.pickupDistanceMeters,
-    required this.isAccepting,
-    required this.isTransferring,
-    required this.onAccept,
-    required this.onTransfer,
-  });
-
-  final OrderModel order;
-  final double? pickupDistanceMeters;
-  final bool isAccepting;
-  final bool isTransferring;
-  final VoidCallback onAccept;
-  final VoidCallback onTransfer;
-
-  @override
-  Widget build(BuildContext context) {
-    final totalDistanceMeters = totalOrderDistanceFromPickup(
-      order: order,
-      pickupDistanceMeters: pickupDistanceMeters,
-    );
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: AppRadius.xl2,
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppShadow.elevated,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            displayOrderCode(order),
-            style: AppTextStyles.mono.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          if (hasCargoInfo(order)) ...[
-            const SizedBox(height: AppSpacing.lg),
-            OrderCargoInfoBlock(
-              key: const ValueKey('driver-incoming-offer-cargo'),
-              order: order,
-              compact: true,
+            const SizedBox(height: AppSpacing.sm),
+            DriverTransferOrderButton(
+              isLoading: _isTransferring,
+              onTap: _isAccepting || _isTransferring || expired
+                  ? null
+                  : _transferOrder,
             ),
           ],
-          const SizedBox(height: AppSpacing.lg),
-          DriverOrderInfoRow(
-            icon: Icons.storefront_rounded,
-            iconColor: AppColors.markerPickup,
-            text: order.pickupAddress,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          DriverOrderInfoRow(
-            icon: Icons.location_on_rounded,
-            iconColor: AppColors.markerDrop,
-            text: order.deliveryAddress,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          DriverOrderDistanceSummary(
-            pickupDistanceMeters: pickupDistanceMeters,
-            totalDistanceMeters: totalDistanceMeters,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          DriverOrderFinancePanel(order: order),
-          if (order.offerExpiresAt != null) ...[
-            const SizedBox(height: AppSpacing.lg),
-            DriverOfferCountdown(expiresAt: order.offerExpiresAt!),
-          ],
-          const SizedBox(height: AppSpacing.xl),
-          DriverAcceptOrderButton(
-            isLoading: isAccepting,
-            label: DriverHomeStrings.incomingOfferAccept,
-            icon: Icons.check_circle_rounded,
-            onTap: isAccepting || isTransferring ? null : onAccept,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          SizedBox(
-            width: double.infinity,
-            child: DriverTransferOrderButton(
-              isLoading: isTransferring,
-              onTap: isAccepting || isTransferring ? null : onTransfer,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

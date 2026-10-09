@@ -10,6 +10,7 @@ import 'features/auth/operations_login_screen.dart';
 import 'features/auth/unauthorized_screen.dart';
 import 'features/risk_reports/screens/support_risk_reports_screen.dart';
 import 'features/support/screens/support_home_screen.dart';
+import 'features/support/screens/support_case_screen.dart';
 import 'features/support_orders/screens/support_orders_screen.dart';
 
 class _OperationsAuthNotifier extends ChangeNotifier {
@@ -73,6 +74,21 @@ GoRouter createOperationsRouter() {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/support-ticket/:id',
+        builder: (_, state) => SupportCaseScreen(
+          key: ValueKey(state.pathParameters['id']),
+          id: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/support-case/:id',
+        builder: (_, state) => SupportCaseScreen(
+          key: ValueKey(state.pathParameters['id']),
+          id: state.pathParameters['id']!,
+          risk: true,
+        ),
+      ),
       GoRoute(path: '/', builder: (_, _) => const SizedBox.shrink()),
       GoRoute(path: '/login', builder: (_, _) => const OperationsLoginScreen()),
       GoRoute(

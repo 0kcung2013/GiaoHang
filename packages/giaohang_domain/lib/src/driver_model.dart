@@ -7,6 +7,7 @@ class DriverModel {
     this.vehicleBrandModel,
     this.vehicleColor,
     required this.isAvailable,
+    this.acceptanceLockedUntil,
     this.currentLat,
     this.currentLng,
     required this.updatedAt,
@@ -42,6 +43,7 @@ class DriverModel {
   final String? vehicleColor;
 
   final bool isAvailable;
+  final DateTime? acceptanceLockedUntil;
   final double? currentLat;
   final double? currentLng;
   final DateTime updatedAt;
@@ -83,6 +85,7 @@ class DriverModel {
     String? vehicleBrandModel,
     String? vehicleColor,
     bool? isAvailable,
+    DateTime? acceptanceLockedUntil,
     double? currentLat,
     double? currentLng,
     DateTime? updatedAt,
@@ -112,6 +115,8 @@ class DriverModel {
       vehicleBrandModel: vehicleBrandModel ?? this.vehicleBrandModel,
       vehicleColor: vehicleColor ?? this.vehicleColor,
       isAvailable: isAvailable ?? this.isAvailable,
+      acceptanceLockedUntil:
+          acceptanceLockedUntil ?? this.acceptanceLockedUntil,
       currentLat: currentLat ?? this.currentLat,
       currentLng: currentLng ?? this.currentLng,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -144,6 +149,7 @@ class DriverModel {
       vehicleBrandModel: json['vehicle_brand_model']?.toString(),
       vehicleColor: json['vehicle_color']?.toString(),
       isAvailable: json['is_available'] as bool? ?? false,
+      acceptanceLockedUntil: _parseDateTime(json['acceptance_locked_until']),
       currentLat: _parseDouble(json['current_lat']),
       currentLng: _parseDouble(json['current_lng']),
       updatedAt:
@@ -211,6 +217,7 @@ class DriverModel {
       'vehicle_brand_model': vehicleBrandModel,
       'vehicle_color': vehicleColor,
       'is_available': isAvailable,
+      'acceptance_locked_until': acceptanceLockedUntil?.toIso8601String(),
       'current_lat': currentLat,
       'current_lng': currentLng,
       'updated_at': updatedAt.toIso8601String(),

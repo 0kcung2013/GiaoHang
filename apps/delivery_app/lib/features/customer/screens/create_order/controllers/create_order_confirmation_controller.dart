@@ -42,6 +42,8 @@ class CreateOrderConfirmationController {
     required String itemDescription,
     required XFile? cargoImage,
     required int codCollectionAmount,
+    required int goodsValue,
+    required DeliveryFeePayer deliveryFeePayer,
     required DeliveryFeeEstimate quote,
   }) async {
     final error = validateOrderDetails(
@@ -81,9 +83,11 @@ class CreateOrderConfirmationController {
       itemCategory: itemCategory,
       itemDescription: itemDescription,
       cargoImage: cargoImage,
-      paymentMethod: 'cash',
-      deliveryFeePayer: DeliveryFeePayer.recipient,
-      goodsValue: 0,
+      paymentMethod: deliveryFeePayer == DeliveryFeePayer.sender
+          ? 'vnpay'
+          : 'cash',
+      deliveryFeePayer: deliveryFeePayer,
+      goodsValue: goodsValue,
       codCollectionAmount: codCollectionAmount,
       deliveryFee: quote.deliveryFee,
       totalPrice: codCollectionAmount + quote.deliveryFee,

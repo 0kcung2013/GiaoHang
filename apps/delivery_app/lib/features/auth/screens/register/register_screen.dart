@@ -7,8 +7,11 @@ import '../../../../core/services/auth_service.dart';
 import '../driver_auth/wizard/driver_register_prefill.dart';
 import '../widgets/auth_form_components.dart';
 import '../widgets/auth_role_selector.dart';
-import '../widgets/auth_shell.dart';
 import '../widgets/auth_strings.dart';
+import 'widgets/register_field.dart';
+import 'widgets/register_role_picker.dart';
+import 'widgets/register_shell.dart';
+import 'widgets/register_submit_button.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -40,6 +43,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _submit() async {
+    if (_loading) return;
     if (!_formKey.currentState!.validate()) return;
 
     if (_role == 'driver') {
@@ -111,21 +115,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AuthShell(
-      title: AuthStrings.registerTitle,
-      subtitle: AuthStrings.registerSubtitle,
+    return RegisterShell(
       onBack: () => context.go('/login'),
       child: AutofillGroup(
         child: Form(
           key: _formKey,
           child: Column(
             children: [
-              AuthRoleSelector(
+              RegisterRolePicker(
                 role: _role,
                 onChanged: (role) => setState(() => _role = role),
               ),
-              const SizedBox(height: AppSpacing.lg),
-              AuthTextField(
+              const SizedBox(height: AppSpacing.xl2),
+              RegisterField(
                 controller: _fullNameController,
                 label: AuthStrings.fullName,
                 icon: Icons.person_outline_rounded,
@@ -135,7 +137,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 validator: _validateName,
               ),
               const SizedBox(height: AppSpacing.md),
-              AuthTextField(
+              RegisterField(
                 controller: _emailController,
                 label: AuthStrings.email,
                 icon: Icons.mail_outline_rounded,
@@ -145,7 +147,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 validator: _validateEmail,
               ),
               const SizedBox(height: AppSpacing.md),
-              AuthTextField(
+              RegisterField(
                 controller: _phoneController,
                 label: AuthStrings.phone,
                 icon: Icons.phone_outlined,
@@ -155,9 +157,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 validator: _validatePhone,
               ),
               const SizedBox(height: AppSpacing.md),
-              AuthTextField(
+              RegisterField(
                 controller: _passwordController,
-                label: '${AuthStrings.password} · ${AuthStrings.passwordHint}',
+                label: AuthStrings.password,
+                hint: AuthStrings.passwordHint,
                 icon: Icons.lock_outline_rounded,
                 textInputAction: TextInputAction.done,
                 obscureText: _obscurePassword,
@@ -167,7 +170,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 suffixIcon: IconButton(
                   onPressed: () =>
                       setState(() => _obscurePassword = !_obscurePassword),
-                  tooltip: _obscurePassword ? 'Hiện mật khẩu' : 'Ẩn mật khẩu',
+                  tooltip: _obscurePassword
+                      ? AuthStrings.showPassword
+                      : AuthStrings.hidePassword,
                   icon: Icon(
                     _obscurePassword
                         ? Icons.visibility_outlined
@@ -176,28 +181,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
               ),
-              if (_role == 'driver') ...[
-                const SizedBox(height: AppSpacing.md),
-                const AuthInfoNote(message: AuthStrings.driverNote),
-              ],
+              AnimatedSize(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : AppDuration.normal,
+                alignment: Alignment.topCenter,
+                child: _role == 'driver'
+                    ? const Padding(
+                        padding: EdgeInsets.only(top: AppSpacing.md),
+                        child: AuthInfoNote(message: AuthStrings.driverNote),
+                      )
+                    : const SizedBox(width: double.infinity),
+              ),
               if (_errorMessage case final message?) ...[
                 const SizedBox(height: AppSpacing.md),
                 AuthErrorBanner(message: message),
               ],
               const SizedBox(height: AppSpacing.xl),
-              AuthPrimaryButton(
-                label: _role == 'driver'
-                    ? AuthStrings.driverNext
-                    : AuthStrings.register,
-                busyLabel: AuthStrings.registering,
-                isBusy: _loading,
+              RegisterSubmitButton(
+                driver: _role == 'driver',
+                busy: _loading,
                 onPressed: _submit,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              AuthSwitchPrompt(
-                prompt: AuthStrings.haveAccount,
-                actionLabel: AuthStrings.backToLogin,
-                onPressed: () => context.go('/login'),
               ),
             ],
           ),

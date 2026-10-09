@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -10,6 +11,7 @@ import '../data/support_ticket_repository.dart';
 import '../dialogs/create_support_ticket_dialog.dart';
 import '../dialogs/support_ticket_detail_dialog.dart';
 import '../models/support_ticket.dart';
+import '../models/support_queue_scope.dart';
 import '../widgets/support_ticket_card.dart';
 import '../widgets/support_ticket_filters.dart';
 import '../widgets/support_ticket_header.dart';
@@ -41,6 +43,7 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
   SupportTicketStatus? _status;
   SupportTicketPriority? _priority;
   String _query = '';
+  SupportQueueScope _scope = SupportQueueScope.active;
   bool _loading = true;
   String? _error;
   bool _isAdmin = false;
@@ -48,20 +51,37 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
   List<SupportTicket> get _filteredTickets {
     final query = _query.trim().toLowerCase();
     final tickets = _tickets.where((ticket) {
-      if (_status != null && ticket.status != _status) return false;
+      if (!_scope.includes(ticket, _currentUserId)) return false;
+      if (_status == SupportTicketStatus.open && ticket.status != _status) {
+        return false;
+      }
+      if (_status == SupportTicketStatus.inProgress &&
+          (ticket.status == SupportTicketStatus.open ||
+              ticket.status.isClosed)) {
+        return false;
+      }
+      if (_status == SupportTicketStatus.resolved && !ticket.status.isClosed) {
+        return false;
+      }
       if (_priority != null && ticket.priority != _priority) return false;
       if (query.isEmpty) return true;
       return ticket.subject.toLowerCase().contains(query) ||
+          (ticket.trackingCode?.toLowerCase().contains(query) ?? false) ||
           ticket.message.toLowerCase().contains(query) ||
           ticket.requesterId.toLowerCase().contains(query) ||
           (ticket.requesterName?.toLowerCase().contains(query) ?? false) ||
           (ticket.orderId?.toLowerCase().contains(query) ?? false);
     }).toList();
     tickets.sort((left, right) {
+      if (_scope == SupportQueueScope.finished) {
+        return right.updatedAt.compareTo(left.updatedAt);
+      }
+      final priority = right.priority.index.compareTo(left.priority.index);
+      if (priority != 0) return priority;
       if (left.responseOverdue != right.responseOverdue) {
         return left.responseOverdue ? -1 : 1;
       }
-      return right.updatedAt.compareTo(left.updatedAt);
+      return left.updatedAt.compareTo(right.updatedAt);
     });
     return tickets;
   }
@@ -121,7 +141,12 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
     }
     try {
       final tickets = await _repository.fetchTickets();
-      if (mounted) setState(() => _tickets = tickets);
+      if (mounted) {
+        setState(() {
+          _tickets = tickets;
+          _error = null;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _error = SupportTicketStrings.loadingError);
     } finally {
@@ -142,7 +167,12 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
   }
 
   Future<void> _openTicket(SupportTicket ticket) async {
-    final changed = await showDialog<bool>(
+    if (widget.repository == null) {
+      await context.push('/support-ticket/${ticket.id}');
+      if (mounted) await _loadTickets(showLoading: false);
+      return;
+    }
+    await showDialog<bool>(
       context: context,
       builder: (_) => SupportTicketDetailDialog(
         ticket: ticket,
@@ -151,7 +181,7 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
         repository: _repository,
       ),
     );
-    if (changed == true) await _loadTickets();
+    if (mounted) await _loadTickets(showLoading: false);
   }
 
   void _showMessage(String message, {bool error = false}) {
@@ -212,19 +242,46 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
                     AppSpacing.lg,
                   ),
                   sliver: SliverToBoxAdapter(
-                    child: SupportTicketFilters(
-                      searchController: _searchController,
-                      status: _status,
-                      priority: _priority,
-                      resultCount: filtered.length,
-                      totalCount: _tickets.length,
-                      onClearFilters: _clearFilters,
-                      onSearchChanged: (value) =>
-                          setState(() => _query = value),
-                      onStatusChanged: (value) =>
-                          setState(() => _status = value),
-                      onPriorityChanged: (value) =>
-                          setState(() => _priority = value),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Wrap(
+                          spacing: AppSpacing.sm,
+                          runSpacing: AppSpacing.sm,
+                          children: [
+                            for (final scope in SupportQueueScope.values)
+                              ChoiceChip(
+                                label: Text(scope.label),
+                                selected: _scope == scope,
+                                onSelected: (_) => setState(() {
+                                  _scope = scope;
+                                  _status = null;
+                                }),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        SupportTicketFilters(
+                          searchController: _searchController,
+                          status: _status,
+                          priority: _priority,
+                          resultCount: filtered.length,
+                          totalCount: _tickets.length,
+                          onClearFilters: _clearFilters,
+                          onSearchChanged: (value) =>
+                              setState(() => _query = value),
+                          onStatusChanged: (value) => setState(() {
+                            _status = value;
+                            if (value == SupportTicketStatus.resolved) {
+                              _scope = SupportQueueScope.finished;
+                            } else if (_scope == SupportQueueScope.finished) {
+                              _scope = SupportQueueScope.active;
+                            }
+                          }),
+                          onPriorityChanged: (value) =>
+                              setState(() => _priority = value),
+                        ),
+                      ],
                     ),
                   ),
                 ),

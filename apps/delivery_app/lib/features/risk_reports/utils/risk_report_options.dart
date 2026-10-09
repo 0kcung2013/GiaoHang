@@ -19,8 +19,8 @@ const _deliveryDelay = RiskReportOption(
 );
 const _suspiciousAddress = RiskReportOption(
   category: RiskCategory.suspiciousAddress,
-  label: 'Địa chỉ bất thường',
-  description: 'Địa chỉ khó xác minh hoặc có dấu hiệu rủi ro.',
+  label: 'Sai / không tìm được địa chỉ',
+  description: 'Địa chỉ sai, không tiếp cận được hoặc có dấu hiệu bất thường.',
 );
 const _contactIssue = RiskReportOption(
   category: RiskCategory.contactIssue,
@@ -48,6 +48,17 @@ const _other = RiskReportOption(
   description: 'Sự cố không nằm trong các lựa chọn trên.',
 );
 
+const _driverContact = RiskReportOption(
+  category: RiskCategory.contactIssue,
+  label: 'Không liên lạc / chưa gặp được',
+  description: 'Người gửi hoặc người nhận không phản hồi, chưa ra bàn giao.',
+);
+const _driverSafety = RiskReportOption(
+  category: RiskCategory.safety,
+  label: 'Tai nạn / mất an toàn',
+  description: 'Tai nạn, đe dọa hoặc nguy cơ với người và hàng hóa.',
+);
+
 List<RiskReportOption> riskOptionsFor(RiskReporterRole role) {
   return switch (role) {
     RiskReporterRole.customer => const [
@@ -59,11 +70,11 @@ List<RiskReportOption> riskOptionsFor(RiskReporterRole role) {
       _other,
     ],
     RiskReporterRole.driver => const [
+      _driverSafety,
       _suspiciousAddress,
-      _contactIssue,
+      _driverContact,
       _cargoIssue,
       _payment,
-      _safety,
       _other,
     ],
     _ => const [],

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
@@ -16,6 +17,7 @@ import 'widgets/order_cancel_section.dart';
 import 'widgets/order_detail_activity.dart';
 import 'widgets/order_detail_header.dart';
 import 'widgets/order_detail_information.dart';
+import 'widgets/order_tracking_action.dart';
 import 'widgets/order_print_label_action.dart';
 import 'widgets/order_risk_report_section.dart';
 
@@ -132,6 +134,10 @@ class _OrderDetailSheetState extends ConsumerState<OrderDetailSheet> {
                     order: order,
                     status: OrderStatusView.fromStatus(order.status),
                   ),
+                  if (order.trackingCode.trim().isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    OrderTrackingAction(onPressed: _openTracking),
+                  ],
                   const SizedBox(height: AppSpacing.md),
                   OrderPrintLabelAction(order: order),
                   const SizedBox(height: AppSpacing.md),
@@ -195,6 +201,14 @@ class _OrderDetailSheetState extends ConsumerState<OrderDetailSheet> {
         );
       },
     );
+  }
+
+  void _openTracking() {
+    final code = widget.order.trackingCode.trim();
+    if (code.isEmpty) return;
+    final router = GoRouter.of(context);
+    Navigator.of(context).pop();
+    router.go('/customer-home?tab=tracking&code=${Uri.encodeComponent(code)}');
   }
 
   void _showCancellationReasonInput() {

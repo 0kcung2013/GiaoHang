@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/utils/vnd_input_formatter.dart';
 import '../controllers/order_finance_form_controller.dart';
-import '../utils/create_order_formatters.dart';
+import '../../../../../core/utils/money_formatter.dart';
 import '../utils/order_payment_strings.dart';
 import 'order_payment_choices.dart';
 import 'order_field_label.dart';
@@ -44,47 +44,57 @@ class CreateOrderPaymentBody extends StatelessWidget {
                       onChanged: controller.setCollectCod,
                     ),
                     const SizedBox(height: AppSpacing.lg),
-                    if (controller.collectCod)
-                      TextFormField(
-                        controller: controller.codCollectionController,
-                        keyboardType: TextInputType.number,
-                        textInputAction: TextInputAction.done,
-                        inputFormatters: const [VndInputFormatter()],
-                        style: AppTextStyles.headingSmall,
-                        autovalidateMode: AutovalidateMode.onUserInteraction,
-                        validator: (value) {
-                          final amount = parseVndInput(value ?? '');
-                          if (amount <= 0) return OrderPaymentText.required;
-                          return amount > 2000000
-                              ? OrderPaymentText.limit
-                              : null;
-                        },
-                        decoration: const InputDecoration(
-                          label: OrderFieldLabel(OrderPaymentText.amount),
-                          hintText: '0',
-                          suffixText: 'đ',
-                          filled: true,
-                          fillColor: AppColors.bgLight,
-                          border: OutlineInputBorder(
-                            borderRadius: AppRadius.md,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: AppRadius.md,
-                            borderSide: BorderSide(color: AppColors.border),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: AppRadius.md,
-                            borderSide: BorderSide(color: AppColors.accent),
-                          ),
+                    TextFormField(
+                      key: ValueKey(controller.collectCod),
+                      controller: controller.collectCod
+                          ? controller.codCollectionController
+                          : controller.goodsValueController,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.done,
+                      inputFormatters: const [VndInputFormatter()],
+                      style: AppTextStyles.headingSmall,
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
+                      validator: (value) {
+                        final amount = parseVndInput(value ?? '');
+                        if (amount <= 0) {
+                          return controller.collectCod
+                              ? OrderPaymentText.required
+                              : OrderPaymentText.goodsValueRequired;
+                        }
+                        return amount > 2000000 ? OrderPaymentText.limit : null;
+                      },
+                      decoration: InputDecoration(
+                        label: OrderFieldLabel(
+                          controller.collectCod
+                              ? OrderPaymentText.amount
+                              : OrderPaymentText.goodsValue,
                         ),
-                      )
-                    else
+                        hintText: '0',
+                        suffixText: 'đ',
+                        filled: true,
+                        fillColor: AppColors.bgLight,
+                        border: const OutlineInputBorder(
+                          borderRadius: AppRadius.md,
+                        ),
+                        enabledBorder: const OutlineInputBorder(
+                          borderRadius: AppRadius.md,
+                          borderSide: BorderSide(color: AppColors.border),
+                        ),
+                        focusedBorder: const OutlineInputBorder(
+                          borderRadius: AppRadius.md,
+                          borderSide: BorderSide(color: AppColors.accent),
+                        ),
+                      ),
+                    ),
+                    if (!controller.collectCod) ...[
+                      const SizedBox(height: AppSpacing.sm),
                       Text(
-                        OrderPaymentText.hint,
+                        OrderPaymentText.depositHint,
                         style: AppTextStyles.bodySmall.copyWith(
                           color: AppColors.textSecondary,
                         ),
                       ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -93,7 +103,9 @@ class CreateOrderPaymentBody extends StatelessWidget {
                     _Amount(label: OrderPaymentText.fee, amount: deliveryFee),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      OrderPaymentText.payer,
+                      controller.collectCod
+                          ? OrderPaymentText.payer
+                          : OrderPaymentText.prepaidPayer,
                       style: AppTextStyles.bodySmall.copyWith(
                         color: AppColors.textSecondary,
                       ),
@@ -108,7 +120,10 @@ class CreateOrderPaymentBody extends StatelessWidget {
                     children: [
                       _Amount(
                         label: OrderPaymentText.total,
-                        amount: controller.codCollectionAmount + deliveryFee,
+                        amount: controller
+                            .financeFor(deliveryFee.round())
+                            .receiverCollectionAmount
+                            .toDouble(),
                       ),
                     ],
                   ),
@@ -159,7 +174,7 @@ class _Amount extends StatelessWidget {
     children: [
       Text(label, style: AppTextStyles.labelMedium),
       Text(
-        formatDeliveryFee(amount),
+        formatVnd(amount.round()),
         style: AppTextStyles.headingSmall.copyWith(color: AppColors.accent),
       ),
     ],

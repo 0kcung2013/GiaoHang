@@ -9,12 +9,12 @@ extension LocationIngestCoordinateSpaceRules on LocationIngestCoordinateSpace {
       this == LocationIngestCoordinateSpace.rawGps;
 }
 
-enum DriverLocationMode { demoHcm, deviceGps }
+enum DriverLocationMode { demoHcm, deviceGps, demoCurrentPosition }
 
 extension DriverLocationModeRules on DriverLocationMode {
   LocationIngestCoordinateSpace get rawGpsCoordinateSpace => switch (this) {
     DriverLocationMode.demoHcm => LocationIngestCoordinateSpace.rawGps,
-    DriverLocationMode.deviceGps =>
+    DriverLocationMode.deviceGps || DriverLocationMode.demoCurrentPosition =>
       LocationIngestCoordinateSpace.mapCoordinates,
   };
 
@@ -28,7 +28,8 @@ extension DriverLocationModeRules on DriverLocationMode {
       lat: lat,
       lng: lng,
     ),
-    DriverLocationMode.deviceGps => LatLng(lat, lng),
+    DriverLocationMode.deviceGps ||
+    DriverLocationMode.demoCurrentPosition => LatLng(lat, lng),
   };
 }
 

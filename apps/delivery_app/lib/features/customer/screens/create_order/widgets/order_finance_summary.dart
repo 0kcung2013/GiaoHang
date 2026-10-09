@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/utils/money_formatter.dart';
 import '../utils/order_form_data.dart';
+import '../utils/order_payment_strings.dart';
 import 'confirmation_components.dart';
 
 class OrderFinanceSummary extends StatelessWidget {
@@ -24,7 +25,9 @@ class OrderFinanceSummary extends StatelessWidget {
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
-                finance.codCollectionAmount > 0 ? 'THU HỘ' : 'KHÔNG THU HỘ',
+                finance.receiverCollectionAmount == 0
+                    ? OrderPaymentText.noCollection
+                    : OrderPaymentText.collect,
                 style: AppTextStyles.labelMedium.copyWith(
                   color: color,
                   fontWeight: FontWeight.w800,
@@ -34,15 +37,24 @@ class OrderFinanceSummary extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.lg),
-        _MoneyLine(
-          label: 'Tài xế ứng cho người gửi',
-          amount: finance.driverAdvanceAmount,
-        ),
-        const SizedBox(height: AppSpacing.sm),
+        if (finance.codCollectionAmount > 0) ...[
+          _MoneyLine(
+            label: OrderPaymentText.goods,
+            amount: finance.codCollectionAmount,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+        if (finance.codCollectionAmount == 0 && finance.goodsValue > 0) ...[
+          _MoneyLine(
+            label: OrderPaymentText.goodsDeposit,
+            amount: finance.goodsValue,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+        ],
         _MoneyLine(label: 'Phí giao hàng', amount: finance.deliveryFee),
         const Divider(height: AppSpacing.xl2, color: AppColors.border),
         _MoneyLine(
-          label: 'Người nhận cần trả',
+          label: OrderPaymentText.total,
           amount: finance.receiverCollectionAmount,
           emphasized: true,
           color: color,

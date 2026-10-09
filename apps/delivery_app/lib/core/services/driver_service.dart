@@ -66,7 +66,7 @@ class DriverService {
       'id, user_id, vehicle_type, license_plate, is_available, current_lat, '
       'current_lng, updated_at, total_deliveries, approval_status, '
       'vehicle_brand_model, vehicle_color, verified_at, submitted_at, '
-      'location_updated_at';
+      'location_updated_at, acceptance_locked_until';
 
   Future<DriverModel?> getDriverById(String driverId) async {
     try {

@@ -59,6 +59,8 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
       await _submitHandoffProof(action: action, confirmation: confirmation);
 
       if (!action.advancesOrderStatusImmediately) {
+        if (!mounted) return;
+        _refreshOrderWallet();
         _simTimer?.cancel();
         _simTimer = null;
         if (!mounted) return;
@@ -72,6 +74,7 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
         _showWorkflowMessage(
           'Đã xác nhận lấy hàng. GPS đang chờ bạn bắt đầu giao.',
         );
+        await _showPickupDepositReceipt();
         return;
       }
 
@@ -157,12 +160,12 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
     final driverId = _currentOrder.driverId ?? '';
     ref.invalidate(availableOrdersProvider(driverId));
     ref.invalidate(driverOrdersProvider(driverId));
-    ref.invalidate(driverWalletSummaryProvider);
-    ref.invalidate(driverWalletTransactionsProvider);
+    _refreshOrderWallet();
     if (!mounted) return;
 
     if (isStartingDelivery &&
         nextStatus == 'delivering' &&
+        !_currentOrder.requiresPaidGoodsDeposit &&
         _currentOrder.driverAdvanceAmount > 0) {
       int? availableBalance = walletBefore == null
           ? null
@@ -200,7 +203,31 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
       await _navSessionsNotifier.remove(deliveredOrder.id);
       await DriverForegroundLocationService.stop();
       if (!mounted) return;
-      await showDriverDeliverySuccessDialog(context);
+      final deposit = await _loadGoodsDeposit(deliveryCompleted: true);
+      if (!mounted) return;
+      await showDriverDeliverySuccessDialog(
+        context,
+        goodsDeposit: deposit,
+        expectsGoodsDeposit: deliveredOrder.requiresPaidGoodsDeposit,
+        driverNetEarning: deliveredOrder.requiresPaidGoodsDeposit
+            ? deliveredOrder.driverNetEarning
+            : null,
+      );
+      if (!mounted) return;
+      // Read server audit events; device time must not decide whether this was late.
+      try {
+        final notice = await DriverLateDeliveryNoticeRepository(
+          Supabase.instance.client,
+        ).forCompletedOrder(deliveredOrder.id);
+        if (!mounted) return;
+        if (notice != null) {
+          await showDriverLateDeliveryNoticeDialog(context, notice);
+        }
+      } catch (_) {
+        _showWorkflowMessage(
+          'Chưa tải được số lần giao muộn. Vui lòng kiểm tra lại kết nối.',
+        );
+      }
       if (!mounted) return;
       await showDriverRateCustomerSheet(
         context: context,
@@ -222,6 +249,7 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
       _totalDistance = null;
       _totalDuration = null;
       _arrivedAtTarget = keepPickupArrival;
+      _routeCompleted = keepPickupArrival && _routeCompleted;
       _pickupConfirmed = false;
       _simRouteIndex = 0;
     });

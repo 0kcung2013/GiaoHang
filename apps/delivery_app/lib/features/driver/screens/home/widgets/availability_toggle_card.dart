@@ -12,6 +12,7 @@ import '../../../../../core/services/driver_service.dart';
 import '../driver_home_strings.dart';
 import 'driver_online_pin_verification_sheet.dart';
 import 'driver_wallet_balance_dialog.dart';
+import 'driver_offline_confirmation_sheet.dart';
 
 bool shouldShowOnlineWalletNotice(String? offeredOrderId) {
   return offeredOrderId == null || offeredOrderId.trim().isEmpty;
@@ -23,10 +24,14 @@ class AvailabilityToggleCard extends ConsumerStatefulWidget {
     super.key,
     required this.driver,
     required this.hasActiveOrder,
+    this.enabled = true,
+    this.disabledReason,
   });
 
   final DriverModel driver;
   final bool hasActiveOrder;
+  final bool enabled;
+  final String? disabledReason;
 
   @override
   ConsumerState<AvailabilityToggleCard> createState() =>
@@ -38,7 +43,9 @@ class _AvailabilityToggleCardState
   bool _isToggling = false;
 
   Future<void> _toggle(bool value) async {
-    if (_isToggling || (widget.hasActiveOrder && !value)) return;
+    if (_isToggling || !widget.enabled) {
+      return;
+    }
     setState(() => _isToggling = true);
 
     try {
@@ -89,7 +96,15 @@ class _AvailabilityToggleCardState
         ref.invalidate(currentPositionProvider);
         ref.invalidate(availableOrdersProvider(widget.driver.userId));
       } else {
+        final confirmed = await showDriverOfflineConfirmationSheet(
+          context,
+          hasActiveOrder: widget.hasActiveOrder,
+        );
+        if (confirmed != true || !mounted) return;
+        // Trạng thái có thể thay đổi trong lúc hộp xác nhận đang mở.
+        if (!widget.enabled) return;
         await ref.read(driverServiceProvider).updateAvailability(false);
+        ref.invalidate(availableOrdersProvider(widget.driver.userId));
       }
 
       ref.invalidate(driverByUserIdProvider(widget.driver.userId));
@@ -145,18 +160,12 @@ class _AvailabilityToggleCardState
   @override
   Widget build(BuildContext context) {
     final isOnline = widget.driver.isAvailable;
-    final isBusy = widget.hasActiveOrder;
-    final isToggleOn = isOnline || isBusy;
-    final statusLabel = isBusy
-        ? DriverHomeStrings.activityBusy
-        : isOnline
-        ? DriverHomeStrings.activityOnline
-        : DriverHomeStrings.activityOffline;
-    final statusColor = isBusy
-        ? AppColors.warning
-        : isOnline
-        ? AppColors.accent
-        : AppColors.textMuted;
+    final statusLabel =
+        widget.disabledReason ??
+        (isOnline
+            ? DriverHomeStrings.activityOnline
+            : DriverHomeStrings.activityOffline);
+    final statusColor = isOnline ? AppColors.accent : AppColors.textSecondary;
 
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -167,7 +176,7 @@ class _AvailabilityToggleCardState
         color: AppColors.bgCard,
         borderRadius: AppRadius.xl,
         border: Border.all(
-          color: isOnline || isBusy
+          color: isOnline
               ? AppColors.accent.withValues(alpha: 0.22)
               : AppColors.border,
         ),
@@ -241,8 +250,8 @@ class _AvailabilityToggleCardState
                     value: statusLabel,
                     child: Switch(
                       key: const ValueKey('switch'),
-                      value: isToggleOn,
-                      onChanged: isBusy ? null : _toggle,
+                      value: isOnline,
+                      onChanged: widget.enabled ? _toggle : null,
                       activeThumbColor: AppColors.textOnAccent,
                       activeTrackColor: AppColors.accent,
                       inactiveThumbColor: AppColors.bgCard,

@@ -3,6 +3,7 @@ import 'package:delivery_app/features/auth/screens/widgets/auth_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 void main() {
   testWidgets('login experiment fits a small phone with large text', (
@@ -36,18 +37,31 @@ void main() {
   });
 
   testWidgets('login experiment adapts to a large screen', (tester) async {
+    var googleSignInCount = 0;
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(1024, 768);
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetPhysicalSize);
 
-    await tester.pumpWidget(const _LoginHarness());
+    await tester.pumpWidget(
+      _LoginHarness(onGoogleSignIn: () => googleSignInCount++),
+    );
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
     expect(find.text(AuthStrings.appName), findsOneWidget);
     expect(find.text(AuthStrings.loginWithGoogle), findsOneWidget);
+    expect(find.byKey(const Key('login-google-icon')), findsOneWidget);
+    final googleMark = tester.widget<SvgPicture>(
+      find.descendant(
+        of: find.byKey(const Key('login-google-icon')),
+        matching: find.byType(SvgPicture),
+      ),
+    );
+    expect(googleMark.bytesLoader, isA<SvgStringLoader>());
     expect(find.text(AuthStrings.registerNow), findsOneWidget);
+    await tester.tap(find.text(AuthStrings.loginWithGoogle));
+    expect(googleSignInCount, 1);
   });
 
   testWidgets('courier hero asset is bundled and intersects the hero', (
@@ -152,9 +166,13 @@ void main() {
 }
 
 class _LoginHarness extends StatelessWidget {
-  const _LoginHarness({this.textScaler = TextScaler.noScaling});
+  const _LoginHarness({
+    this.textScaler = TextScaler.noScaling,
+    this.onGoogleSignIn,
+  });
 
   final TextScaler textScaler;
+  final VoidCallback? onGoogleSignIn;
 
   @override
   Widget build(BuildContext context) {
@@ -173,7 +191,7 @@ class _LoginHarness extends StatelessWidget {
         emailValidator: (_) => null,
         passwordValidator: (_) => null,
         onEmailSignIn: () {},
-        onGoogleSignIn: () {},
+        onGoogleSignIn: onGoogleSignIn ?? () {},
         onTogglePassword: () {},
         onRegister: () {},
         onPasswordSubmitted: (_) {},

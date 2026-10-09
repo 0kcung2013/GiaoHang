@@ -7,6 +7,7 @@ abstract final class OrderDetailStrings {
   static const timelineTitle = 'Hành trình đơn hàng';
   static const noteTitle = 'Ghi chú cho tài xế';
   static const cancelTitle = 'Hủy đơn hàng';
+  static const trackAction = 'Theo dõi đơn';
 
   static const pickup = 'Điểm lấy hàng';
   static const delivery = 'Điểm giao hàng';

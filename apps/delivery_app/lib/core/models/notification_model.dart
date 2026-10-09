@@ -7,6 +7,8 @@ class NotificationModel {
     required this.type,
     required this.isRead,
     this.orderId,
+    this.supportTicketId,
+    this.riskReportId,
     required this.createdAt,
   });
 
@@ -17,6 +19,8 @@ class NotificationModel {
   final String type;
   final bool isRead;
   final String? orderId;
+  final String? supportTicketId;
+  final String? riskReportId;
   final DateTime createdAt;
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
@@ -28,6 +32,8 @@ class NotificationModel {
       type: json['type']?.toString() ?? '',
       isRead: json['is_read'] as bool? ?? false,
       orderId: json['order_id']?.toString(),
+      supportTicketId: json['support_ticket_id']?.toString(),
+      riskReportId: json['risk_report_id']?.toString(),
       createdAt:
           _parseDateTime(json['created_at']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
@@ -43,6 +49,8 @@ class NotificationModel {
       'type': type,
       'is_read': isRead,
       'order_id': orderId,
+      if (supportTicketId != null) 'support_ticket_id': supportTicketId,
+      if (riskReportId != null) 'risk_report_id': riskReportId,
       'created_at': createdAt.toIso8601String(),
     };
   }

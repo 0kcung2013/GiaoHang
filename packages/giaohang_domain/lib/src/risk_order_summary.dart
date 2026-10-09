@@ -15,6 +15,7 @@ class RiskOrderSummary {
     this.driver,
     this.recipientName,
     this.recipientPhone,
+    this.actualPickedUpAt,
   });
 
   final String trackingCode;
@@ -32,6 +33,17 @@ class RiskOrderSummary {
   final RiskContact? driver;
   final String? recipientName;
   final String? recipientPhone;
+  final DateTime? actualPickedUpAt;
+
+  bool get hasPickedUp =>
+      actualPickedUpAt != null ||
+      const [
+        'delivering',
+        'delivered',
+        'return_approved',
+        'returning',
+        'returned',
+      ].contains(status);
 
   factory RiskOrderSummary.fromJson(Map<String, dynamic> json) {
     return RiskOrderSummary(
@@ -50,6 +62,9 @@ class RiskOrderSummary {
       deliveryLat: _optionalDouble(json['delivery_lat']),
       deliveryLng: _optionalDouble(json['delivery_lng']),
       deliveryFee: (json['delivery_fee'] as num?)?.round() ?? 0,
+      actualPickedUpAt: DateTime.tryParse(
+        json['actual_picked_up_at']?.toString() ?? '',
+      ),
     );
   }
 
@@ -69,6 +84,7 @@ class RiskOrderSummary {
     'delivery_lat': deliveryLat,
     'delivery_lng': deliveryLng,
     'delivery_fee': deliveryFee,
+    'actual_picked_up_at': actualPickedUpAt?.toIso8601String(),
   };
 }
 

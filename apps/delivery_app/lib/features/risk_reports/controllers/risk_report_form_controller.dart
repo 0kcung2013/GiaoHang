@@ -3,6 +3,7 @@ import 'package:giaohang_domain/giaohang_domain.dart';
 
 import '../data/risk_report_repository.dart';
 import '../utils/risk_report_strings.dart';
+import '../../driver/screens/navigation/utils/driver_delivery_arrival_strings.dart';
 
 class RiskReportFormState {
   const RiskReportFormState({
@@ -112,6 +113,8 @@ class RiskReportFormController extends ChangeNotifier {
     double? initialLatitude,
     double? initialLongitude,
     this.requireLocation = false,
+    this.requireRecipientEvidence = false,
+    this.canReportRecipient,
   }) : _repository = repository,
        _state = initialLatitude != null && initialLongitude != null
            ? RiskReportFormState(
@@ -124,6 +127,10 @@ class RiskReportFormController extends ChangeNotifier {
   final String orderId;
   final ParticipantRiskReportRepository _repository;
   final bool requireLocation;
+  final bool requireRecipientEvidence;
+  final Future<bool> Function()? canReportRecipient;
+  bool get needsCallEvidence =>
+      requireRecipientEvidence && _state.category == RiskCategory.contactIssue;
   RiskReportFormState _state;
   Future<RiskReportSubmissionResult?>? _inFlight;
 
@@ -174,7 +181,9 @@ class RiskReportFormController extends ChangeNotifier {
     }
     if (_state.step == 1) {
       final descriptionValid = _state.description.trim().length >= 10;
-      final photosValid = _state.photos.length <= 5;
+      final photosValid =
+          _state.photos.length <= 5 &&
+          (!needsCallEvidence || _state.photos.isNotEmpty);
       final locationValid =
           !requireLocation ||
           (_state.latitude != null && _state.longitude != null);
@@ -186,6 +195,8 @@ class RiskReportFormController extends ChangeNotifier {
                 : 'Mô tả cần có ít nhất 10 ký tự.',
             photoError: photosValid
                 ? null
+                : _state.photos.isEmpty
+                ? DriverDeliveryArrivalStrings.evidenceRequired
                 : 'Bạn chỉ có thể chọn tối đa 5 ảnh.',
             locationError: locationValid
                 ? null
@@ -222,9 +233,13 @@ class RiskReportFormController extends ChangeNotifier {
     final locationValid =
         !requireLocation ||
         (_state.latitude != null && _state.longitude != null);
+    final photosValid =
+        _state.photos.length <= 5 &&
+        (!needsCallEvidence || _state.photos.isNotEmpty);
     if (category == null ||
         _state.description.trim().length < 10 ||
-        !locationValid) {
+        !locationValid ||
+        !photosValid) {
       _update(
         _state.copyWith(
           categoryError: category == null ? 'Vui lòng chọn loại sự cố.' : null,
@@ -235,6 +250,12 @@ class RiskReportFormController extends ChangeNotifier {
               ? null
               : RiskReportStrings.locationRequired,
           clearLocationError: locationValid,
+          photoError: photosValid
+              ? null
+              : _state.photos.isEmpty
+              ? DriverDeliveryArrivalStrings.evidenceRequired
+              : 'Bạn chỉ có thể chọn tối đa 5 ảnh.',
+          clearPhotoError: photosValid,
         ),
       );
       return null;
@@ -248,6 +269,7 @@ class RiskReportFormController extends ChangeNotifier {
       ),
     );
     try {
+      if (!await checkRecipientWait()) return null;
       final result = await _repository.submit(
         ParticipantRiskReportDraft(
           orderId: orderId,
@@ -283,5 +305,25 @@ class RiskReportFormController extends ChangeNotifier {
   void _update(RiskReportFormState value) {
     _state = value;
     notifyListeners();
+  }
+
+  Future<bool> checkRecipientWait() async {
+    if (!needsCallEvidence) return true;
+    try {
+      final allowed = await canReportRecipient?.call() ?? false;
+      if (!allowed) {
+        _update(
+          _state.copyWith(
+            errorMessage: DriverDeliveryArrivalStrings.waitRequired,
+          ),
+        );
+      }
+      return allowed;
+    } catch (_) {
+      _update(
+        _state.copyWith(errorMessage: DriverDeliveryArrivalStrings.retry),
+      );
+      return false;
+    }
   }
 }

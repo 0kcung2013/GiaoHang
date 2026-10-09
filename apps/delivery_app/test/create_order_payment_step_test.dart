@@ -44,17 +44,20 @@ void main() {
       );
       expect(find.text('145.000đ'), findsOneWidget);
       await tester.scrollUntilVisible(
-        find.text('Không thu hộ'),
+        find.text('Đã thanh toán'),
         -150,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text('Không thu hộ'));
+      await tester.tap(find.text('Đã thanh toán'));
       await tester.pump();
       expect(controller.codCollectionAmount, 0);
       expect(key.currentState!.validate(), isTrue);
       expect(find.byType(TextFormField), findsNothing);
       expect(find.text('145.000đ'), findsNothing);
-      await tester.tap(find.text('Thu hộ'));
+      expect(find.text('0đ'), findsOneWidget);
+      expect(controller.financeFor(25000).receiverCollectionAmount, 0);
+      expect(controller.financeFor(25000).senderVnpayAmount, 25000);
+      await tester.tap(find.text('Thanh toán khi nhận hàng'));
       await tester.pump();
       expect(controller.codCollectionAmount, 120000);
       await tester.enterText(find.byType(TextFormField), '2500000');

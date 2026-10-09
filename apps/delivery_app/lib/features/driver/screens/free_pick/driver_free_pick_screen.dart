@@ -1,3 +1,4 @@
+import '../navigation/driver_accepted_order_screen.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -8,11 +9,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 
+import '../../../../core/location/driver_location_producer_policy.dart';
 import '../../../../core/models/order_model.dart';
 import '../../../../core/providers/customer_providers.dart';
 import '../../../../core/providers/driver_wallet_providers.dart';
 import '../../../../core/providers/location_providers.dart';
 import '../../../../core/services/free_pick_service.dart';
+import '../home/utils/driver_dashboard_location.dart';
 import '../home/utils/driver_home_formatters.dart';
 import '../home/widgets/driver_state_widgets.dart';
 import 'free_pick_providers.dart';
@@ -21,6 +24,8 @@ import 'utils/free_pick_wallet_refresh.dart';
 import 'widgets/free_pick_map_canvas.dart';
 import 'widgets/free_pick_order_carousel.dart';
 import 'widgets/free_pick_status_overlay.dart';
+import '../../cancellation/driver_cancellation_providers.dart';
+import '../../cancellation/driver_cancellation_strings.dart';
 
 class DriverFreePickScreen extends ConsumerStatefulWidget {
   const DriverFreePickScreen({super.key});
@@ -33,11 +38,13 @@ class DriverFreePickScreen extends ConsumerStatefulWidget {
 class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
   final _mapController = MapController();
   Timer? _searchDebounce;
+  Timer? _routeRefresh;
   List<OrderModel> _viewportOrders = const [];
   List<OrderModel> _orders = const [];
   OrderModel? _selectedOrder;
   FreePickViewport? _lastViewport;
   LatLng? _driverPosition;
+  DriverLocationMode? _locationMode;
   bool _isEnabled = false;
   bool _isLoading = false;
   bool _isClaiming = false;
@@ -47,8 +54,24 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _routeRefresh = Timer.periodic(const Duration(seconds: 25), (_) {
+      final viewport = _lastViewport;
+      if (_isEnabled &&
+          !_isLoading &&
+          !_isClaiming &&
+          _radiusMeters > freePickDefaultRadiusMeters &&
+          viewport != null) {
+        unawaited(_loadViewport(viewport));
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _searchDebounce?.cancel();
+    _routeRefresh?.cancel();
     _mapController.dispose();
     super.dispose();
   }
@@ -75,6 +98,9 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
     }
 
     final driverAsync = ref.watch(driverByUserIdProvider(user.id));
+    final acceptance = ref
+        .watch(driverAcceptanceStateProvider(user.id))
+        .valueOrNull;
     return driverAsync.when(
       loading: () => const DriverLoadingState(),
       error: (_, _) => DriverErrorState(
@@ -85,15 +111,29 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
         final ordersAsync = ref.watch(driverOrdersProvider(driver.userId));
         final offersAsync = ref.watch(availableOrdersProvider(driver.userId));
         final currentPosition = ref.watch(currentPositionProvider).valueOrNull;
-        final position = currentPosition == null
-            ? null
-            : LatLng(currentPosition.latitude, currentPosition.longitude);
+        final locationMode = ref.watch(driverLocationModeProvider);
+        final position = resolveDriverDashboardPosition(
+          locationMode: locationMode,
+          email: user.email,
+          rawLat: currentPosition?.latitude,
+          rawLng: currentPosition?.longitude,
+          storedLat: driver.currentLat,
+          storedLng: driver.currentLng,
+        );
         final hasActiveOrder =
             ordersAsync.valueOrNull?.any(isActiveDriverOrder) ?? false;
         final hasActiveOffer = offersAsync.valueOrNull?.isNotEmpty ?? false;
         final enabled =
-            driver.isAvailable && !hasActiveOrder && !hasActiveOffer;
-        _syncRuntimeState(position: position, enabled: enabled);
+            driver.isAvailable &&
+            !hasActiveOrder &&
+            !hasActiveOffer &&
+            acceptance != null &&
+            !acceptance.isLocked;
+        _syncRuntimeState(
+          position: position,
+          locationMode: locationMode,
+          enabled: enabled,
+        );
 
         return Stack(
           children: [
@@ -120,7 +160,9 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
                   isLoading: _isLoading,
                   isEnabled: enabled,
                   radiusMeters: _radiusMeters,
-                  error: _error,
+                  error: acceptance?.isLocked == true
+                      ? DriverCancellationStrings.lockError
+                      : _error,
                 ),
               ),
             ),
@@ -143,14 +185,36 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
     );
   }
 
-  void _syncRuntimeState({required LatLng? position, required bool enabled}) {
+  void _syncRuntimeState({
+    required LatLng? position,
+    required DriverLocationMode locationMode,
+    required bool enabled,
+  }) {
+    final modeChanged = _locationMode != null && _locationMode != locationMode;
+    _locationMode = locationMode;
+    if (modeChanged) {
+      // Kết quả và request ở vùng GPS cũ không được dùng cho chế độ mới.
+      _searchDebounce?.cancel();
+      ++_requestSerial;
+      _viewportOrders = const [];
+      _orders = const [];
+      _selectedOrder = null;
+      _lastViewport = null;
+      _isLoading = false;
+      _error = null;
+      _didCenterOnce = false;
+    }
     _driverPosition = position;
     _isEnabled = enabled;
     if (position != null && !_didCenterOnce) {
       _didCenterOnce = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _mapController.move(position, FreePickMapCanvas.overviewZoom);
+          if (modeChanged) {
+            _fitSearchRadius();
+          } else {
+            _mapController.move(position, FreePickMapCanvas.overviewZoom);
+          }
         }
       });
     }
@@ -213,7 +277,17 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
   Future<void> _locateDriver() async {
     final raw = await ref.refresh(currentPositionProvider.future);
     if (!mounted) return;
-    final position = raw == null ? null : LatLng(raw.latitude, raw.longitude);
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    final driver = ref.read(driverByUserIdProvider(user.id)).valueOrNull;
+    final position = resolveDriverDashboardPosition(
+      locationMode: ref.read(driverLocationModeProvider),
+      email: user.email,
+      rawLat: raw?.latitude,
+      rawLng: raw?.longitude,
+      storedLat: driver?.currentLat,
+      storedLng: driver?.currentLng,
+    );
     if (position == null) {
       _showMessage('Chưa xác định được vị trí tài xế.', isError: true);
       return;
@@ -316,6 +390,7 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
     setState(() => _isClaiming = true);
     try {
       await ref.read(freePickServiceProvider).claimOrder(order.id);
+      if (mounted) openDriverAcceptedOrder(context, order.id);
       ref.invalidate(driverOrdersProvider(userId));
       ref.invalidate(availableOrdersProvider(userId));
       if (!mounted) return;

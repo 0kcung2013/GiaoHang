@@ -50,3 +50,26 @@ function point(orderId, lat, lng) {
     created_at: "2026-09-18T08:00:00.000Z",
   };
 }
+
+test("retrying the same GPS batch uses one stable object key dated by its GPS sample", async () => {
+  const keys = [];
+  const env = {
+    GPS_INGEST_SECRET: "gps-secret-long-enough-for-test",
+    GPS_BUCKET: { async put(key) { keys.push(key); } },
+    ALLOWED_ORIGINS: "",
+  };
+  const body = {
+    batch_id: "a".repeat(64),
+    points: [point("order-retry", 10.8, 106.7)],
+  };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await worker.fetch(new Request("https://gateway.test/v1/gps/chunks", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-gps-ingest-secret": env.GPS_INGEST_SECRET },
+      body: JSON.stringify(body),
+    }), env);
+    assert.equal(response.status, 201);
+  }
+  assert.equal(keys[0], keys[1]);
+  assert.equal(keys[0], `orders/order-retry/gps/2026/09/18/${body.batch_id}.jsonl.gz`);
+});

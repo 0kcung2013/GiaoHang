@@ -1,14 +1,15 @@
 class DriverAccountStrings {
   const DriverAccountStrings._();
 
-  static const profileEyebrow = 'HỒ SƠ TÀI XẾ';
   static const verified = 'ĐÃ XÁC MINH';
   static const pending = 'ĐANG XÉT DUYỆT';
   static const rejected = 'CẦN BỔ SUNG';
   static const deliveries = 'Chuyến giao';
-  static const availability = 'Nhận đơn';
-  static const enabled = 'Bật';
-  static const disabled = 'Tắt';
+  static const availabilityEnabled = 'Đang nhận đơn';
+  static const availabilityDisabled = 'Tạm ngưng nhận đơn';
+  static const verificationSummary = 'giấy tờ đã cập nhật';
+  static const profileProtectionNote =
+      'Thay đổi thông tin sẽ được Admin phê duyệt.';
 
   static const vehicleTitle = 'Phương tiện';
   static const vehicleFallback = 'Chưa cập nhật phương tiện';
@@ -18,8 +19,6 @@ class DriverAccountStrings {
   static const notUpdated = 'Chưa cập nhật';
 
   static const verificationTitle = 'Hồ sơ xác minh';
-  static const verificationMessage =
-      'Thông tin đã gửi cho hệ thống để bảo vệ tài khoản.';
   static const identityCard = 'Căn cước công dân';
   static const driverLicense = 'Giấy phép lái xe';
   static const vehiclePhoto = 'Ảnh phương tiện';
@@ -30,12 +29,9 @@ class DriverAccountStrings {
   static const email = 'Email';
   static const phone = 'Số điện thoại';
   static const profileCode = 'Mã hồ sơ';
-  static const readOnlyTitle = 'Thông tin đã đăng ký';
-  static const readOnlyMessage =
-      'Mọi thay đổi hồ sơ đều được gửi thành yêu cầu và chỉ có Admin phê duyệt.';
-  static const protectedInformation = 'Thông tin được bảo vệ';
 
   static const loadError = 'Chưa đồng bộ đủ thông tin tài xế.';
+  static const loadingProfile = 'Đang tải hồ sơ tài xế…';
   static const retry = 'Thử lại';
   static const signOut = 'Đăng xuất';
   static const signingOut = 'Đang đăng xuất...';

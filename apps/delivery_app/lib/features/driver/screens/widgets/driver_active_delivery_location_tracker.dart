@@ -50,6 +50,7 @@ class _DriverActiveDeliveryLocationTrackerState
     if (driver == null || activeOrder == null) return const SizedBox.shrink();
 
     final session = ref.watch(driverNavSessionsProvider)[activeOrder.id];
+    final locationMode = ref.watch(driverLocationModeProvider);
     final isNavigationMapOpen =
         ref.watch(activeDriverNavigationOrderProvider) == activeOrder.id;
     final hasRestoredNavigationSession =
@@ -57,15 +58,18 @@ class _DriverActiveDeliveryLocationTrackerState
         session.canRestoreFor(
           activeOrderId: activeOrder.id,
           activeStatus: activeOrder.status,
+          activeLocationMode: locationMode,
         );
     final canSimulateMovement = DriverDeliveryWorkflow.canSimulateMovement(
       status: activeOrder.status,
       pickupConfirmed: session?.pickupConfirmed ?? false,
       arrivedAtTarget: session?.arrivedAtTarget ?? false,
+      routeCompleted: session?.routeCompleted ?? false,
     );
     final shouldRunDemoPublisher =
-        kIsWeb &&
         DriverActiveDeliveryTrackingPolicy.shouldRunDemoPublisher(
+          isWeb: kIsWeb,
+          locationMode: locationMode,
           isNavigationMapOpen: isNavigationMapOpen,
           hasRestoredNavigationSession: hasRestoredNavigationSession,
           canSimulateMovement: canSimulateMovement,
@@ -84,6 +88,8 @@ class _DriverActiveDeliveryLocationTrackerState
     _stopDemoPublisher();
 
     if (!DriverActiveDeliveryTrackingPolicy.shouldUseLiveGps(
+      isWeb: kIsWeb,
+      locationMode: locationMode,
       isNavigationMapOpen: isNavigationMapOpen,
       hasRestoredNavigationSession: hasRestoredNavigationSession,
     )) {
@@ -146,6 +152,7 @@ class _DriverActiveDeliveryLocationTrackerState
             status: request.order.status,
             pickupConfirmed: request.session.pickupConfirmed,
             arrivedAtTarget: request.session.arrivedAtTarget,
+            routeCompleted: request.session.routeCompleted,
           ),
       onPosition: (position, nextIndex, reachedEnd) {
         unawaited(
@@ -198,6 +205,7 @@ class _DriverActiveDeliveryLocationTrackerState
             lng: position.longitude,
             simRouteIndex: nextRouteIndex,
             arrivedAtTarget: reachedEnd || request.session.arrivedAtTarget,
+            routeCompleted: reachedEnd || request.session.routeCompleted,
             updatedAt: DateTime.now().toUtc(),
           ),
         );

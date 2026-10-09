@@ -34,12 +34,12 @@ void main() {
           child: Column(
             children: const [
               DriverAccountProfileHero(data: data),
-              SizedBox(height: 24),
-              DriverVehicleCard(data: data),
-              SizedBox(height: 24),
-              DriverVerificationCard(data: data),
-              SizedBox(height: 24),
+              SizedBox(height: 16),
               DriverContactCard(data: data),
+              SizedBox(height: 16),
+              DriverVehicleCard(data: data),
+              SizedBox(height: 16),
+              DriverVerificationCard(data: data),
             ],
           ),
         ),
@@ -51,6 +51,7 @@ void main() {
     expect(find.text('ĐÃ XÁC MINH'), findsOneWidget);
     expect(find.text('Honda Air Blade'), findsOneWidget);
     expect(find.text('59-X1 123.45'), findsOneWidget);
+    expect(find.text('2/3 giấy tờ đã cập nhật'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -78,6 +79,39 @@ void main() {
       expect(find.byIcon(Icons.star_rounded), findsNothing);
       expect(find.text('4.9'), findsNothing);
       expect(find.text('Yêu cầu chỉnh sửa hồ sơ'), findsOneWidget);
+    },
+  );
+
+  testWidgets('verification details expand from the compact summary', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _testApp(
+        const SingleChildScrollView(child: DriverVerificationCard(data: data)),
+        textScale: 1.6,
+      ),
+    );
+
+    expect(find.text('2/3 giấy tờ đã cập nhật'), findsOneWidget);
+    await tester.tap(find.text('Hồ sơ xác minh'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Căn cước công dân'), findsOneWidget);
+    expect(find.text('Giấy phép lái xe'), findsOneWidget);
+    expect(find.text('Ảnh phương tiện'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'profile loading does not present fallback metrics as real data',
+    (tester) async {
+      await tester.pumpWidget(
+        _testApp(const DriverAccountProfileHero(data: data, isLoading: true)),
+      );
+
+      expect(find.text('Đang tải hồ sơ tài xế…'), findsOneWidget);
+      expect(find.text('128 Chuyến giao'), findsNothing);
+      expect(find.text('ĐÃ XÁC MINH'), findsNothing);
     },
   );
 

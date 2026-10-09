@@ -4,18 +4,42 @@ import 'package:giaohang_design/giaohang_design.dart';
 import '../constants/support_ticket_strings.dart';
 import '../models/support_ticket.dart';
 import '../utils/support_ticket_ui.dart';
+import '../widgets/support_record_picker.dart';
 
 Future<SupportTicketDraft?> showCreateSupportTicketDialog(
-  BuildContext context,
-) => showDialog<SupportTicketDraft>(
+  BuildContext context, {
+  String? requesterId,
+  String? requesterLabel,
+  String? orderId,
+  String? orderLabel,
+  String? subject,
+}) => showDialog<SupportTicketDraft>(
   context: context,
   barrierDismissible: false,
   barrierColor: AppColors.primary.withValues(alpha: 0.46),
-  builder: (_) => const CreateSupportTicketDialog(),
+  builder: (_) => CreateSupportTicketDialog(
+    requesterId: requesterId,
+    requesterLabel: requesterLabel,
+    orderId: orderId,
+    orderLabel: orderLabel,
+    subject: subject,
+  ),
 );
 
 class CreateSupportTicketDialog extends StatefulWidget {
-  const CreateSupportTicketDialog({super.key});
+  const CreateSupportTicketDialog({
+    this.requesterId,
+    this.requesterLabel,
+    this.orderId,
+    this.orderLabel,
+    this.subject,
+    super.key,
+  });
+  final String? requesterId;
+  final String? requesterLabel;
+  final String? orderId;
+  final String? orderLabel;
+  final String? subject;
 
   @override
   State<CreateSupportTicketDialog> createState() =>
@@ -29,6 +53,14 @@ class _CreateSupportTicketDialogState extends State<CreateSupportTicketDialog> {
   final _subject = TextEditingController();
   final _message = TextEditingController();
   SupportTicketPriority _priority = SupportTicketPriority.normal;
+
+  @override
+  void initState() {
+    super.initState();
+    _requester.text = widget.requesterId ?? '';
+    _order.text = widget.orderId ?? '';
+    _subject.text = widget.subject ?? '';
+  }
 
   @override
   void dispose() {
@@ -63,23 +95,17 @@ class _CreateSupportTicketDialogState extends State<CreateSupportTicketDialog> {
                   key: _formKey,
                   child: Column(
                     children: [
-                      TextFormField(
-                        controller: _requester,
-                        decoration: _fieldDecoration(
-                          label: 'Mã người yêu cầu *',
-                          hint: 'UUID khách hàng hoặc tài xế',
-                          icon: Icons.person_outline_rounded,
-                        ),
-                        validator: _required,
+                      SupportRecordPicker(
+                        initialId: widget.requesterId,
+                        initialLabel: widget.requesterLabel,
+                        onSelected: (id) => _requester.text = id ?? '',
                       ),
                       const SizedBox(height: AppSpacing.md),
-                      TextFormField(
-                        controller: _order,
-                        decoration: _fieldDecoration(
-                          label: 'Mã đơn hàng',
-                          hint: 'Tùy chọn',
-                          icon: Icons.inventory_2_outlined,
-                        ),
+                      SupportRecordPicker(
+                        order: true,
+                        initialId: widget.orderId,
+                        initialLabel: widget.orderLabel,
+                        onSelected: (id) => _order.text = id ?? '',
                       ),
                       const SizedBox(height: AppSpacing.md),
                       TextFormField(

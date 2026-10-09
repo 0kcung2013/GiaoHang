@@ -150,7 +150,11 @@ class RiskReportActionBar extends StatelessWidget {
                       ),
                     ),
                     icon: Icon(RiskReportUi.statusIcon(primaryTransition)),
-                    label: Text(RiskReportUi.statusLabel(primaryTransition)),
+                    label: Text(
+                      primaryTransition == RiskStatus.resolved
+                          ? 'Kết thúc'
+                          : 'Mở lại',
+                    ),
                   ),
                 ),
                 if (secondaryTransitions.isNotEmpty) ...[

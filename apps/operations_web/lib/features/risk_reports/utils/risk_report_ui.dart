@@ -63,12 +63,12 @@ class RiskReportUi {
 
   static String statusLabel(RiskStatus status) => switch (status) {
     RiskStatus.open => 'Mới',
-    RiskStatus.investigating => 'Đang xác minh',
-    RiskStatus.actionRequired => 'Cần hành động',
-    RiskStatus.waitingCustomer => 'Chờ khách phản hồi',
-    RiskStatus.waitingAdmin => 'Chờ Admin',
-    RiskStatus.resolved => 'Đã xử lý',
-    RiskStatus.dismissed => 'Không rủi ro',
+    RiskStatus.investigating => 'Đang xử lý',
+    RiskStatus.actionRequired => 'Đang xử lý',
+    RiskStatus.waitingCustomer => 'Đang xử lý',
+    RiskStatus.waitingAdmin => 'Đang xử lý',
+    RiskStatus.resolved => 'Kết thúc',
+    RiskStatus.dismissed => 'Kết thúc',
   };
 
   static Color statusColor(RiskStatus status) => switch (status) {

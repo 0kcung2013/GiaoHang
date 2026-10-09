@@ -139,11 +139,11 @@ void main() {
     );
 
     expect(find.text('Đang xác minh'), findsNothing);
-    await tester.tap(find.text('Nhận và bắt đầu xác minh'));
+    await tester.tap(find.text('Nhận xử lý'));
     expect(assigned, isTrue);
   });
 
-  testWidgets('action bar moves secondary transitions into an overflow menu', (
+  testWidgets('action bar exposes one direct finish action', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(720, 240);
@@ -160,8 +160,6 @@ void main() {
             unassigned: false,
             submitting: false,
             transitions: const [
-              RiskStatus.actionRequired,
-              RiskStatus.waitingCustomer,
               RiskStatus.resolved,
             ],
             onAssign: () {},
@@ -171,16 +169,14 @@ void main() {
       ),
     );
 
-    expect(find.text('Cần hành động'), findsOneWidget);
+    expect(find.text('Kết thúc'), findsOneWidget);
     expect(find.text('Chờ khách phản hồi'), findsNothing);
-    expect(find.text('Trạng thái khác'), findsOneWidget);
+    expect(find.text('Trạng thái khác'), findsNothing);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.text('Trạng thái khác'));
+    await tester.tap(find.text('Kết thúc'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Chờ khách phản hồi'));
-    await tester.pumpAndSettle();
-    expect(selected, RiskStatus.waitingCustomer);
+    expect(selected, RiskStatus.resolved);
   });
 
   testWidgets('prioritizes overdue triage reports in the queue', (

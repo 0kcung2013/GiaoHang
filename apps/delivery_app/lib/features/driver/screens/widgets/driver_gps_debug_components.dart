@@ -100,14 +100,20 @@ class DriverGpsDemoBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUsingDeviceGps = locationMode == DriverLocationMode.deviceGps;
-    final title = isUsingDeviceGps
+    final isCurrentDemo =
+        locationMode == DriverLocationMode.demoCurrentPosition;
+    final title = isCurrentDemo
+        ? 'Đang mô phỏng từ vị trí hiện tại'
+        : isUsingDeviceGps
         ? 'Đang dùng vị trí hiện tại'
         : hasOffset
         ? 'Chế độ demo đang bật'
         : isDemoAccount
         ? 'Offset demo đang tắt'
         : 'Đang dùng GPS thực tế';
-    final description = isUsingDeviceGps
+    final description = isCurrentDemo
+        ? 'Xe sẽ tự chạy theo tuyến từ GPS hiện tại khi bắt đầu chặng.'
+        : isUsingDeviceGps
         ? 'Tuyến đường và khoảng cách sẽ tính từ GPS thiết bị.'
         : hasOffset
         ? 'Tài khoản này lệch ${(offsetMeters / 1000).toStringAsFixed(1)} km '
@@ -115,7 +121,9 @@ class DriverGpsDemoBanner extends StatelessWidget {
         : isDemoAccount
         ? 'Tài khoản demo hiện chưa được dịch chuyển vị trí.'
         : 'Tài khoản này không có offset vị trí.';
-    final color = isUsingDeviceGps
+    final color = isCurrentDemo
+        ? AppColors.accent
+        : isUsingDeviceGps
         ? AppColors.info
         : hasOffset
         ? AppColors.accent
@@ -134,7 +142,9 @@ class DriverGpsDemoBanner extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            isUsingDeviceGps
+            isCurrentDemo
+                ? Icons.route_rounded
+                : isUsingDeviceGps
                 ? Icons.my_location_rounded
                 : hasOffset
                 ? Icons.compare_arrows_rounded

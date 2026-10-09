@@ -36,6 +36,31 @@ void main() {
       },
     );
 
+    test('device GPS keeps moving inside the arrival radius', () {
+      const target = LatLng(10.0, 106.0);
+      const firstFix = LatLng(10.0008, 106.0);
+      const nextFix = LatLng(10.0004, 106.0);
+
+      expect(
+        DriverArrivalPolicy.resolveArrival(
+          status: 'delivering',
+          current: firstFix,
+          target: target,
+          source: DriverPositionSource.deviceGps,
+        ),
+        firstFix,
+      );
+      expect(
+        DriverArrivalPolicy.resolveArrival(
+          status: 'delivering',
+          current: nextFix,
+          target: target,
+          source: DriverPositionSource.deviceGps,
+        ),
+        nextFix,
+      );
+    });
+
     test('simulation and restored sessions use map coordinates as-is', () {
       expect(
         DriverPositionSource.simulation.ingestCoordinateSpace,
@@ -86,6 +111,34 @@ void main() {
       expect(restored.arrivedAtTarget, isTrue);
       expect(restored.pickupConfirmed, isTrue);
       expect(restored.updatedAt, now.subtract(const Duration(minutes: 5)));
+    });
+
+    test('switching GPS mode discards a position from the previous mode', () {
+      final session = DriverNavSession(
+        orderId: 'order-1',
+        status: 'picking_up',
+        lat: 10.8,
+        lng: 106.7,
+        locationMode: DriverLocationMode.deviceGps,
+      );
+      final restored = DriverNavSession.fromJson(session.toJson());
+
+      expect(
+        restored.canRestoreFor(
+          activeOrderId: 'order-1',
+          activeStatus: 'picking_up',
+          activeLocationMode: DriverLocationMode.demoCurrentPosition,
+        ),
+        isFalse,
+      );
+      expect(
+        restored.canRestoreFor(
+          activeOrderId: 'order-1',
+          activeStatus: 'picking_up',
+          activeLocationMode: DriverLocationMode.deviceGps,
+        ),
+        isTrue,
+      );
     });
 
     test('an arrived session is hydrated from persistent storage', () async {

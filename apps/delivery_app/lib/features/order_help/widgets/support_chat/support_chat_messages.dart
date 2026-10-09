@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
+import '../../../../core/widgets/stored_media_image.dart';
 
 class SupportChatMessages extends StatelessWidget {
   const SupportChatMessages({
@@ -8,6 +9,7 @@ class SupportChatMessages extends StatelessWidget {
     required this.requesterId,
     required this.scrollController,
     this.pendingBody,
+    this.guidance,
     super.key,
   });
 
@@ -15,6 +17,7 @@ class SupportChatMessages extends StatelessWidget {
   final String requesterId;
   final ScrollController scrollController;
   final String? pendingBody;
+  final String? guidance;
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +51,11 @@ class SupportChatMessages extends StatelessWidget {
       ),
       children: [
         const _WelcomeMessage(),
+        if (guidance != null)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.md),
+            child: Text(guidance!, style: AppTextStyles.bodyMedium),
+          ),
         if (items.isNotEmpty) const SizedBox(height: AppSpacing.lg),
         for (var index = 0; index < items.length; index++) ...[
           if (_startsNewDay(items, index))
@@ -131,7 +139,7 @@ class _MessageBubble extends StatelessWidget {
         ? message.senderName!
         : 'CSKH';
     return Semantics(
-      label: '$label: ${message.body}',
+      label: '$label: ${CaseMessageContent.decode(message.body).text}',
       child: Row(
         mainAxisAlignment: mine
             ? MainAxisAlignment.end
@@ -177,9 +185,9 @@ class _MessageBubble extends StatelessWidget {
                     border: mine ? null : Border.all(color: AppColors.border),
                     boxShadow: mine ? null : AppShadow.subtle,
                   ),
-                  child: Text(
+                  child: _messageContent(
                     message.body,
-                    style: AppTextStyles.bodyMedium.copyWith(
+                    AppTextStyles.bodyMedium.copyWith(
                       color: mine
                           ? AppColors.textOnAccent
                           : AppColors.textPrimary,
@@ -238,11 +246,9 @@ class _PendingMessageBubble extends StatelessWidget {
                 bottomRight: Radius.circular(5),
               ),
             ),
-            child: Text(
+            child: _messageContent(
               body,
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textOnAccent,
-              ),
+              AppTextStyles.bodyMedium.copyWith(color: AppColors.textOnAccent),
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
@@ -256,6 +262,25 @@ class _PendingMessageBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+Widget _messageContent(String body, TextStyle style) {
+  final content = CaseMessageContent.decode(body);
+  return ChatMessageBody(
+    text: content.text,
+    images: content.images,
+    textStyle: style,
+    imageBuilder: (uri, fit) => StoredMediaImage(
+      storedValue: uri,
+      fit: fit,
+      fallback: const Center(
+        child: Icon(
+          Icons.broken_image_outlined,
+          color: AppColors.textSecondary,
+        ),
+      ),
+    ),
+  );
 }
 
 class _SupportAvatar extends StatelessWidget {

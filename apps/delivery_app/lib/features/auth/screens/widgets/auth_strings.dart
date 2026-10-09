@@ -35,6 +35,7 @@ abstract final class AuthStrings {
   static const emailPlaceholder = 'ban@example.com';
   static const phone = 'Số điện thoại';
   static const password = 'Mật khẩu';
+  static const forgotPassword = 'Quên mật khẩu?';
   static const passwordPlaceholder = 'Nhập mật khẩu';
   static const passwordHint = 'Tối thiểu 6 ký tự';
   static const showPassword = 'Hiện mật khẩu';

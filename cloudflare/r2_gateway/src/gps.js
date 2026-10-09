@@ -25,6 +25,10 @@ export async function storeGpsChunk(request, env) {
     throw httpError(400, "GPS chunk must contain between 1 and 5000 points");
   }
   const points = body.points.map(validateGpsPoint);
+  const batchId = body.batch_id;
+  if (batchId != null && !/^[a-f0-9]{64}$/.test(batchId)) {
+    throw httpError(400, "Invalid GPS batch ID");
+  }
   const receivedAt = new Date();
   const grouped = groupByOrder(points);
   const objects = [];
@@ -34,6 +38,7 @@ export async function storeGpsChunk(request, env) {
       orderId,
       orderPoints,
       receivedAt,
+      batchId,
     );
     objects.push(object);
   }
@@ -50,12 +55,14 @@ function groupByOrder(points) {
   return grouped;
 }
 
-async function storeOrderChunk(bucket, orderId, points, receivedAt) {
-  const day = receivedAt.toISOString().slice(0, 10).replaceAll("-", "/");
+async function storeOrderChunk(bucket, orderId, points, receivedAt, batchId) {
+  // A stable point date and batch ID prevent duplicate objects after retry.
+  const objectDate = batchId ? new Date(points[0].created_at) : receivedAt;
+  const day = objectDate.toISOString().slice(0, 10).replaceAll("-", "/");
   const timestamp = receivedAt.toISOString().replaceAll(":", "-");
   const key =
     `orders/${safeSegment(orderId)}/gps/${day}/` +
-    `${timestamp}_${crypto.randomUUID()}.jsonl.gz`;
+    `${batchId ?? `${timestamp}_${crypto.randomUUID()}`}.jsonl.gz`;
   const jsonl = points.map((point) => JSON.stringify(point)).join("\n") + "\n";
   const compressed = await gzip(encoder.encode(jsonl));
   await bucket.put(key, compressed, {

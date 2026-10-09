@@ -7,42 +7,46 @@ import 'package:giaohang_design/giaohang_design.dart';
 import 'package:latlong2/latlong.dart';
 
 void main() {
-  testWidgets('shows the 2 km circle whenever driver position is available', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: SizedBox(
-          width: 375,
-          height: 700,
-          child: FreePickMapCanvas(
-            driverPosition: const LatLng(10.8, 106.7),
-            orders: const [],
-            searchRadiusMeters: 2000,
-            selectedOrderId: null,
-            onMapSettled: (_) {},
-            onOrderSelected: (_) {},
-            onLocate: () {},
-            onRadiusIncrease: () {},
-            onRadiusDecrease: () {},
-            showBaseMap: false,
+  testWidgets(
+    'describes the road limit without drawing a geographic service zone',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox(
+            width: 375,
+            height: 700,
+            child: FreePickMapCanvas(
+              driverPosition: const LatLng(10.8, 106.7),
+              orders: const [],
+              searchRadiusMeters: 2000,
+              selectedOrderId: null,
+              onMapSettled: (_) {},
+              onOrderSelected: (_) {},
+              onLocate: () {},
+              onRadiusIncrease: () {},
+              onRadiusDecrease: () {},
+              showBaseMap: false,
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    final circleLayer = tester.widget<CircleLayer>(find.byType(CircleLayer));
-    expect(circleLayer.circles, hasLength(1));
-    expect(circleLayer.circles.single.radius, 2000);
-    expect(circleLayer.circles.single.useRadiusInMeter, isTrue);
-    expect(find.text('Vùng tự động 2 km'), findsOneWidget);
-    expect(find.byTooltip('Về vị trí hiện tại'), findsOneWidget);
-    expect(find.byKey(const Key('free-pick-radius-decrease')), findsOneWidget);
-    expect(find.byKey(const Key('free-pick-radius-increase')), findsOneWidget);
-  });
+      expect(find.byType(CircleLayer), findsNothing);
+      expect(find.text('Tự động ≤ 2 km đường đi'), findsOneWidget);
+      expect(find.byTooltip('Về vị trí hiện tại'), findsOneWidget);
+      expect(
+        find.byKey(const Key('free-pick-radius-decrease')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('free-pick-radius-increase')),
+        findsOneWidget,
+      );
+    },
+  );
 
-  testWidgets('expands the circle and disables plus at 4 km', (tester) async {
+  testWidgets('disables plus at the maximum 3 km road limit', (tester) async {
     var increaseCount = 0;
     var decreaseCount = 0;
     await tester.pumpWidget(
@@ -53,7 +57,7 @@ void main() {
           child: FreePickMapCanvas(
             driverPosition: const LatLng(10.8, 106.7),
             orders: const [],
-            searchRadiusMeters: 4000,
+            searchRadiusMeters: 3000,
             selectedOrderId: null,
             onMapSettled: (_) {},
             onOrderSelected: (_) {},
@@ -67,9 +71,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final circles = tester.widget<CircleLayer>(find.byType(CircleLayer));
-    expect(circles.circles.map((circle) => circle.radius), [4000, 2000]);
-    expect(find.text('FreePick 4 km'), findsOneWidget);
+    expect(find.byType(CircleLayer), findsNothing);
+    expect(find.text('FreePick ≤ 3 km đường đi'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('free-pick-radius-increase')));
     await tester.tap(find.byKey(const Key('free-pick-radius-decrease')));

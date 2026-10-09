@@ -48,11 +48,12 @@ class SupabaseOrderContactTransport implements OrderContactTransport {
         .from('order_messages')
         .select()
         .eq('order_id', orderId)
-        .order('created_at')
+        .order('created_at', ascending: false)
+        .order('id', ascending: false)
         .limit(200);
     final messages = List<Map<String, dynamic>>.from(
       rows,
-    ).map(OrderContactMessage.fromJson).toList();
+    ).map(OrderContactMessage.fromJson).toList().reversed.toList();
     final status = order['status']?.toString() ?? '';
     final canSend = const {
       'assigned',

@@ -2,16 +2,19 @@ import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../core/services/auth_service.dart';
+import 'driver_drawer_availability.dart';
 
 class DriverDrawer extends StatelessWidget {
   const DriverDrawer({
     super.key,
     required this.currentIndex,
     required this.onNavigate,
+    this.userId,
   });
 
   final int currentIndex;
   final ValueChanged<int> onNavigate;
+  final String? userId;
 
   @override
   Widget build(BuildContext context) {
@@ -26,86 +29,102 @@ class DriverDrawer extends StatelessWidget {
       child: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.xl2),
-              child: Row(
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
                 children: [
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.accent, Color(0xFFFF945F)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: AppRadius.lg,
-                      boxShadow: AppShadow.accentGlow,
-                    ),
-                    child: const Icon(
-                      Icons.local_shipping_rounded,
-                      color: AppColors.textOnAccent,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.xl2),
+                    child: Row(
                       children: [
-                        Text(
-                          'Không gian tài xế',
-                          style: AppTextStyles.headingSmall.copyWith(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w800,
+                        Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [AppColors.accent, Color(0xFFFF945F)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: AppRadius.lg,
+                            boxShadow: AppShadow.accentGlow,
+                          ),
+                          child: const Icon(
+                            Icons.local_shipping_rounded,
+                            color: AppColors.textOnAccent,
+                            size: 24,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Giao hàng thông minh',
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.textSecondary,
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Không gian tài xế',
+                                style: AppTextStyles.headingSmall.copyWith(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Giao hàng thông minh',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
+                  const Divider(height: 1, color: AppColors.accentLight),
+                  if (userId != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg,
+                        AppSpacing.lg,
+                        AppSpacing.lg,
+                        AppSpacing.xs,
+                      ),
+                      child: DriverDrawerAvailability(userId: userId!),
+                    ),
+                  const SizedBox(height: AppSpacing.md),
+                  _DrawerItem(
+                    icon: Icons.home_rounded,
+                    label: 'Tổng quan',
+                    active: currentIndex == 0,
+                    onTap: () => _navigate(context, 0),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.list_alt_rounded,
+                    label: 'Đơn hàng',
+                    active: currentIndex == 1,
+                    onTap: () => _navigate(context, 1),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.map_rounded,
+                    label: 'FreePick',
+                    active: currentIndex == 4,
+                    onTap: () => _navigate(context, 4),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.account_balance_wallet_rounded,
+                    label: 'Ví & Thu nhập',
+                    active: currentIndex == 2,
+                    onTap: () => _navigate(context, 2),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.person_rounded,
+                    label: 'Tài khoản',
+                    active: currentIndex == 3,
+                    onTap: () => _navigate(context, 3),
+                  ),
                 ],
               ),
             ),
-            const Divider(height: 1, color: AppColors.accentLight),
-            const SizedBox(height: AppSpacing.md),
-            _DrawerItem(
-              icon: Icons.home_rounded,
-              label: 'Tổng quan',
-              active: currentIndex == 0,
-              onTap: () => _navigate(context, 0),
-            ),
-            _DrawerItem(
-              icon: Icons.list_alt_rounded,
-              label: 'Đơn hàng',
-              active: currentIndex == 1,
-              onTap: () => _navigate(context, 1),
-            ),
-            _DrawerItem(
-              icon: Icons.map_rounded,
-              label: 'FreePick',
-              active: currentIndex == 4,
-              onTap: () => _navigate(context, 4),
-            ),
-            _DrawerItem(
-              icon: Icons.account_balance_wallet_rounded,
-              label: 'Ví & Thu nhập',
-              active: currentIndex == 2,
-              onTap: () => _navigate(context, 2),
-            ),
-            _DrawerItem(
-              icon: Icons.person_rounded,
-              label: 'Tài khoản',
-              active: currentIndex == 3,
-              onTap: () => _navigate(context, 3),
-            ),
-            const Spacer(),
             const Divider(height: 1, color: AppColors.border),
             _DrawerItem(
               icon: Icons.logout_rounded,

@@ -19,7 +19,7 @@ void main() {
       ),
     );
 
-    expect(find.text('2 đơn tự chọn • 3 km'), findsOneWidget);
+    expect(find.text('2 đơn • ≤ 3 km đường đi'), findsOneWidget);
   });
 
   testWidgets('uses neutral loading copy for the searchable viewport', (
@@ -38,7 +38,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Đang tìm đơn trong 2,5 km'), findsOneWidget);
+    expect(find.text('Đang tìm đơn ≤ 2,5 km đường đi'), findsOneWidget);
   });
 
   testWidgets('prompts expansion at the default automatic radius', (
@@ -57,6 +57,6 @@ void main() {
       ),
     );
 
-    expect(find.text('Mở rộng bán kính để tìm đơn'), findsOneWidget);
+    expect(find.text('Nhấn + để tìm đơn trên 2 km đường đi'), findsOneWidget);
   });
 }

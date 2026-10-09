@@ -11,6 +11,8 @@ class SupportChatHeader extends StatelessWidget {
     required this.statusColor,
     required this.onClose,
     this.onRetry,
+    this.showSubject = true,
+    this.compact = false,
     super.key,
   });
 
@@ -22,6 +24,8 @@ class SupportChatHeader extends StatelessWidget {
   final Color statusColor;
   final VoidCallback onClose;
   final VoidCallback? onRetry;
+  final bool showSubject;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -89,6 +93,8 @@ class SupportChatHeader extends StatelessWidget {
                     children: [
                       Text(
                         'CSKH GiaoHang',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.headingSmall.copyWith(
                           color: AppColors.textPrimary,
                         ),
@@ -126,79 +132,89 @@ class SupportChatHeader extends StatelessWidget {
               ],
             ),
           ),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.screenH,
-              AppSpacing.md,
-              AppSpacing.screenH,
-              AppSpacing.md,
-            ),
-            decoration: const BoxDecoration(
-              color: AppColors.bgWarm,
-              border: Border(
-                top: BorderSide(color: AppColors.border),
-                bottom: BorderSide(color: AppColors.border),
+          if (!compact)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenH,
+                AppSpacing.md,
+                AppSpacing.screenH,
+                AppSpacing.md,
               ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: AppSpacing.xl4,
-                  height: AppSpacing.xl4,
-                  decoration: const BoxDecoration(
-                    color: AppColors.bgCard,
-                    borderRadius: AppRadius.md,
-                  ),
-                  child: const Icon(
-                    Icons.inventory_2_outlined,
-                    size: 20,
-                    color: AppColors.primary,
-                  ),
+              decoration: const BoxDecoration(
+                color: AppColors.bgWarm,
+                border: Border(
+                  top: BorderSide(color: AppColors.border),
+                  bottom: BorderSide(color: AppColors.border),
                 ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        orderLabel,
-                        style: AppTextStyles.mono.copyWith(
-                          color: AppColors.textPrimary,
-                        ),
+              ),
+              child: Row(
+                children: [
+                  if (showSubject) ...[
+                    Container(
+                      width: AppSpacing.xl4,
+                      height: AppSpacing.xl4,
+                      decoration: const BoxDecoration(
+                        color: AppColors.bgCard,
+                        borderRadius: AppRadius.md,
                       ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        subject,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
+                      child: const Icon(
+                        Icons.inventory_2_outlined,
+                        size: 20,
+                        color: AppColors.primary,
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: AppSpacing.xs,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
-                    borderRadius: AppRadius.full,
-                  ),
-                  child: Text(
-                    statusLabel,
-                    style: AppTextStyles.labelSmall.copyWith(
-                      color: statusColor,
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Tooltip(
+                          message: orderLabel,
+                          child: Text(
+                            orderLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.mono.copyWith(
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (showSubject) ...[
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            subject,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: AppSpacing.sm),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: AppSpacing.xs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.1),
+                      borderRadius: AppRadius.full,
+                    ),
+                    child: Text(
+                      statusLabel,
+                      style: AppTextStyles.labelSmall.copyWith(
+                        color: statusColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );

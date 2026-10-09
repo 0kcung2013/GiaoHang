@@ -63,22 +63,26 @@ trang marketing có nhiều đoạn mô tả.
   actions và thay hoàn toàn danh sách “Giao gần đây”.
 - Lịch sử giao hàng chỉ hiển thị ở tab Đơn hàng, không lặp lại trên Trang chủ.
 
-### Customer Orders
+### Customer Orders — Đang xử lý và Lịch sử
 
-- Không lặp title/subtitle của tab trong content. Dùng visual header chibi không chữ,
-  có semantic label và một icon action tạo đơn.
-- Trên mobile, visual và control surface nằm chung một hàng trong toolbar cao 128dp;
-  visual rộng 80–96dp, phần còn lại dành cho search + filter. Không stack hai khối
-  full-width làm giảm vùng nhìn danh sách.
-- Search + filter nằm trong control surface trắng có border và shadow rõ trên `bgLight`;
-  input dùng nền `bgLight`, không để field hoà vào screen.
-- Compact filter dùng bốn icon-only item 48dp; mọi item có tooltip và semantic label.
-- Card đơn dùng ba lớp `bgLight` screen → `bgCard` card → `bgLight` detail panels.
-  Card bắt buộc có border; featured card có accent border/status rail.
-- Route dùng icon + `markerPickup`/`markerDrop`; địa chỉ, trạng thái, mã đơn, giá và
-  người nhận là text nghiệp vụ bắt buộc, không được ẩn để đạt mục tiêu ít chữ.
-- Toàn card tappable để mở chi tiết. Dùng chevron làm affordance; không lặp nhãn
-  “Chi tiết” nếu semantics đã mô tả hành động.
+- Header gọn gồm tìm kiếm, nút tạo đơn 48×48dp và hai tab có chữ: **Đang xử lý / Lịch sử**.
+  Không lặp tiêu đề hoặc dùng hình trang trí chiếm chiều cao. Bố cục tự tăng chiều cao khi phóng chữ.
+- Search và tab nằm trong `bgCard`, `AppRadius.xl`, viền `border`, shadow `subtle`;
+  input dùng `bgLight`. Trạng thái chọn dùng `accentLight` và viền `accent`.
+- Tab Đang xử lý là mặc định; giữ đơn hết thời gian tìm tài xế, đang hoàn hoặc đang xử lý sự cố
+  để khách vẫn truy cập được hành động hiện có. Đơn đã giao, đã hủy, đã hoàn hàng nằm trong Lịch sử.
+- Lịch sử mặc định tất cả thời gian, mới nhất trước. Lọc theo **ngày tạo đơn**:
+  Tất cả / Hôm nay / 7 ngày qua / Tháng này / một ngày / khoảng ngày, tính cả ngày cuối.
+  Bộ lọc ngày kết hợp tìm kiếm và trạng thái, hiển thị khoảng ngày đã chọn và cho phép bỏ lọc.
+- Bộ lọc lịch sử cuộn cùng danh sách; nhóm theo ngày cho khoảng ngắn (tối đa 31 ngày),
+  theo tháng cho tất cả lịch sử hoặc khoảng dài.
+- Đơn đang xử lý giữ card chi tiết, đơn đầu có nhấn mạnh. Thẻ lịch sử phẳng, viền nhẹ,
+  không ảnh lớn, không panel lồng nhau, không badge giá hoặc status rail.
+- Thẻ lịch sử giữ mã đơn, icon + nhãn trạng thái, địa chỉ lấy/giao tối đa hai dòng,
+  người nhận, ngày tạo, giá bằng chữ đậm. Ảnh và mô tả hàng xem trong chi tiết.
+- Dùng `markerPickup`/`markerDrop` cho địa chỉ; không chỉ dùng màu để phân biệt trạng thái.
+  Toàn card có phản hồi nhấn, semantics và mở luồng chi tiết hiện có.
+- Dùng token chung; kiểm tra mobile 320/390dp, chữ 160%, trạng thái rỗng, lịch ngày và khoảng ngày.
 
 ### Onboarding
 
@@ -88,9 +92,15 @@ trang marketing có nhiều đoạn mô tả.
 
 ### Login
 
-- Nền `bgLight`, nhiều khoảng trắng.
-- Google button trắng, border `border`, shadow `subtle`.
-- Logo/brand ở giữa, không thêm lợi ích dài dòng.
+- Nền `bgLight`, khoảng trắng có chủ đích; form email/mật khẩu là luồng chính hiện có.
+- Google button là phương thức bổ sung, màu trắng với `border` và `shadow.subtle`.
+- Giữ validation, trạng thái loading/lỗi và khả năng nhập bằng bàn phím.
+
+### Register
+
+- Giữ lựa chọn Customer/Driver, các trường và quy tắc validation hiện có.
+- Với Driver, hành động tiếp tục mở wizard; với Customer, hành động đăng ký hoàn tất luồng hiện có.
+- Đảm bảo form dùng được trên màn hình ngắn khi bàn phím mở, có autofill, focus và thông báo lỗi rõ ràng.
 
 ### Driver Home
 

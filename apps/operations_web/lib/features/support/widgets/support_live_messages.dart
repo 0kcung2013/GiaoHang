@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:giaohang_domain/giaohang_domain.dart';
 
+import '../../../core/widgets/stored_media_image.dart';
 import '../models/support_ticket.dart';
 import '../utils/support_ticket_ui.dart';
 
@@ -87,7 +89,7 @@ class _Header extends StatelessWidget {
           color: AppColors.textSecondary,
         ),
         const SizedBox(width: AppSpacing.sm),
-        Text('Hội thoại', style: AppTextStyles.headingSmall),
+        Expanded(child: Text('Hội thoại', style: AppTextStyles.headingSmall)),
         if (messageCount != null) ...[
           const SizedBox(width: AppSpacing.sm),
           Text(
@@ -95,19 +97,14 @@ class _Header extends StatelessWidget {
             style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
           ),
         ],
-        const Spacer(),
-        Container(
-          width: AppSpacing.sm,
-          height: AppSpacing.sm,
-          decoration: const BoxDecoration(
-            color: AppColors.success,
-            shape: BoxShape.circle,
-          ),
-        ),
         const SizedBox(width: AppSpacing.xs),
-        Text(
-          'Thời gian thực',
-          style: AppTextStyles.labelSmall.copyWith(color: AppColors.success),
+        Flexible(
+          child: Text(
+            'Lịch sử trao đổi',
+            style: AppTextStyles.labelSmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
         ),
       ],
     ),
@@ -154,9 +151,9 @@ class _MessageBubble extends StatelessWidget {
                 ),
                 border: mine ? null : Border.all(color: AppColors.border),
               ),
-              child: Text(
+              child: _messageContent(
                 message.body,
-                style: AppTextStyles.bodyMedium.copyWith(
+                AppTextStyles.bodyMedium.copyWith(
                   color: mine ? AppColors.textOnAccent : AppColors.textPrimary,
                 ),
               ),
@@ -210,11 +207,31 @@ class _InternalMessage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                Text(message.body, style: AppTextStyles.bodySmall),
+                _messageContent(message.body, AppTextStyles.bodySmall),
               ],
             ),
           ),
         ],
+      ),
+    ),
+  );
+}
+
+Widget _messageContent(String body, TextStyle style) {
+  final content = CaseMessageContent.decode(body);
+  return ChatMessageBody(
+    text: content.text,
+    images: content.images,
+    textStyle: style,
+    imageBuilder: (uri, fit) => StoredMediaImage(
+      storedValue: uri,
+      fit: fit,
+      semanticLabel: 'Ảnh đính kèm',
+      fallback: const Center(
+        child: Icon(
+          Icons.broken_image_outlined,
+          color: AppColors.textSecondary,
+        ),
       ),
     ),
   );

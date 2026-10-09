@@ -9,11 +9,13 @@ class RiskReportDetailHeader extends StatelessWidget {
   const RiskReportDetailHeader({
     required this.report,
     required this.onClose,
+    this.onRefresh,
     super.key,
   });
 
   final RiskReport report;
   final VoidCallback onClose;
+  final VoidCallback? onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -67,6 +69,12 @@ class RiskReportDetailHeader extends StatelessWidget {
               ],
             ),
           ),
+          if (onRefresh != null)
+            IconButton(
+              tooltip: 'Tải lại hồ sơ',
+              onPressed: onRefresh,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
           IconButton(
             tooltip: 'Đóng',
             onPressed: onClose,

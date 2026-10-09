@@ -6,10 +6,10 @@ abstract final class SupportTicketUi {
   static String statusLabel(SupportTicketStatus status) => switch (status) {
     SupportTicketStatus.open => 'Mới',
     SupportTicketStatus.inProgress => 'Đang xử lý',
-    SupportTicketStatus.waitingCustomer => 'Chờ người dùng',
-    SupportTicketStatus.waitingAdmin => 'Chờ Admin',
-    SupportTicketStatus.resolved => 'Đã xử lý',
-    SupportTicketStatus.closed => 'Đã đóng',
+    SupportTicketStatus.waitingCustomer => 'Đang xử lý',
+    SupportTicketStatus.waitingAdmin => 'Đang xử lý',
+    SupportTicketStatus.resolved => 'Kết thúc',
+    SupportTicketStatus.closed => 'Kết thúc',
   };
 
   static IconData statusIcon(SupportTicketStatus status) => switch (status) {

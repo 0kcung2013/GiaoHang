@@ -37,6 +37,10 @@ Hai app có bootstrap và router riêng. Delivery App không chứa màn hình A
 - `flutter_map` + OpenStreetMap
 - OSRM cho route và ETA
 
+Phân công tự động xếp tài xế theo độ dài tuyến OSRM đến điểm lấy hàng trong 2 km.
+FreePick dùng quãng đường trên 2 đến 3 km. Khi routing lỗi, đơn chờ thử lại.
+Chi tiết luồng backend và kiểm thử: [Phân công theo quãng đường](supabase/functions/README_ROAD_DISPATCH.md).
+
 ## Cài dependencies
 
 Chạy tại repository root:
@@ -91,6 +95,12 @@ Operations Web không cung cấp đăng ký công khai. Tài khoản Support ph�
 Chỉ đưa code vào package shared khi thực sự có ít nhất hai nơi sử dụng; không tạo repository/interface chung chỉ để dự đoán nhu cầu tương lai.
 
 ## Supabase
+
+Sau đợt gộp ngày 2026-10-09, schema `public` có 24 bảng nghiệp vụ.
+`case_messages` lưu hội thoại yêu cầu hỗ trợ, báo cáo rủi ro và ghi chú nội bộ;
+`risk_report_evidence` lưu bằng chứng ảnh, vị trí và bản chụp tin nhắn.
+Lịch sử GPS cũ trong `driver_locations` đã được loại bỏ; lịch sử mới nằm trên R2.
+Chi tiết: [Gộp bảng CSKH và bằng chứng](docs/DATABASE_CONSOLIDATION.md).
 
 Migrations và Edge Functions nằm ở root để cả hai app dùng cùng nguồn dữ liệu:
 

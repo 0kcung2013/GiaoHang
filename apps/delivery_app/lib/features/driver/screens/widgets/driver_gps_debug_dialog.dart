@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import '../../../../core/location/driver_foreground_location_service.dart';
 import '../../../../core/location/driver_location_mode_store.dart';
 import '../../../../core/location/driver_location_producer_policy.dart';
 import '../../../../core/providers/customer_providers.dart';
@@ -134,7 +135,7 @@ class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
 
     try {
       LatLng rawGps = loadedGps;
-      if (mode == DriverLocationMode.deviceGps) {
+      if (mode != DriverLocationMode.demoHcm) {
         final position = await ref
             .read(locationServiceProvider)
             .getCurrentPosition();
@@ -160,6 +161,10 @@ class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
         lat: rawGps.latitude,
         lng: rawGps.longitude,
       );
+
+      if (mode != DriverLocationMode.deviceGps) {
+        await DriverForegroundLocationService.stop();
+      }
 
       await ref
           .read(locationIngestServiceProvider)
@@ -190,9 +195,14 @@ class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
         _demoPosition = demo;
         _storedPosition = stored;
         _offsetMeters = _distance(rawGps, demo);
-        _successMessage = mode == DriverLocationMode.deviceGps
-            ? 'Đang dùng vị trí hiện tại để tính tuyến đường gần bạn.'
-            : 'Đã chuyển về vị trí demo TP.HCM của tài khoản.';
+        _successMessage = switch (mode) {
+          DriverLocationMode.deviceGps =>
+            'Đang dùng GPS thiết bị để theo dõi di chuyển thực tế.',
+          DriverLocationMode.demoCurrentPosition =>
+            'Đã bật mô phỏng tuyến từ vị trí hiện tại.',
+          DriverLocationMode.demoHcm =>
+            'Đã chuyển về vị trí demo TP.HCM của tài khoản.',
+        };
       });
       unawaited(_resolveAddresses([rawGps, demo, stored]));
     } catch (error) {
@@ -313,7 +323,7 @@ class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
     final demo = _demoPosition!;
     final stored = _storedPosition;
     final locationMode = ref.watch(driverLocationModeProvider);
-    final expected = locationMode == DriverLocationMode.deviceGps ? gps : demo;
+    final expected = locationMode == DriverLocationMode.demoHcm ? demo : gps;
     final storedDistance = stored == null ? null : _distance(stored, expected);
     final isStoredMatched = storedDistance != null && storedDistance <= 50;
 
@@ -380,13 +390,13 @@ class _DriverGpsDebugSheetState extends ConsumerState<DriverGpsDebugSheet> {
         DriverGpsLocationActions(
           applyingMode: _applyingMode,
           canUseDemo: GeoUtils.hasTestDriverOffset(_email),
-          onUseDeviceGps: () =>
-              _applyLocationMode(DriverLocationMode.deviceGps),
+          onUseDemoCurrentPosition: () =>
+              _applyLocationMode(DriverLocationMode.demoCurrentPosition),
           onUseDemoHcm: () => _applyLocationMode(DriverLocationMode.demoHcm),
         ),
         const SizedBox(height: AppSpacing.md),
         Text(
-          'Bạn có thể chuyển giữa GPS hiện tại và điểm demo TP.HCM bất cứ lúc nào.',
+          'Chọn vị trí bắt đầu mô phỏng. Xe sẽ tự chạy theo tuyến khi bắt đầu chặng.',
           textAlign: TextAlign.center,
           style: AppTextStyles.bodySmall.copyWith(
             color: AppColors.textSecondary,

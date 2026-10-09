@@ -43,6 +43,6 @@ class LocationIngestConfig {
   /// Tên Edge Function flush history (cron/manual).
   static const String flushFunctionName = 'flush-gps-history';
 
-  /// Tên Edge Function tìm nearest qua Redis GEO.
+  /// Endpoint giữ tên cũ; hiện xếp ứng viên theo quãng đường OSRM.
   static const String nearestFunctionName = 'find-nearest-drivers-redis';
 }

@@ -9,6 +9,50 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
 
 void main() {
+  for (final amount in [0, 150000]) {
+    testWidgets(
+      'delivery requires cash confirmation only when collection=$amount',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => showDriverDeliveryConfirmationSheet(
+                    context: context,
+                    action: DriverDeliveryAction.confirmDelivery,
+                    order: _pickupOrder().copyWith(
+                      status: 'delivering',
+                      receiverCollectionAmount: amount,
+                    ),
+                    locationProvider: () => const DeliveryProofLocation(
+                      latitude: 10.776,
+                      longitude: 106.701,
+                    ),
+                  ),
+                  child: const Text('Mở xác nhận'),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Mở xác nhận'));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.textContaining('Đã thu'),
+          amount == 0 ? findsNothing : findsOneWidget,
+        );
+        expect(
+          find.text('Đã giao đúng người nhận hoặc người được ủy quyền'),
+          findsOneWidget,
+        );
+        expect(_confirmButton(tester).onPressed, isNull);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('pickup confirmation requires a captured photo and checklist', (
     tester,
   ) async {

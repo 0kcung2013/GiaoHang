@@ -29,11 +29,7 @@ class FreePickOrderPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final distance = totalOrderDistanceMeters(
-      order: order,
-      driverLat: driverLat,
-      driverLng: driverLng,
-    );
+    final distance = order.pickupRoadDistanceMeters;
     final isDemo = order.trackingCode.toUpperCase().contains('DEMO');
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -48,84 +44,96 @@ class FreePickOrderPanel extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: AppColors.markerPickup.withValues(alpha: 0.12),
-                    borderRadius: AppRadius.md,
-                  ),
-                  child: const Icon(
-                    Icons.inventory_2_rounded,
-                    color: AppColors.markerPickup,
-                    size: 21,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        displayOrderCode(order),
-                        style: AppTextStyles.headingSmall.copyWith(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w800,
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: AppColors.markerPickup.withValues(
+                              alpha: 0.12,
+                            ),
+                            borderRadius: AppRadius.md,
+                          ),
+                          child: const Icon(
+                            Icons.inventory_2_rounded,
+                            color: AppColors.markerPickup,
+                            size: 21,
+                          ),
                         ),
-                      ),
-                      Text(
-                        [
-                          'FreePick $position/$totalCount',
-                          if (distance != null)
-                            totalOrderDistanceText(distance),
-                        ].join(' • '),
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.textSecondary,
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                displayOrderCode(order),
+                                style: AppTextStyles.headingSmall.copyWith(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              Text(
+                                [
+                                  'FreePick $position/$totalCount',
+                                  if (distance != null)
+                                    'Đến điểm lấy ${distanceKilometersText(distance)}',
+                                ].join(' • '),
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                        Text(
+                          formatVnd(order.driverNetEarning),
+                          style: AppTextStyles.headingSmall.copyWith(
+                            color: AppColors.success,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.xs,
+                      children: [
+                        _MetricChip(
+                          icon: Icons.payments_rounded,
+                          label:
+                              'Thu ${formatVnd(order.receiverCollectionAmount)}',
+                          color: AppColors.accent,
+                        ),
+                        if (isDemo)
+                          const _MetricChip(
+                            icon: Icons.all_inclusive_rounded,
+                            label: 'Demo không hết hạn',
+                            color: AppColors.info,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _RouteLine(
+                      icon: Icons.radio_button_checked_rounded,
+                      color: AppColors.markerPickup,
+                      text: order.pickupAddress,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    _RouteLine(
+                      icon: Icons.location_on_rounded,
+                      color: AppColors.markerDrop,
+                      text: order.deliveryAddress,
+                    ),
+                  ],
                 ),
-                Text(
-                  formatVnd(order.driverNetEarning),
-                  style: AppTextStyles.headingSmall.copyWith(
-                    color: AppColors.success,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.xs,
-              children: [
-                _MetricChip(
-                  icon: Icons.payments_rounded,
-                  label: 'COD ${formatVnd(order.codCollectionAmount)}',
-                  color: AppColors.accent,
-                ),
-                if (isDemo)
-                  const _MetricChip(
-                    icon: Icons.all_inclusive_rounded,
-                    label: 'Demo không hết hạn',
-                    color: AppColors.info,
-                  ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            _RouteLine(
-              icon: Icons.radio_button_checked_rounded,
-              color: AppColors.markerPickup,
-              text: order.pickupAddress,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            _RouteLine(
-              icon: Icons.location_on_rounded,
-              color: AppColors.markerDrop,
-              text: order.deliveryAddress,
+              ),
             ),
             const SizedBox(height: AppSpacing.lg),
             SizedBox(

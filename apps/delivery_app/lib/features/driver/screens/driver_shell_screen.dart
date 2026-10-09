@@ -25,6 +25,7 @@ import 'widgets/driver_drawer.dart';
 import 'widgets/driver_active_delivery_location_tracker.dart';
 import 'widgets/driver_cold_start_gate.dart';
 import 'widgets/driver_gps_debug_dialog.dart';
+import '../cancellation/driver_cancellation_providers.dart';
 
 class DriverShellScreen extends ConsumerStatefulWidget {
   const DriverShellScreen({super.key, this.initialTab = 0});
@@ -71,13 +72,18 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
   @override
   Widget build(BuildContext context) {
     final currentUser = Supabase.instance.client.auth.currentUser;
+    final acceptanceState = currentUser == null
+        ? null
+        : ref.watch(driverAcceptanceStateProvider(currentUser.id)).valueOrNull;
     final availableOffers = currentUser == null
         ? const <OrderModel>[]
         : ref.watch(availableOrdersProvider(currentUser.id)).valueOrNull ??
               const <OrderModel>[];
     final incomingOffer = selectIncomingOfferForTab(
       tabIndex: _currentIndex,
-      offers: availableOffers,
+      offers: acceptanceState != null && !acceptanceState.isLocked
+          ? availableOffers
+          : const [],
     );
     final incomingOfferPickupDistance =
         currentUser == null || incomingOffer == null
@@ -171,6 +177,7 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
             ),
           ),
           drawer: DriverDrawer(
+            userId: currentUser?.id,
             currentIndex: _currentIndex,
             onNavigate: (index) => setState(() {
               _currentIndex = index;

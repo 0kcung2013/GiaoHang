@@ -7,6 +7,9 @@ class DriverNavigationStrings {
   static const swipeConfirmDelivery = 'Gạt đã giao';
   static const arriveToConfirm = 'Đến trong 100 m để xác nhận';
   static const swipeProofHint = 'Đến trong phạm vi 100 m để mở xác nhận ảnh.';
+  static const deliveryDeadlineMissing = 'Chưa có hạn giao';
+  static String deliveryMinutesRemaining(int minutes) => 'Còn $minutes phút';
+  static String deliveryMinutesOverdue(int minutes) => 'Quá hạn $minutes phút';
 
   static const senderRole = 'Người gửi';
   static const recipientRole = 'Người nhận';

@@ -7,20 +7,20 @@ abstract final class OrderHelpUi {
       switch (status) {
         SupportTicketStatus.open => 'Chờ tiếp nhận',
         SupportTicketStatus.inProgress => 'Đang xử lý',
-        SupportTicketStatus.waitingCustomer => 'Chờ bạn phản hồi',
-        SupportTicketStatus.waitingAdmin => 'Đang chuyển Admin',
-        SupportTicketStatus.resolved => 'Đã giải quyết',
-        SupportTicketStatus.closed => 'Đã đóng',
+        SupportTicketStatus.waitingCustomer => 'Đang xử lý',
+        SupportTicketStatus.waitingAdmin => 'Đang xử lý',
+        SupportTicketStatus.resolved => 'Kết thúc',
+        SupportTicketStatus.closed => 'Kết thúc',
       };
 
   static String riskStatusLabel(RiskStatus status) => switch (status) {
     RiskStatus.open => 'Chờ tiếp nhận',
-    RiskStatus.investigating => 'Đang xác minh',
-    RiskStatus.actionRequired => 'Cần hành động',
-    RiskStatus.waitingCustomer => 'Chờ bạn phản hồi',
-    RiskStatus.waitingAdmin => 'Đang chuyển Admin',
-    RiskStatus.resolved => 'Đã giải quyết',
-    RiskStatus.dismissed => 'Không xác định rủi ro',
+    RiskStatus.investigating => 'Đang xử lý',
+    RiskStatus.actionRequired => 'Đang xử lý',
+    RiskStatus.waitingCustomer => 'Đang xử lý',
+    RiskStatus.waitingAdmin => 'Đang xử lý',
+    RiskStatus.resolved => 'Kết thúc',
+    RiskStatus.dismissed => 'Kết thúc',
   };
 
   static Color supportStatusColor(SupportTicketStatus status) =>

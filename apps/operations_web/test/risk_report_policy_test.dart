@@ -11,24 +11,17 @@ void main() {
         isAdmin: false,
       );
 
-      expect(transitions, [
-        RiskStatus.actionRequired,
-        RiskStatus.waitingCustomer,
-        RiskStatus.waitingAdmin,
-      ]);
+      expect(transitions, isEmpty);
     });
 
-    test('admin can resolve or dismiss a critical report', () {
+    test('admin has one finish action for a critical report', () {
       final transitions = RiskReportPolicy.allowedTransitions(
         status: RiskStatus.investigating,
         severity: RiskSeverity.critical,
         isAdmin: true,
       );
 
-      expect(
-        transitions,
-        containsAll([RiskStatus.resolved, RiskStatus.dismissed]),
-      );
+      expect(transitions, [RiskStatus.resolved]);
     });
 
     test('closed reports can be reopened for investigation', () {
@@ -51,6 +44,18 @@ void main() {
       );
 
       expect(transitions, isEmpty);
+    });
+
+    test('cannot finish while cargo handoff is pending', () {
+      expect(
+        RiskReportPolicy.allowedTransitions(
+          status: RiskStatus.actionRequired,
+          severity: RiskSeverity.medium,
+          isAdmin: true,
+          interventionState: RiskInterventionState.handoffRequired,
+        ),
+        isEmpty,
+      );
     });
   });
 

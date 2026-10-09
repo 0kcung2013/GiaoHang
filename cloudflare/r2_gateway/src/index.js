@@ -1,4 +1,5 @@
 import { storeGpsChunk } from "./gps.js";
+import { runGpsHistoryFlush } from "./gps_scheduler.js";
 import { appendHeaders, corsHeaders, json } from "./http.js";
 import {
   createDownloadTicket,
@@ -11,6 +12,9 @@ import {
 } from "./media.js";
 
 export default {
+  async scheduled(_controller, env, _ctx) {
+    await runGpsHistoryFlush(env);
+  },
   async fetch(request, env) {
     const origin = request.headers.get("origin");
     const cors = corsHeaders(origin, env.ALLOWED_ORIGINS);

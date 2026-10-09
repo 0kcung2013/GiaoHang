@@ -42,7 +42,7 @@ void main() {
   });
 
   test('operations repository reads notes from internal messages', () {
-    expect(repository, contains(".from('risk_report_messages')"));
+    expect(repository, contains(".from('case_messages')"));
     expect(repository, contains('author_id:sender_id'));
     expect(repository, contains(".eq('visibility', 'internal')"));
   });

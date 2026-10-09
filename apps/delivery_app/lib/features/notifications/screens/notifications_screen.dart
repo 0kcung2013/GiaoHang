@@ -10,6 +10,7 @@ import '../../../core/providers/customer_providers.dart';
 import '../models/notification_inbox_item.dart';
 import '../notification_strings.dart';
 import '../widgets/notification_details_sheet.dart';
+import '../widgets/notification_case_link.dart';
 import '../widgets/notification_inbox_card.dart';
 import '../widgets/notification_inbox_controls.dart';
 import '../widgets/notification_inbox_states.dart';
@@ -95,6 +96,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             onRefresh: () => _refresh(user.id),
             onItemTap: (item) {
               unawaited(_markItemAsRead(item, user.id));
+              if (item.latest.supportTicketId != null ||
+                  item.latest.riskReportId != null) {
+                unawaited(openNotificationCase(context, item.latest));
+                return;
+              }
               final canOpenOrder =
                   item.orderId != null &&
                   (widget.audience == NotificationAudience.customer ||

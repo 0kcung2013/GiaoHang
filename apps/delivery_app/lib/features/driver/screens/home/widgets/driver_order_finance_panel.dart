@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/utils/money_formatter.dart';
+import '../../../finance/models/driver_goods_deposit.dart';
+import '../../../finance/widgets/driver_goods_deposit_panel.dart';
+import '../../../finance/widgets/driver_goods_deposit_region.dart';
 
 abstract final class DriverFinanceText {
   static const pickup = 'Lấy';
   static const delivery = 'Giao';
-  static const pay = 'Trả';
   static const collect = 'Thu';
-  static const wallet = 'Ứng qua ví · không trả tiền mặt';
-  static const noAdvance = 'Không cần ứng tiền';
+  static String wallet(int amount) => 'Ứng ví ${formatVnd(amount)}';
+  static const noAdvance = 'Không thu tiền khi lấy hàng';
   static const recipient = 'Thu từ người nhận';
   static const noCollection = 'Không thu tiền người nhận';
   static String earning(int amount) => 'Thực nhận ${formatVnd(amount)}';
@@ -21,9 +23,11 @@ class DriverOrderFinancePanel extends StatefulWidget {
     super.key,
     required this.order,
     this.availableBalance,
+    this.goodsDeposit,
   });
   final OrderModel order;
   final int? availableBalance;
+  final DriverGoodsDeposit? goodsDeposit;
 
   @override
   State<DriverOrderFinancePanel> createState() =>
@@ -48,9 +52,22 @@ class _DriverOrderFinancePanelState extends State<DriverOrderFinancePanel> {
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
-    final amount = _delivery
-        ? order.receiverCollectionAmount
-        : order.driverAdvanceAmount;
+    final deposit = widget.goodsDeposit;
+    if (deposit != null) {
+      return DriverGoodsDepositPanel(
+        deposit: deposit,
+        receiverCollectionAmount: order.receiverCollectionAmount,
+        driverNetEarning: order.driverNetEarning,
+        availableBalance: widget.availableBalance,
+      );
+    }
+    if (order.requiresPaidGoodsDeposit && order.driverId != null) {
+      return DriverGoodsDepositRegion(
+        order: order,
+        availableBalance: widget.availableBalance,
+      );
+    }
+    final amount = _delivery ? order.receiverCollectionAmount : 0;
     final missing = widget.availableBalance == null
         ? 0
         : (order.driverAdvanceAmount - widget.availableBalance!).clamp(
@@ -94,10 +111,7 @@ class _DriverOrderFinancePanelState extends State<DriverOrderFinancePanel> {
             spacing: AppSpacing.md,
             runSpacing: AppSpacing.xs,
             children: [
-              Text(
-                _delivery ? DriverFinanceText.collect : DriverFinanceText.pay,
-                style: AppTextStyles.labelLarge,
-              ),
+              Text(DriverFinanceText.collect, style: AppTextStyles.labelLarge),
               Text(
                 formatVnd(amount),
                 style: AppTextStyles.headingLarge.copyWith(
@@ -112,9 +126,9 @@ class _DriverOrderFinancePanelState extends State<DriverOrderFinancePanel> {
                 ? (amount == 0
                       ? DriverFinanceText.noCollection
                       : DriverFinanceText.recipient)
-                : (amount == 0
+                : (order.driverAdvanceAmount == 0
                       ? DriverFinanceText.noAdvance
-                      : DriverFinanceText.wallet),
+                      : DriverFinanceText.wallet(order.driverAdvanceAmount)),
             style: AppTextStyles.bodySmall.copyWith(
               color: AppColors.textSecondary,
             ),

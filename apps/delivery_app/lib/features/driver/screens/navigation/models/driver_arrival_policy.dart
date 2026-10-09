@@ -21,8 +21,8 @@ class DriverArrivalPolicy {
     final meters = const Distance().as(LengthUnit.Meter, current, target);
     if (meters > arrivalRadiusMeters) return null;
 
-    // Mô phỏng giữ đúng vị trí khi vừa mở khóa xác nhận, không nhảy thẳng tới
-    // đích; timer navigation sẽ tiếp tục đưa marker tới cuối route.
-    return source == DriverPositionSource.simulation ? current : target;
+    // Bán kính 100 m chỉ mở khóa xác nhận. Giữ tọa độ GPS/mô phỏng thật để
+    // marker tiếp tục đi tới đích thay vì nhảy thẳng tới tọa độ của đơn.
+    return current;
   }
 }

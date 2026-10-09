@@ -18,6 +18,8 @@ import 'risk_evidence_step.dart';
 import 'risk_reason_step.dart';
 import 'risk_review_step.dart';
 import 'risk_report_sheet_chrome.dart';
+import '../../driver/screens/navigation/data/driver_delivery_arrival_repository.dart';
+import '../../driver/screens/navigation/utils/driver_delivery_arrival_strings.dart';
 
 Future<RiskReportSubmissionResult?> showRiskReportSheet(
   BuildContext context, {
@@ -83,6 +85,13 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
       initialLatitude: widget.initialLatitude,
       initialLongitude: widget.initialLongitude,
       requireLocation: widget.role == RiskReporterRole.driver,
+      requireRecipientEvidence:
+          widget.role == RiskReporterRole.driver &&
+          widget.order.status == 'delivering',
+      canReportRecipient: () async =>
+          (await DriverDeliveryArrivalRepository().read(
+            widget.order.id,
+          )).canReport,
     );
     final initialCategory = widget.initialCategory;
     if (initialCategory != null) {
@@ -158,7 +167,7 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
                 submissionLabel: _submissionLabel(state.submissionPhase),
                 errorMessage: state.errorMessage,
                 onBack: _controller.back,
-                onPrimary: state.step < 2 ? _controller.next : _submit,
+                onPrimary: state.step < 2 ? _next : _submit,
               ),
             ],
           ),
@@ -184,6 +193,7 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
         longitude: state.longitude,
         locationAddress: state.locationAddress,
         locationRequired: widget.role == RiskReporterRole.driver,
+        callEvidenceRequired: _controller.needsCallEvidence,
         descriptionError: state.descriptionError,
         photoError: state.photoError,
         locationError: state.locationError,
@@ -302,6 +312,20 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
   Future<void> _submit() async {
     final result = await _controller.submit();
     if (result != null && mounted) Navigator.pop(context, result);
+  }
+
+  Future<void> _next() async {
+    if (_controller.state.step == 0 &&
+        !await _controller.checkRecipientWait()) {
+      if (mounted) {
+        _showMessage(
+          _controller.state.errorMessage ??
+              DriverDeliveryArrivalStrings.waitRequired,
+        );
+      }
+      return;
+    }
+    if (mounted) _controller.next();
   }
 
   void _showMessage(String message) {

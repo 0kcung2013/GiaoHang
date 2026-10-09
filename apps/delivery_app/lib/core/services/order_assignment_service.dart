@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'notification_service.dart';
+import 'driver_order_acceptance_gateway.dart';
 
 class OrderAssignmentService {
   OrderAssignmentService({
@@ -29,9 +30,9 @@ class OrderAssignmentService {
         throw Exception('Chỉ tài xế đang đăng nhập mới có thể nhận đơn.');
       }
 
-      final rpcResponse = await _supabase.rpc(
-        'accept_order',
-        params: {'p_order_id': orderId},
+      final rpcResponse = await acceptDriverOrderWithDeadline(
+        _supabase,
+        orderId,
       );
       final response = _firstRpcRow(rpcResponse);
       if (response == null) {
@@ -187,6 +188,9 @@ class OrderAssignmentService {
   }
 
   static String acceptOrderErrorMessage(String message) {
+    if (message.contains('DRIVER_ACCEPTANCE_LOCKED')) {
+      return 'Bạn đang tạm khóa nhận đơn. Vui lòng chờ hết 30 phút.';
+    }
     if (message.contains('INSUFFICIENT_WALLET_BALANCE')) {
       return 'Số dư ví chưa đủ để ứng đơn này. Hãy nạp thêm rồi thử lại.';
     }

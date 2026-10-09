@@ -19,6 +19,7 @@ class OrderModel {
     this.estimatedPickupAt,
     this.estimatedDeliveryAt,
     this.actualPickedUpAt,
+    this.pickupArrivedAt,
     this.actualDeliveredAt,
     this.cancelledAt,
     this.assignmentExpiresAt,
@@ -48,6 +49,10 @@ class OrderModel {
     this.statusNote,
     required this.updatedAt,
     this.rejectedBy = const [],
+    this.pickupRoadDistanceMeters,
+    this.pickupRoadQuotedAt,
+    this.pickupRoadOriginLat,
+    this.pickupRoadOriginLng,
   });
 
   final String id;
@@ -67,6 +72,7 @@ class OrderModel {
   final DateTime? estimatedPickupAt;
   final DateTime? estimatedDeliveryAt;
   final DateTime? actualPickedUpAt;
+  final DateTime? pickupArrivedAt;
   final DateTime? actualDeliveredAt;
   final DateTime? cancelledAt;
   final DateTime? assignmentExpiresAt;
@@ -97,6 +103,21 @@ class OrderModel {
   final DateTime updatedAt;
   final List<String> rejectedBy;
 
+  // Transient OSRM response fields; never persisted as order columns.
+  final double? pickupRoadDistanceMeters;
+  final DateTime? pickupRoadQuotedAt;
+  final double? pickupRoadOriginLat;
+  final double? pickupRoadOriginLng;
+
+  /// The backend snapshot opts new, fully paid goods into the deposit policy.
+  /// Legacy prepaid orders with zero advance stay on their original contract.
+  bool get requiresPaidGoodsDeposit =>
+      deliveryFeePayer == DeliveryFeePayer.sender &&
+      paymentStatus == OrderPaymentStatus.paid &&
+      codCollectionAmount == 0 &&
+      goodsValue > 0 &&
+      driverAdvanceAmount == goodsValue;
+
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     return OrderModel(
       id: json['id']?.toString() ?? '',
@@ -118,6 +139,7 @@ class OrderModel {
       estimatedPickupAt: _parseDateTime(json['estimated_pickup_at']),
       estimatedDeliveryAt: _parseDateTime(json['estimated_delivery_at']),
       actualPickedUpAt: _parseDateTime(json['actual_picked_up_at']),
+      pickupArrivedAt: _parseDateTime(json['pickup_arrived_at']),
       actualDeliveredAt: _parseDateTime(json['actual_delivered_at']),
       cancelledAt: _parseDateTime(json['cancelled_at']),
       assignmentExpiresAt: _parseDateTime(json['assignment_expires_at']),
@@ -150,6 +172,12 @@ class OrderModel {
           _parseDateTime(json['updated_at']) ??
           DateTime.fromMillisecondsSinceEpoch(0),
       rejectedBy: _parseStringList(json['rejected_by']),
+      pickupRoadDistanceMeters: _parseDouble(
+        json['pickup_road_distance_meters'],
+      ),
+      pickupRoadQuotedAt: _parseDateTime(json['pickup_road_quoted_at']),
+      pickupRoadOriginLat: _parseDouble(json['pickup_road_origin_lat']),
+      pickupRoadOriginLng: _parseDouble(json['pickup_road_origin_lng']),
     );
   }
 
@@ -194,6 +222,7 @@ class OrderModel {
       'estimated_pickup_at': estimatedPickupAt?.toIso8601String(),
       'estimated_delivery_at': estimatedDeliveryAt?.toIso8601String(),
       'actual_picked_up_at': actualPickedUpAt?.toIso8601String(),
+      'pickup_arrived_at': pickupArrivedAt?.toIso8601String(),
       'actual_delivered_at': actualDeliveredAt?.toIso8601String(),
       'cancelled_at': cancelledAt?.toIso8601String(),
       'assignment_expires_at': assignmentExpiresAt?.toIso8601String(),
@@ -262,6 +291,7 @@ class OrderModel {
     DateTime? estimatedPickupAt,
     DateTime? estimatedDeliveryAt,
     DateTime? actualPickedUpAt,
+    DateTime? pickupArrivedAt,
     DateTime? actualDeliveredAt,
     DateTime? cancelledAt,
     DateTime? assignmentExpiresAt,
@@ -291,6 +321,10 @@ class OrderModel {
     String? statusNote,
     DateTime? updatedAt,
     List<String>? rejectedBy,
+    double? pickupRoadDistanceMeters,
+    DateTime? pickupRoadQuotedAt,
+    double? pickupRoadOriginLat,
+    double? pickupRoadOriginLng,
   }) {
     return OrderModel(
       id: id ?? this.id,
@@ -310,6 +344,7 @@ class OrderModel {
       estimatedPickupAt: estimatedPickupAt ?? this.estimatedPickupAt,
       estimatedDeliveryAt: estimatedDeliveryAt ?? this.estimatedDeliveryAt,
       actualPickedUpAt: actualPickedUpAt ?? this.actualPickedUpAt,
+      pickupArrivedAt: pickupArrivedAt ?? this.pickupArrivedAt,
       actualDeliveredAt: actualDeliveredAt ?? this.actualDeliveredAt,
       cancelledAt: cancelledAt ?? this.cancelledAt,
       assignmentExpiresAt: assignmentExpiresAt ?? this.assignmentExpiresAt,
@@ -340,6 +375,11 @@ class OrderModel {
       statusNote: statusNote ?? this.statusNote,
       updatedAt: updatedAt ?? this.updatedAt,
       rejectedBy: rejectedBy ?? this.rejectedBy,
+      pickupRoadDistanceMeters:
+          pickupRoadDistanceMeters ?? this.pickupRoadDistanceMeters,
+      pickupRoadQuotedAt: pickupRoadQuotedAt ?? this.pickupRoadQuotedAt,
+      pickupRoadOriginLat: pickupRoadOriginLat ?? this.pickupRoadOriginLat,
+      pickupRoadOriginLng: pickupRoadOriginLng ?? this.pickupRoadOriginLng,
     );
   }
 

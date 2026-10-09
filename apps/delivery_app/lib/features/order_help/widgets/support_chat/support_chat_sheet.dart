@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
+import 'package:giaohang_storage/giaohang_storage.dart';
 
+import '../../controllers/support_chat_attachment_draft.dart';
 import '../../data/customer_support_ticket_repository.dart';
 import '../../utils/order_help_ui.dart';
 import 'support_chat_composer.dart';
 import 'support_chat_header.dart';
 import 'support_chat_messages.dart';
+import 'support_chat_attachment_preview.dart';
 
 Future<SupportTicket?> showParticipantSupportChatSheet(
   BuildContext context, {
@@ -50,6 +53,7 @@ class SupportChatSheet extends StatefulWidget {
     required this.repository,
     this.orderCode,
     this.initialTicket,
+    this.attachmentDraft,
     super.key,
   });
 
@@ -61,6 +65,7 @@ class SupportChatSheet extends StatefulWidget {
   final SupportTicketPriority priority;
   final ParticipantSupportTicketRepository repository;
   final SupportTicket? initialTicket;
+  final SupportChatAttachmentDraft? attachmentDraft;
 
   @override
   State<SupportChatSheet> createState() => _SupportChatSheetState();
@@ -69,16 +74,22 @@ class SupportChatSheet extends StatefulWidget {
 class _SupportChatSheetState extends State<SupportChatSheet> {
   final _composerController = TextEditingController();
   final _scrollController = ScrollController();
+  late final SupportChatAttachmentDraft _attachments;
+  bool _selectingImages = false;
   StreamSubscription<List<CaseMessage>>? _messageSubscription;
   StreamSubscription<List<SupportTicket>>? _ticketSubscription;
 
   SupportTicket? _ticket;
   List<CaseMessage>? _messages;
   String? _pendingBody;
+  Set<String> _idsBeforeSend = const {};
+  bool _sendConfirmed = false;
   String? _error;
   bool _sending = false;
   bool _connected = false;
   bool _streamFailed = false;
+  bool _reopening = false;
+  int _messageRevision = 0;
 
   ParticipantSupportConversationRepository? get _conversations {
     final repository = widget.repository;
@@ -90,6 +101,9 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
   @override
   void initState() {
     super.initState();
+    _attachments =
+        widget.attachmentDraft ??
+        SupportChatAttachmentDraft(contextId: widget.orderId);
     _ticket = widget.initialTicket;
     _messages = _ticket == null ? const [] : null;
     if (_ticket != null) {
@@ -131,8 +145,9 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
         .listen(
           (messages) {
             if (!mounted) return;
+            _messageRevision++;
             setState(() {
-              _messages = messages;
+              _receiveMessages(messages);
               _connected = true;
               _streamFailed = false;
             });
@@ -146,20 +161,29 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
             });
           },
           onDone: () {
-            if (mounted) setState(() => _connected = false);
+            if (mounted) {
+              setState(() {
+                _connected = false;
+                _streamFailed = true;
+              });
+            }
           },
         );
 
+    final revision = ++_messageRevision;
     try {
       final messages = await conversations.fetchMessages(ticket.id);
-      if (!mounted || _ticket?.id != ticket.id) return;
+      if (!mounted ||
+          _ticket?.id != ticket.id ||
+          revision != _messageRevision) {
+        return;
+      }
       setState(() {
-        _messages = messages;
-        _connected = true;
+        _receiveMessages(messages);
       });
       _scrollToBottom();
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || revision != _messageRevision) return;
       setState(() {
         _messages ??= const [];
         _streamFailed = true;
@@ -168,27 +192,96 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
     }
   }
 
+  void _receiveMessages(List<CaseMessage> messages) {
+    _messages = messages;
+    // Realtime có thể xác nhận trước khi HTTP trả về. Thay tin đang gửi,
+    // chỉ đối chiếu ID mới để giữ những lần gửi cùng nội dung có chủ ý.
+    if (_pendingBody != null &&
+        messages.any(
+          (message) =>
+              message.senderId == widget.requesterId &&
+              message.body == _pendingBody &&
+              !_idsBeforeSend.contains(message.id),
+        )) {
+      _pendingBody = null;
+      _sendConfirmed = true;
+    }
+  }
+
   void _watchTicket() {
-    if (widget.orderId.isEmpty) return;
+    final repository = widget.repository;
+    final ticketId = _ticket?.id;
+    if (ticketId == null) return;
+    if (repository is! ParticipantSupportDetailRepository &&
+        widget.orderId.isEmpty) {
+      return;
+    }
+    final stream = repository is ParticipantSupportDetailRepository
+        ? (repository as ParticipantSupportDetailRepository).watchTicket(
+            ticketId,
+          )
+        : repository.watchForOrder(widget.orderId);
     unawaited(_ticketSubscription?.cancel());
-    _ticketSubscription = widget.repository
-        .watchForOrder(widget.orderId)
-        .listen((tickets) {
-          final currentId = _ticket?.id;
-          if (!mounted || currentId == null) return;
-          for (final ticket in tickets) {
-            if (ticket.id == currentId) {
-              setState(() => _ticket = ticket);
-              break;
-            }
+    _ticketSubscription = stream.listen(
+      (tickets) {
+        final currentId = _ticket?.id;
+        if (!mounted || currentId == null) return;
+        for (final ticket in tickets) {
+          if (ticket.id == currentId) {
+            setState(() => _ticket = ticket);
+            break;
           }
-        });
+        }
+      },
+      onError: (_) {
+        if (mounted) {
+          setState(
+            () => _error =
+                'Chưa đồng bộ được trạng thái yêu cầu. Hãy mở lại hội thoại.',
+          );
+        }
+      },
+    );
+  }
+
+  Future<void> _pickImages() async {
+    if (_sending || _selectingImages) return;
+    setState(() {
+      _selectingImages = true;
+      _error = null;
+    });
+    try {
+      await _attachments.pick();
+    } on R2MediaException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _error =
+              'Không thể mở ảnh. Hãy kiểm tra quyền truy cập ảnh và thử lại.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _selectingImages = false);
+    }
   }
 
   Future<void> _send() async {
-    final body = _composerController.text.trim();
-    if (body.isEmpty || _sending) return;
-    if (_ticket == null && body.length < 10) {
+    var body = _composerController.text.trim();
+    if (_sending || _selectingImages) return;
+    if (body.isEmpty) {
+      if (_attachments.images.isEmpty) return;
+      body = CaseMessageContent.imageLabel;
+    }
+    if (widget.requesterRole != 'driver' &&
+        _reopening &&
+        (body.length < 3 || body.length > 3900)) {
+      setState(() => _error = 'Nêu vấn đề cần hỗ trợ tiếp bằng 3–3900 ký tự.');
+      return;
+    }
+    if (widget.requesterRole != 'driver' &&
+        _ticket == null &&
+        body.length < 10) {
       setState(() {
         _error = 'Hãy mô tả vấn đề rõ hơn bằng ít nhất 10 ký tự.';
       });
@@ -198,13 +291,38 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
     setState(() {
       _sending = true;
       _error = null;
-      _pendingBody = body;
+      _idsBeforeSend = {
+        for (final message in _messages ?? <CaseMessage>[]) message.id,
+      };
+      _sendConfirmed = false;
     });
-    _composerController.clear();
-    _scrollToBottom();
 
     try {
-      if (_ticket == null) {
+      final images = await _attachments.upload();
+      if (!mounted) return;
+      body = CaseMessageContent(text: body, images: images).encode();
+      final maxLength = _reopening ? 3900 : 4000;
+      if (widget.requesterRole != 'driver' && body.length > maxLength) {
+        throw const CustomerSupportTicketException(
+          'Tin nhắn kèm ảnh quá dài. Hãy rút gọn nội dung hoặc bớt ảnh.',
+        );
+      }
+      setState(() => _pendingBody = body);
+      _composerController.clear();
+      _scrollToBottom();
+      if (_reopening && _ticket != null) {
+        final repository = widget.repository;
+        if (repository is! ParticipantSupportReopenRepository) return;
+        final ticket = await (repository as ParticipantSupportReopenRepository)
+            .reopen(_ticket!.id, body);
+        if (!mounted) return;
+        setState(() {
+          _ticket = ticket;
+          _reopening = false;
+          _pendingBody = null;
+        });
+        await _connectToTicket();
+      } else if (_ticket == null) {
         final ticket = await widget.repository.create(
           SupportTicketDraft(
             requesterId: widget.requesterId,
@@ -217,17 +335,19 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
         if (!mounted) return;
         setState(() {
           _ticket = ticket;
-          _messages = [
-            CaseMessage(
-              id: 'local-initial',
-              caseId: ticket.id,
-              senderId: widget.requesterId,
-              senderRole: widget.requesterRole,
-              visibility: CaseMessageVisibility.public,
-              body: body,
-              createdAt: DateTime.now(),
-            ),
-          ];
+          _messages = _conversations != null
+              ? null
+              : [
+                  CaseMessage(
+                    id: 'local-initial',
+                    caseId: ticket.id,
+                    senderId: widget.requesterId,
+                    senderRole: widget.requesterRole,
+                    visibility: CaseMessageVisibility.public,
+                    body: body,
+                    createdAt: DateTime.now(),
+                  ),
+                ];
           _pendingBody = null;
         });
         _watchTicket();
@@ -242,10 +362,25 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
         await conversations.postMessage(_ticket!.id, body);
         if (!mounted) return;
         setState(() => _pendingBody = null);
-        final messages = await conversations.fetchMessages(_ticket!.id);
-        if (mounted) setState(() => _messages = messages);
+        final revision = ++_messageRevision;
+        try {
+          final messages = await conversations.fetchMessages(_ticket!.id);
+          if (mounted && revision == _messageRevision) {
+            setState(() => _messages = messages);
+          }
+        } catch (_) {
+          if (mounted) {
+            setState(
+              () => _error =
+                  'Tin nhắn đã gửi. Chưa tải được hội thoại mới nhất; hãy tải lại.',
+            );
+          }
+        }
       }
+      if (mounted) setState(_attachments.clear);
       _scrollToBottom();
+    } on R2MediaException catch (error) {
+      _restoreFailedMessage(body, 'Chưa tải được ảnh: ${error.message}');
     } on CustomerSupportTicketException catch (error) {
       _restoreFailedMessage(body, error.message);
     } catch (_) {
@@ -262,11 +397,17 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
     if (!mounted) return;
     setState(() {
       _pendingBody = null;
+      if (_sendConfirmed) {
+        _attachments.clear();
+        _error = 'Tin nhắn đã gửi. Hãy tải lại để đồng bộ hội thoại.';
+        return;
+      }
       _error = message;
       if (_composerController.text.isEmpty) {
-        _composerController.text = body;
+        final text = CaseMessageContent.decode(body).text;
+        _composerController.text = text;
         _composerController.selection = TextSelection.collapsed(
-          offset: body.length,
+          offset: text.length,
         );
       }
     });
@@ -288,10 +429,10 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
   void _close() => Navigator.pop(context, _ticket);
 
   String get _connectionLabel {
-    if (_ticket == null) return 'Sẵn sàng hỗ trợ trực tiếp';
+    if (_ticket == null) return 'Gửi yêu cầu để CSKH tiếp nhận';
     if (_streamFailed) return 'Mất kết nối · Chạm để thử lại';
-    if (_connected) return 'Đang kết nối thời gian thực';
-    return 'Đang đồng bộ cuộc trò chuyện...';
+    if (_connected) return 'Đã đồng bộ hội thoại';
+    return 'Đang chờ cập nhật · Chạm để tải lại';
   }
 
   String get _orderLabel {
@@ -322,37 +463,76 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
           color: AppColors.bgLight,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              SupportChatHeader(
-                connectionLabel: _connectionLabel,
-                connected: ticket == null || _connected,
-                orderLabel: _orderLabel,
-                subject: widget.subject,
-                statusLabel: statusLabel,
-                statusColor: statusColor,
-                onClose: _close,
-                onRetry: _streamFailed
-                    ? () => unawaited(_connectToTicket())
-                    : null,
-              ),
-              Expanded(
-                child: SupportChatMessages(
-                  messages: _messages,
-                  requesterId: widget.requesterId,
-                  scrollController: _scrollController,
-                  pendingBody: _pendingBody,
+          child: LayoutBuilder(
+            builder: (context, constraints) => Column(
+              children: [
+                SupportChatHeader(
+                  compact: keyboard > 0 || constraints.maxHeight < 420,
+                  connectionLabel: _connectionLabel,
+                  connected: !_streamFailed && _connected,
+                  orderLabel: _orderLabel,
+                  subject: widget.subject,
+                  showSubject: widget.requesterRole != 'driver',
+                  statusLabel: statusLabel,
+                  statusColor: statusColor,
+                  onClose: _close,
+                  onRetry: ticket != null
+                      ? () => unawaited(_connectToTicket())
+                      : null,
                 ),
-              ),
-              SupportChatComposer(
-                controller: _composerController,
-                sending: _sending,
-                started: ticket != null,
-                closed: ticket?.status.isClosed ?? false,
-                error: _error,
-                onSend: _send,
-              ),
-            ],
+                Expanded(
+                  child: SupportChatMessages(
+                    messages: _messages,
+                    requesterId: widget.requesterId,
+                    scrollController: _scrollController,
+                    pendingBody: _pendingBody,
+                    guidance: ticket == null && widget.requesterRole != 'driver'
+                        ? SupportIssue.fromSubject(
+                            widget.subject,
+                          ).participantHint
+                        : null,
+                  ),
+                ),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: constraints.maxHeight / 2,
+                  ),
+                  child: SingleChildScrollView(
+                    reverse: true,
+                    child: SupportChatComposer(
+                      controller: _composerController,
+                      sending: _sending || _selectingImages,
+                      started: ticket != null,
+                      closed: !_reopening && (ticket?.status.isClosed ?? false),
+                      onReopen:
+                          widget.repository
+                              is ParticipantSupportReopenRepository
+                          ? () => setState(() => _reopening = true)
+                          : null,
+                      error: _error,
+                      unrestricted: widget.requesterRole == 'driver',
+                      onSend: _send,
+                      onAttach: _pickImages,
+                      attachmentPreview: _attachments.images.isEmpty
+                          ? null
+                          : SupportChatAttachmentPreview(
+                              images: _attachments.images,
+                              enabled: !_sending && !_selectingImages,
+                              onRemove: (image) =>
+                                  setState(() => _attachments.remove(image)),
+                            ),
+                    ),
+                  ),
+                ),
+                if (_reopening)
+                  TextButton(
+                    onPressed: _sending
+                        ? null
+                        : () => setState(() => _reopening = false),
+                    child: const Text('Hủy mở lại yêu cầu'),
+                  ),
+              ],
+            ),
           ),
         ),
       ),

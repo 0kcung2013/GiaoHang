@@ -7,15 +7,16 @@ import '../../../../../core/providers/location_providers.dart';
 import '../../../../../core/utils/geo_utils.dart';
 import '../utils/driver_dashboard_location.dart';
 import '../utils/driver_home_formatters.dart';
-import 'availability_toggle_card.dart';
 import 'driver_home_banner.dart';
 import 'driver_home_layout.dart';
 import 'driver_new_order_alert.dart';
 import 'driver_priority_orders.dart';
 import 'driver_quick_stats.dart';
 import 'driver_state_widgets.dart';
+import '../../../cancellation/driver_cancellation_providers.dart';
+import '../../../cancellation/widgets/driver_acceptance_lock_card.dart';
 
-/// Simplified dashboard body: toggle + 2 stats + priority orders.
+/// Dashboard: thời gian khóa, thống kê và các đơn ưu tiên.
 class DriverDashboardBody extends ConsumerWidget {
   final String userId;
   final String? email;
@@ -43,6 +44,20 @@ class DriverDashboardBody extends ConsumerWidget {
       ),
       data: (driver) {
         if (driver == null) return const MissingDriverProfileState();
+        final acceptanceAsync = ref.watch(
+          driverAcceptanceStateProvider(userId),
+        );
+        final acceptance = acceptanceAsync.valueOrNull;
+        if (acceptance == null) {
+          if (acceptanceAsync.hasError) {
+            return DriverErrorState(
+              onRetry: () =>
+                  ref.invalidate(driverAcceptanceStateProvider(userId)),
+            );
+          }
+          return const DriverLoadingState();
+        }
+        final acceptanceLocked = acceptance.isLocked;
 
         final currentPositionAsync = ref.watch(currentPositionProvider);
         final driverOrdersAsync = ref.watch(
@@ -73,7 +88,8 @@ class DriverDashboardBody extends ConsumerWidget {
         final activeCount = driverOrders.where(isActiveDriverOrder).length;
         final hasActiveOrder = activeCount > 0;
 
-        final visibleAvailable = driver.isAvailable && !hasActiveOrder
+        final visibleAvailable =
+            driver.isAvailable && !hasActiveOrder && !acceptanceLocked
             ? rawAvailableOrders
             : const <OrderModel>[];
         final activeOrders = driverOrders.where(isActiveDriverOrder).toList();
@@ -111,18 +127,24 @@ class DriverDashboardBody extends ConsumerWidget {
           children: [
             if (driver.isAvailable || hasActiveOrder)
               _GpsTracker(driverId: driver.id),
-            AvailabilityToggleCard(
-              driver: driver,
-              hasActiveOrder: hasActiveOrder,
-            ),
-            SizedBox(height: layout.sectionGap),
+            if (acceptanceLocked) ...[
+              DriverAcceptanceLockCard(
+                lockedUntil: acceptance.lockedUntil!,
+                now: acceptance.now,
+                onExpired: () {
+                  ref.invalidate(driverAcceptanceStateProvider(userId));
+                  ref.invalidate(availableOrdersProvider(userId));
+                },
+              ),
+              SizedBox(height: layout.sectionGap),
+            ],
             DriverNewOrderAlert(
               orders: visibleAvailable,
               pickupDistancesMeters: pickupDistancesMeters,
             ),
             if (visibleAvailable.isNotEmpty)
               SizedBox(height: layout.sectionGap),
-            if (showIdleBanner) ...[
+            if (showIdleBanner && !acceptanceLocked) ...[
               DriverHomeBanner(isOnline: driver.isAvailable),
               SizedBox(height: layout.sectionGap),
             ],

@@ -36,10 +36,23 @@ Thêm origin thật của Operations Web vào `ALLOWED_ORIGINS`. Không bật `r
 - URL/object cũ trong Supabase Storage vẫn được đọc trong giai đoạn
   chuyển tiếp; chỉ luồng ghi mới bị bắt buộc qua R2.
 
+## Tự động lưu lịch sử GPS
+
+`wrangler.jsonc` cấu hình cron `* * * * *`. Handler `scheduled` gọi Supabase
+`flush-gps-history` mỗi phút bằng `GPS_INGEST_SECRET`; không cần service role key
+trên Worker. Edge lấy batch từ Redis rồi gửi lại `/v1/gps/chunks` để ghi R2.
+
+Batch có ID ổn định được ghi vào
+`orders/{order_id}/gps/YYYY/MM/DD/{batch_id}.jsonl.gz`. Thử lại cùng batch ghi
+cùng object key. Redis giữ batch đang xử lý đến khi R2 xác nhận thành công.
+Chi tiết và các trường log nằm trong
+[`README_GPS_PIPELINE.md`](../../supabase/functions/README_GPS_PIPELINE.md).
+
 ## Kiểm tra nhanh
 
 ```bash
 npm install
 npm run check
+node --test test/gps.test.js test/gps_scheduler.test.js ../../supabase/functions/flush-gps-history/archive_test.mjs
 npm run dev
 ```

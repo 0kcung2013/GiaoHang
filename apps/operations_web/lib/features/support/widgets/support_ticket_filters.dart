@@ -131,7 +131,11 @@ class SupportTicketFilters extends StatelessWidget {
                     : SupportTicketUi.statusLabel(status!),
                 icon: Icons.tune_rounded,
                 value: status,
-                items: SupportTicketStatus.values,
+                items: const [
+                  SupportTicketStatus.open,
+                  SupportTicketStatus.inProgress,
+                  SupportTicketStatus.resolved,
+                ],
                 itemLabel: SupportTicketUi.statusLabel,
                 onChanged: onStatusChanged,
               );

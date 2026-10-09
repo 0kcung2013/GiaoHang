@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
 import '../../widgets/auth_strings.dart';
+import 'google_mark.dart';
 import 'login_experiment_tokens.dart';
 
 class LoginExperimentField extends StatefulWidget {
@@ -11,6 +12,7 @@ class LoginExperimentField extends StatefulWidget {
     required this.label,
     required this.hint,
     required this.icon,
+    required this.iconColor,
     this.validator,
     this.keyboardType,
     this.textInputAction,
@@ -24,6 +26,7 @@ class LoginExperimentField extends StatefulWidget {
   final String label;
   final String hint;
   final IconData icon;
+  final Color iconColor;
   final FormFieldValidator<String>? validator;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
@@ -86,15 +89,18 @@ class _LoginExperimentFieldState extends State<LoginExperimentField> {
         hintStyle: AppTextStyles.bodyMedium.copyWith(
           color: LoginExperimentTokens.muted.withValues(alpha: 0.72),
         ),
-        prefixIcon: AnimatedSwitcher(
-          duration: AppDuration.fast,
-          child: Icon(
-            widget.icon,
-            key: ValueKey(focused),
-            size: 20,
-            color: focused
-                ? LoginExperimentTokens.accent
-                : LoginExperimentTokens.muted,
+        prefixIcon: Center(
+          widthFactor: 1,
+          heightFactor: 1,
+          child: AnimatedContainer(
+            duration: AppDuration.fast,
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: widget.iconColor.withValues(alpha: focused ? 0.17 : 0.10),
+              borderRadius: AppRadius.sm,
+            ),
+            child: Icon(widget.icon, size: 20, color: widget.iconColor),
           ),
         ),
         prefixIconConstraints: const BoxConstraints(
@@ -294,31 +300,47 @@ class LoginExperimentGoogleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 54),
-        child: OutlinedButton(
-          onPressed: isBusy ? null : onPressed,
-          style: OutlinedButton.styleFrom(
-            foregroundColor: LoginExperimentTokens.ink,
-            disabledForegroundColor: AppColors.textMuted,
-            backgroundColor: LoginExperimentTokens.surface,
-            side: const BorderSide(color: LoginExperimentTokens.fieldBorder),
-            textStyle: AppTextStyles.labelLarge.copyWith(
-              fontWeight: FontWeight.w700,
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        borderRadius: LoginExperimentTokens.controlRadius,
+        boxShadow: AppShadow.subtle,
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 54),
+          child: OutlinedButton(
+            onPressed: isBusy ? null : onPressed,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: LoginExperimentTokens.ink,
+              disabledForegroundColor: AppColors.textMuted,
+              backgroundColor: LoginExperimentTokens.surface,
+              side: const BorderSide(color: AppColors.border),
+              textStyle: AppTextStyles.labelLarge.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.md,
+              ),
+              shape: const RoundedRectangleBorder(
+                borderRadius: LoginExperimentTokens.controlRadius,
+              ),
             ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.md,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const GoogleMark(key: Key('login-google-icon')),
+                const SizedBox(width: AppSpacing.md),
+                const Flexible(
+                  child: Text(
+                    AuthStrings.loginWithGoogle,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
             ),
-            shape: const RoundedRectangleBorder(
-              borderRadius: LoginExperimentTokens.controlRadius,
-            ),
-          ),
-          child: const Text(
-            AuthStrings.loginWithGoogle,
-            textAlign: TextAlign.center,
           ),
         ),
       ),

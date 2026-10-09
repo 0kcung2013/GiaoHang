@@ -12,13 +12,19 @@ import '../../../../../core/utils/order_cargo_utils.dart';
 import '../../../../../core/widgets/order_cargo_info_block.dart';
 import '../../../../reviews/widgets/driver_rate_customer_sheet.dart';
 import '../../navigation/driver_navigation_screen.dart';
+import '../../navigation/driver_accepted_order_screen.dart';
 import '../../navigation/widgets/driver_order_cancellation_guard.dart';
 import '../utils/driver_home_formatters.dart';
 import '../utils/driver_order_distance.dart';
-import 'driver_offer_countdown.dart';
+import '../driver_home_strings.dart';
 import 'driver_order_card_components.dart';
 import 'driver_order_distance_summary.dart';
 import 'driver_order_finance_panel.dart';
+import 'driver_available_order_card.dart';
+import 'driver_offer_expiry_builder.dart';
+import '../../../cancellation/driver_cancellation_providers.dart';
+import '../../../cancellation/driver_cancellation_strings.dart';
+import '../../../cancellation/widgets/driver_cancel_order_action.dart';
 
 /// Card đơn hàng dùng chung cho Tổng quan và danh sách đơn của tài xế.
 ///
@@ -30,11 +36,13 @@ class DriverOrderCard extends ConsumerStatefulWidget {
     required this.order,
     this.acceptDriverId,
     this.pickupDistanceMeters,
+    this.showCancelAction = false,
   });
 
   final OrderModel order;
   final String? acceptDriverId;
   final double? pickupDistanceMeters;
+  final bool showCancelAction;
 
   @override
   ConsumerState<DriverOrderCard> createState() => _DriverOrderCardState();
@@ -46,8 +54,31 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
 
   Future<void> _acceptOrder() async {
     final driverId = widget.acceptDriverId;
-    if (_isAccepting || driverId == null || driverId.isEmpty) return;
+    if (_isAccepting ||
+        _isTransferring ||
+        driverId == null ||
+        driverId.isEmpty) {
+      return;
+    }
+    final acceptance = ref
+        .read(driverAcceptanceStateProvider(driverId))
+        .valueOrNull;
+    if (acceptance == null || acceptance.isLocked) {
+      _showSnackBar(DriverCancellationStrings.lockError, isError: true);
+      return;
+    }
+    if (!widget.order.isOfferedToDriverAt(driverId, acceptance.now())) {
+      ref.invalidate(availableOrdersProvider(driverId));
+      _showSnackBar(DriverHomeStrings.offerExpiredAction, isError: true);
+      return;
+    }
+    final container = ProviderScope.containerOf(context, listen: false);
+    final messenger = ScaffoldMessenger.of(context);
 
+    final openAccepted = prepareDriverAcceptedOrderNavigation(
+      context,
+      widget.order.id,
+    );
     setState(() => _isAccepting = true);
     try {
       await ref
@@ -58,13 +89,21 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
             customerIdHint: widget.order.customerId,
             orderCodeHint: displayOrderCode(widget.order),
           );
-      ref.invalidate(availableOrdersProvider(driverId));
-      ref.invalidate(driverOrdersProvider(driverId));
-      if (!mounted) return;
-      _showSnackBar('Đã nhận đơn hàng.');
+      container.invalidate(availableOrdersProvider(driverId));
+      container.invalidate(driverOrdersProvider(driverId));
+      openAccepted();
     } catch (e) {
-      if (!mounted) return;
-      _showSnackBar(e.toString().replaceAll('Exception: ', ''), isError: true);
+      container.invalidate(availableOrdersProvider(driverId));
+      container.invalidate(driverOrdersProvider(driverId));
+      if (messenger.mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isAccepting = false);
     }
@@ -197,6 +236,13 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
     final order = widget.order;
     final color = statusColor(order.status);
     final canAccept = widget.acceptDriverId != null && isAvailableOrder(order);
+    final acceptance = canAccept
+        ? ref
+              .watch(driverAcceptanceStateProvider(widget.acceptDriverId!))
+              .valueOrNull
+        : null;
+    final acceptanceBlocked =
+        canAccept && (acceptance == null || acceptance.isLocked);
     final canContinueDelivery = !canAccept && isActiveDriverOrder(order);
     final isDelivered = order.status == 'delivered';
     final canTap = isActiveDriverOrder(order) || isDelivered;
@@ -215,6 +261,56 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
       order: order,
       pickupDistanceMeters: widget.pickupDistanceMeters,
     );
+
+    if (order.status == 'pending' || order.status == 'confirmed') {
+      return DriverAvailableOrderCard(
+        order: order,
+        pickupDistanceMeters: widget.pickupDistanceMeters,
+        now: acceptance?.now,
+        actions: !canAccept
+            ? null
+            : DriverOfferExpiryBuilder(
+                order: order,
+                now: acceptance?.now,
+                builder: (context, expired) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DriverAcceptOrderButton(
+                      isLoading: _isAccepting,
+                      label: acceptance == null
+                          ? DriverHomeStrings.acceptanceChecking
+                          : acceptanceBlocked
+                          ? DriverCancellationStrings.lockTitle
+                          : expired
+                          ? DriverHomeStrings.offerExpiredAction
+                          : walletInsufficient
+                          ? 'Nạp ${formatVnd(missingBalance)}'
+                          : 'Nhận đơn',
+                      icon: walletInsufficient
+                          ? Icons.add_card_rounded
+                          : Icons.check_circle_rounded,
+                      onTap:
+                          _isAccepting ||
+                              _isTransferring ||
+                              acceptanceBlocked ||
+                              expired
+                          ? null
+                          : walletInsufficient
+                          ? () => context.go('/driver-home?tab=earnings')
+                          : _acceptOrder,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    DriverTransferOrderButton(
+                      isLoading: _isTransferring,
+                      onTap: _isAccepting || _isTransferring || expired
+                          ? null
+                          : _transferOrder,
+                    ),
+                  ],
+                ),
+              ),
+      );
+    }
 
     return Material(
       color: Colors.transparent,
@@ -330,47 +426,16 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                         ),
                       ],
                     ),
-                    if (canAccept && order.offerExpiresAt != null) ...[
-                      const SizedBox(height: AppSpacing.md),
-                      DriverOfferCountdown(expiresAt: order.offerExpiresAt!),
-                    ],
-                    if (canAccept) ...[
-                      const SizedBox(height: AppSpacing.lg),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DriverAcceptOrderButton(
-                              isLoading: _isAccepting,
-                              label: walletInsufficient
-                                  ? 'Nạp ${formatVnd(missingBalance)}'
-                                  : 'Nhận đơn',
-                              icon: walletInsufficient
-                                  ? Icons.add_card_rounded
-                                  : Icons.check_circle_rounded,
-                              onTap: _isAccepting
-                                  ? null
-                                  : walletInsufficient
-                                  ? () =>
-                                        context.go('/driver-home?tab=earnings')
-                                  : _acceptOrder,
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Expanded(
-                            child: DriverTransferOrderButton(
-                              isLoading: _isTransferring,
-                              onTap: _isTransferring ? null : _transferOrder,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
                     if (canContinueDelivery) ...[
                       const SizedBox(height: AppSpacing.lg),
                       DriverContinueDeliveryButton(
                         status: order.status,
                         onTap: _openNavigation,
                       ),
+                      if (widget.showCancelAction) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        DriverCancelOrderAction(order: order),
+                      ],
                     ],
                     if (isDelivered) ...[
                       const SizedBox(height: AppSpacing.lg),

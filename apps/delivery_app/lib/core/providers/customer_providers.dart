@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:giaohang_domain/giaohang_domain.dart';
+import '../../features/driver/cancellation/driver_cancellation_providers.dart';
 import '../models/driver_order_cancellation_event.dart';
 import '../models/delivery_proof_model.dart';
 import '../models/notification_model.dart';
@@ -130,9 +131,16 @@ final activeOrderProvider = FutureProvider.family<OrderModel?, String>((
 });
 
 final availableOrdersProvider = StreamProvider.family<List<OrderModel>, String>(
-  (ref, driverUserId) {
+  (ref, driverUserId) async* {
     final service = ref.watch(customerOrderServiceProvider);
-    return service.watchAvailableOrders(driverId: driverUserId);
+    if (driverUserId.trim().isEmpty) {
+      yield const <OrderModel>[];
+      return;
+    }
+    final clock = await ref.watch(
+      driverAcceptanceStateProvider(driverUserId).future,
+    );
+    yield* service.watchAvailableOrders(driverId: driverUserId, now: clock.now);
   },
 );
 

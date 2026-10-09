@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
 import '../models/support_ticket.dart';
 import '../utils/support_ticket_ui.dart';
 
 class SupportTicketDetailHeader extends StatelessWidget {
-  const SupportTicketDetailHeader({required this.ticket, super.key});
+  const SupportTicketDetailHeader({
+    required this.ticket,
+    this.onRefresh,
+    super.key,
+  });
   final SupportTicket ticket;
+  final VoidCallback? onRefresh;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -59,9 +65,21 @@ class SupportTicketDetailHeader extends StatelessWidget {
             ],
           ),
         ),
+        if (onRefresh != null)
+          IconButton(
+            tooltip: 'Tải lại hồ sơ',
+            onPressed: onRefresh,
+            icon: const Icon(Icons.refresh_rounded),
+          ),
         IconButton(
           tooltip: 'Đóng',
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.pop(context);
+            } else {
+              context.go('/support-home');
+            }
+          },
           color: AppColors.textSecondary,
           icon: const Icon(Icons.close_rounded),
         ),

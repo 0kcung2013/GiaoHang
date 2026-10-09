@@ -11,6 +11,8 @@ class SupportLiveComposer extends StatelessWidget {
     required this.onVisibilityChanged,
     required this.onSend,
     this.error,
+    this.recipientLabel = 'người yêu cầu',
+    this.replyTemplate,
     super.key,
   });
 
@@ -18,6 +20,8 @@ class SupportLiveComposer extends StatelessWidget {
   final CaseMessageVisibility visibility;
   final bool sending;
   final String? error;
+  final String recipientLabel;
+  final String? replyTemplate;
   final ValueChanged<CaseMessageVisibility> onVisibilityChanged;
   final VoidCallback onSend;
 
@@ -39,7 +43,7 @@ class SupportLiveComposer extends StatelessWidget {
           children: [
             _VisibilityChip(
               icon: Icons.person_outline_rounded,
-              label: 'Phản hồi người dùng',
+              label: 'Gửi $recipientLabel',
               selected: visibility == CaseMessageVisibility.public,
               onTap: () => onVisibilityChanged(CaseMessageVisibility.public),
             ),
@@ -52,6 +56,22 @@ class SupportLiveComposer extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
+        if (replyTemplate != null && visibility == CaseMessageVisibility.public)
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) => TextButton.icon(
+              onPressed: sending || value.text.isNotEmpty
+                  ? null
+                  : () {
+                      controller.text = replyTemplate!;
+                      controller.selection = TextSelection.collapsed(
+                        offset: controller.text.length,
+                      );
+                    },
+              icon: const Icon(Icons.edit_note_rounded),
+              label: const Text('Dùng mẫu trả lời · sửa trước khi gửi'),
+            ),
+          ),
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -108,7 +128,11 @@ class SupportLiveComposer extends StatelessWidget {
 }
 
 class SupportReplyLocked extends StatelessWidget {
-  const SupportReplyLocked({super.key});
+  const SupportReplyLocked({
+    this.message = 'Nhận xử lý hồ sơ để bắt đầu phản hồi',
+    super.key,
+  });
+  final String message;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -123,10 +147,12 @@ class SupportReplyLocked extends StatelessWidget {
           color: AppColors.textMuted,
         ),
         const SizedBox(width: AppSpacing.sm),
-        Text(
-          'Nhận xử lý hồ sơ để bắt đầu phản hồi',
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.textSecondary,
+        Flexible(
+          child: Text(
+            message,
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
         ),
       ],
@@ -155,7 +181,7 @@ class _VisibilityChip extends StatelessWidget {
       onTap: onTap,
       borderRadius: AppRadius.full,
       child: Container(
-        constraints: const BoxConstraints(minHeight: 40),
+        constraints: const BoxConstraints(minHeight: 48),
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         decoration: BoxDecoration(
           borderRadius: AppRadius.full,
@@ -172,10 +198,12 @@ class _VisibilityChip extends StatelessWidget {
               color: selected ? AppColors.accent : AppColors.textSecondary,
             ),
             const SizedBox(width: AppSpacing.xs),
-            Text(
-              label,
-              style: AppTextStyles.labelSmall.copyWith(
-                color: selected ? AppColors.accent : AppColors.textSecondary,
+            Flexible(
+              child: Text(
+                label,
+                style: AppTextStyles.labelSmall.copyWith(
+                  color: selected ? AppColors.accent : AppColors.textSecondary,
+                ),
               ),
             ),
           ],

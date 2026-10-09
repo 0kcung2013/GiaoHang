@@ -2,11 +2,17 @@ class DriverHomeStrings {
   DriverHomeStrings._();
 
   static const activityLabel = 'Trạng thái hoạt động';
-  static const activityOnline = 'Trực tuyến';
-  static const activityOffline = 'Ngoại tuyến';
-  static const activityBusy = 'Đang giao hàng';
-  static const activityToggleLabel = 'Bật hoặc tắt trạng thái hoạt động';
+  static const activityOnline = 'Nhận đơn mới';
+  static const activityOffline = 'Không nhận đơn mới';
+  static const activityToggleLabel = 'Bật hoặc tắt nhận đơn mới';
   static const activityUpdating = 'Đang cập nhật trạng thái hoạt động';
+  static const offlineConfirmTitle = 'Ngừng nhận đơn mới?';
+  static const offlineConfirmMessage =
+      'Bạn sẽ ngừng nhận đơn mới. Có thể bật lại trong menu bất cứ lúc nào.';
+  static const offlineActiveOrderConfirmMessage =
+      'Bạn sẽ ngừng nhận đơn mới. Đơn hiện tại vẫn tiếp tục giao và cập nhật vị trí.';
+  static const offlineConfirmAction = 'Ngừng nhận đơn';
+  static const offlineKeepAction = 'Tiếp tục nhận đơn';
   static const coldStartLoading = 'Đang chuẩn bị phiên làm việc';
   static const coldStartLoadingSemantic =
       'Đang tải trạng thái hoạt động gần nhất của tài xế';
@@ -31,16 +37,18 @@ class DriverHomeStrings {
 
   static const bannerTitle = 'Chủ động từng chuyến';
   static const bannerOnlineSubtitle = 'Đang tìm đơn phù hợp gần bạn.';
-  static const bannerOfflineSubtitle = 'Bật trực tuyến khi bạn sẵn sàng.';
+  static const bannerOfflineSubtitle = 'Mở menu để bật nhận đơn.';
   static const bannerSemanticLabel =
       'Minh họa tài xế kiểm tra lộ trình bên xe máy có thùng và kiện hàng.';
 
   static const offerCountdownLabel = 'Thời gian nhận đơn';
   static const offerAutoTransferHint = 'Hết giờ sẽ tự chuyển tài xế khác';
   static const offerExpiredLabel = 'Đang chuyển tài xế khác…';
+  static const offerExpiredAction = 'Đã hết thời gian nhận';
+  static const acceptanceChecking = 'Đang kiểm tra…';
 
   static const incomingOfferBadge = 'ĐƠN ƯU TIÊN';
-  static const incomingOfferTitle = 'Đơn mới dành cho bạn';
+  static const incomingOfferTitle = 'Đơn mới';
   static const incomingOfferSubtitle =
       'Kiểm tra lộ trình và phản hồi trước khi hết giờ.';
   static const incomingOfferAccept = 'Nhận đơn';

@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../utils/risk_photo_processor.dart';
+import '../../driver/screens/navigation/utils/driver_delivery_arrival_strings.dart';
 
 const _evidenceBucket = 'risk-report-evidence';
 const _requestTimeout = Duration(seconds: 20);
@@ -323,6 +324,20 @@ class SupabaseParticipantRiskReportRepository
   static RiskReportRepositoryException _mapError(Object error) {
     if (error is RiskReportRepositoryException) return error;
     if (error is PostgrestException) {
+      for (final entry in {
+        'DELIVERY_ARRIVAL_REQUIRED':
+            DriverDeliveryArrivalStrings.arrivalRequired,
+        'RECIPIENT_WAIT_REQUIRED': DriverDeliveryArrivalStrings.waitRequired,
+        'RECIPIENT_CALL_EVIDENCE_REQUIRED':
+            DriverDeliveryArrivalStrings.evidenceRequired,
+      }.entries) {
+        if (error.message.contains(entry.key)) {
+          return RiskReportRepositoryException(
+            code: RiskReportErrorCode.validation,
+            userMessage: entry.value,
+          );
+        }
+      }
       if (error.message.contains('DRIVER_REPORT_AFTER_DELIVERY')) {
         return const RiskReportRepositoryException(
           code: RiskReportErrorCode.validation,

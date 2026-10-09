@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -53,7 +54,14 @@ class _RiskReportsViewState extends State<RiskReportsView> {
     final filtered = _reports.where((report) {
       if (!_matchesScope(report, _scope)) return false;
       if (_severity != null && report.severity != _severity) return false;
-      if (_status != null && report.status != _status) return false;
+      if (_status == RiskStatus.open && report.status != _status) return false;
+      if (_status == RiskStatus.investigating &&
+          (report.status == RiskStatus.open || report.status.isClosed)) {
+        return false;
+      }
+      if (_status == RiskStatus.resolved && !report.status.isClosed) {
+        return false;
+      }
       if (normalizedQuery.isEmpty) return true;
       return report.title.toLowerCase().contains(normalizedQuery) ||
           report.description.toLowerCase().contains(normalizedQuery) ||
@@ -176,7 +184,12 @@ class _RiskReportsViewState extends State<RiskReportsView> {
   }
 
   Future<void> _openReport(RiskReport report) async {
-    final changed = await showDialog<bool>(
+    if (widget.repository == null) {
+      await context.push('/support-case/${report.id}');
+      if (mounted) await _loadReports(showLoading: false);
+      return;
+    }
+    await showDialog<bool>(
       context: context,
       builder: (_) => RiskReportDetailDialog(
         report: report,
@@ -185,7 +198,7 @@ class _RiskReportsViewState extends State<RiskReportsView> {
         repository: _repository,
       ),
     );
-    if (changed == true) await _loadReports();
+    if (mounted) await _loadReports(showLoading: false);
   }
 
   void _showMessage(String message, {bool error = false}) {

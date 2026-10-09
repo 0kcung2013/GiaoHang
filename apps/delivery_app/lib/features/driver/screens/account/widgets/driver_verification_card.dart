@@ -14,47 +14,65 @@ class DriverVerificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final completedCount = [
+      data.hasIdentityCard,
+      data.hasDriverLicense,
+      data.hasVehiclePhoto,
+    ].where((completed) => completed).length;
+
     return DriverAccountSectionCard(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const DriverAccountSectionHeading(
-              icon: Icons.shield_outlined,
-              title: DriverAccountStrings.verificationTitle,
-              color: AppColors.info,
-              isProtected: true,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              DriverAccountStrings.verificationMessage,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            _VerificationRow(
-              icon: Icons.badge_outlined,
-              label: DriverAccountStrings.identityCard,
-              completed: data.hasIdentityCard,
-              value: driverMaskedDocument(data.idCardNumber),
-            ),
-            const _SectionDivider(),
-            _VerificationRow(
-              icon: Icons.credit_card_rounded,
-              label: DriverAccountStrings.driverLicense,
-              completed: data.hasDriverLicense,
-              value: driverMaskedDocument(data.driverLicenseNumber),
-            ),
-            const _SectionDivider(),
-            _VerificationRow(
-              icon: Icons.photo_camera_outlined,
-              label: DriverAccountStrings.vehiclePhoto,
-              completed: data.hasVehiclePhoto,
-            ),
-          ],
+      child: ExpansionTile(
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.xl),
+        collapsedShape: const RoundedRectangleBorder(
+          borderRadius: AppRadius.xl,
         ),
+        tilePadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.xs,
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          0,
+          AppSpacing.lg,
+          AppSpacing.sm,
+        ),
+        iconColor: AppColors.textSecondary,
+        collapsedIconColor: AppColors.textSecondary,
+        leading: const Icon(Icons.shield_outlined, color: AppColors.info),
+        title: Text(
+          DriverAccountStrings.verificationTitle,
+          style: AppTextStyles.headingSmall.copyWith(
+            color: AppColors.textPrimary,
+          ),
+        ),
+        subtitle: Text(
+          '$completedCount/3 ${DriverAccountStrings.verificationSummary}',
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+        children: [
+          const Divider(height: 1, color: AppColors.border),
+          _VerificationRow(
+            icon: Icons.badge_outlined,
+            label: DriverAccountStrings.identityCard,
+            completed: data.hasIdentityCard,
+            value: driverMaskedDocument(data.idCardNumber),
+          ),
+          const _SectionDivider(),
+          _VerificationRow(
+            icon: Icons.credit_card_rounded,
+            label: DriverAccountStrings.driverLicense,
+            completed: data.hasDriverLicense,
+            value: driverMaskedDocument(data.driverLicenseNumber),
+          ),
+          const _SectionDivider(),
+          _VerificationRow(
+            icon: Icons.photo_camera_outlined,
+            label: DriverAccountStrings.vehiclePhoto,
+            completed: data.hasVehiclePhoto,
+          ),
+        ],
       ),
     );
   }
@@ -75,7 +93,7 @@ class _VerificationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = completed ? AppColors.success : AppColors.textMuted;
+    final color = completed ? AppColors.success : AppColors.textSecondary;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
       child: Row(
@@ -119,12 +137,6 @@ class _VerificationRow extends StatelessWidget {
               textAlign: TextAlign.end,
               style: AppTextStyles.labelSmall.copyWith(color: color),
             ),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          const Icon(
-            Icons.lock_outline_rounded,
-            color: AppColors.textMuted,
-            size: 16,
           ),
         ],
       ),

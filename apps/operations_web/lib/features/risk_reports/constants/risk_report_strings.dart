@@ -3,6 +3,26 @@ class RiskReportStrings {
 
   static const title = 'Rủi ro hệ thống';
   static const supportTitle = 'Báo cáo người dùng';
+  static const supportOperation = 'Xử lý đơn';
+  static const verifyBeforeDecision = 'Xác minh báo cáo trước khi quyết định.';
+  static const releaseDriver = 'Gỡ tài xế, giữ đơn';
+  static const releaseDriverTitle = 'Gỡ tài xế khỏi đơn?';
+  static const releaseDriverConfirm = 'Gỡ tài xế';
+  static const releaseDriverExplanation =
+      'Giữ đơn của khách. Sau khi xử lý nguyên nhân, cho phép phân công tài xế khác.';
+  static const releaseDriverConfirmation =
+      'Chỉ xác nhận khi đã kiểm tra báo cáo và bằng chứng. Đơn của khách được giữ lại, tài xế hiện tại được gỡ. CSKH cho phép phân công lại sau khi nguyên nhân đã được xử lý.';
+  static const handoffDriver = 'Hủy đơn cho Tài xế';
+  static const cancelDriverTitle = 'Hủy đơn cho Tài xế?';
+  static const cancelDriverConfirmation =
+      'Tài xế chưa nhận hàng sẽ được gỡ khỏi đơn ngay và nhận thông báo hủy. Đơn của khách tự động tìm tài xế mới.';
+  // Retained for running debug sessions that were loaded before this workflow.
+  static const cancelDriverInstruction =
+      'CSKH yêu cầu hủy đơn cho tài xế hiện tại. Dừng giao hàng và liên hệ CSKH để bàn giao hàng. Tài xế được giải phóng sau khi xác nhận bàn giao hoàn tất.';
+  static const orderAndContacts = 'Thông tin đơn và liên hệ';
+  static const handlingHistory = 'Lịch sử xử lý';
+  static const reportClosed = 'Hồ sơ đã kết thúc.';
+  static const acceptBeforeReply = 'Nhận xử lý để phản hồi người báo cáo.';
   static const subtitle = 'Phát hiện, xác minh và xử lý theo mức độ';
   static const create = 'Báo cáo rủi ro';
   static const searchHint = 'Tìm mã đơn hoặc tiêu đề';
@@ -28,12 +48,12 @@ class RiskReportStrings {
   static const noResults = 'Không có báo cáo phù hợp';
   static const loadError = 'Không thể tải báo cáo rủi ro.';
   static const retry = 'Thử lại';
-  static const takeOwnership = 'Nhận và bắt đầu xác minh';
+  static const takeOwnership = 'Nhận xử lý';
   static const assignedToYou = 'Bạn đang phụ trách';
   static const unassigned = 'Chưa phân công';
   static const assignedToOther = 'Đang do nhân viên khác phụ trách';
   static const returnStatusLocked =
-      'Trạng thái được khóa khi tài xế đang hoàn hàng';
+      'Chưa thể kết thúc: còn hoàn hoặc bàn giao hàng';
   static const evidenceTitle = 'Ảnh và vị trí';
   static const noAttachments = 'Không có ảnh hoặc vị trí đính kèm.';
   static const openMap = 'Mở bản đồ';

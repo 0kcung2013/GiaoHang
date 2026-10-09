@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
 import '../models/risk_report.dart';
+import '../constants/risk_report_strings.dart';
 import '../utils/risk_report_ui.dart';
 
 typedef RiskMessageSender =
@@ -13,6 +14,8 @@ class RiskCaseConversation extends StatefulWidget {
     required this.currentUserId,
     required this.canReply,
     required this.onSend,
+    this.publicRecipient = 'người báo cáo',
+    this.allowInternal = true,
     super.key,
   });
 
@@ -20,6 +23,8 @@ class RiskCaseConversation extends StatefulWidget {
   final String currentUserId;
   final bool canReply;
   final RiskMessageSender onSend;
+  final String? publicRecipient;
+  final bool allowInternal;
 
   @override
   State<RiskCaseConversation> createState() => _RiskCaseConversationState();
@@ -30,6 +35,14 @@ class _RiskCaseConversationState extends State<RiskCaseConversation> {
   CaseMessageVisibility _visibility = CaseMessageVisibility.public;
   bool _sending = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.publicRecipient == null) {
+      _visibility = CaseMessageVisibility.internal;
+    }
+  }
 
   @override
   void dispose() {
@@ -74,8 +87,14 @@ class _RiskCaseConversationState extends State<RiskCaseConversation> {
             children: [
               const Icon(Icons.forum_outlined, color: AppColors.accent),
               const SizedBox(width: AppSpacing.sm),
-              Text('Trao đổi hồ sơ', style: AppTextStyles.headingSmall),
-              const Spacer(),
+              Expanded(
+                child: Text(
+                  widget.allowInternal
+                      ? 'Trao đổi hồ sơ'
+                      : 'Trao đổi với ${widget.publicRecipient}',
+                  style: AppTextStyles.headingSmall,
+                ),
+              ),
               Text(
                 '${widget.messages?.length ?? 0} tin',
                 style: AppTextStyles.labelSmall.copyWith(
@@ -104,30 +123,38 @@ class _RiskCaseConversationState extends State<RiskCaseConversation> {
           const SizedBox(height: AppSpacing.md),
           if (!widget.canReply)
             Text(
-              'Nhận hồ sơ hoặc dùng quyền tiếp quản Admin trước khi phản hồi.',
+              widget.allowInternal
+                  ? 'Nhận hồ sơ hoặc dùng quyền tiếp quản Admin trước khi phản hồi.'
+                  : RiskReportStrings.acceptBeforeReply,
               style: AppTextStyles.bodySmall.copyWith(
                 color: AppColors.textSecondary,
               ),
             )
           else ...[
-            SegmentedButton<CaseMessageVisibility>(
-              segments: const [
-                ButtonSegment(
-                  value: CaseMessageVisibility.public,
-                  icon: Icon(Icons.person_outline_rounded),
-                  label: Text('Gửi người báo cáo'),
-                ),
-                ButtonSegment(
-                  value: CaseMessageVisibility.internal,
-                  icon: Icon(Icons.lock_outline_rounded),
-                  label: Text('Nội bộ'),
-                ),
-              ],
-              selected: {_visibility},
-              onSelectionChanged: _sending
-                  ? null
-                  : (values) => setState(() => _visibility = values.first),
-            ),
+            if (widget.publicRecipient != null && widget.allowInternal)
+              SegmentedButton<CaseMessageVisibility>(
+                segments: [
+                  ButtonSegment(
+                    value: CaseMessageVisibility.public,
+                    icon: Icon(Icons.person_outline_rounded),
+                    label: Text('Gửi ${widget.publicRecipient}'),
+                  ),
+                  const ButtonSegment(
+                    value: CaseMessageVisibility.internal,
+                    icon: Icon(Icons.lock_outline_rounded),
+                    label: Text('Nội bộ'),
+                  ),
+                ],
+                selected: {_visibility},
+                onSelectionChanged: _sending
+                    ? null
+                    : (values) => setState(() => _visibility = values.first),
+              ),
+            if (widget.publicRecipient == null)
+              Text(
+                'Ghi chú nội bộ. Trao đổi với khách/tài xế qua yêu cầu liên quan.',
+                style: AppTextStyles.bodySmall,
+              ),
             const SizedBox(height: AppSpacing.sm),
             TextField(
               key: const Key('risk-case-message-field'),

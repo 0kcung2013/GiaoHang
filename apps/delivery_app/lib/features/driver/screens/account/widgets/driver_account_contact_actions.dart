@@ -16,7 +16,7 @@ class DriverContactCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DriverAccountSectionCard(
       child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -27,63 +27,32 @@ class DriverContactCard extends StatelessWidget {
               isProtected: true,
             ),
             const SizedBox(height: AppSpacing.md),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: const BoxDecoration(
-                color: AppColors.accentLight,
-                borderRadius: AppRadius.md,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(
-                    Icons.lock_outline_rounded,
-                    color: AppColors.accent,
-                    size: 19,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          DriverAccountStrings.readOnlyTitle,
-                          style: AppTextStyles.labelMedium.copyWith(
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          DriverAccountStrings.readOnlyMessage,
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
             _ContactRow(
               icon: Icons.alternate_email_rounded,
               label: DriverAccountStrings.email,
               value: driverAccountValue(data.email),
             ),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.md),
             _ContactRow(
               icon: Icons.phone_outlined,
               label: DriverAccountStrings.phone,
               value: driverAccountValue(data.phone),
             ),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.md),
             _ContactRow(
               icon: Icons.fingerprint_rounded,
               label: DriverAccountStrings.profileCode,
               value: driverProfileCode(data.driverId),
               monospace: true,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            const Divider(height: 1, color: AppColors.border),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              DriverAccountStrings.profileProtectionNote,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
         ),
@@ -235,15 +204,6 @@ class _ContactRow extends StatelessWidget {
                         .copyWith(color: AppColors.textPrimary),
               ),
             ],
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        const Tooltip(
-          message: DriverAccountStrings.protectedInformation,
-          child: Icon(
-            Icons.lock_outline_rounded,
-            color: AppColors.textMuted,
-            size: 17,
           ),
         ),
       ],

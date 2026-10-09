@@ -76,7 +76,8 @@ class _DriverDeliveryConfirmationSheetState
       DriverDeliveryAction.startDelivery => const [],
       DriverDeliveryAction.confirmDelivery => [
         'Đã giao đúng người nhận hoặc người được ủy quyền',
-        'Đã thu ${formatVnd(widget.order.receiverCollectionAmount)} từ người nhận',
+        if (widget.order.receiverCollectionAmount > 0)
+          'Đã thu ${formatVnd(widget.order.receiverCollectionAmount)} từ người nhận',
       ],
       DriverDeliveryAction.none => const [],
     };

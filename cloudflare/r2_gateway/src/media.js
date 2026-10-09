@@ -230,7 +230,7 @@ async function authorizeRead(userId, key, objectReference, request, env) {
   }
   if (key.includes("/risk-evidence/")) {
     await requireRestRow(
-      `risk_report_attachments?storage_path=eq.${encodeURIComponent(objectReference)}&select=id`,
+      `risk_report_evidence?evidence_type=eq.photo&storage_path=eq.${encodeURIComponent(objectReference)}&select=id`,
       request,
       env,
     );

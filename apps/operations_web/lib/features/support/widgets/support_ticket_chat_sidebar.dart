@@ -1,13 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
 import '../models/support_ticket.dart';
 import '../utils/support_ticket_ui.dart';
+import 'support_order_context.dart';
+import 'support_next_steps.dart';
+import '../models/support_completion_context.dart';
 
 class SupportTicketChatSidebar extends StatelessWidget {
-  const SupportTicketChatSidebar({required this.ticket, super.key});
+  const SupportTicketChatSidebar({
+    required this.ticket,
+    this.showOrderContext = false,
+    this.completion,
+    this.completionLoading = false,
+    this.completionError,
+    this.onCheckCompletion,
+    this.scrollController,
+    super.key,
+  });
 
   final SupportTicket ticket;
+  final bool showOrderContext;
+  final SupportCompletionContext? completion;
+  final bool completionLoading;
+  final String? completionError;
+  final VoidCallback? onCheckCompletion;
+  final ScrollController? scrollController;
 
   @override
   Widget build(BuildContext context) {
@@ -15,6 +34,7 @@ class SupportTicketChatSidebar extends StatelessWidget {
     return ColoredBox(
       color: AppColors.bgCard,
       child: ListView(
+        controller: scrollController,
         padding: const EdgeInsets.all(AppSpacing.xl),
         children: [
           Wrap(
@@ -42,6 +62,21 @@ class SupportTicketChatSidebar extends StatelessWidget {
           const SizedBox(height: AppSpacing.xl),
           _PersonBlock(ticket: ticket),
           const SizedBox(height: AppSpacing.lg),
+          SupportNextSteps(
+            ticket: ticket,
+            completion: completion,
+            loading: completionLoading,
+            error: completionError,
+            onRetry: onCheckCompletion,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          if (ticket.riskReportId != null)
+            OutlinedButton.icon(
+              onPressed: () =>
+                  context.push('/support-case/${ticket.riskReportId}'),
+              icon: const Icon(Icons.shield_outlined),
+              label: const Text('Mở sự cố liên quan'),
+            ),
           const Divider(height: 1, color: AppColors.border),
           const SizedBox(height: AppSpacing.lg),
           _InfoRow(
@@ -49,7 +84,8 @@ class SupportTicketChatSidebar extends StatelessWidget {
             label: 'Đơn hàng',
             value: ticket.orderId == null
                 ? 'Chưa gắn đơn'
-                : '#${SupportTicketUi.shortId(ticket.orderId!)}',
+                : ticket.trackingCode ??
+                      '#${SupportTicketUi.shortId(ticket.orderId!)}',
           ),
           const SizedBox(height: AppSpacing.md),
           _InfoRow(
@@ -80,7 +116,7 @@ class SupportTicketChatSidebar extends StatelessWidget {
               ),
             ),
             child: Text(
-              ticket.message,
+              CaseMessageContent.decode(ticket.message).text,
               style: AppTextStyles.bodySmall.copyWith(
                 color: AppColors.textSecondary,
               ),
@@ -97,6 +133,12 @@ class SupportTicketChatSidebar extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             Text(ticket.resolution!, style: AppTextStyles.bodySmall),
           ],
+          if (showOrderContext && ticket.orderId != null)
+            SupportOrderContext(
+              orderId: ticket.orderId!,
+              currentTicketId: ticket.id,
+              subject: ticket.subject,
+            ),
         ],
       ),
     );

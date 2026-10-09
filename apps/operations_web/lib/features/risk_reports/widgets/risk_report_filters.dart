@@ -60,7 +60,11 @@ class RiskReportFilters extends StatelessWidget {
                 : RiskReportUi.statusLabel(selectedStatus!),
             icon: Icons.tune_rounded,
             value: selectedStatus,
-            items: RiskStatus.values,
+            items: const [
+              RiskStatus.open,
+              RiskStatus.investigating,
+              RiskStatus.resolved,
+            ],
             itemLabel: RiskReportUi.statusLabel,
             onChanged: onStatusChanged,
           );

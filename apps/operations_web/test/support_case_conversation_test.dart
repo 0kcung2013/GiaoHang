@@ -90,9 +90,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Vấn đề cần hỗ trợ'), findsOneWidget);
+    expect(find.text('Việc cần làm'), findsOneWidget);
     expect(find.text('Hội thoại'), findsOneWidget);
-    expect(find.text('Thời gian thực'), findsOneWidget);
+    expect(find.text('Lịch sử trao đổi'), findsOneWidget);
     expect(find.byKey(const Key('support-case-message-field')), findsOneWidget);
     expect(find.text('Trao đổi hồ sơ'), findsNothing);
     expect(tester.takeException(), isNull);

@@ -16,6 +16,9 @@ import 'risk_report_detail_content.dart';
 import 'risk_reporter_profile_card.dart';
 import 'risk_related_parties.dart';
 import 'risk_case_overview.dart';
+import 'support_risk_workspace.dart';
+import '../../support/widgets/support_order_context.dart';
+import '../../support/widgets/support_linked_tickets.dart';
 
 class RiskReportDetailBody extends StatelessWidget {
   const RiskReportDetailBody({
@@ -42,6 +45,7 @@ class RiskReportDetailBody extends StatelessWidget {
     required this.onResumeOrder,
     required this.onAddNote,
     this.showSeverity = false,
+    this.showOrderContext = false,
     super.key,
   });
 
@@ -68,6 +72,7 @@ class RiskReportDetailBody extends StatelessWidget {
   final Future<void> Function() onResumeOrder;
   final Future<void> Function(String body) onAddNote;
   final bool showSeverity;
+  final bool showOrderContext;
 
   @override
   Widget build(BuildContext context) {
@@ -99,30 +104,150 @@ class RiskReportDetailBody extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
-          RiskCaseOverview(report: report),
-          const SizedBox(height: AppSpacing.xl),
-          _VerificationOverview(
-            report: report,
-            currentUserId: currentUserId,
-            intervention: intervention,
-            notes: notes,
-            attachments: attachments,
-            onHoldBeforePickup: onHoldBeforePickup,
-            onDecision: onDecision,
-            onApproveReturn: onApproveReturn,
-            onConfirmCustody: onConfirmCustody,
-            onResumeOrder: onResumeOrder,
-            onAddNote: onAddNote,
-          ),
-          if (!report.isSystemIncident) ...[
-            const SizedBox(height: AppSpacing.xl2),
-            RiskMessageEvidenceSection(
-              evidence: messageEvidence ?? const [],
-              availableMessages: availableMessages,
-              loading: evidenceLoading,
-              attaching: attachingEvidence,
-              onAttach: onAttachEvidence,
+          if (!showSeverity)
+            SupportRiskWorkspace(
+              summary: Wrap(
+                spacing: AppSpacing.lg,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  Text(
+                    '${report.reporterName ?? 'Người báo cáo'} · ${switch (report.reporterRole) {
+                      RiskReporterRole.driver => 'Tài xế',
+                      RiskReporterRole.customer => 'Khách hàng',
+                      _ => 'Hệ thống',
+                    }}',
+                    style: AppTextStyles.labelMedium,
+                  ),
+                  if (!report.isSystemIncident)
+                    Text(
+                      RiskReportUi.orderStatusLabel(report.order.status),
+                      style: AppTextStyles.labelMedium.copyWith(
+                        color: AppColors.info,
+                      ),
+                    ),
+                ],
+              ),
+              evidence: _EvidenceOverview(
+                report: report,
+                attachments: attachments,
+              ),
+              operation: intervention == null
+                  ? null
+                  : RiskInterventionPanel(
+                      report: report,
+                      intervention: intervention!,
+                      orderStatus: report.order.status,
+                      showInternalNotes: false,
+                      canManage:
+                          !report.status.isClosed &&
+                          (report.assignedTo == null ||
+                              report.assignedTo == currentUserId),
+                      managementBlockedMessage: report.status.isClosed
+                          ? RiskReportStrings.reportClosed
+                          : 'Hồ sơ đang do ${report.assignedToName ?? 'một nhân viên khác'} phụ trách.',
+                      onHoldBeforePickup: onHoldBeforePickup,
+                      onDecision: onDecision,
+                      onApproveReturn: onApproveReturn,
+                      onConfirmCustody: onConfirmCustody,
+                      onResumeOrder: onResumeOrder,
+                      onAddNote: onAddNote,
+                    ),
+              conversation:
+                  report.reporterRole != RiskReporterRole.customer &&
+                      report.reporterRole != RiskReporterRole.driver
+                  ? null
+                  : RiskCaseConversation(
+                      publicRecipient:
+                          report.reporterRole == RiskReporterRole.driver
+                          ? 'tài xế'
+                          : 'khách hàng',
+                      allowInternal: false,
+                      messages: caseMessages
+                          ?.where((message) => !message.isInternal)
+                          .toList(),
+                      currentUserId: currentUserId,
+                      canReply: canReply,
+                      onSend: onSendMessage,
+                    ),
+              orderDetails: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  RiskReporterProfileCard(report: report),
+                  const SizedBox(height: AppSpacing.lg),
+                  RiskOrderRoute(report: report),
+                  if (!report.isSystemIncident) ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    RiskRelatedParties(report: report),
+                  ],
+                  const SizedBox(height: AppSpacing.lg),
+                  RiskCaseOverview(report: report),
+                  if (showOrderContext)
+                    SupportLinkedTickets(riskReportId: report.id),
+                  if (showOrderContext && !report.isSystemIncident)
+                    SupportOrderContext(orderId: report.orderId),
+                ],
+              ),
+              history: RiskEventTimeline(events: events),
+              messageEvidence: report.isSystemIncident
+                  ? null
+                  : SupportRiskDetailsSection(
+                      title:
+                          'Tin nhắn bằng chứng (${messageEvidence?.length ?? 0})',
+                      initiallyExpanded: messageEvidence?.isNotEmpty ?? false,
+                      icon: Icons.fact_check_outlined,
+                      child: RiskMessageEvidenceSection(
+                        evidence: messageEvidence ?? const [],
+                        availableMessages: availableMessages,
+                        loading: evidenceLoading,
+                        attaching: attachingEvidence,
+                        onAttach: onAttachEvidence,
+                      ),
+                    ),
             ),
+          if (showSeverity) ...[
+            _AdditionalCaseDetails(
+              publicRecipient: switch (report.reporterRole) {
+                RiskReporterRole.customer =>
+                  'khách hàng — ${report.reporterName ?? report.reportedBy}',
+                RiskReporterRole.driver =>
+                  'tài xế — ${report.reporterName ?? report.reportedBy}',
+                _ => null,
+              },
+              messages: caseMessages,
+              currentUserId: currentUserId,
+              canReply: canReply,
+              onSendMessage: onSendMessage,
+              events: events,
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            RiskCaseOverview(report: report),
+            if (showOrderContext) SupportLinkedTickets(riskReportId: report.id),
+            if (showOrderContext && !report.isSystemIncident)
+              SupportOrderContext(orderId: report.orderId),
+            const SizedBox(height: AppSpacing.xl),
+            _VerificationOverview(
+              report: report,
+              currentUserId: currentUserId,
+              intervention: intervention,
+              notes: notes,
+              attachments: attachments,
+              onHoldBeforePickup: onHoldBeforePickup,
+              onDecision: onDecision,
+              onApproveReturn: onApproveReturn,
+              onConfirmCustody: onConfirmCustody,
+              onResumeOrder: onResumeOrder,
+              onAddNote: onAddNote,
+            ),
+            if (!report.isSystemIncident) ...[
+              const SizedBox(height: AppSpacing.xl2),
+              RiskMessageEvidenceSection(
+                evidence: messageEvidence ?? const [],
+                availableMessages: availableMessages,
+                loading: evidenceLoading,
+                attaching: attachingEvidence,
+                onAttach: onAttachEvidence,
+              ),
+            ],
           ],
           if ((report.resolution ?? '').isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xl),
@@ -140,13 +265,6 @@ class RiskReportDetailBody extends StatelessWidget {
             ),
           ],
           const SizedBox(height: AppSpacing.xl),
-          _AdditionalCaseDetails(
-            messages: caseMessages,
-            currentUserId: currentUserId,
-            canReply: canReply,
-            onSendMessage: onSendMessage,
-            events: events,
-          ),
         ],
       ),
     );
@@ -286,6 +404,7 @@ class _EvidenceOverview extends StatelessWidget {
 
 class _AdditionalCaseDetails extends StatelessWidget {
   const _AdditionalCaseDetails({
+    required this.publicRecipient,
     required this.messages,
     required this.currentUserId,
     required this.canReply,
@@ -294,6 +413,7 @@ class _AdditionalCaseDetails extends StatelessWidget {
   });
 
   final List<CaseMessage>? messages;
+  final String? publicRecipient;
   final String currentUserId;
   final bool canReply;
   final RiskMessageSender onSendMessage;
@@ -310,6 +430,7 @@ class _AdditionalCaseDetails extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: ExpansionTile(
         key: const Key('risk-additional-case-details'),
+        initiallyExpanded: true,
         tilePadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         childrenPadding: const EdgeInsets.fromLTRB(
           AppSpacing.lg,
@@ -328,6 +449,7 @@ class _AdditionalCaseDetails extends StatelessWidget {
         ),
         children: [
           RiskCaseConversation(
+            publicRecipient: publicRecipient,
             messages: messages,
             currentUserId: currentUserId,
             canReply: canReply,

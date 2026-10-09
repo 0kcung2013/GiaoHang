@@ -7,6 +7,38 @@ import 'package:operations_web/features/risk_reports/models/risk_report.dart';
 import 'package:operations_web/features/risk_reports/widgets/risk_report_detail_body.dart';
 
 void main() {
+  testWidgets('embedded support case uses the page width without a dialog', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(375, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(1.6)),
+          child: child!,
+        ),
+        home: Scaffold(
+          body: RiskReportDetailDialog(
+            report: _reportWithProfile,
+            currentUserId: 'staff-1',
+            isAdmin: false,
+            embedded: true,
+            repository: _EvidenceRepository(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsNothing);
+    expect(find.text('Trao đổi với khách hàng'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('risk report detail loads message evidence for its order', (
     tester,
   ) async {
@@ -69,6 +101,15 @@ void main() {
       ),
     );
 
+    expect(find.textContaining('Nguyễn An'), findsOneWidget);
+    expect(find.text('0901234567'), findsNothing);
+    expect(find.text('Trao đổi với khách hàng'), findsOneWidget);
+    expect(find.text('Nội bộ'), findsNothing);
+    expect(find.text('Thông tin đơn và liên hệ'), findsOneWidget);
+    expect(find.text('Lịch sử xử lý'), findsOneWidget);
+    await tester.ensureVisible(find.text('Thông tin đơn và liên hệ'));
+    await tester.tap(find.text('Thông tin đơn và liên hệ'));
+    await tester.pumpAndSettle();
     expect(find.text('Nguyễn An'), findsOneWidget);
     expect(find.text('0901234567'), findsOneWidget);
     expect(find.text('an@example.com'), findsOneWidget);
@@ -77,13 +118,10 @@ void main() {
       find.byKey(const Key('risk-reporter-profile-avatar')),
       findsOneWidget,
     );
-    expect(find.text('Trao đổi và lịch sử'), findsOneWidget);
-    expect(find.text('Lịch sử xử lý'), findsNothing);
-
-    await tester.ensureVisible(find.text('Trao đổi và lịch sử'));
-    await tester.tap(find.text('Trao đổi và lịch sử'));
+    await tester.ensureVisible(find.text('Thông tin đơn và liên hệ'));
+    await tester.tap(find.text('Thông tin đơn và liên hệ'));
     await tester.pumpAndSettle();
-    expect(find.text('Lịch sử xử lý'), findsOneWidget);
+    expect(find.text('0901234567'), findsNothing);
   });
 
   testWidgets('first delivery decision accepts an unassigned report inline', (
@@ -109,11 +147,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Nhận và bắt đầu xác minh'), findsNothing);
+    expect(find.text('Nhận xử lý'), findsOneWidget);
     expect(find.byKey(const Key('continue-delivery-button')), findsOneWidget);
-    await tester.ensureVisible(find.text('Ghi chú nội bộ'));
-    await tester.tap(find.text('Ghi chú nội bộ'));
-    await tester.pump();
+    expect(find.text('Ghi chú nội bộ'), findsNothing);
     expect(find.byKey(const Key('risk-internal-note')), findsNothing);
 
     await tester.ensureVisible(
@@ -190,12 +226,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Nhận và bắt đầu xác minh'), findsNothing);
-    expect(find.text('Đang xác minh'), findsOneWidget);
-    await tester.tap(find.text('Đang xác minh'));
+    expect(find.text('Nhận xử lý'), findsOneWidget);
+    await tester.tap(find.text('Nhận xử lý'));
     await tester.pumpAndSettle();
 
-    expect(repository.operations, ['accept', 'status:investigating']);
+    expect(repository.operations, ['accept']);
   });
 }
 

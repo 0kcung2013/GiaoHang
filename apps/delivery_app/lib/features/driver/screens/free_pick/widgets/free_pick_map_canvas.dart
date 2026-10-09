@@ -69,17 +69,6 @@ class FreePickMapCanvas extends StatelessWidget {
                 userAgentPackageName: 'com.datn.giaohang',
                 maxNativeZoom: 19,
               ),
-            if (driverPosition != null)
-              TweenAnimationBuilder<double>(
-                duration: AppDuration.normal,
-                curve: AppCurve.decelerate,
-                tween: Tween<double>(
-                  begin: serviceRadiusMeters,
-                  end: searchRadiusMeters,
-                ),
-                builder: (_, animatedRadius, _) =>
-                    CircleLayer(circles: _radiusCircles(animatedRadius)),
-              ),
             MarkerLayer(
               markers: [
                 if (driverPosition != null) _driverMarker(driverPosition!),
@@ -185,28 +174,6 @@ class FreePickMapCanvas extends StatelessWidget {
           ),
       ],
     );
-  }
-
-  List<CircleMarker> _radiusCircles(double animatedRadius) {
-    return [
-      if (animatedRadius > serviceRadiusMeters)
-        CircleMarker(
-          point: driverPosition!,
-          radius: animatedRadius,
-          useRadiusInMeter: true,
-          color: AppColors.accent.withValues(alpha: 0.09),
-          borderColor: AppColors.accent.withValues(alpha: 0.88),
-          borderStrokeWidth: 2.5,
-        ),
-      CircleMarker(
-        point: driverPosition!,
-        radius: serviceRadiusMeters,
-        useRadiusInMeter: true,
-        color: AppColors.info.withValues(alpha: 0.16),
-        borderColor: AppColors.info.withValues(alpha: 0.92),
-        borderStrokeWidth: 2.5,
-      ),
-    ];
   }
 
   Marker _driverMarker(LatLng position) {

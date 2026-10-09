@@ -6,14 +6,9 @@ import '../utils/driver_profile_change_labels.dart';
 import 'driver_account_section_primitives.dart';
 
 class DriverProfileChangeStatusCard extends StatelessWidget {
-  const DriverProfileChangeStatusCard({
-    super.key,
-    required this.request,
-    required this.onView,
-  });
+  const DriverProfileChangeStatusCard({super.key, required this.request});
 
   final DriverProfileChangeRequest request;
-  final VoidCallback onView;
 
   @override
   Widget build(BuildContext context) {
@@ -78,22 +73,6 @@ class DriverProfileChangeStatusCard extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: AppSpacing.sm),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: onView,
-                style: TextButton.styleFrom(
-                  foregroundColor: visual.color,
-                  minimumSize: const Size(48, 48),
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: AppRadius.full,
-                  ),
-                ),
-                icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                label: const Text('Xem chi tiết'),
-              ),
-            ),
           ],
         ),
       ),

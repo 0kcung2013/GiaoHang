@@ -109,7 +109,9 @@ class SupportTicketCard extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Text(
-                      ticket.message,
+                      CaseMessageContent.decode(
+                        ticket.lastMessageBody ?? ticket.message,
+                      ).text,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: AppTextStyles.bodyMedium.copyWith(
@@ -135,7 +137,7 @@ class SupportTicketCard extends StatelessWidget {
                           icon: Icons.inventory_2_outlined,
                           label: ticket.orderId == null
                               ? 'Chưa gắn đơn'
-                              : 'Đơn ${SupportTicketUi.shortId(ticket.orderId!)}',
+                              : 'Đơn ${ticket.trackingCode ?? SupportTicketUi.shortId(ticket.orderId!)}',
                         ),
                         _TicketMeta(
                           icon: ticket.assignedTo == null

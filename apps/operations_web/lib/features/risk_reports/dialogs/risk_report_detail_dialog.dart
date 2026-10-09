@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart' show ReturnApprovalDraft;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -18,6 +21,7 @@ class RiskReportDetailDialog extends StatefulWidget {
     required this.currentUserId,
     required this.isAdmin,
     required this.repository,
+    this.embedded = false,
     super.key,
   });
 
@@ -25,6 +29,7 @@ class RiskReportDetailDialog extends StatefulWidget {
   final String currentUserId;
   final bool isAdmin;
   final RiskReportRepository repository;
+  final bool embedded;
 
   @override
   State<RiskReportDetailDialog> createState() => _RiskReportDetailDialogState();
@@ -42,10 +47,45 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
   bool _submitting = false;
   bool _attachingEvidence = false;
   bool _acceptedInline = false;
+  late RiskReport _report;
+  StreamSubscription<void>? _reportSubscription;
+  StreamSubscription<List<CaseMessage>>? _conversationSubscription;
+  int _revision = 0;
+  int _messageRevision = 0;
 
   @override
   void initState() {
     super.initState();
+    _report = widget.report;
+    final repository = widget.repository;
+    if (repository is RiskReportDetailRepository) {
+      final details = repository as RiskReportDetailRepository;
+      _reportSubscription = details
+          .watchReport(_report.id)
+          .listen(
+            (_) => unawaited(_refreshReport()),
+            onError: (_) {
+              if (mounted) {
+                setState(() => _error = 'Mất kết nối hồ sơ. Hãy tải lại.');
+              }
+            },
+          );
+      _conversationSubscription = details
+          .watchCaseMessages(_report.id)
+          .listen(
+            (messages) {
+              if (mounted) {
+                _messageRevision++;
+                setState(() => _caseMessages = messages);
+              }
+            },
+            onError: (_) {
+              if (mounted) {
+                setState(() => _error = 'Mất kết nối hội thoại. Hãy tải lại.');
+              }
+            },
+          );
+    }
     _loadEvents();
     _loadMessageEvidence();
     _loadAttachments();
@@ -54,7 +94,40 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
     _loadCaseMessages();
   }
 
+  @override
+  void dispose() {
+    unawaited(_reportSubscription?.cancel());
+    unawaited(_conversationSubscription?.cancel());
+    super.dispose();
+  }
+
+  Future<void> _refreshReport() async {
+    final revision = ++_revision;
+    try {
+      final repository = widget.repository;
+      final report = repository is RiskReportDetailRepository
+          ? await (repository as RiskReportDetailRepository).fetchReport(
+              _report.id,
+            )
+          : (await repository.fetchReports()).firstWhere(
+              (item) => item.id == _report.id,
+            );
+      if (!mounted || revision != _revision) return;
+      setState(() {
+        _report = report;
+        _error = null;
+      });
+      await _loadIntervention();
+      await _loadEvents();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Chưa đồng bộ được hồ sơ. Hãy tải lại.');
+      }
+    }
+  }
+
   Future<void> _loadCaseMessages() async {
+    final revision = ++_messageRevision;
     final repository = widget.repository;
     if (repository is! RiskCaseConversationRepository) {
       if (mounted) setState(() => _caseMessages = const []);
@@ -63,13 +136,16 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
     final conversations = repository as RiskCaseConversationRepository;
     try {
       final messages = await conversations.fetchCaseMessages(widget.report.id);
-      if (mounted) setState(() => _caseMessages = messages);
+      if (mounted && revision == _messageRevision) {
+        setState(() => _caseMessages = messages);
+      }
     } catch (_) {
       if (mounted) setState(() => _error = 'Không tải được trao đổi hồ sơ.');
     }
   }
 
   Future<void> _loadNotes() async {
+    if (!widget.isAdmin) return;
     final repository = widget.repository;
     if (repository is! RiskInterventionCommandRepository) return;
     final commands = repository as RiskInterventionCommandRepository;
@@ -168,7 +244,7 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
     setState(() => _submitting = true);
     try {
       await ownership.takeOverReport(widget.report.id);
-      if (mounted) Navigator.pop(context, true);
+      await _refreshReport();
     } on PostgrestException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } finally {
@@ -205,12 +281,14 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
     setState(() => _submitting = true);
     try {
       if (acceptIfNeeded) await _acceptReportIfNeeded();
-      await widget.repository.changeStatus(
-        widget.report.id,
-        status,
-        resolution: resolution,
-      );
-      if (mounted) Navigator.pop(context, true);
+      if (!(acceptIfNeeded && status == RiskStatus.investigating)) {
+        await widget.repository.changeStatus(
+          widget.report.id,
+          status,
+          resolution: resolution,
+        );
+      }
+      await _refreshReport();
     } on PostgrestException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
@@ -234,7 +312,7 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
       await action(commands);
       if (!mounted) return;
       if (closeAfter) {
-        Navigator.pop(context, true);
+        await _refreshReport();
       } else {
         await _loadIntervention();
       }
@@ -248,7 +326,7 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
   }
 
   Future<void> _acceptReportIfNeeded() async {
-    final report = widget.report;
+    final report = _report;
     if (_acceptedInline ||
         report.assignedTo != null ||
         report.status != RiskStatus.open) {
@@ -272,7 +350,7 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
         Supabase.instance.client,
       ).approve(draft);
       if (!mounted) return;
-      await _loadIntervention();
+      await _refreshReport();
     } on PostgrestException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
@@ -284,7 +362,7 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final report = widget.report;
+    final report = _report;
     final transitions = RiskReportPolicy.allowedTransitions(
       status: report.status,
       severity: report.severity,
@@ -292,20 +370,110 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
       interventionState: _intervention?.state,
     );
     final statusLocked =
-        _intervention?.state == RiskInterventionState.returnRequired;
+        _intervention?.state == RiskInterventionState.returnRequired ||
+        _intervention?.state == RiskInterventionState.handoffRequired;
     final criticalRestricted =
         report.severity == RiskSeverity.critical && !widget.isAdmin;
     final unassignedOpen =
         report.assignedTo == null && report.status == RiskStatus.open;
-    final hasInlineFirstAction = RiskReportPolicy.hasInlineFirstAction(
-      orderStatus: report.order.status,
-      interventionState: _intervention?.state,
-    );
-    final showDirectStatusFallback = unassignedOpen && !hasInlineFirstAction;
-    final actsAsOwner =
-        report.assignedTo == widget.currentUserId || showDirectStatusFallback;
+    final actsAsOwner = report.assignedTo == widget.currentUserId;
     final screen = MediaQuery.sizeOf(context);
 
+    final content = Material(
+      color: AppColors.bgWarm,
+      borderRadius: AppRadius.xl,
+      elevation: 0,
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          RiskReportDetailHeader(
+            report: report,
+            onRefresh: () async {
+              await _refreshReport();
+              await _loadCaseMessages();
+            },
+            onClose: () {
+              if (Navigator.of(context).canPop()) {
+                Navigator.pop(context);
+              } else {
+                context.go('/support-risk');
+              }
+            },
+          ),
+          Expanded(
+            child: RiskReportDetailBody(
+              report: report,
+              currentUserId: widget.currentUserId,
+              criticalRestricted: criticalRestricted,
+              intervention: _intervention,
+              notes: _notes,
+              attachments: _attachments,
+              messageEvidence: _messageEvidence,
+              availableMessages: availableRiskOrderMessages(
+                messages: _orderMessages ?? const [],
+                evidence: _messageEvidence ?? const [],
+              ),
+              evidenceLoading:
+                  _messageEvidence == null || _orderMessages == null,
+              attachingEvidence: _attachingEvidence,
+              onAttachEvidence: _attachMessageEvidence,
+              caseMessages: _caseMessages,
+              canReply:
+                  report.assignedTo == widget.currentUserId &&
+                  !report.status.isClosed,
+              onSendMessage: _sendCaseMessage,
+              events: _events,
+              error: _error,
+              onHoldBeforePickup: () => _runIntervention(
+                (commands) => commands.holdBeforePickup(
+                  report.id,
+                  instruction:
+                      'CSKH đã hủy đơn cho tài xế trước khi nhận hàng.',
+                ),
+                acceptIfNeeded: true,
+              ),
+              onDecision: (decision, instruction) => _runIntervention(
+                (commands) => commands.decideOperation(
+                  report.id,
+                  decision,
+                  instruction: instruction,
+                ),
+                acceptIfNeeded: true,
+              ),
+              onApproveReturn: _approveReturn,
+              onConfirmCustody: () => _runIntervention(
+                (commands) => commands.confirmCustodyResolved(report.id),
+              ),
+              onResumeOrder: () => _runIntervention(
+                (commands) => commands.resumeHeldOrder(report.id),
+              ),
+              onAddNote: (body) => _runIntervention((commands) async {
+                await commands.addInternalNote(report.id, body);
+                await _loadNotes();
+              }, closeAfter: false),
+              showSeverity: widget.isAdmin,
+              showOrderContext:
+                  widget.repository is SupabaseRiskReportRepository,
+            ),
+          ),
+          RiskReportActionBar(
+            assignedToMe: actsAsOwner,
+            unassigned: unassignedOpen,
+            submitting: _submitting,
+            transitions: transitions,
+            statusLocked: statusLocked,
+            onAssign: () =>
+                _changeStatus(RiskStatus.investigating, acceptIfNeeded: true),
+            canTakeOver:
+                widget.isAdmin && report.assignedTo != widget.currentUserId,
+            onTakeOver: _takeOver,
+            onTransition: (status) =>
+                _changeStatus(status, acceptIfNeeded: unassignedOpen),
+          ),
+        ],
+      ),
+    );
+    if (widget.embedded) return content;
     return Dialog(
       insetPadding: const EdgeInsets.all(AppSpacing.lg),
       backgroundColor: Colors.transparent,
@@ -314,85 +482,7 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
           maxWidth: 1120,
           maxHeight: screen.height - AppSpacing.xl3,
         ),
-        child: Material(
-          color: AppColors.bgWarm,
-          borderRadius: AppRadius.xl,
-          elevation: 0,
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              RiskReportDetailHeader(
-                report: report,
-                onClose: () => Navigator.pop(context),
-              ),
-              Expanded(
-                child: RiskReportDetailBody(
-                  report: report,
-                  currentUserId: widget.currentUserId,
-                  criticalRestricted: criticalRestricted,
-                  intervention: _intervention,
-                  notes: _notes,
-                  attachments: _attachments,
-                  messageEvidence: _messageEvidence,
-                  availableMessages: availableRiskOrderMessages(
-                    messages: _orderMessages ?? const [],
-                    evidence: _messageEvidence ?? const [],
-                  ),
-                  evidenceLoading:
-                      _messageEvidence == null || _orderMessages == null,
-                  attachingEvidence: _attachingEvidence,
-                  onAttachEvidence: _attachMessageEvidence,
-                  caseMessages: _caseMessages,
-                  canReply: report.assignedTo == widget.currentUserId,
-                  onSendMessage: _sendCaseMessage,
-                  events: _events,
-                  error: _error,
-                  onHoldBeforePickup: () => _runIntervention(
-                    (commands) => commands.holdBeforePickup(report.id),
-                    acceptIfNeeded: true,
-                  ),
-                  onDecision: (decision, instruction) => _runIntervention(
-                    (commands) => commands.decideOperation(
-                      report.id,
-                      decision,
-                      instruction: instruction,
-                    ),
-                    acceptIfNeeded: true,
-                  ),
-                  onApproveReturn: _approveReturn,
-                  onConfirmCustody: () => _runIntervention(
-                    (commands) => commands.confirmCustodyResolved(report.id),
-                  ),
-                  onResumeOrder: () => _runIntervention(
-                    (commands) => commands.resumeHeldOrder(report.id),
-                  ),
-                  onAddNote: (body) => _runIntervention((commands) async {
-                    await commands.addInternalNote(report.id, body);
-                    await _loadNotes();
-                  }, closeAfter: false),
-                  showSeverity: widget.isAdmin,
-                ),
-              ),
-              if (report.assignedTo != null || showDirectStatusFallback)
-                RiskReportActionBar(
-                  assignedToMe: actsAsOwner,
-                  unassigned: false,
-                  submitting: _submitting,
-                  transitions: transitions,
-                  statusLocked: statusLocked,
-                  onAssign: () {},
-                  canTakeOver:
-                      widget.isAdmin &&
-                      report.assignedTo != widget.currentUserId,
-                  onTakeOver: _takeOver,
-                  onTransition: (status) => _changeStatus(
-                    status,
-                    acceptIfNeeded: showDirectStatusFallback,
-                  ),
-                ),
-            ],
-          ),
-        ),
+        child: content,
       ),
     );
   }

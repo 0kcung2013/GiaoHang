@@ -28,3 +28,13 @@ verify_jwt = false
 
 [functions.approve-driver-profile-change-request]
 verify_jwt = true
+
+[functions.accept-driver-order]
+verify_jwt = true
+
+[functions.dispatch-road-orders]
+# Custom server authentication is checked against Vault inside a restricted RPC.
+verify_jwt = false
+
+[functions.find-free-pick-road-orders]
+verify_jwt = true

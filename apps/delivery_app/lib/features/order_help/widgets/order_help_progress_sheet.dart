@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
@@ -57,11 +58,61 @@ class _RiskProgressLoaderState extends State<_RiskProgressLoader> {
   late final Future<List<RiskReportEvent>> _events = widget.repository
       .fetchEvents(widget.report.id);
   List<CaseMessage>? _messages;
+  late ParticipantRiskReportSummary _report;
+  StreamSubscription<List<CaseMessage>>? _messageSubscription;
+  StreamSubscription<ParticipantRiskReportSummary?>? _reportSubscription;
+  String? _error;
+  int _messageRevision = 0;
 
   @override
   void initState() {
     super.initState();
+    _report = widget.report;
+    final repository = widget.repository;
+    if (repository is ParticipantRiskLiveRepository) {
+      final live = repository as ParticipantRiskLiveRepository;
+      _messageSubscription = live
+          .watchMessages(_report.id)
+          .listen(
+            (messages) {
+              ++_messageRevision;
+              if (mounted) {
+                setState(() {
+                  _messages = messages;
+                  _error = null;
+                });
+              }
+            },
+            onError: (_) {
+              if (mounted) {
+                setState(
+                  () =>
+                      _error = 'Mất kết nối hội thoại. Hãy mở lại để kết nối.',
+                );
+              }
+            },
+          );
+      _reportSubscription = live
+          .watchReport(_report.id)
+          .listen(
+            (report) {
+              if (mounted && report != null) setState(() => _report = report);
+            },
+            onError: (_) {
+              if (mounted) {
+                setState(() => _error = 'Chưa đồng bộ được trạng thái hồ sơ.');
+              }
+            },
+          );
+    }
     _loadMessages();
+  }
+
+  @override
+  void dispose() {
+    unawaited(_messageSubscription?.cancel());
+    unawaited(_reportSubscription?.cancel());
+    super.dispose();
   }
 
   Future<void> _loadMessages() async {
@@ -71,8 +122,20 @@ class _RiskProgressLoaderState extends State<_RiskProgressLoader> {
       return;
     }
     final conversations = repository as ParticipantRiskConversationRepository;
-    final messages = await conversations.fetchMessages(widget.report.id);
-    if (mounted) setState(() => _messages = messages);
+    final revision = _messageRevision;
+    try {
+      final messages = await conversations.fetchMessages(widget.report.id);
+      if (mounted && revision == _messageRevision) {
+        setState(() => _messages = messages);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _messages ??= [];
+          _error = 'Không tải được hội thoại. Hãy mở lại để thử.';
+        });
+      }
+    }
   }
 
   Future<void> _send(String body) async {
@@ -85,7 +148,7 @@ class _RiskProgressLoaderState extends State<_RiskProgressLoader> {
 
   @override
   Widget build(BuildContext context) {
-    final report = widget.report;
+    final report = _report;
     return FutureBuilder<List<RiskReportEvent>>(
       future: _events,
       builder: (context, snapshot) => _ProgressSheet(
@@ -94,7 +157,9 @@ class _RiskProgressLoaderState extends State<_RiskProgressLoader> {
         statusLabel: OrderHelpUi.riskStatusLabel(report.status),
         statusColor: OrderHelpUi.riskStatusColor(report.status),
         statusIcon: OrderHelpUi.riskStatusIcon(report.status),
-        description: report.description,
+        description: _error == null
+            ? report.description
+            : '${report.description}\n\n$_error',
         resolution: report.resolution,
         updatedAt: report.updatedAt,
         events: snapshot.data,

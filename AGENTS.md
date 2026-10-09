@@ -56,7 +56,9 @@ flutter build web                                    # Build Operations Web
 - **drivers** — id, user_id, vehicle_type, license_plate, vehicle_brand_model, vehicle_color, is_available, current_lat, current_lng, rating, total_deliveries, approval_status, verified_at, submitted_at, rejection_reason, KYC fields (id_card_*, driver_license_*, vehicle_photo_url), updated_at
 - **orders** — id, customer_id, driver_id, status, pickup_address, pickup_lat, pickup_lng, delivery_address, delivery_lat, delivery_lng, total_price, note, created_at
 - **order_items** — id, order_id, name, quantity, price
-- **driver_locations** — dữ liệu GPS lịch sử cũ, chỉ đọc trong giai đoạn chuyển đổi sang R2; không ghi mới
+- **case_messages** — hội thoại CSKH/báo cáo rủi ro và ghi chú nội bộ; mỗi dòng thuộc đúng một `ticket_id` hoặc `risk_report_id`, phân quyền theo `visibility`.
+- **risk_report_evidence** — bằng chứng báo cáo rủi ro: ảnh (`photo`), vị trí (`location`) hoặc bản chụp tin nhắn đơn hàng (`message`). File ảnh nằm trên R2; bảng giữ tham chiếu và dữ liệu nghiệp vụ.
+- `driver_locations` đã được xóa ngày 2026-10-09 sau khi xác nhận toàn bộ GPS cũ quá 14 ngày. Không tạo lại bảng hoặc dùng làm fallback.
 
 ### Enums
 - order status: `pending` → `confirmed` → `assigned` → `picking_up` → `delivering` → `delivered` | `cancelled`
@@ -119,7 +121,8 @@ Quan trọng: không thay đổi Supabase schema, RLS policies, migrations, Edge
 ## Delivery Monitoring / Violation Scope
 
 - Điểm vi phạm chỉ có hiệu lực trong 14 ngày (2 tuần) tính từ thời điểm phát sinh.
-- Giao muộn hoặc đánh giá xấu tạo điểm chờ xác minh; không tự động kết luận lỗi tài xế hoặc tự động khóa tài khoản.
+- Đánh giá xấu tạo điểm chờ xác minh; không tự động kết luận lỗi tài xế hoặc tự động khóa tài khoản từ đánh giá.
+- Ngoại lệ giao muộn được người dùng duyệt ngày 2026-10-02: 3 đơn hoàn tất quá hạn trong 2 giờ gần nhất tự khóa nhận đơn mới 30 phút. Dùng hạn do backend cấp, giờ server và nhật ký hiện có; mỗi đơn tính một lần và không dùng lại các đơn đã kích hoạt khóa. Không khóa tài khoản đăng nhập hoặc gián đoạn đơn đang giao. Đây là cửa sổ riêng 2 giờ, không dùng cửa sổ điểm vi phạm 14 ngày.
 - Việc xác nhận, miễn hoặc điều chỉnh điểm thuộc quyền CSKH/Admin và phải có audit trail.
 - Phạm vi hiện tại không thu thập dữ liệu để huấn luyện lại LightGBM. Việc xây dựng dataset và retrain mô hình là hướng phát triển trong tương lai.
 - Trong phạm vi hiện tại, lịch sử GPS chỉ được lưu để phát lại hành trình, đối chiếu sự cố và lập báo cáo khi cần.
@@ -130,7 +133,7 @@ Quan trọng: không thay đổi Supabase schema, RLS policies, migrations, Edge
 - Lịch sử GPS chính được đóng gói theo `order_id` và lưu trong Cloudflare R2 ở định dạng nén, với object key xác định được từ mã đơn để không cần thêm bảng metadata chỉ nhằm lưu đường dẫn file.
 - Không upload một object cho từng điểm GPS. Phải buffer rồi ghi theo chunk hoặc ghi một file hoàn chỉnh khi kết thúc đơn để giảm số thao tác lưu trữ.
 - Object GPS mặc định hết hạn sau 14 ngày bằng lifecycle rule. Không giữ dữ liệu quá hạn chỉ để phục vụ huấn luyện mô hình.
-- `driver_locations` chỉ còn phục vụ dữ liệu lịch sử cũ trong giai đoạn chuyển đổi; không dùng làm fallback ghi mới khi R2 không khả dụng.
+- `driver_locations` đã được loại bỏ; không dùng PostgreSQL làm fallback ghi lịch sử mới khi R2 không khả dụng.
 - R2 access key/secret chỉ tồn tại ở server-side worker/function secrets, không đưa xuống Flutter client và không commit vào Git.
 - Việc tạo Cloudflare account, bucket, Worker, secrets hoặc thay đổi pipeline GPS cần được hỏi và chấp thuận riêng trước khi thực hiện.
 
@@ -162,11 +165,9 @@ Quan trọng: không thay đổi Supabase schema, RLS policies, migrations, Edge
 - Extract formatting/date/currency/status helpers into `utils/` folders.
 - Extract dialogs into `dialogs/` folders or separate widget files.
 - Extract filter/tab state helpers when they grow beyond trivial local state.
-- Không áp dụng giới hạn cứng theo số dòng và không tách file chỉ vì file dài.
-- Một file có thể dài nếu toàn bộ nội dung vẫn phục vụ một trách nhiệm thống nhất và dễ điều hướng.
 - Không để một file chứa quá nhiều phần độc lập như UI, state orchestration, dialogs, data access, formatters và business rules không liên quan chặt chẽ.
 - Chỉ đề xuất tách file khi thay đổi làm xuất hiện thêm trách nhiệm độc lập, làm giảm tính kết dính hoặc khiến việc kiểm thử/bảo trì khó khăn.
-- Trước khi mở rộng một file, kiểm tra trách nhiệm hiện có; nếu cần tách thì đề xuất theo ranh giới nghiệp vụ hoặc component, không dựa trên số dòng.
+- Trước khi mở rộng một file, kiểm tra trách nhiệm hiện có; nếu cần tách thì chọn ranh giới nghiệp vụ hoặc component có ý nghĩa.
 
 ## Verification / Test Scope
 
@@ -208,11 +209,22 @@ Current runtime note: hai app đọc Supabase URL/anon key từ `packages/giaoha
 
 
 ## UI Design Rules
+- For every UI audit, design, prototype, review, or implementation in either
+  Flutter app, use the project skill
+  .agents/skills/giaohang-flutter-ui/SKILL.md.
 - Luôn đọc DESIGN.md trước khi tạo hoặc sửa bất kỳ UI nào
 - Mọi màn hình phải follow design system trong DESIGN.md
 - Không dùng Material default widget thuần túy
 - Áp dụng màu sắc, typography, spacing từ DESIGN.md
 - Target: premium mobile app aesthetic
+- giaohang-flutter-ui defines the required workflow. DESIGN.md and the compiled
+  tokens in packages/giaohang_design/lib/src/app_theme.dart remain the design
+  source of truth.
+- Khi thiết kế lại một màn hình, kiểm tra luồng và trạng thái thực tế trong code; giữ nguyên hành vi, validation, điều hướng và hợp đồng dữ liệu trừ khi người dùng yêu cầu đổi.
+- Đánh giá UI theo vai trò và thiết bị đích: nội dung dễ hiểu, trạng thái đầy đủ, hỗ trợ accessibility, bố cục thích ứng và motion có mục đích. Kiểm tra màn hình được render khi môi trường cho phép.
+- ui-ux-pro-max is optional research support, not a source of project rules.
+  Do not route ordinary Flutter work through the web-specific ui-styling
+  workflow.
 
 ## Design Token Direction
 - Preferred design system: `AppColors`, `AppTextStyles`, `AppSpacing`, `AppRadius` trong `packages/giaohang_design/lib/src/app_theme.dart`.

@@ -5,11 +5,19 @@ import '../../../../../core/models/order_model.dart';
 import '../../../../../core/services/osrm_service.dart';
 import '../../../../../core/utils/delivery_map_utils.dart';
 import '../../../../risk_reports/data/risk_intervention_repository.dart';
+import '../../../../risk_reports/data/participant_risk_report_query_repository.dart';
 import '../../../../risk_reports/widgets/driver_risk_instruction_card.dart';
 import '../../../../order_contact/widgets/driver_incoming_message_alert.dart';
 import '../models/driver_delivery_workflow.dart';
+import '../utils/driver_delivery_arrival_strings.dart';
 import 'driver_help_actions.dart';
 import 'driver_navigation_arrival_bar.dart';
+import 'driver_delivery_arrival_region.dart';
+import '../models/driver_delivery_arrival.dart';
+import '../data/driver_delivery_arrival_repository.dart';
+import 'driver_recipient_wait_region.dart';
+import 'driver_order_details_layout.dart';
+import '../../../cancellation/widgets/driver_cancel_order_action.dart';
 
 class DriverNavigationView extends StatelessWidget {
   const DriverNavigationView({
@@ -22,6 +30,7 @@ class DriverNavigationView extends StatelessWidget {
     required this.onFitMap,
     required this.onPrimaryAction,
     this.pickupConfirmed = false,
+    this.routeCompleted = false,
     this.navigationStep,
     this.maneuverDistance,
     this.totalDistance,
@@ -32,6 +41,14 @@ class DriverNavigationView extends StatelessWidget {
     this.currentUserId,
     this.onOpenMessageChat,
     this.riskInterventionRepository,
+    this.onConfirmPickupArrival,
+    this.onPrepareDeliveryArrival,
+    this.onReportRecipient,
+    this.deliveryArrivalRepository,
+    this.recipientReportsRepository,
+    this.onDriverReleased,
+    this.showOrderDetails = false,
+    this.onOrderCancelled,
   });
 
   final OrderModel order;
@@ -42,6 +59,7 @@ class DriverNavigationView extends StatelessWidget {
   final VoidCallback onFitMap;
   final VoidCallback? onPrimaryAction;
   final bool pickupConfirmed;
+  final bool routeCompleted;
   final OsrmNavigationStep? navigationStep;
   final double? maneuverDistance;
   final double? totalDistance;
@@ -52,6 +70,14 @@ class DriverNavigationView extends StatelessWidget {
   final String? currentUserId;
   final Future<void> Function()? onOpenMessageChat;
   final RiskInterventionRepository? riskInterventionRepository;
+  final VoidCallback? onConfirmPickupArrival;
+  final Future<void> Function()? onPrepareDeliveryArrival;
+  final VoidCallback? onReportRecipient;
+  final DriverDeliveryArrivalRepository? deliveryArrivalRepository;
+  final ParticipantRiskReportQueryRepository? recipientReportsRepository;
+  final Future<void> Function()? onDriverReleased;
+  final bool showOrderDetails;
+  final VoidCallback? onOrderCancelled;
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +85,7 @@ class DriverNavigationView extends StatelessWidget {
       order.status,
       pickupConfirmed: pickupConfirmed,
     );
-    return Scaffold(
+    Widget buildMap(VoidCallback back, {bool includeFooter = true}) => Scaffold(
       backgroundColor: AppColors.bgLight,
       body: Stack(
         fit: StackFit.expand,
@@ -85,12 +111,17 @@ class DriverNavigationView extends StatelessWidget {
                         _MapControlButton(
                           icon: Icons.arrow_back_rounded,
                           tooltip: 'Quay lại',
-                          onPressed: onBack,
+                          onPressed: back,
                         ),
-                        const Spacer(),
-                        _StatusPill(
-                          status: order.status,
-                          pickupConfirmed: pickupConfirmed,
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: _StatusPill(
+                              status: order.status,
+                              pickupConfirmed: pickupConfirmed,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: AppSpacing.sm),
                         DriverHelpActions(
@@ -116,6 +147,7 @@ class DriverNavigationView extends StatelessWidget {
                       distance: totalDistance,
                       duration: totalDuration,
                       arrivedAtTarget: arrivedAtTarget,
+                      routeCompleted: routeCompleted,
                       pickupConfirmed: pickupConfirmed,
                     ),
                     if (workflow.allowsContactChat &&
@@ -136,37 +168,128 @@ class DriverNavigationView extends StatelessWidget {
               ),
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
-              top: false,
-              child: riskInterventionRepository == null
-                  ? _arrivalBar()
-                  : DriverRiskInstructionRegion(
-                      order: order,
-                      repository: riskInterventionRepository!,
-                      builder: (_, blocksDelivery) =>
-                          _arrivalBar(blocksDelivery: blocksDelivery),
-                    ),
+          if (includeFooter)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: SafeArea(top: false, child: _footer()),
             ),
-          ),
         ],
       ),
     );
+    final view = showOrderDetails
+        ? DriverOrderDetailsLayout(
+            order: order,
+            onBack: onBack,
+            mapBuilder: (back) => buildMap(back, includeFooter: false),
+            footer: _footer(),
+            cancellationAction: DriverCancelOrderAction(
+              order: order,
+              pickupConfirmed: pickupConfirmed,
+              onCancelled: onOrderCancelled,
+            ),
+            status: _StatusPill(
+              status: order.status,
+              pickupConfirmed: pickupConfirmed,
+            ),
+            notice: routeCompleted
+                ? Text(
+                    DriverDeliveryArrivalStrings.simulationStopped,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  )
+                : null,
+            helpAction: DriverHelpActions(
+              order: order,
+              initialLatitude: driverLatitude,
+              initialLongitude: driverLongitude,
+              collapsed: true,
+            ),
+          )
+        : buildMap(onBack);
+    if (recipientReportsRepository == null ||
+        riskInterventionRepository == null) {
+      return view;
+    }
+    return DriverRecipientWaitRegion(
+      key: ValueKey('recipient-wait-${order.id}'),
+      order: order,
+      reports: recipientReportsRepository!,
+      interventions: riskInterventionRepository!,
+      arrivalRepository: deliveryArrivalRepository,
+      child: view,
+    );
   }
 
+  Widget _footer() => riskInterventionRepository == null
+      ? _arrivalBar()
+      : DriverRiskInstructionRegion(
+          order: order,
+          pickupConfirmed: pickupConfirmed,
+          onDriverReleased: onDriverReleased,
+          repository: riskInterventionRepository!,
+          builder: (_, blocksDelivery) =>
+              _arrivalBar(blocksDelivery: blocksDelivery),
+        );
+
   Widget _arrivalBar({bool blocksDelivery = false}) {
-    return DriverNavigationArrivalBar(
-      order: order,
-      arrivedAtTarget: arrivedAtTarget,
-      pickupConfirmed: pickupConfirmed,
-      isLoading: isUpdatingStatus,
-      onPrimaryAction: blocksDelivery ? null : onPrimaryAction,
-      onContact: onContact,
-      remainingDistanceMeters: totalDistance,
-      remainingDurationSeconds: totalDuration,
+    if (order.status == 'delivering' && onPrepareDeliveryArrival != null) {
+      return DriverDeliveryArrivalRegion(
+        key: ValueKey('delivery-arrival-${order.id}'),
+        orderId: order.id,
+        beforeConfirm: onPrepareDeliveryArrival,
+        repository: deliveryArrivalRepository,
+        builder: (arrival, elapsed, loading, error, confirm, retry) =>
+            _buildArrivalBar(
+              blocksDelivery: blocksDelivery,
+              deliveryArrival: arrival,
+              deliveryWait: elapsed,
+              arrivalLoading: loading,
+              arrivalError: error,
+              onConfirmDeliveryArrival: confirm,
+              onRetryArrival: retry,
+            ),
+      );
+    }
+    return _buildArrivalBar(blocksDelivery: blocksDelivery);
+  }
+
+  Widget _buildArrivalBar({
+    bool blocksDelivery = false,
+    DriverDeliveryArrival? deliveryArrival,
+    Duration? deliveryWait,
+    bool arrivalLoading = false,
+    String? arrivalError,
+    VoidCallback? onConfirmDeliveryArrival,
+    VoidCallback? onRetryArrival,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        DriverNavigationArrivalBar(
+          order: order,
+          arrivedAtTarget: arrivedAtTarget,
+          pickupConfirmed: pickupConfirmed,
+          isLoading: isUpdatingStatus || arrivalLoading,
+          onPrimaryAction: blocksDelivery ? null : onPrimaryAction,
+          onContact: onContact,
+          remainingDistanceMeters: totalDistance,
+          remainingDurationSeconds: totalDuration,
+          onConfirmPickupArrival: blocksDelivery
+              ? null
+              : onConfirmPickupArrival,
+          deliveryArrival: deliveryArrival,
+          deliveryWait: deliveryWait,
+          arrivalError: arrivalError,
+          onRetryArrival: onRetryArrival,
+          onConfirmDeliveryArrival: blocksDelivery
+              ? null
+              : onConfirmDeliveryArrival,
+          onReportRecipient: blocksDelivery ? null : onReportRecipient,
+        ),
+      ],
     );
   }
 }
@@ -180,6 +303,7 @@ class _NavigationInstructionCard extends StatelessWidget {
     required this.duration,
     required this.arrivedAtTarget,
     required this.pickupConfirmed,
+    required this.routeCompleted,
   });
 
   final OrderModel order;
@@ -189,14 +313,17 @@ class _NavigationInstructionCard extends StatelessWidget {
   final double? duration;
   final bool arrivedAtTarget;
   final bool pickupConfirmed;
+  final bool routeCompleted;
 
   @override
   Widget build(BuildContext context) {
     final isDelivery = order.status == 'delivering';
+    final waitingToStartDelivery =
+        order.status == 'picking_up' && pickupConfirmed;
     final fallbackTitle = isDelivery
         ? 'Đi đến điểm giao hàng'
         : 'Đi đến điểm lấy hàng';
-    final title = pickupConfirmed
+    final title = waitingToStartDelivery
         ? 'Đã nhận hàng • Chờ bắt đầu giao'
         : arrivedAtTarget
         ? (isDelivery ? 'Đã đến điểm giao' : 'Đã đến điểm lấy')
@@ -205,31 +332,31 @@ class _NavigationInstructionCard extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.96),
-        borderRadius: AppRadius.xl,
-        border: Border.all(color: AppColors.textOnDark.withValues(alpha: 0.1)),
-        boxShadow: AppShadow.elevated,
+        color: AppColors.bgCard,
+        borderRadius: AppRadius.lg,
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppShadow.card,
       ),
       child: Row(
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               color: AppColors.accent,
-              borderRadius: AppRadius.lg,
+              borderRadius: AppRadius.md,
             ),
             child: Icon(
               arrivedAtTarget
                   ? Icons.location_on_rounded
                   : _maneuverIcon(step?.modifier),
               color: AppColors.textOnAccent,
-              size: 29,
+              size: 24,
             ),
           ),
-          const SizedBox(width: AppSpacing.md),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,25 +365,30 @@ class _NavigationInstructionCard extends StatelessWidget {
                   title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.headingSmall.copyWith(
-                    color: AppColors.textOnDark,
+                  style: AppTextStyles.labelLarge.copyWith(
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                Row(
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
-                      pickupConfirmed
+                      routeCompleted
+                          ? DriverDeliveryArrivalStrings.simulationStopped
+                          : waitingToStartDelivery
                           ? 'GPS đang tạm dừng'
                           : displayedDistance == null
                           ? 'Đang tải lộ trình...'
                           : 'Còn ${DeliveryMapUtils.formatDistance(displayedDistance)}',
                       style: AppTextStyles.labelMedium.copyWith(
-                        color: AppColors.textOnDark.withValues(alpha: 0.8),
+                        color: AppColors.textSecondary,
                       ),
                     ),
-                    if (!pickupConfirmed && duration != null) ...[
+                    if (!routeCompleted &&
+                        !waitingToStartDelivery &&
+                        duration != null) ...[
                       Container(
                         width: 3,
                         height: 3,
@@ -271,7 +403,7 @@ class _NavigationInstructionCard extends StatelessWidget {
                       Text(
                         DeliveryMapUtils.formatDuration(duration!),
                         style: AppTextStyles.labelMedium.copyWith(
-                          color: AppColors.textOnDark.withValues(alpha: 0.8),
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ],
@@ -330,7 +462,7 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = pickupConfirmed
+    final label = status == 'picking_up' && pickupConfirmed
         ? 'Chờ bắt đầu giao'
         : switch (status) {
             'assigned' => 'Đã nhận đơn',

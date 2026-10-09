@@ -13,19 +13,53 @@ abstract interface class ParticipantSupportConversationRepository {
   Future<void> postMessage(String ticketId, String body);
 }
 
+abstract interface class ParticipantSupportReopenRepository {
+  Future<SupportTicket> reopen(String ticketId, String reason);
+}
+
+abstract interface class ParticipantSupportDetailRepository {
+  Stream<List<SupportTicket>> watchTicket(String ticketId);
+}
+
 class SupabaseParticipantSupportTicketRepository
     implements
         ParticipantSupportTicketRepository,
+        ParticipantSupportDetailRepository,
+        ParticipantSupportReopenRepository,
         ParticipantSupportConversationRepository {
   SupabaseParticipantSupportTicketRepository({SupabaseClient? client})
     : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
 
+  @override
+  Stream<List<SupportTicket>> watchTicket(String ticketId) => _client
+      .from('support_tickets')
+      .stream(primaryKey: ['id'])
+      .eq('id', ticketId)
+      .map((rows) => rows.map(SupportTicket.fromJson).toList());
+
+  @override
+  Future<SupportTicket> reopen(String ticketId, String reason) async {
+    final row = await _client.rpc<Map<String, dynamic>>(
+      'reopen_support_ticket',
+      params: {'p_ticket_id': ticketId, 'p_message': reason.trim()},
+    );
+    return SupportTicket.fromJson(row);
+  }
+
   static const _selection =
       'id, order_id, requester_id, assigned_to, subject, message, '
       'risk_report_id, resolution, status, priority, first_response_at, '
       'response_due_at, escalated_at, created_at, updated_at';
+
+  Future<SupportTicket> fetchById(String id) async => SupportTicket.fromJson(
+    await _client
+        .from('support_tickets')
+        .select(_selection)
+        .eq('id', id)
+        .single(),
+  );
 
   @override
   Future<SupportTicket> create(SupportTicketDraft draft) async {
@@ -87,7 +121,7 @@ class SupabaseParticipantSupportTicketRepository
   @override
   Future<List<CaseMessage>> fetchMessages(String ticketId) async {
     final rows = await _client
-        .from('support_ticket_messages')
+        .from('case_messages')
         .select(
           'id, ticket_id, sender_id, sender_role_snapshot, visibility, '
           'body, created_at',
@@ -102,7 +136,7 @@ class SupabaseParticipantSupportTicketRepository
   @override
   Stream<List<CaseMessage>> watchMessages(String ticketId) {
     return _client
-        .from('support_ticket_messages')
+        .from('case_messages')
         .stream(primaryKey: ['id'])
         .eq('ticket_id', ticketId)
         .order('created_at', ascending: true)

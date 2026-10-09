@@ -269,8 +269,9 @@ class LocationIngestService {
           .update({
             'current_lat': lat,
             'current_lng': lng,
-            'location_updated_at': now.toIso8601String(),
-            'updated_at': now.toIso8601String(),
+            // timestamptz cần múi giờ rõ ràng; giờ local thiếu offset bị hiểu là UTC.
+            'location_updated_at': now.toUtc().toIso8601String(),
+            'updated_at': now.toUtc().toIso8601String(),
           })
           .eq('id', profileId);
       _lastRealtimePgAt = now;

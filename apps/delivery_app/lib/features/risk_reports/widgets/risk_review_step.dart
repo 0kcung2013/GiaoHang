@@ -62,44 +62,21 @@ class RiskReviewStep extends StatelessWidget {
                 ),
               ],
               const Divider(height: AppSpacing.xl2, color: AppColors.border),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: [
-                  _EvidenceBadge(
-                    icon: Icons.photo_outlined,
-                    label: '$photoCount ảnh',
-                    active: photoCount > 0,
-                  ),
-                  _EvidenceBadge(
-                    icon: Icons.my_location_rounded,
-                    label: hasLocation ? 'Có vị trí' : 'Không vị trí',
-                    active: hasLocation,
-                  ),
-                ],
+              Text(
+                '$photoCount ảnh · ${hasLocation ? 'Có vị trí' : 'Không vị trí'}',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(
-              Icons.info_outline_rounded,
-              color: AppColors.info,
-              size: 20,
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(
-                'Báo cáo không tự động kết luận vi phạm hoặc dừng đơn hàng.',
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ),
-          ],
+        Text(
+          'Báo cáo không tự động kết luận vi phạm hoặc dừng đơn hàng.',
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.textSecondary,
+          ),
         ),
       ],
     );
@@ -127,44 +104,6 @@ class _SummaryRow extends StatelessWidget {
         ),
         Expanded(child: Text(value, style: AppTextStyles.labelMedium)),
       ],
-    );
-  }
-}
-
-class _EvidenceBadge extends StatelessWidget {
-  const _EvidenceBadge({
-    required this.icon,
-    required this.label,
-    required this.active,
-  });
-  final IconData icon;
-  final String label;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: active ? AppColors.accentLight : AppColors.bgCard,
-        borderRadius: AppRadius.full,
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 16,
-            color: active ? AppColors.accent : AppColors.textMuted,
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          Text(label, style: AppTextStyles.labelSmall),
-        ],
-      ),
     );
   }
 }

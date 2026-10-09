@@ -12,24 +12,27 @@ class OrderPaymentChoices extends StatelessWidget {
   final ValueChanged<bool> onChanged;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(
-        child: _Choice(
-          label: OrderPaymentText.collect,
-          selected: collectCod,
-          onTap: () => onChanged(true),
+  Widget build(BuildContext context) => IntrinsicHeight(
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: _Choice(
+            label: OrderPaymentText.noCollection,
+            selected: !collectCod,
+            onTap: () => onChanged(false),
+          ),
         ),
-      ),
-      const SizedBox(width: AppSpacing.sm),
-      Expanded(
-        child: _Choice(
-          label: OrderPaymentText.noCollection,
-          selected: !collectCod,
-          onTap: () => onChanged(false),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _Choice(
+            label: OrderPaymentText.collect,
+            selected: collectCod,
+            onTap: () => onChanged(true),
+          ),
         ),
-      ),
-    ],
+      ],
+    ),
   );
 }
 
@@ -63,6 +66,7 @@ class _Choice extends StatelessWidget {
             ),
           ),
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
                 selected

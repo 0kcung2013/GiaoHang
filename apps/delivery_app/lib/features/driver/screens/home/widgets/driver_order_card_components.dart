@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../utils/driver_home_formatters.dart';
+import '../driver_home_strings.dart';
+import 'driver_order_offer_summary.dart';
 
 class DriverContinueDeliveryButton extends StatelessWidget {
   const DriverContinueDeliveryButton({
@@ -162,53 +164,33 @@ class DriverAcceptOrderButton extends StatelessWidget {
   final IconData icon;
 
   @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: onTap == null
-          ? AppColors.textMuted.withValues(alpha: 0.24)
-          : AppColors.accent,
-      borderRadius: AppRadius.full,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: AppRadius.full,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.md,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (isLoading)
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.textOnAccent,
-                  ),
-                )
-              else
-                Icon(icon, color: AppColors.textOnAccent, size: 17),
-              const SizedBox(width: AppSpacing.xs),
-              Flexible(
-                child: Text(
-                  isLoading ? 'Đang nhận...' : label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.textOnAccent,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+  Widget build(BuildContext context) => FilledButton.icon(
+    onPressed: isLoading ? null : onTap,
+    icon: isLoading
+        ? const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.primary,
+            ),
+          )
+        : Icon(icon, size: 20),
+    label: Text(isLoading ? DriverOrderPresentationStrings.accepting : label),
+    style: FilledButton.styleFrom(
+      backgroundColor: AppColors.accent,
+      foregroundColor: AppColors.primary,
+      disabledBackgroundColor: AppColors.border,
+      disabledForegroundColor: AppColors.textSecondary,
+      minimumSize: const Size(48, 52),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
       ),
-    );
-  }
+      textStyle: AppTextStyles.labelLarge,
+      shape: const RoundedRectangleBorder(borderRadius: AppRadius.md),
+    ),
+  );
 }
 
 class DriverTransferOrderButton extends StatelessWidget {
@@ -222,54 +204,34 @@ class DriverTransferOrderButton extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
-    const color = AppColors.warning;
-    return Material(
-      color: onTap == null
-          ? AppColors.textMuted.withValues(alpha: 0.24)
-          : color.withValues(alpha: 0.12),
-      borderRadius: AppRadius.full,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: AppRadius.full,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.md,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (isLoading)
-                const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: color,
-                  ),
-                )
-              else
-                const Icon(Icons.swap_horiz_rounded, color: color, size: 17),
-              const SizedBox(width: AppSpacing.xs),
-              Flexible(
-                child: Text(
-                  isLoading ? 'Đang chuyển...' : 'Chuyển đơn',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+  Widget build(BuildContext context) => TextButton.icon(
+    onPressed: isLoading ? null : onTap,
+    icon: isLoading
+        ? const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.textSecondary,
+            ),
+          )
+        : const Icon(Icons.swap_horiz_rounded, size: 20),
+    label: Text(
+      isLoading
+          ? DriverOrderPresentationStrings.transferring
+          : DriverHomeStrings.incomingOfferTransfer,
+    ),
+    style: TextButton.styleFrom(
+      foregroundColor: AppColors.textSecondary,
+      minimumSize: const Size(48, 48),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
       ),
-    );
-  }
+      textStyle: AppTextStyles.labelMedium,
+      shape: const RoundedRectangleBorder(borderRadius: AppRadius.md),
+    ),
+  );
 }
 
 class DriverOrderInfoRow extends StatelessWidget {

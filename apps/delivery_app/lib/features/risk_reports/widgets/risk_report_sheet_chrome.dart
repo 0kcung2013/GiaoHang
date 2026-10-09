@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
+import '../utils/risk_report_strings.dart';
 
 class RiskReportSheetHeader extends StatelessWidget {
   const RiskReportSheetHeader({
@@ -36,21 +37,14 @@ class RiskReportSheetHeader extends StatelessWidget {
               Expanded(
                 child: Text('Báo cáo sự cố', style: AppTextStyles.headingLarge),
               ),
-              Semantics(
-                button: true,
-                label: 'Đóng',
-                child: InkWell(
-                  onTap: onClose,
-                  borderRadius: AppRadius.full,
-                  child: const SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: Icon(
-                      Icons.close_rounded,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
+              TextButton(
+                onPressed: onClose,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.textSecondary,
+                  minimumSize: const Size(48, 48),
+                  textStyle: AppTextStyles.labelMedium,
                 ),
+                child: const Text(RiskReportStrings.closeAction),
               ),
             ],
           ),
@@ -113,23 +107,14 @@ class RiskReportSheetFooter extends StatelessWidget {
                 Semantics(
                   liveRegion: true,
                   label: submissionLabel,
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.cloud_upload_outlined,
-                        size: 20,
-                        color: AppColors.accent,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      submissionLabel,
+                      style: AppTextStyles.labelMedium.copyWith(
+                        color: AppColors.textPrimary,
                       ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: Text(
-                          submissionLabel,
-                          style: AppTextStyles.labelMedium.copyWith(
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),

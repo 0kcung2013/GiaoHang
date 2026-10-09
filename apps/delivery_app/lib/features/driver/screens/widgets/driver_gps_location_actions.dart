@@ -8,24 +8,25 @@ class DriverGpsLocationActions extends StatelessWidget {
     super.key,
     required this.applyingMode,
     required this.canUseDemo,
-    required this.onUseDeviceGps,
+    required this.onUseDemoCurrentPosition,
     required this.onUseDemoHcm,
   });
 
   final DriverLocationMode? applyingMode;
   final bool canUseDemo;
-  final VoidCallback onUseDeviceGps;
+  final VoidCallback onUseDemoCurrentPosition;
   final VoidCallback onUseDemoHcm;
 
   @override
   Widget build(BuildContext context) {
     final isApplying = applyingMode != null;
-    final deviceLabel = applyingMode == DriverLocationMode.deviceGps
-        ? 'Đang lấy vị trí...'
-        : 'Dùng vị trí hiện tại';
     final demoLabel = applyingMode == DriverLocationMode.demoHcm
         ? 'Đang áp dụng demo...'
         : 'Dùng vị trí demo TP.HCM';
+    final currentDemoLabel =
+        applyingMode == DriverLocationMode.demoCurrentPosition
+        ? 'Đang bật mô phỏng...'
+        : 'Mô phỏng từ vị trí hiện tại';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -33,17 +34,17 @@ class DriverGpsLocationActions extends StatelessWidget {
         SizedBox(
           height: 52,
           child: OutlinedButton.icon(
-            key: const ValueKey('use-device-gps'),
-            onPressed: isApplying ? null : onUseDeviceGps,
-            icon: const Icon(Icons.my_location_rounded),
-            label: Text(deviceLabel),
+            key: const ValueKey('use-demo-current-position'),
+            onPressed: isApplying ? null : onUseDemoCurrentPosition,
+            icon: const Icon(Icons.route_rounded),
+            label: Text(currentDemoLabel),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.info,
+              foregroundColor: AppColors.accent,
               disabledForegroundColor: AppColors.textMuted,
               side: BorderSide(
                 color: isApplying
                     ? AppColors.border
-                    : AppColors.info.withValues(alpha: 0.45),
+                    : AppColors.accent.withValues(alpha: 0.45),
               ),
               textStyle: AppTextStyles.labelLarge,
               shape: RoundedRectangleBorder(borderRadius: AppRadius.full),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
+import 'support_resolution_dialog.dart';
 
 class SupportRiskConversionDraft {
   const SupportRiskConversionDraft({
@@ -19,39 +20,10 @@ class SupportRiskConversionDraft {
 }
 
 Future<String?> showSupportResolutionDialog(BuildContext context) {
-  final controller = TextEditingController();
   return showDialog<String>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('Kết luận xử lý'),
-      content: TextField(
-        key: const Key('support-resolution-field'),
-        controller: controller,
-        minLines: 3,
-        maxLines: 6,
-        maxLength: 4000,
-        decoration: const InputDecoration(
-          hintText: 'Biện pháp đã thực hiện và kết quả cho người dùng',
-          filled: true,
-          fillColor: AppColors.bgLight,
-          border: OutlineInputBorder(borderRadius: AppRadius.md),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext),
-          child: const Text('Hủy'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final value = controller.text.trim();
-            if (value.length >= 3) Navigator.pop(dialogContext, value);
-          },
-          child: const Text('Xác nhận'),
-        ),
-      ],
-    ),
-  ).whenComplete(controller.dispose);
+    builder: (_) => const SupportResolutionDialog(),
+  );
 }
 
 Future<SupportRiskConversionDraft?> showSupportRiskConversionDialog(

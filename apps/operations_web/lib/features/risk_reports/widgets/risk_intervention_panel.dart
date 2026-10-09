@@ -10,6 +10,7 @@ import '../../returns/services/return_route_quote_service.dart';
 import '../../returns/widgets/support_return_progress.dart';
 import '../dialogs/risk_operation_dialogs.dart';
 import '../models/risk_report.dart';
+import '../constants/risk_report_strings.dart';
 import 'risk_internal_notes_section.dart';
 
 typedef RiskDecisionCallback =
@@ -30,6 +31,7 @@ class RiskInterventionPanel extends StatefulWidget {
     this.canManage = true,
     this.canAddNote,
     this.managementBlockedMessage,
+    this.showInternalNotes = true,
     super.key,
   });
 
@@ -46,6 +48,7 @@ class RiskInterventionPanel extends StatefulWidget {
   final bool canManage;
   final bool? canAddNote;
   final String? managementBlockedMessage;
+  final bool showInternalNotes;
 
   @override
   State<RiskInterventionPanel> createState() => _RiskInterventionPanelState();
@@ -53,6 +56,10 @@ class RiskInterventionPanel extends StatefulWidget {
 
 class _RiskInterventionPanelState extends State<RiskInterventionPanel> {
   bool _busy = false;
+
+  bool get _beforePickup =>
+      const ['assigned', 'picking_up'].contains(widget.orderStatus) &&
+      !widget.report.order.hasPickedUp;
 
   @override
   Widget build(BuildContext context) {
@@ -67,22 +74,29 @@ class _RiskInterventionPanelState extends State<RiskInterventionPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Xác minh đơn hàng', style: AppTextStyles.headingSmall),
+          Text(
+            widget.showInternalNotes
+                ? 'Xác minh đơn hàng'
+                : RiskReportStrings.supportOperation,
+            style: AppTextStyles.headingSmall,
+          ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Chọn hướng xử lý phù hợp',
+            RiskReportStrings.verifyBeforeDecision,
             style: AppTextStyles.bodySmall.copyWith(
               color: AppColors.textSecondary,
             ),
           ),
           const SizedBox(height: AppSpacing.md),
           ..._operationalActions(context),
-          const SizedBox(height: AppSpacing.md),
-          RiskInternalNotesSection(
-            notes: widget.notes,
-            canManage: widget.canAddNote ?? widget.canManage,
-            onAddNote: widget.onAddNote,
-          ),
+          if (widget.showInternalNotes) ...[
+            const SizedBox(height: AppSpacing.md),
+            RiskInternalNotesSection(
+              notes: widget.notes,
+              canManage: widget.canAddNote ?? widget.canManage,
+              onAddNote: widget.onAddNote,
+            ),
+          ],
         ],
       ),
     );
@@ -98,14 +112,27 @@ class _RiskInterventionPanelState extends State<RiskInterventionPanel> {
         ),
       ];
     }
+    if (_beforePickup &&
+        intervention.state == RiskInterventionState.handoffRequired) {
+      return [_cancelDriverButton()];
+    }
     if (intervention.state == RiskInterventionState.awaitingTriage) {
-      if (widget.orderStatus == 'assigned') {
+      if (_beforePickup) {
         return [
           _PanelButton(
-            label: 'Giữ đơn & giải phóng tài xế',
+            key: const Key('release-driver-button'),
+            label: widget.showInternalNotes
+                ? 'Giữ đơn & giải phóng tài xế'
+                : RiskReportStrings.handoffDriver,
             icon: Icons.pause_circle_outline_rounded,
-            onTap: _busy ? null : _confirmHoldBeforePickup,
+            onTap: _busy
+                ? null
+                : widget.showInternalNotes
+                ? _confirmHoldBeforePickup
+                : _confirmCancelDriver,
           ),
+          const SizedBox(height: AppSpacing.sm),
+          const _InfoText(RiskReportStrings.releaseDriverExplanation),
         ];
       }
       if (widget.orderStatus == 'picking_up' ||
@@ -205,10 +232,9 @@ class _RiskInterventionPanelState extends State<RiskInterventionPanel> {
   Future<void> _confirmHoldBeforePickup() async {
     final confirmed = await showRiskOperationConfirmationDialog(
       context,
-      title: 'Tạm giữ đơn trước khi lấy hàng?',
-      message:
-          'Đơn sẽ rời hàng đợi của tài xế hiện tại và không thể tiếp tục giao cho đến khi CSKH cho phép phân công lại.',
-      confirmLabel: 'Giữ đơn',
+      title: RiskReportStrings.releaseDriverTitle,
+      message: RiskReportStrings.releaseDriverConfirmation,
+      confirmLabel: RiskReportStrings.releaseDriverConfirm,
       icon: Icons.pause_circle_outline_rounded,
     );
     if (confirmed && mounted) await _run(widget.onHoldBeforePickup);
@@ -228,6 +254,25 @@ class _RiskInterventionPanelState extends State<RiskInterventionPanel> {
       () => widget.onDecision(RiskInterventionState.continueDelivery, null),
     );
   }
+
+  Future<void> _confirmCancelDriver() async {
+    final confirmed = await showRiskOperationConfirmationDialog(
+      context,
+      title: RiskReportStrings.cancelDriverTitle,
+      message: RiskReportStrings.cancelDriverConfirmation,
+      confirmLabel: 'Xác nhận',
+      icon: Icons.cancel_rounded,
+    );
+    if (!confirmed || !mounted) return;
+    await _run(widget.onHoldBeforePickup);
+  }
+
+  Widget _cancelDriverButton() => _PanelButton(
+    key: const Key('release-driver-button'),
+    label: RiskReportStrings.handoffDriver,
+    icon: Icons.cancel_rounded,
+    onTap: _busy ? null : _confirmCancelDriver,
+  );
 
   Future<void> _confirmCustodyResolved() async {
     final confirmed = await showRiskOperationConfirmationDialog(
@@ -291,38 +336,18 @@ class _PanelButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: secondary ? AppColors.bgCard : AppColors.accent,
-      borderRadius: AppRadius.md,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: AppRadius.md,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 48),
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          decoration: BoxDecoration(
-            borderRadius: AppRadius.md,
-            border: secondary ? Border.all(color: AppColors.border) : null,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 19,
-                color: secondary ? AppColors.accent : AppColors.textOnAccent,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                label,
-                style: AppTextStyles.labelMedium.copyWith(
-                  color: secondary ? AppColors.accent : AppColors.textOnAccent,
-                ),
-              ),
-            ],
-          ),
-        ),
+    return FilledButton.icon(
+      onPressed: onTap,
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        backgroundColor: secondary ? AppColors.bgCard : AppColors.accent,
+        foregroundColor: secondary ? AppColors.accent : AppColors.textOnAccent,
+        side: secondary ? const BorderSide(color: AppColors.border) : null,
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.md),
+        textStyle: AppTextStyles.labelMedium,
       ),
+      icon: Icon(icon, size: 19),
+      label: Text(label),
     );
   }
 }

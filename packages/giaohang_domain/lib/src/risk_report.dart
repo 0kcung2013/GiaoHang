@@ -1,5 +1,6 @@
 import 'risk_order_summary.dart';
 import 'risk_report_types.dart';
+import 'legacy_risk_title.dart';
 
 export 'risk_order_summary.dart';
 export 'risk_report_types.dart';
@@ -89,7 +90,7 @@ class RiskReport {
       category: RiskCategory.fromDatabase(json['category']?.toString()),
       severity: RiskSeverity.fromDatabase(json['severity']?.toString()),
       status: RiskStatus.fromDatabase(json['status']?.toString()),
-      title: json['title']?.toString() ?? '',
+      title: restoreLegacyRiskTitle(json['title']?.toString() ?? ''),
       description: json['description']?.toString() ?? '',
       resolution: json['resolution']?.toString(),
       createdAt: _requiredLocalDate(json['created_at']),

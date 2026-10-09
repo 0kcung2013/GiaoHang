@@ -43,7 +43,8 @@ class _DriverOfferCountdownState extends State<DriverOfferCountdown> {
   @override
   void didUpdateWidget(covariant DriverOfferCountdown oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.expiresAt != widget.expiresAt) {
+    if (oldWidget.expiresAt != widget.expiresAt ||
+        oldWidget.now != widget.now) {
       _startTicker();
     }
   }

@@ -8,6 +8,7 @@ import 'risk_report_selection.dart';
 
 import '../models/risk_message_evidence.dart';
 import '../models/risk_report.dart';
+import '../../support/data/case_pagination.dart';
 
 export 'risk_dashboard_metrics.dart';
 export 'risk_report_attachment_repository.dart';
@@ -54,6 +55,7 @@ class SupabaseRiskReportRepository
     implements
         RiskReportRepository,
         RiskReportChangesRepository,
+        RiskReportDetailRepository,
         RiskCaseConversationRepository,
         RiskOwnershipCommandRepository,
         RiskDashboardRepository,
@@ -66,12 +68,44 @@ class SupabaseRiskReportRepository
   final R2MediaClient _r2Client;
 
   @override
+  Future<RiskReport> fetchReport(String reportId) async => RiskReport.fromJson(
+    _mergeInterventionTriage(
+      await _client
+          .from('risk_reports')
+          .select(riskReportSelection)
+          .eq('id', reportId)
+          .single(),
+    ),
+  );
+
+  @override
+  Stream<void> watchReport(String reportId) => _client
+      .from('risk_reports')
+      .stream(primaryKey: ['id'])
+      .eq('id', reportId)
+      .map<void>((_) {});
+
+  @override
+  Stream<List<CaseMessage>> watchCaseMessages(String reportId) => _client
+      .from('case_messages')
+      .stream(primaryKey: ['id'])
+      .eq('risk_report_id', reportId)
+      .order('created_at')
+      .map(
+        (rows) => rows
+            .map(
+              (row) => CaseMessage.fromJson(row, caseIdKey: 'risk_report_id'),
+            )
+            .toList(),
+      );
+
+  @override
   Future<List<RiskReport>> fetchReports() async {
-    final rows = await _client
-        .from('risk_reports')
-        .select(riskReportSelection)
-        .order('updated_at', ascending: false)
-        .limit(200);
+    final rows = await readCasePages((afterId) async {
+      var query = _client.from('risk_reports').select(riskReportSelection);
+      if (afterId != null) query = query.gt('id', afterId);
+      return await query.order('id', ascending: true).limit(200);
+    });
     return List<Map<String, dynamic>>.from(
       rows,
     ).map(_mergeInterventionTriage).map(RiskReport.fromJson).toList();
@@ -122,9 +156,10 @@ class SupabaseRiskReportRepository
     String reportId,
   ) async {
     final rows = await _client
-        .from('risk_report_attachments')
+        .from('risk_report_evidence')
         .select()
         .eq('risk_report_id', reportId)
+        .inFilter('evidence_type', const ['photo', 'location'])
         .order('created_at');
     final result = <RiskReportAttachmentView>[];
     for (final row in List<Map<String, dynamic>>.from(rows)) {
@@ -161,14 +196,14 @@ class SupabaseRiskReportRepository
   @override
   Future<List<RiskReportNote>> fetchNotes(String reportId) async {
     final rows = await _client
-        .from('risk_report_messages')
+        .from('case_messages')
         .select('''
           id,
           risk_report_id,
           author_id:sender_id,
           body,
           created_at,
-          author:users!risk_report_messages_sender_id_fkey(full_name)
+          author:users!case_messages_sender_id_fkey(full_name)
         ''')
         .eq('risk_report_id', reportId)
         .eq('visibility', 'internal')
@@ -249,9 +284,10 @@ class SupabaseRiskReportRepository
     String reportId,
   ) async {
     final rows = await _client
-        .from('risk_report_message_evidence')
+        .from('risk_report_evidence')
         .select()
         .eq('risk_report_id', reportId)
+        .eq('evidence_type', 'message')
         .order('sent_at_snapshot');
     return List<Map<String, dynamic>>.from(
       rows,
@@ -350,7 +386,7 @@ class SupabaseRiskReportRepository
   @override
   Future<List<CaseMessage>> fetchCaseMessages(String reportId) async {
     final rows = await _client
-        .from('risk_report_messages')
+        .from('case_messages')
         .select(
           'id, risk_report_id, sender_id, sender_role_snapshot, '
           'visibility, body, created_at',

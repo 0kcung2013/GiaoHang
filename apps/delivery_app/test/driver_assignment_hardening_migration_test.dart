@@ -7,9 +7,6 @@ void main() {
     '../../supabase/migrations/'
     '20260804090214_simplify_driver_offer_distance.sql',
   );
-  final redisFunction = File(
-    '../../supabase/functions/find-nearest-drivers-redis/index.ts',
-  );
   final assignmentEncodingMigration = File(
     '../../supabase/migrations/'
     '20260804090610_fix_driver_assignment_log_encoding.sql',
@@ -82,20 +79,8 @@ void main() {
     );
   });
 
-  test('returns Redis candidates ordered only by distance', () {
-    final source = redisFunction.readAsStringSync();
-
-    expect(source, contains('body.radius_meters ?? 2000'));
-    expect(source, contains('Math.min(radius, 50000)'));
-    expect(source, isNot(contains('nearestDistance + 100')));
-    expect(source, isNot(contains('Number(right.rating)')));
-    expect(
-      source,
-      contains('Number(left.distance_meters) - Number(right.distance_meters)'),
-    );
-    expect(source, contains('String(left.user_id).localeCompare'));
-    expect(source, isNot(contains('"COUNT",\n      maxResults')));
-  });
+  // Current route ranking has behavioral coverage in road_distance_test.mjs.
+  // The remaining tests here validate historical migration contracts.
 
   test('keeps the assignment status log in valid Vietnamese', () {
     final sql = assignmentEncodingMigration.readAsStringSync();

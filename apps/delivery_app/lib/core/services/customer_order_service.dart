@@ -154,8 +154,10 @@ class CustomerOrderService {
 
   /// Realtime stream of available orders for a driver.
   /// Chỉ trả về đơn mà [driverId] là tài xế gần điểm lấy hàng nhất.
-  Stream<List<OrderModel>> watchAvailableOrders({String? driverId}) =>
-      _driverOrderService.watchAvailableOrders(driverId: driverId);
+  Stream<List<OrderModel>> watchAvailableOrders({
+    String? driverId,
+    DateTime Function()? now,
+  }) => _driverOrderService.watchAvailableOrders(driverId: driverId, now: now);
 
   /// Gán đơn cho tài xế gần điểm lấy hàng nhất.
   Future<String?> assignNearestDriver({
