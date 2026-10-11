@@ -8,6 +8,11 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
       pickupConfirmed: _pickupConfirmed,
     );
 
+    if (workflow.action == DriverDeliveryAction.confirmPickupArrival) {
+      await _confirmPickupArrival();
+      return;
+    }
+
     if (workflow.action == DriverDeliveryAction.startDelivery) {
       await _startDelivery();
       return;
@@ -58,24 +63,22 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
     try {
       await _submitHandoffProof(action: action, confirmation: confirmation);
 
-      if (!action.advancesOrderStatusImmediately) {
+      if (action == DriverDeliveryAction.confirmPickup) {
         if (!mounted) return;
         _refreshOrderWallet();
         _simTimer?.cancel();
         _simTimer = null;
         if (!mounted) return;
         _updateUi(() {
+          _simulationRequested = false;
           _pickupConfirmed = true;
           _arrivedAtTarget = true;
           _totalDistance = 0;
           _totalDuration = 0;
         });
         _persistNavSession();
-        _showWorkflowMessage(
-          'Đã xác nhận lấy hàng. GPS đang chờ bạn bắt đầu giao.',
-        );
         await _showPickupDepositReceipt();
-        return;
+        if (!mounted) return;
       }
 
       await _advanceOrderStatus();
@@ -194,6 +197,7 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
       _routeRefreshTimer?.cancel();
       _routeRefreshTimer = null;
       _updateUi(() {
+        _simulationRequested = false;
         _currentOrder = deliveredOrder;
         _totalDistance = 0;
         _totalDuration = 0;
@@ -241,6 +245,7 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
     _simTimer?.cancel();
     _simTimer = null;
     _updateUi(() {
+      _simulationRequested = false;
       _currentOrder = _currentOrder.copyWith(status: nextStatus);
       _lastRouteStatus = null;
       _routePoints = null;
@@ -262,7 +267,11 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Lỗi cập nhật trạng thái: $error'),
+        content: Text(
+          error.toString().contains('PICKUP_INCIDENT_PENDING')
+              ? 'Đang chờ CSKH xử lý yêu cầu hủy. Chưa thể xác nhận nhận hàng.'
+              : 'Lỗi cập nhật trạng thái: $error',
+        ),
         backgroundColor: AppColors.error,
         behavior: SnackBarBehavior.floating,
       ),

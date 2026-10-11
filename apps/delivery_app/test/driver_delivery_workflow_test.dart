@@ -57,15 +57,15 @@ void main() {
       final delivered = DriverDeliveryWorkflow.fromStatus('delivered');
 
       expect(assigned.stepIndex, 0);
-      expect(assigned.action, DriverDeliveryAction.startPickupJourney);
+      expect(assigned.action, DriverDeliveryAction.confirmPickupArrival);
       expect(pickup.stepIndex, 1);
       expect(pickup.action, DriverDeliveryAction.confirmPickup);
       expect(awaitingDeliveryStart.stepIndex, 2);
       expect(awaitingDeliveryStart.action, DriverDeliveryAction.startDelivery);
-      expect(assigned.primaryLabel, 'Gạt để đến nơi lấy hàng');
-      expect(pickup.primaryLabel, 'Gạt đã nhận');
-      expect(awaitingDeliveryStart.primaryLabel, 'Gạt để bắt đầu giao');
-      expect(delivery.primaryLabel, 'Gạt đã giao');
+      expect(assigned.primaryLabel, 'Đã đến điểm lấy hàng');
+      expect(pickup.primaryLabel, 'Đã lấy hàng');
+      expect(awaitingDeliveryStart.primaryLabel, pickup.primaryLabel);
+      expect(delivery.primaryLabel, 'Đã giao hàng');
       expect(delivery.stepIndex, 2);
       expect(delivery.action, DriverDeliveryAction.confirmDelivery);
       expect(delivered.stepIndex, 3);
@@ -98,7 +98,8 @@ void main() {
       final pickup = DriverDeliveryWorkflow.fromStatus('picking_up');
       final delivery = DriverDeliveryWorkflow.fromStatus('delivering');
 
-      expect(assigned.canPerform(arrivedAtTarget: false), isTrue);
+      expect(assigned.canPerform(arrivedAtTarget: false), isFalse);
+      expect(assigned.canPerform(arrivedAtTarget: true), isTrue);
       expect(pickup.canPerform(arrivedAtTarget: false), isFalse);
       expect(pickup.canPerform(arrivedAtTarget: true), isTrue);
       expect(delivery.canPerform(arrivedAtTarget: false), isFalse);
@@ -107,7 +108,7 @@ void main() {
 
     test('requires proof photos only for pickup and delivery handoffs', () {
       expect(
-        DriverDeliveryAction.startPickupJourney.requiresProofPhoto,
+        DriverDeliveryAction.confirmPickupArrival.requiresProofPhoto,
         isFalse,
       );
       expect(DriverDeliveryAction.confirmPickup.requiresProofPhoto, isTrue);
@@ -117,7 +118,7 @@ void main() {
 
       expect(
         DriverDeliveryAction.confirmPickup.advancesOrderStatusImmediately,
-        isFalse,
+        isTrue,
       );
       expect(
         DriverDeliveryAction.startDelivery.advancesOrderStatusImmediately,
@@ -126,6 +127,14 @@ void main() {
     });
 
     test('simulation continues through the 100 m arrival zone', () {
+      expect(
+        DriverDeliveryWorkflow.canSimulateMovement(
+          status: 'assigned',
+          pickupConfirmed: false,
+          arrivedAtTarget: false,
+        ),
+        isTrue,
+      );
       expect(
         DriverDeliveryWorkflow.canSimulateMovement(
           status: 'picking_up',
@@ -339,41 +348,42 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('pickup confirmation exposes a separate start delivery swipe', (
-    tester,
-  ) async {
-    var actionCount = 0;
+  testWidgets(
+    'restored pickup retries the same pickup action without a new step',
+    (tester) async {
+      var actionCount = 0;
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 390,
-              height: 600,
-              child: DriverDeliveryWorkflowPanel(
-                order: _order(status: 'picking_up'),
-                pickupConfirmed: true,
-                arrivedAtTarget: true,
-                isLoading: false,
-                onPrimaryAction: () => actionCount++,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 390,
+                height: 600,
+                child: DriverDeliveryWorkflowPanel(
+                  order: _order(status: 'picking_up'),
+                  pickupConfirmed: true,
+                  arrivedAtTarget: true,
+                  isLoading: false,
+                  onPrimaryAction: () => actionCount++,
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
+      );
 
-    expect(find.text('Gạt để bắt đầu giao'), findsOneWidget);
-    expect(find.text('Gạt đã nhận'), findsNothing);
+      expect(find.text('Đã lấy hàng'), findsWidgets);
+      expect(find.text('Gạt để bắt đầu giao'), findsNothing);
 
-    final swipe = tester.widget<DriverSwipeAction>(
-      find.byType(DriverSwipeAction),
-    );
-    expect(swipe.onCompleted, isNotNull);
-    swipe.onCompleted!.call();
-    expect(actionCount, 1);
-  });
+      final swipe = tester.widget<DriverSwipeAction>(
+        find.byType(DriverSwipeAction),
+      );
+      expect(swipe.onCompleted, isNotNull);
+      swipe.onCompleted!.call();
+      expect(actionCount, 1);
+    },
+  );
 }
 
 Future<void> _completeSwipe(WidgetTester tester, Finder finder) async {

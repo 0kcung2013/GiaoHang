@@ -133,14 +133,18 @@ class DriverCancellationRepository {
         if (recoveringFromError ||
             last == null ||
             state.lockedUntil != last!.lockedUntil ||
-            state.isLocked != last!.isLocked) {
+            state.isLocked != last!.isLocked ||
+            state.lockReason != last!.lockReason ||
+            state.transfers?.count != last!.transfers?.count ||
+            state.transfers?.nextExpiryAt != last!.transfers?.nextExpiryAt) {
           controller.add(state);
         }
         recoveringFromError = false;
         last = state;
         expiry?.cancel();
-        if (state.isLocked) {
-          expiry = Timer(state.lockedUntil!.difference(state.now()), () {
+        final nextRefreshAt = state.nextRefreshAt;
+        if (nextRefreshAt != null) {
+          expiry = Timer(nextRefreshAt.difference(state.now()), () {
             if (!disposed) {
               controller.add(state);
               unawaited(refresh());

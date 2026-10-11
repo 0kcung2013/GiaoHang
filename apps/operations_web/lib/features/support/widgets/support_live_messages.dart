@@ -3,7 +3,6 @@ import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
 import '../../../core/widgets/stored_media_image.dart';
-import '../models/support_ticket.dart';
 import '../utils/support_ticket_ui.dart';
 
 class SupportLiveMessages extends StatelessWidget {
@@ -48,7 +47,9 @@ class SupportLiveMessages extends StatelessWidget {
                         _DateDivider(date: items[index].createdAt),
                       _MessageBubble(
                         message: items[index],
-                        mine: items[index].senderId == currentUserId,
+                        mine:
+                            !items[index].isSystem &&
+                            items[index].senderId == currentUserId,
                       ),
                       if (index < items.length - 1)
                         const SizedBox(height: AppSpacing.sm),
@@ -132,7 +133,9 @@ class _MessageBubble extends StatelessWidget {
             Text(
               mine ? 'Bạn' : supportRoleLabel(message.senderRole),
               style: AppTextStyles.labelSmall.copyWith(
-                color: AppColors.textMuted,
+                color: message.isSystem
+                    ? AppColors.textSecondary
+                    : AppColors.textMuted,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -293,6 +296,7 @@ String supportRoleLabel(String role) => switch (role) {
   'driver' => 'Tài xế',
   'support' => 'CSKH',
   'admin' => 'Admin',
+  'system' => DriverMonitoringStrings.systemAuthor,
   _ => 'Người dùng',
 };
 

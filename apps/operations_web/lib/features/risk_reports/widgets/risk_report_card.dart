@@ -6,6 +6,7 @@ import '../constants/risk_report_strings.dart';
 import '../models/risk_report.dart';
 import '../utils/risk_report_ui.dart';
 import 'risk_badge.dart';
+import '../../support/widgets/support_case_list_item.dart';
 
 class RiskReportCard extends StatelessWidget {
   const RiskReportCard({
@@ -25,6 +26,41 @@ class RiskReportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final severityColor = RiskReportUi.severityColor(report.severity);
     final assignedToMe = report.assignedTo == currentUserId;
+    if (!showSeverity) {
+      return SupportCaseListItem(
+        title: report.title,
+        identity: [
+          report.isSystemIncident
+              ? (report.component ?? 'Hệ thống')
+              : report.order.trackingCode,
+          '${_reporterRoleLabel(report.reporterRole)}: ${report.reporterName ?? 'Người dùng'}',
+        ].join(' · '),
+        assignment: assignedToMe
+            ? 'Tôi phụ trách'
+            : report.assignedTo == null
+            ? 'Chưa tiếp nhận'
+            : (report.assignedToName ?? 'Đã có người phụ trách'),
+        time: RiskReportUi.formatDateTime(report.updatedAt),
+        status: RiskReportUi.statusLabel(report.status),
+        statusColor: RiskReportUi.statusColor(report.status),
+        icon: RiskReportUi.categoryIcon(report.category),
+        onTap: onTap,
+        alerts: [
+          if (report.responseOverdue || report.triageOverdue)
+            Text(
+              'Quá hạn xử lý',
+              style: AppTextStyles.labelSmall.copyWith(color: AppColors.error),
+            ),
+          if (!report.status.isClosed &&
+              (report.status == RiskStatus.waitingAdmin ||
+                  report.severity == RiskSeverity.critical))
+            Text(
+              'Cần Admin',
+              style: AppTextStyles.labelSmall.copyWith(color: AppColors.error),
+            ),
+        ],
+      );
+    }
     return Semantics(
       button: true,
       label: report.isSystemIncident

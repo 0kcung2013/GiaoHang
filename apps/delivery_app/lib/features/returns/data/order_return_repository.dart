@@ -13,11 +13,38 @@ abstract interface class OrderReturnRepository {
   });
 }
 
-class SupabaseOrderReturnRepository implements OrderReturnRepository {
+abstract interface class OrderReturnRedeliveryRepository {
+  Future<bool> canCancelReturn(String orderId);
+  Future<OrderReturn> cancelReturn({
+    required String orderId,
+    required String reason,
+  });
+}
+
+class SupabaseOrderReturnRepository
+    implements OrderReturnRepository, OrderReturnRedeliveryRepository {
   SupabaseOrderReturnRepository({SupabaseClient? client})
     : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
+
+  @override
+  Future<bool> canCancelReturn(String orderId) => _client.rpc<bool>(
+    'can_cancel_order_return',
+    params: {'p_order_id': orderId},
+  );
+
+  @override
+  Future<OrderReturn> cancelReturn({
+    required String orderId,
+    required String reason,
+  }) async {
+    final row = await _client.rpc<Map<String, dynamic>>(
+      'cancel_order_return',
+      params: {'p_order_id': orderId, 'p_reason': reason},
+    );
+    return OrderReturn.fromJson(row);
+  }
 
   @override
   Future<OrderReturn?> fetchForOrder(String orderId) async {

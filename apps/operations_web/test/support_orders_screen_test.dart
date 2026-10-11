@@ -20,7 +20,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Tra cứu đơn hàng'), findsOneWidget);
+    expect(find.text('Tra cứu đơn'), findsNWidgets(2));
     expect(find.text('GH-1001'), findsOneWidget);
     expect(find.text('GH-2048'), findsOneWidget);
 
@@ -57,7 +57,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('CSKH'), findsOneWidget);
-    expect(find.text('Đơn hàng'), findsOneWidget);
+    expect(find.text('Tra cứu đơn'), findsNWidgets(2));
     expect(find.byKey(const Key('support-order-search')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

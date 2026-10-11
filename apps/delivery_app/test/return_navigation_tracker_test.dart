@@ -5,9 +5,11 @@ import 'package:delivery_app/features/returns/utils/return_navigation_tracker.da
 
 void main() {
   group('ReturnNavigationTracker', () {
-    test('tiếp tục mô phỏng từ điểm gần vị trí hiện tại nhất', () async {
+    testWidgets('tiếp tục từ vị trí giữa đoạn đường, không lùi về đỉnh', (
+      tester,
+    ) async {
       final tracker = ReturnNavigationTracker(
-        simulationInterval: const Duration(milliseconds: 2),
+        simulationInterval: const Duration(seconds: 1),
       );
       final route = const [
         LatLng(10.7800, 106.6800),
@@ -27,9 +29,18 @@ void main() {
           canMove = false;
         },
       );
-      await Future<void>.delayed(const Duration(milliseconds: 15));
+      await tester.pump(const Duration(seconds: 1));
 
-      expect(positions, [route[1]]);
+      expect(positions, hasLength(1));
+      expect(positions.single.latitude, greaterThan(10.7811));
+      expect(
+        const Distance(roundResult: false).as(
+          LengthUnit.Meter,
+          const LatLng(10.7811, 106.6811),
+          positions.single,
+        ),
+        closeTo(15, 0.1),
+      );
       await tracker.dispose();
     });
 

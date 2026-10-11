@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/utils/delivery_fee_calculator.dart';
 import '../utils/create_order_formatters.dart';
+import '../utils/delivery_eta_strings.dart';
+import '../utils/traffic_demo_strings.dart';
 
 class OrderQuoteStep extends StatelessWidget {
   const OrderQuoteStep({
@@ -10,11 +12,13 @@ class OrderQuoteStep extends StatelessWidget {
     required this.quote,
     required this.pickupAddress,
     required this.deliveryAddress,
+    this.isTrafficDemo = false,
   });
 
   final DeliveryFeeEstimate quote;
   final String pickupAddress;
   final String deliveryAddress;
+  final bool isTrafficDemo;
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +34,7 @@ class OrderQuoteStep extends StatelessWidget {
             AppSpacing.xl2,
           ),
           children: [
-            _PriceCard(quote: quote),
+            _PriceCard(quote: quote, isTrafficDemo: isTrafficDemo),
             const SizedBox(height: AppSpacing.lg),
             _RouteCard(
               pickupAddress: pickupAddress,
@@ -73,9 +77,10 @@ class OrderQuoteStep extends StatelessWidget {
 }
 
 class _PriceCard extends StatelessWidget {
-  const _PriceCard({required this.quote});
+  const _PriceCard({required this.quote, required this.isTrafficDemo});
 
   final DeliveryFeeEstimate quote;
+  final bool isTrafficDemo;
 
   @override
   Widget build(BuildContext context) {
@@ -115,11 +120,16 @@ class _PriceCard extends StatelessWidget {
                         color: AppColors.textSecondary,
                       ),
                     ),
-                    Text(
-                      formatDeliveryFee(quote.deliveryFee),
-                      style: AppTextStyles.displayMedium.copyWith(
-                        color: AppColors.accent,
-                        fontWeight: FontWeight.w900,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        formatDeliveryFee(quote.deliveryFee),
+                        maxLines: 1,
+                        style: AppTextStyles.displayMedium.copyWith(
+                          color: AppColors.accent,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                   ],
@@ -128,27 +138,66 @@ class _PriceCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
-          Row(
-            children: [
-              Expanded(
-                child: _Metric(
-                  icon: Icons.route_rounded,
-                  label: 'Quãng đường',
-                  value: '${quote.distanceKm.toStringAsFixed(1)} km',
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: _Metric(
-                  icon: Icons.schedule_rounded,
-                  label: 'Dự kiến',
-                  value: quote.eta.rangeLabel,
-                ),
-              ),
-            ],
+          _QuoteMetrics(quote: quote),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            DeliveryEtaStrings.afterAssignment,
+            style: AppTextStyles.labelSmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
+          if (isTrafficDemo) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              TrafficDemoStrings.forecastNote,
+              style: AppTextStyles.labelSmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+class _QuoteMetrics extends StatelessWidget {
+  const _QuoteMetrics({required this.quote});
+
+  final DeliveryFeeEstimate quote;
+
+  @override
+  Widget build(BuildContext context) {
+    final distance = _Metric(
+      icon: Icons.route_rounded,
+      label: 'Quãng đường',
+      value: '${quote.distanceKm.toStringAsFixed(1)} km',
+    );
+    final eta = _Metric(
+      icon: Icons.schedule_rounded,
+      label: DeliveryEtaStrings.estimatedDelivery,
+      value: DeliveryEtaStrings.waitingForDriver,
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textScale = MediaQuery.textScalerOf(context).scale(1);
+        if (constraints.maxWidth / textScale < 280) {
+          return Column(
+            children: [
+              distance,
+              const SizedBox(height: AppSpacing.sm),
+              eta,
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: distance),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(child: eta),
+          ],
+        );
+      },
     );
   }
 }
@@ -184,8 +233,6 @@ class _Metric extends StatelessWidget {
                 ),
                 Text(
                   value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.labelMedium.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,

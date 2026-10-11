@@ -5,6 +5,7 @@ import 'package:giaohang_domain/giaohang_domain.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../order_help/data/customer_support_ticket_repository.dart';
 import '../../../../risk_reports/widgets/risk_report_sheet.dart';
+import '../../../../risk_reports/utils/risk_report_strings.dart';
 import 'driver_risk_action.dart';
 import 'driver_support_action.dart';
 
@@ -184,8 +185,8 @@ class _DriverHelpActionSheet extends StatelessWidget {
                 key: const Key('driver-help-risk-option'),
                 icon: Icons.report_problem_outlined,
                 iconColor: AppColors.warning,
-                title: 'Báo cáo sự cố',
-                subtitle: 'An toàn, hàng hóa hoặc người nhận',
+                title: RiskReportStrings.driverIncidentTitle,
+                subtitle: 'Hàng hóa, nhận hàng hoặc giao hàng',
                 onTap: () => Navigator.pop(context, _DriverHelpChoice.risk),
               ),
             ],

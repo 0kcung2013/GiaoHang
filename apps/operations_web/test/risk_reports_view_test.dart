@@ -47,6 +47,7 @@ void main() {
     final repository = _FakeRiskReportRepository([
       _normalSortReport,
       _assignedReport,
+      _closedReport,
     ]);
     await tester.pumpWidget(
       MaterialApp(
@@ -61,12 +62,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Assigned report'), findsNothing);
+    expect(find.text('Assigned report'), findsOneWidget);
+    expect(find.text('Closed report'), findsNothing);
     await tester.tap(find.byKey(const Key('risk-queue-mine')));
     await tester.pump();
 
     expect(find.text('Assigned report'), findsOneWidget);
     expect(find.text('Normal report'), findsNothing);
+    expect(find.text('Closed report'), findsNothing);
+    await tester.tap(find.byKey(const Key('risk-queue-closed')));
+    await tester.pumpAndSettle();
+    expect(find.text('Closed report'), findsOneWidget);
+    expect(find.text('Assigned report'), findsNothing);
   });
 
   testWidgets('support queue hides severity metrics and severity badges', (
@@ -90,8 +97,12 @@ void main() {
     expect(find.text('Mức độ'), findsNothing);
     expect(find.text('Trạng thái'), findsNothing);
     expect(find.byKey(const Key('create-risk-report-button')), findsNothing);
-    expect(find.text('Nguyễn An'), findsOneWidget);
-    expect(find.byKey(const Key('risk-reporter-avatar')), findsOneWidget);
+    expect(find.textContaining('Nguyễn An'), findsOneWidget);
+    expect(find.byKey(const Key('risk-reporter-avatar')), findsNothing);
+    expect(find.byKey(const Key('risk-queue-active')), findsOneWidget);
+    expect(find.byKey(const Key('risk-queue-closed')), findsOneWidget);
+    expect(find.byKey(const Key('risk-queue-all')), findsNothing);
+    expect(find.text('Cần Admin'), findsOneWidget);
     expect(find.text('Chưa có người phụ trách'), findsNothing);
   });
 
@@ -143,9 +154,7 @@ void main() {
     expect(assigned, isTrue);
   });
 
-  testWidgets('action bar exposes one direct finish action', (
-    tester,
-  ) async {
+  testWidgets('action bar exposes one direct finish action', (tester) async {
     tester.view.physicalSize = const Size(720, 240);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -159,9 +168,7 @@ void main() {
             assignedToMe: true,
             unassigned: false,
             submitting: false,
-            transitions: const [
-              RiskStatus.resolved,
-            ],
+            transitions: const [RiskStatus.resolved],
             onAssign: () {},
             onTransition: (status) => selected = status,
           ),
@@ -350,6 +357,27 @@ final _assignedReport = RiskReport(
   order: const RiskOrderSummary(
     trackingCode: 'GH-ASSIGNED',
     status: 'delivering',
+    pickupAddress: 'Pickup',
+    deliveryAddress: 'Delivery',
+  ),
+);
+
+final _closedReport = RiskReport(
+  id: 'closed-risk',
+  orderId: 'closed-order',
+  reportedBy: 'customer-1',
+  assignedTo: 'staff-2',
+  category: RiskCategory.contactIssue,
+  severity: RiskSeverity.medium,
+  status: RiskStatus.resolved,
+  title: 'Closed report',
+  description: 'Resolved.',
+  resolution: 'Done.',
+  createdAt: DateTime(2026, 8, 1),
+  updatedAt: DateTime(2026, 8, 2),
+  order: const RiskOrderSummary(
+    trackingCode: 'GH-CLOSED',
+    status: 'delivered',
     pickupAddress: 'Pickup',
     deliveryAddress: 'Delivery',
   ),

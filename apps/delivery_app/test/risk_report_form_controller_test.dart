@@ -3,10 +3,65 @@ import 'dart:typed_data';
 import 'package:delivery_app/features/risk_reports/controllers/risk_report_form_controller.dart';
 import 'package:delivery_app/features/risk_reports/data/risk_report_repository.dart';
 import 'package:delivery_app/features/risk_reports/utils/risk_report_options.dart';
+import 'package:delivery_app/features/risk_reports/utils/risk_recipient_return_request.dart';
+import 'package:delivery_app/features/risk_reports/utils/risk_report_strings.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
 void main() {
+  test(
+    'cargo cancellation requires a photo and keeps one submission',
+    () async {
+      final repository = _FakeRepository();
+      final controller = RiskReportFormController(
+        orderId: 'order-1',
+        repository: repository,
+        requireCargoEvidence: true,
+        allowedCategories: {
+          RiskCategory.cargoIssue,
+          RiskCategory.contactIssue,
+          RiskCategory.other,
+        },
+      );
+      addTearDown(controller.dispose);
+      controller.selectCategory(RiskCategory.cargoIssue);
+      controller.setDescription('Kiện hàng lớn hơn kích thước đã khai báo.');
+      expect(await controller.submit(), isNull);
+      expect(controller.state.photoError, RiskReportStrings.cargoPhotoRequired);
+      controller.setPhotos([_photo(0)]);
+      await Future.wait([controller.submit(), controller.submit()]);
+      expect(repository.submitCalls, 1);
+      expect(repository.lastDraft?.category, RiskCategory.cargoIssue);
+      expect(repository.lastDraft?.photos, hasLength(1));
+      expect(
+        repository.lastDraft?.latitude,
+        isNull,
+        reason: 'GPS is supplemental, not another manual requirement',
+      );
+    },
+  );
+  test(
+    'stale category cannot submit outside the current stage options',
+    () async {
+      final repository = _FakeRepository();
+      final controller = RiskReportFormController(
+        orderId: 'order-1',
+        repository: repository,
+        requireCargoEvidence: true,
+        allowedCategories: {RiskCategory.contactIssue, RiskCategory.other},
+      );
+      addTearDown(controller.dispose);
+      controller.selectCategory(RiskCategory.cargoIssue);
+      controller.setPhotos([_photo(0)]);
+      controller.setDescription('Đã nhận hàng nhưng yêu cầu hủy.');
+      expect(await controller.submit(), isNull);
+      expect(
+        controller.state.categoryError,
+        RiskReportStrings.reasonUnavailable,
+      );
+      expect(repository.submitCalls, 0);
+    },
+  );
   test(
     'recipient report requires call screenshots and confirmed server wait',
     () async {
@@ -36,7 +91,126 @@ void main() {
       allowed = true;
       expect(await controller.submit(), isNotNull);
       expect(repository.submitCalls, 1);
+      expect(
+        repository.lastDraft?.description,
+        RiskRecipientReturnRequest.describe(
+          'Khách không nghe máy sau ba lần gọi.',
+        ),
+      );
+      expect(repository.lastDraft?.category, RiskCategory.contactIssue);
+      expect(repository.lastDraft?.photos, hasLength(1));
+      expect(
+        controller.state.description,
+        'Khách không nghe máy sau ba lần gọi.',
+      );
       controller.dispose();
+    },
+  );
+
+  for (final category in [
+    RiskCategory.safety,
+    RiskCategory.suspiciousAddress,
+    RiskCategory.cargoIssue,
+    RiskCategory.payment,
+  ]) {
+    test(
+      '$category reports immediately without recipient wait or return request',
+      () async {
+        final repository = _FakeRepository();
+        var permissionChecks = 0;
+        final controller = RiskReportFormController(
+          orderId: 'order-1',
+          repository: repository,
+          requireRecipientEvidence: true,
+          canReportRecipient: () async {
+            permissionChecks++;
+            return false;
+          },
+        );
+        addTearDown(controller.dispose);
+        controller.selectCategory(category);
+        controller.setDescription('Sự cố cần CSKH hướng dẫn xử lý ngay.');
+        expect(await controller.checkRecipientWait(), isTrue);
+        expect(await controller.submit(), isNotNull);
+        expect(permissionChecks, 0);
+        expect(repository.lastDraft?.description, controller.state.description);
+        expect(controller.requestsRecipientReturn, isFalse);
+      },
+    );
+  }
+
+  test(
+    'customer or pickup contact report does not request a delivery return',
+    () async {
+      final repository = _FakeRepository();
+      final controller = RiskReportFormController(
+        orderId: 'order-1',
+        repository: repository,
+      );
+      addTearDown(controller.dispose);
+      controller.selectCategory(RiskCategory.contactIssue);
+      controller.setDescription('Không liên lạc được với tài xế.');
+      expect(await controller.submit(), isNotNull);
+      expect(
+        repository.lastDraft?.description,
+        'Không liên lạc được với tài xế.',
+      );
+      expect(controller.requestsRecipientReturn, isFalse);
+    },
+  );
+
+  test(
+    'combined report retries without duplicating the return request',
+    () async {
+      final repository = _FakeRepository(failFirst: true);
+      final controller = RiskReportFormController(
+        orderId: 'order-1',
+        repository: repository,
+        requireRecipientEvidence: true,
+        canReportRecipient: () async => true,
+      );
+      addTearDown(controller.dispose);
+      controller.selectCategory(RiskCategory.contactIssue);
+      controller.setDescription('Khách không nghe máy sau ba lần gọi.');
+      controller.setPhotos([_photo(0)]);
+      await Future.wait([controller.submit(), controller.submit()]);
+      expect(repository.submitCalls, 1);
+      expect(controller.state.result, isNull);
+      expect(await controller.submit(), isNotNull);
+      expect(repository.submitCalls, 2);
+      expect(
+        repository.lastDraft?.description,
+        RiskRecipientReturnRequest.describe(controller.state.description),
+      );
+    },
+  );
+
+  test(
+    'combined description fits existing limit without truncating driver notes',
+    () async {
+      final repository = _FakeRepository();
+      final controller = RiskReportFormController(
+        orderId: 'order-1',
+        repository: repository,
+        requireRecipientEvidence: true,
+        canReportRecipient: () async => true,
+      );
+      addTearDown(controller.dispose);
+      controller.selectCategory(RiskCategory.contactIssue);
+      controller.setPhotos([_photo(0)]);
+      controller.setDescription('x' * (controller.descriptionLimit + 1));
+      expect(await controller.submit(), isNull);
+      expect(repository.submitCalls, 0);
+      expect(controller.state.descriptionError, isNotNull);
+      controller.setDescription('x' * controller.descriptionLimit);
+      expect(await controller.submit(), isNotNull);
+      expect(repository.lastDraft?.description.length, 4000);
+      expect(
+        repository.lastDraft?.description.endsWith(
+          controller.state.description,
+        ),
+        isTrue,
+      );
     },
   );
 
@@ -54,11 +228,25 @@ void main() {
     );
     expect(
       driver.map((option) => option.category),
-      contains(RiskCategory.suspiciousAddress),
+      isNot(contains(RiskCategory.suspiciousAddress)),
     );
     expect(
       driver.map((option) => option.category),
       contains(RiskCategory.cargoIssue),
+    );
+    expect(driver, hasLength(3));
+    final picked = riskOptionsFor(
+      RiskReporterRole.driver,
+      orderStatus: 'picking_up',
+      hasPickedUp: true,
+    );
+    expect(
+      picked.map((option) => option.category),
+      isNot(contains(RiskCategory.cargoIssue)),
+    );
+    expect(
+      picked.map((option) => option.label),
+      contains(RiskReportStrings.deliveryUnavailable),
     );
   });
 

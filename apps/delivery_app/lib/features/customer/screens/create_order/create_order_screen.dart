@@ -6,9 +6,11 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:giaohang_domain/giaohang_domain.dart' show parseCargoWeightKg;
 import '../../../../core/models/recent_address_model.dart';
 import '../../../../core/providers/location_providers.dart';
 import '../../../../core/utils/delivery_fee_calculator.dart';
+import '../../../../core/services/osrm_service.dart';
 import '../../../../core/utils/order_cargo_utils.dart';
 import 'utils/vietnam_phone_input.dart';
 import 'models/traffic_demo_scenario.dart';
@@ -17,6 +19,7 @@ import 'controllers/order_finance_form_controller.dart';
 import 'controllers/order_map_picker_controller.dart';
 import 'controllers/order_quote_controller.dart';
 import 'utils/create_order_feedback.dart';
+import 'utils/traffic_demo_strings.dart';
 import 'utils/order_cargo_picker.dart';
 import 'utils/order_form_validators.dart';
 import 'utils/validate_order_form.dart';
@@ -47,6 +50,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   final _noteController = TextEditingController();
   final _itemNameController = TextEditingController();
   final _itemDescriptionController = TextEditingController();
+  final _itemWeightController = TextEditingController();
   final _financeController = OrderFinanceFormController();
 
   String _itemCategory = '';
@@ -59,6 +63,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   MapPickerResult? _pickupSelection;
   MapPickerResult? _deliverySelection;
   TrafficDemoScenario? _trafficDemoScenario;
+  DateTime _forecastAt = DateTime.now();
   DeliveryFeeEstimate? _quote;
   var _step = 0;
 
@@ -81,6 +86,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       _noteController,
       _itemNameController,
       _itemDescriptionController,
+      _itemWeightController,
     ]) {
       controller.dispose();
     }
@@ -131,6 +137,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
 
     setState(() {
       _trafficDemoScenario = null;
+      _forecastAt = DateTime.now();
       _quote = null;
       if (isPickup) {
         _pickupSelection = result;
@@ -149,6 +156,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   void _applyTrafficDemoScenario(TrafficDemoScenario scenario) {
     setState(() {
       _trafficDemoScenario = scenario;
+      _forecastAt = scenario.forecastAt;
       _quote = null;
       _pickupLat = scenario.pickup.latitude;
       _pickupLng = scenario.pickup.longitude;
@@ -169,15 +177,13 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       _pickupAddressController.text = scenario.pickupAddress;
       _deliveryAddressController.text = scenario.deliveryAddress;
     });
-    _showSnackBar(
-      'Đã điền tuyến AI mẫu. Nhấn “Xem giá giao hàng” để test ETA.',
-    );
+    _showSnackBar(TrafficDemoStrings.appliedFeedback);
   }
 
   bool get _hasPickupPin => _pickupLat != 0 && _pickupLng != 0;
   bool get _hasDeliveryPin => _deliveryLat != 0 && _deliveryLng != 0;
 
-  Future<void> _goToQuote() async {
+  Future<void> _goToQuote([OsrmRouteResult? previewRoute]) async {
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -190,6 +196,8 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         pickupLng: _pickupLng,
         deliveryLat: _deliveryLat,
         deliveryLng: _deliveryLng,
+        route: previewRoute,
+        quotedAt: _forecastAt,
       );
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -255,11 +263,13 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         itemName: _itemNameController.text.trim(),
         itemCategory: _itemCategory,
         itemDescription: _itemDescriptionController.text.trim(),
+        itemWeightKg: parseCargoWeightKg(_itemWeightController.text)!,
         cargoImage: _cargoImage,
         codCollectionAmount: _financeController.codCollectionAmount,
         goodsValue: _financeController.goodsValue,
         deliveryFeePayer: _financeController.deliveryFeePayer,
         quote: quote,
+        trafficDemoKey: _trafficDemoScenario?.key,
       );
 
       if (!mounted) return;
@@ -294,6 +304,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       _noteController.text = 'Gọi trước khi giao hàng.';
       _itemNameController.text = 'Hộp bánh sinh nhật';
       _itemDescriptionController.text = 'Hàng dễ vỡ, vui lòng giữ thẳng.';
+      _itemWeightController.text = '1,5';
       _financeController.setCodCollectionAmount(50000);
       _financeController.setGoodsValue(50000);
       _itemCategory = cargoCategories.first;
@@ -352,6 +363,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
               onPickPickup: () => _openMapPicker('pickup'),
               onPickDelivery: () => _openMapPicker('delivery'),
               onContinue: _goToQuote,
+              quotedAt: _forecastAt,
               sampleRoutes: TrafficDemoRouteSelector(
                 selectedId: _trafficDemoScenario?.id,
                 onApply: _applyTrafficDemoScenario,
@@ -368,6 +380,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                   quote: quote!,
                   pickupAddress: _pickupAddressController.text,
                   deliveryAddress: _deliveryAddressController.text,
+                  isTrafficDemo: _trafficDemoScenario != null,
                 ),
                 _ => CreateOrderBody(
                   formKey: _formKey,
@@ -376,6 +389,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                   noteController: _noteController,
                   itemNameController: _itemNameController,
                   itemDescriptionController: _itemDescriptionController,
+                  itemWeightController: _itemWeightController,
                   itemCategory: _itemCategory,
                   cargoImage: _cargoImage,
                   requiredText: requiredOrderText,

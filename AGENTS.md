@@ -54,7 +54,7 @@ flutter build web                                    # Build Operations Web
 ### Bảng chính
 - **users** — id, email, full_name, phone, role (customer/driver/support/admin), avatar_url, created_at
 - **drivers** — id, user_id, vehicle_type, license_plate, vehicle_brand_model, vehicle_color, is_available, current_lat, current_lng, rating, total_deliveries, approval_status, verified_at, submitted_at, rejection_reason, KYC fields (id_card_*, driver_license_*, vehicle_photo_url), updated_at
-- **orders** — id, customer_id, driver_id, status, pickup_address, pickup_lat, pickup_lng, delivery_address, delivery_lat, delivery_lng, total_price, note, created_at
+- **orders** — id, customer_id, driver_id, status, pickup_address, pickup_lat, pickup_lng, delivery_address, delivery_lat, delivery_lng, total_price, note, created_at, driver_monitoring (JSON trạng thái giám sát do server quản lý)
 - **order_items** — id, order_id, name, quantity, price
 - **case_messages** — hội thoại CSKH/báo cáo rủi ro và ghi chú nội bộ; mỗi dòng thuộc đúng một `ticket_id` hoặc `risk_report_id`, phân quyền theo `visibility`.
 - **risk_report_evidence** — bằng chứng báo cáo rủi ro: ảnh (`photo`), vị trí (`location`) hoặc bản chụp tin nhắn đơn hàng (`message`). File ảnh nằm trên R2; bảng giữ tham chiếu và dữ liệu nghiệp vụ.
@@ -124,12 +124,16 @@ Quan trọng: không thay đổi Supabase schema, RLS policies, migrations, Edge
 - Đánh giá xấu tạo điểm chờ xác minh; không tự động kết luận lỗi tài xế hoặc tự động khóa tài khoản từ đánh giá.
 - Ngoại lệ giao muộn được người dùng duyệt ngày 2026-10-02: 3 đơn hoàn tất quá hạn trong 2 giờ gần nhất tự khóa nhận đơn mới 30 phút. Dùng hạn do backend cấp, giờ server và nhật ký hiện có; mỗi đơn tính một lần và không dùng lại các đơn đã kích hoạt khóa. Không khóa tài khoản đăng nhập hoặc gián đoạn đơn đang giao. Đây là cửa sổ riêng 2 giờ, không dùng cửa sổ điểm vi phạm 14 ngày.
 - Việc xác nhận, miễn hoặc điều chỉnh điểm thuộc quyền CSKH/Admin và phải có audit trail.
+- Giới hạn từ chối lời mời được người dùng duyệt ngày 2026-10-09, mở rộng ngày 2026-10-11: chuyển đơn thành công hoặc bỏ qua đến hết thời gian nhận đều tính là từ chối; 4 đơn khác nhau trong 30 phút gần nhất tự khóa nhận đơn mới 30 phút. Nhận đơn xen giữa không xóa lượt; thao tác lỗi và xử lý lại cùng lời mời không cộng thêm lượt. Dùng giờ server, nhật ký và `drivers.acceptance_locked_until` hiện có; mỗi đơn tính một lần và không dùng lại đơn đã kích hoạt khóa. Chỉ khóa nhận đơn mới, giữ đăng nhập và đơn đang giao; cửa sổ này độc lập với giao muộn và điểm vi phạm 14 ngày.
+- Giám sát phân công được người dùng duyệt ngày 2026-10-11: 5 phút chuẩn bị nằm trong 10 phút đầu sau nhận đơn; chưa xuất phát thì nhắc phút 5, cảnh báo phút 8, thu hồi phút 10 nếu chưa nhận hàng. Đã xuất phát hoặc đến điểm lấy thì kết thúc bộ đếm chưa xuất phát; dừng sau đó không khởi động lại bộ đếm này. Xuất phát dùng hai mẫu GPS hợp lệ cách nhau ít nhất 10 giây, dịch chuyển ≥100m sau trừ sai số.
+- Mất GPS hợp lệ liên tục: nhắc phút 5, cảnh báo phút 9, xử lý phút 10 bằng giờ server và cron. Trước nhận hàng thì thu hồi cùng đơn về tìm tài xế mới 15 phút, loại tài xế cũ khỏi lời mời của đơn đó, hoàn phần giữ COD đúng một lần và xóa ETA/hạn của phân công cũ. Sau nhận hàng hoặc có bằng chứng/yêu cầu bàn giao, chỉ tạo hồ sơ CSKH và giữ người giữ hàng. Thu hồi giám sát không tính vào từ chối, điểm vi phạm hoặc tự khóa nhận đơn.
+- Tái sử dụng support_tickets, case_messages, notifications và order_status_logs cho sự cố giám sát; khách/tài xế có hồ sơ riêng. CSKH đọc đúng liên hệ người yêu cầu cũ và giữ được hội thoại sau phân công lại; tác giả `system` chỉ thuộc case_messages. Không bật hồi tố cho phân công tồn tại trước rollout. SQL và bổ sung mẫu GPS mới định kỳ đã được người dùng chấp thuận riêng; không tạo bảng mới hoặc đổi RLS/pipeline R2.
 - Phạm vi hiện tại không thu thập dữ liệu để huấn luyện lại LightGBM. Việc xây dựng dataset và retrain mô hình là hướng phát triển trong tương lai.
 - Trong phạm vi hiện tại, lịch sử GPS chỉ được lưu để phát lại hành trình, đối chiếu sự cố và lập báo cáo khi cần.
 
 ### GPS Storage Architecture
 
-- Supabase chỉ giữ dữ liệu nghiệp vụ và vị trí mới nhất trong `drivers`; không ghi thêm lịch sử GPS mới vào PostgreSQL/Supabase Storage.
+- Supabase giữ dữ liệu nghiệp vụ và vị trí mới nhất trong `drivers`; `orders.driver_monitoring` giữ neo nhận đơn và mẫu hợp lệ mới nhất để giám sát phân công, không chứa chuỗi GPS. Không ghi thêm lịch sử GPS mới vào PostgreSQL/Supabase Storage.
 - Lịch sử GPS chính được đóng gói theo `order_id` và lưu trong Cloudflare R2 ở định dạng nén, với object key xác định được từ mã đơn để không cần thêm bảng metadata chỉ nhằm lưu đường dẫn file.
 - Không upload một object cho từng điểm GPS. Phải buffer rồi ghi theo chunk hoặc ghi một file hoàn chỉnh khi kết thúc đơn để giảm số thao tác lưu trữ.
 - Object GPS mặc định hết hạn sau 14 ngày bằng lifecycle rule. Không giữ dữ liệu quá hạn chỉ để phục vụ huấn luyện mô hình.

@@ -1,5 +1,8 @@
 import 'dart:math' as math;
 
+import 'package:latlong2/latlong.dart';
+import 'package:giaohang_domain/giaohang_domain.dart';
+
 import '../ml/delivery_eta_ai_calibrator.dart';
 
 class DeliveryEtaEstimate {
@@ -39,26 +42,21 @@ class DeliveryEtaEstimate {
   final bool aiUsesRealtimeTraffic;
   final String? aiFallbackReason;
 
-  String get rangeLabel => '$minMinutes–$maxMinutes phút';
+  String get rangeLabel => minMinutes == maxMinutes
+      ? '$minMinutes phút'
+      : '$minMinutes–$maxMinutes phút';
 
   double get aiAdjustmentMinutes =>
-      math.max(0, calibratedTravelMinutes - baselineTravelMinutes);
+      calibratedTravelMinutes - baselineTravelMinutes;
 }
 
-/// ETA hybrid: OSRM/distance baseline + TP.HCM historical traffic correction.
-///
-/// Outside the dataset coverage, the calculator preserves the existing urban
-/// peak-hour heuristic instead of extrapolating the AI model.
+/// Synthetic AI speed for the current leg, with a 25 km/h fallback. Full-order ETA is calculated by refresh-order-eta.
 class DeliveryEtaCalculator {
   DeliveryEtaCalculator._();
 
-  static const double normalReferenceSpeedKmh = 28;
-  static const double peakReferenceSpeedKmh = 22;
-  static const double normalRouteFactor = 1.10;
-  static const double peakRouteFactor = 1.25;
-  static const double minPlausibleSpeedKmh = 5;
-  static const double maxPlausibleSpeedKmh = 55;
-  static const int handlingMinutes = 4;
+  static const double normalReferenceSpeedKmh = 25;
+  static const double peakReferenceSpeedKmh = 25;
+  static const int handlingMinutes = 5;
 
   static DeliveryEtaEstimate calculate({
     required double distanceMeters,
@@ -68,6 +66,7 @@ class DeliveryEtaCalculator {
     double? deliveryLat,
     double? deliveryLng,
     DateTime? quotedAt,
+    List<LatLng>? routePoints,
   }) {
     final now = quotedAt ?? DateTime.now();
     final peakHour = _isPeakHour(now);
@@ -77,24 +76,11 @@ class DeliveryEtaCalculator {
         ? routeDurationSeconds / 60
         : null;
 
-    final routeSpeedKmh = rawRouteMinutes == null || rawRouteMinutes <= 0
-        ? null
-        : distanceKm / (rawRouteMinutes / 60);
-    final routeDurationIsPlausible =
-        routeSpeedKmh != null &&
-        routeSpeedKmh >= minPlausibleSpeedKmh &&
-        routeSpeedKmh <= maxPlausibleSpeedKmh;
-
     final normalDistanceMinutes = distanceKm == 0
         ? 0.0
         : distanceKm / normalReferenceSpeedKmh * 60;
-    final normalRouteMinutes = routeDurationIsPlausible
-        ? rawRouteMinutes! * normalRouteFactor
-        : 0.0;
-    final aiBaselineMinutes = math.max(
-      normalDistanceMinutes,
-      normalRouteMinutes,
-    );
+    // OSRM contributes road distance; its duration remains comparison metadata.
+    final aiBaselineMinutes = normalDistanceMinutes;
 
     final hasCoordinates =
         pickupLat != null &&
@@ -109,52 +95,42 @@ class DeliveryEtaCalculator {
           deliveryLat: deliveryLat,
           deliveryLng: deliveryLng,
         );
-    final aiCalibration = DeliveryEtaAiCalibrator.calibrate(
-      distanceKm: distanceKm,
-      baselineTravelMinutes: aiBaselineMinutes,
-      pickupLat: pickupLat,
-      pickupLng: pickupLng,
-      deliveryLat: deliveryLat,
-      deliveryLng: deliveryLng,
-      isPeakHour: peakHour,
-      quotedAt: now,
-    );
+    final hasRouteShape = routePoints != null && routePoints.length >= 2;
+    final shapeSupported =
+        !hasRouteShape ||
+        routePoints.every(
+          (p) => DeliveryEtaAiCalibrator.supportsPoint(
+            latitude: p.latitude,
+            longitude: p.longitude,
+          ),
+        );
+    final aiCalibration = !shapeSupported
+        ? null
+        : DeliveryEtaAiCalibrator.calibrate(
+            distanceKm: distanceKm,
+            baselineTravelMinutes: aiBaselineMinutes,
+            pickupLat: pickupLat,
+            pickupLng: pickupLng,
+            deliveryLat: deliveryLat,
+            deliveryLng: deliveryLng,
+            isPeakHour: peakHour,
+            quotedAt: now,
+          );
 
-    final fallbackDistanceMinutes = distanceKm == 0
-        ? 0.0
-        : distanceKm /
-              (peakHour ? peakReferenceSpeedKmh : normalReferenceSpeedKmh) *
-              60;
-    final fallbackRouteMinutes = routeDurationIsPlausible
-        ? rawRouteMinutes! * (peakHour ? peakRouteFactor : normalRouteFactor)
-        : 0.0;
-    final fallbackTravelMinutes = math.max(
-      fallbackDistanceMinutes,
-      fallbackRouteMinutes,
-    );
+    final fallbackTravelMinutes = normalDistanceMinutes;
     final baselineTravelMinutes = aiCalibration == null
         ? fallbackTravelMinutes
         : aiBaselineMinutes;
-    // The Vietnamese model may add local congestion, but it must never make a
-    // peak-hour estimate shorter than the existing trusted fallback.
-    final calibratedTravelMinutes = aiCalibration == null
-        ? fallbackTravelMinutes
-        : math.max(aiCalibration.travelMinutes, fallbackTravelMinutes);
+    final calibratedTravelMinutes =
+        aiCalibration?.travelMinutes ?? fallbackTravelMinutes;
     final effectiveAiMultiplier =
         aiCalibration == null || aiBaselineMinutes <= 0
         ? null
         : calibratedTravelMinutes / aiBaselineMinutes;
 
-    final centerMinutes = math.max(
-      8.0,
-      calibratedTravelMinutes + handlingMinutes,
-    );
-    // Keep the ETA range truthful when AI produces a sub-five-minute change.
-    // Coarse 5-minute buckets hid the difference between a clear route and a
-    // congested route (for example, both became 10–15 minutes). The range is
-    // still at least five minutes wide to communicate uncertainty.
-    final minMinutes = math.max(8, centerMinutes.floor());
-    final maxMinutes = math.max(minMinutes + 5, (centerMinutes * 1.25).ceil());
+    final centerMinutes = calibratedTravelMinutes + handlingMinutes;
+    final minMinutes = centerMinutes.ceil();
+    final maxMinutes = minMinutes;
 
     return DeliveryEtaEstimate(
       minMinutes: minMinutes,
@@ -163,7 +139,7 @@ class DeliveryEtaCalculator {
       calibratedTravelMinutes: calibratedTravelMinutes,
       handlingMinutes: handlingMinutes,
       rawRouteMinutes: rawRouteMinutes,
-      usedRouteDuration: routeDurationIsPlausible,
+      usedRouteDuration: false,
       isPeakHour: peakHour,
       usedAiCorrection: aiCalibration != null,
       aiModelVersion: aiCalibration?.modelVersion,
@@ -178,11 +154,14 @@ class DeliveryEtaCalculator {
           ? 'Chưa có tọa độ để xác định vùng dữ liệu AI'
           : !routeIsSupported
           ? 'Ngoài vùng dữ liệu giao thông TP.HCM'
+          : !shapeSupported
+          ? 'Chưa đủ dữ liệu giao thông trên toàn tuyến'
           : 'Chưa đủ tín hiệu để hiệu chỉnh bằng AI',
     );
   }
 
   static bool _isPeakHour(DateTime value) {
+    value = VietnamTime.toWallClock(value);
     final minuteOfDay = value.hour * 60 + value.minute;
     final morningPeak = minuteOfDay >= 6 * 60 + 30 && minuteOfDay < 9 * 60;
     final eveningPeak =

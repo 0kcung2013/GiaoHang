@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/utils/money_formatter.dart';
-import '../utils/driver_order_distance.dart';
+import 'driver_order_distance_summary.dart';
 
 abstract final class DriverOrderPresentationStrings {
   static const newOrder = 'Đơn mới';
@@ -66,12 +67,14 @@ class DriverOrderRouteSummary extends StatelessWidget {
   const DriverOrderRouteSummary({
     super.key,
     required this.order,
-    this.totalDistanceMeters,
+    this.driverId,
+    this.driverPosition,
     this.showDistance = true,
   });
 
   final OrderModel order;
-  final double? totalDistanceMeters;
+  final String? driverId;
+  final LatLng? driverPosition;
   final bool showDistance;
 
   @override
@@ -79,29 +82,10 @@ class DriverOrderRouteSummary extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       if (showDistance) ...[
-        Wrap(
-          spacing: AppSpacing.sm,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(
-              DriverOrderPresentationStrings.total,
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-            Text(
-              distanceKilometersText(totalDistanceMeters),
-              style: AppTextStyles.headingLarge,
-            ),
-          ],
-        ),
-        Text(
-          totalDistanceMeters == null
-              ? DriverOrderPresentationStrings.distanceUnavailable
-              : DriverOrderPresentationStrings.estimatedDistance,
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.textSecondary,
-          ),
+        DriverOrderDistanceSummary(
+          order: order,
+          driverId: driverId,
+          driverPosition: driverPosition,
         ),
         const SizedBox(height: AppSpacing.xl2),
       ],

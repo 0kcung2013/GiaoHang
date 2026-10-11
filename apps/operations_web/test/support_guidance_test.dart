@@ -6,8 +6,40 @@ import 'package:operations_web/features/support/data/support_completion_reposito
 import 'package:operations_web/features/support/data/support_ticket_repository.dart';
 import 'package:operations_web/features/support/dialogs/support_ticket_detail_dialog.dart';
 import 'package:operations_web/features/support/models/support_completion_context.dart';
+import 'package:operations_web/features/support/widgets/support_workspace_scaffold.dart';
 
 void main() {
+  testWidgets('short embedded chat scrolls to reply and blocked case context', (
+    tester,
+  ) async {
+    final repo = _Repository()
+      ..completion = const SupportCompletionContext(
+        blockers: [SupportCompletionBlocker('Hàng đang chờ bàn giao.', 'risk')],
+      );
+    await _pump(tester, repo);
+    tester.view.physicalSize = const Size(375, 568);
+    await tester.pumpWidget(_app(repo, textScale: 1.6, workspace: true));
+    await tester.pumpAndSettle();
+    final field = find.byKey(const Key('support-case-message-field'));
+    await tester.ensureVisible(field);
+    await tester.enterText(field, 'Bản nháp trên màn hình nhỏ');
+    final blocked = find.text('Còn việc cần xử lý · Xem thông tin');
+    await tester.ensureVisible(blocked);
+    await tester.tap(blocked);
+    await tester.pumpAndSettle();
+    expect(find.byType(IndexedStack), findsOneWidget);
+    expect(tester.widget<IndexedStack>(find.byType(IndexedStack)).index, 1);
+    await tester.ensureVisible(find.text('Hàng đang chờ bàn giao.'));
+    expect(find.text('Hàng đang chờ bàn giao.').hitTestable(), findsOneWidget);
+    await tester.ensureVisible(find.text('Trao đổi'));
+    await tester.tap(find.text('Trao đổi'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(field).controller!.text,
+      'Bản nháp trên màn hình nhỏ',
+    );
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('guidance remains scrollable on short web with enlarged text', (
     tester,
   ) async {
@@ -208,23 +240,36 @@ Future<void> _pump(WidgetTester tester, _Repository repo) async {
   await tester.pumpAndSettle();
 }
 
-Widget _app(_Repository repo, {double textScale = 1}) => MaterialApp(
-  builder: (context, child) => MediaQuery(
-    data: MediaQuery.of(
-      context,
-    ).copyWith(textScaler: TextScaler.linear(textScale)),
-    child: child!,
-  ),
-  home: Scaffold(
-    body: SupportTicketDetailDialog(
-      ticket: repo.ticket,
-      currentUserId: 'staff',
-      isAdmin: false,
-      repository: repo,
-      completionRepository: repo,
-    ),
-  ),
-);
+Widget _app(_Repository repo, {double textScale = 1, bool workspace = false}) =>
+    MaterialApp(
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
+      home: workspace
+          ? SupportWorkspaceScaffold(
+              activeSection: SupportWorkspaceSection.tickets,
+              body: SupportTicketDetailDialog(
+                ticket: repo.ticket,
+                currentUserId: 'staff',
+                isAdmin: false,
+                repository: repo,
+                completionRepository: repo,
+                embedded: true,
+              ),
+            )
+          : Scaffold(
+              body: SupportTicketDetailDialog(
+                ticket: repo.ticket,
+                currentUserId: 'staff',
+                isAdmin: false,
+                repository: repo,
+                completionRepository: repo,
+              ),
+            ),
+    );
 
 class _Repository
     implements

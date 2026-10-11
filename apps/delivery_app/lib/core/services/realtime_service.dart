@@ -408,6 +408,7 @@ class RealtimeService {
     required String orderId,
     required double lat,
     required double lng,
+    double? speedKmh,
   }) async {
     final channelName = 'order_driver_loc:$orderId';
     var channel = _channels[channelName];
@@ -422,6 +423,7 @@ class RealtimeService {
         payload: {
           'lat': lat,
           'lng': lng,
+          'speed_kmh': ?speedKmh,
           'ts': DateTime.now().toUtc().toIso8601String(),
         },
       );
@@ -435,6 +437,7 @@ class RealtimeService {
     String orderId,
     void Function(double lat, double lng) onLocation, {
     void Function(DateTime? sampledAt)? onSampleTime,
+    void Function(double? speedKmh)? onSpeed,
   }) {
     final channelName = 'order_driver_loc:$orderId';
     _removeChannel(channelName);
@@ -454,6 +457,10 @@ class RealtimeService {
             if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
               onSampleTime?.call(
                 DateTime.tryParse(data['ts']?.toString() ?? ''),
+              );
+              final speed = _asDouble(data['speed_kmh']);
+              onSpeed?.call(
+                speed != null && speed.isFinite && speed >= 0 ? speed : null,
               );
               onLocation(lat, lng);
             }

@@ -16,6 +16,7 @@ class DriverOrderDetailsContent extends StatelessWidget {
     this.notice,
     this.cancellationAction,
     this.goodsDeposit,
+    this.monitoringPanel,
   });
 
   final OrderModel order;
@@ -23,6 +24,7 @@ class DriverOrderDetailsContent extends StatelessWidget {
   final Widget? notice;
   final Widget? cancellationAction;
   final DriverGoodsDeposit? goodsDeposit;
+  final Widget? monitoringPanel;
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
@@ -34,6 +36,10 @@ class DriverOrderDetailsContent extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (monitoringPanel != null) ...[
+              monitoringPanel!,
+              const SizedBox(height: AppSpacing.md),
+            ],
             if (status != null) ...[
               Align(alignment: Alignment.centerLeft, child: status),
               const SizedBox(height: AppSpacing.md),

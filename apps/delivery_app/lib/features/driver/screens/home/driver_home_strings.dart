@@ -42,7 +42,8 @@ class DriverHomeStrings {
       'Minh họa tài xế kiểm tra lộ trình bên xe máy có thùng và kiện hàng.';
 
   static const offerCountdownLabel = 'Thời gian nhận đơn';
-  static const offerAutoTransferHint = 'Hết giờ sẽ tự chuyển tài xế khác';
+  static const offerAutoTransferHint =
+      'Hết giờ tính 1 lượt từ chối và chuyển tài xế khác.';
   static const offerExpiredLabel = 'Đang chuyển tài xế khác…';
   static const offerExpiredAction = 'Đã hết thời gian nhận';
   static const acceptanceChecking = 'Đang kiểm tra…';
@@ -54,7 +55,12 @@ class DriverHomeStrings {
   static const incomingOfferAccept = 'Nhận đơn';
   static const incomingOfferTransfer = 'Chuyển đơn';
   static const pickupDistanceLabel = 'Đến điểm lấy';
+  static const deliveryDistanceLabel = 'Lấy → giao';
   static const totalDistanceLabel = 'Tổng 2 chặng';
+  static const routeDistanceLoading = 'Đang tính quãng đường…';
+  static const routeDistanceUnavailable = 'Chưa xác định đủ hai chặng';
+  static const routeDistanceSource = 'Khoảng cách theo tuyến đường';
+  static const routeDistanceRetry = 'Thử lại quãng đường';
   static const incomingOfferAcceptSuccess = 'Đã nhận đơn hàng.';
   static const incomingOfferTransferSuccess = 'Đã chuyển đơn cho tài xế khác.';
   static const incomingOfferActionError =
@@ -69,5 +75,6 @@ class DriverHomeStrings {
   }) => 'Cách điểm lấy $pickupText, tổng quãng đường hai chặng $totalText';
 
   static String offerCountdownSemantic(int seconds) =>
-      'Còn $seconds giây để nhận đơn. Hết giờ hệ thống tự chuyển tài xế khác.';
+      'Còn $seconds giây để nhận đơn. '
+      'Hết giờ tính một lượt từ chối và chuyển tài xế khác.';
 }

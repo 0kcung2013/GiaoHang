@@ -1,28 +1,31 @@
 # Hạn giao hàng
 
-Tái sử dụng `orders.estimated_delivery_at` và `order_status_logs`. Không thêm
-bảng hoặc cột. Mốc này cũng là thời gian giao dự kiến hiển thị cho khách hàng;
-dùng để ghi nhận giao muộn và áp dụng khóa nhận đơn theo quy tắc đã duyệt bên dưới.
+Chính sách được duyệt ngày 11/10/2026:
 
-Edge Function `accept-driver-order` xác minh JWT bằng getUser, lấy tọa độ trên
-server và gọi OSRM cho tuyến tài xế → điểm lấy → điểm giao. Chỉ server được
-gọi RPC mới, RPC tiếp tục gọi accept_order/claim_free_pick_order hiện có để giữ
-quyền nhận đơn, khóa nhận đơn, phạm vi FreePick và kiểm tra ví.
+```
+Hạn giao = ETA ban đầu (initial_predicted_at) + 25 phút
+```
 
-Thời gian cho phép = max(25, ceil(thời gian tuyến tính bằng phút × 1.3 + 15)).
-Thời điểm bắt đầu lấy từ clock_timestamp của server khi nhận đơn. Nhận đơn và
-lưu deadline nằm trong cùng transaction. Gọi lại không kéo dài mốc đã lưu.
-Client không gửi tọa độ, thời lượng hoặc deadline; không được tự sửa deadline.
+Tái sử dụng orders.estimated_delivery_at, orders.delivery_eta và
+order_status_logs; không thêm bảng/cột. ETA vẫn tính theo hai chặng đường
+ở 25 km/h, chuẩn bị 5 phút, nhận hàng 5 phút, bàn giao 5 phút và LightGBM
+khi có dữ liệu. Không cộng 30%, 15 phút hay nhân LightGBM lần nữa vào hạn.
 
-OSRM timeout sau 4 giây hoặc trả dữ liệu lỗi: dùng khoảng cách địa lý × 1.5,
-tốc độ giả định 20 km/h. Nếu thiếu GPS mới của tài xế, thêm 15 phút dự phòng.
-Ghi nguồn fallback trong nhật ký; không coi dữ liệu fallback là bằng chứng lỗi.
+accept-driver-order nhận đơn qua RPC hiện có, sau đó tính ETA dùng chung
+với refresh-order-eta. commit_order_delivery_eta khóa dòng, lưu ETA và hạn
+trong cùng transaction; kết quả đầu tiên thắng. RPC nhận đơn giữ tham số
+route_duration_s để tương thích nhưng không dùng nó tính hạn nữa.
+Nếu GPS cũ hoặc OSRM lỗi, nhận đơn vẫn thành công, ETA/hạn chờ dữ liệu;
+refresh-order-eta thử lại. Không phát sinh hạn giả từ công thức cũ.
 
-Đơn cũ đang assigned/picking_up/delivering nhưng thiếu mốc được khởi tạo một lần
-khi mở điều hướng, tính từ thời điểm server hiện tại để không phạt hồi tố.
-Đơn đã có mốc, đơn đã hủy/hoàn tất và giao dịch ví không bị thay đổi bởi backfill.
-App phiên bản cũ vẫn có thể gọi RPC nhận đơn cũ, và được bổ sung hạn khi mở
-điều hướng bằng phiên bản mới. Mốc đã có vẫn giữ nguyên khi GPS/route đổi.
+Hạn được tính từ initial_predicted_at, không từ predicted_at đã giảm.
+Khởi hành sớm chỉ trừ 5 phút khỏi ETA; hạn không đổi. Đến sớm, đổi trạng thái,
+mở lại app hay gọi lại API không kéo dài hạn. Phân công lại xóa ETA/hạn cũ
+và tính mốc mới cho lượt nhận mới. JWT, quyền RPC server và FreePick giữ nguyên.
+
+Migration chuyển các đơn còn hoạt động có ETA cố định sang chính sách mới,
+ghi audit; đơn hoạt động chưa có ETA bỏ hạn cũ và chờ ETA. Không sửa đơn
+đã hoàn tất/hủy, không tính lại khóa đã phát sinh.
 
 Đã duyệt quy tắc tự khóa nhận đơn ngày 2026-10-02: 3 đơn giao muộn hoàn tất
 trong 2 giờ gần nhất khóa nhận đơn mới 30 phút. Trigger dùng giờ server,
@@ -41,3 +44,7 @@ dụng quy tắc này. Chưa có cơ chế miễn trừ tự động do chờ ng
 
 Chưa triển khai trạng thái đến điểm giao. Thời gian trên Flutter là phần
 hiển thị theo đồng hồ thiết bị; bộ kiểm tra quá hạn chạy hoàn toàn trên server.
+
+Kiểm chứng: 25 kiểm thử Node ETA và hai kịch bản SQL rollback
+(staged_delivery_eta.sql, driver_delivery_deadline_lightgbm.sql) đạt.
+Edge accept-driver-order v5 ACTIVE, JWT bật. Chưa kiểm thử trên thiết bị.

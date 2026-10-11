@@ -4,6 +4,8 @@ import 'package:giaohang_design/giaohang_design.dart';
 import 'order_field_label.dart';
 
 import '../../../../../core/services/osrm_service.dart';
+import '../../../../../core/utils/delivery_eta_calculator.dart';
+import '../utils/delivery_eta_strings.dart';
 
 class OrderLocationControlSheet extends StatelessWidget {
   const OrderLocationControlSheet({
@@ -18,6 +20,7 @@ class OrderLocationControlSheet extends StatelessWidget {
     required this.onPickDelivery,
     required this.onContinue,
     this.sampleRoutes,
+    this.eta,
   });
 
   final String pickupAddress;
@@ -30,6 +33,7 @@ class OrderLocationControlSheet extends StatelessWidget {
   final VoidCallback onPickDelivery;
   final VoidCallback? onContinue;
   final Widget? sampleRoutes;
+  final DeliveryEtaEstimate? eta;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +41,7 @@ class OrderLocationControlSheet extends StatelessWidget {
     final routeText = isLoadingRoute
         ? 'Đang tìm đường'
         : hasRoadRoute
-        ? '${(route!.distanceMeters / 1000).toStringAsFixed(1)} km · ${route!.durationMinutes.ceil()} phút'
+        ? '${(route!.distanceMeters / 1000).toStringAsFixed(1)} km'
         : pickupSelected && deliverySelected
         ? 'Đường kết nối hai điểm'
         : 'Chọn điểm lấy và điểm giao';
@@ -102,6 +106,18 @@ class OrderLocationControlSheet extends StatelessWidget {
                 ),
               ],
             ),
+            if (!isLoadingRoute) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  DeliveryEtaStrings.afterAssignment,
+                  style: AppTextStyles.labelSmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
           ],
           const SizedBox(height: AppSpacing.sm),
           SizedBox(

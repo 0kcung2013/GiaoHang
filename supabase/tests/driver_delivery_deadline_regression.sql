@@ -17,9 +17,8 @@ BEGIN
   v_started := clock_timestamp();
   SELECT estimated_delivery_at INTO v_first FROM public.accept_driver_order_with_deadline(
     v_order.id,v_order.driver_id,300,false,'osrm',true);
-  IF v_first < v_started + interval '25 minutes'
-    OR v_first > clock_timestamp() + interval '25 minutes' THEN
-    RAISE EXCEPTION 'Minimum deadline budget failed';
+  IF v_first IS NOT NULL THEN
+    RAISE EXCEPTION 'Created deadline without committing initial ETA';
   END IF;
   SELECT count(*) INTO v_logs FROM public.order_status_logs WHERE order_id=v_order.id;
   SELECT estimated_delivery_at INTO v_again FROM public.accept_driver_order_with_deadline(
@@ -38,9 +37,8 @@ BEGIN
   v_started := clock_timestamp();
   SELECT estimated_delivery_at INTO v_first FROM public.accept_driver_order_with_deadline(
     v_order.id,v_order.driver_id,1500,false,'distance_fallback',true);
-  IF v_first < v_started + interval '48 minutes'
-    OR v_first > clock_timestamp() + interval '48 minutes' THEN
-    RAISE EXCEPTION 'Route plus buffer budget failed';
+  IF v_first IS NOT NULL THEN
+    RAISE EXCEPTION 'Fallback quote created an independent deadline';
   END IF;
   IF has_function_privilege('authenticated',
     'public.accept_driver_order_with_deadline(uuid,uuid,integer,boolean,text,boolean)','execute') THEN

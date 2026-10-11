@@ -49,6 +49,8 @@ class SupportTicket {
     this.riskReportId,
     this.resolution,
     this.requesterRole = 'customer',
+    this.requesterPhone,
+    this.requesterEmail,
     String? requesterName,
     @Deprecated('Use requesterName') String? customerName,
     this.assignedToName,
@@ -65,6 +67,8 @@ class SupportTicket {
   final String id;
   final String requesterId;
   final String requesterRole;
+  final String? requesterPhone;
+  final String? requesterEmail;
   final String? orderId;
   final String? assignedTo;
   final String? riskReportId;
@@ -86,7 +90,9 @@ class SupportTicket {
 
   bool get needsReply =>
       !status.isClosed &&
-      (lastMessageRole == 'customer' || lastMessageRole == 'driver');
+      (lastMessageRole == 'customer' ||
+          lastMessageRole == 'driver' ||
+          lastMessageRole == 'system');
 
   bool get isDriverRequester => requesterRole == 'driver';
 
@@ -135,6 +141,10 @@ class SupportTicket {
       requesterName:
           requester['full_name']?.toString() ??
           json['requester_name']?.toString(),
+      requesterPhone:
+          requester['phone']?.toString() ?? json['requester_phone']?.toString(),
+      requesterEmail:
+          requester['email']?.toString() ?? json['requester_email']?.toString(),
       assignedToName: assignee['full_name']?.toString(),
       firstResponseAt: _ticketOptionalDate(json['first_response_at']),
       responseDueAt: _ticketOptionalDate(json['response_due_at']),
@@ -155,6 +165,8 @@ class SupportTicket {
     'id': id,
     'requester_id': requesterId,
     'requester_role': requesterRole,
+    'requester_phone': requesterPhone,
+    'requester_email': requesterEmail,
     'order_id': orderId,
     'assigned_to': assignedTo,
     'risk_report_id': riskReportId,

@@ -5,6 +5,32 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('DriverActiveDeliveryTrackingPolicy', () {
     test(
+      'selected traffic scenario owns GPS before Start and after closing map',
+      () {
+        for (final restored in [false, true]) {
+          expect(
+            DriverActiveDeliveryTrackingPolicy.shouldUseLiveGps(
+              isWeb: false,
+              locationMode: DriverLocationMode.deviceGps,
+              isNavigationMapOpen: false,
+              hasRestoredNavigationSession: restored,
+              isTrafficDemo: true,
+            ),
+            isFalse,
+          );
+        }
+        expect(
+          DriverActiveDeliveryTrackingPolicy.usesRouteSimulation(
+            isWeb: false,
+            locationMode: DriverLocationMode.deviceGps,
+            isTrafficDemo: true,
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    test(
       'resumes live GPS after closing map with a saved navigation session',
       () {
         expect(

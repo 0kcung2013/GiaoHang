@@ -40,8 +40,8 @@ class DeliveryTrafficMapLegend extends StatelessWidget {
     final hasHistorical = segments.hasHistoricalTraffic;
     final hasUnavailable = segments.hasUnavailableTraffic;
     final semanticsLabel = hasHistorical
-        ? 'Màu giao thông lịch sử UTraffic: xanh thông thoáng, vàng đông, cam di chuyển chậm, đỏ hay ùn tắc${hasUnavailable ? ', xanh dương là ngoài vùng dữ liệu' : ''}'
-        : 'Tuyến OSRM ngoài vùng dữ liệu giao thông UTraffic';
+        ? 'Vận tốc AI mô phỏng: xanh trên 40, vàng 34 đến 40, cam 28 đến 34, đỏ dưới 28 km/h${hasUnavailable ? ', xanh dương là ngoài vùng demo' : ''}'
+        : 'Tuyến OSRM ngoài vùng demo AI';
 
     return Semantics(
       container: true,
@@ -74,7 +74,7 @@ class DeliveryTrafficMapLegend extends StatelessWidget {
                         const SizedBox(width: AppSpacing.xs),
                         Flexible(
                           child: Text(
-                            'UTraffic · dự báo lịch sử',
+                            'Vận tốc theo tuyến',
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: AppTextStyles.labelSmall.copyWith(
@@ -92,19 +92,19 @@ class DeliveryTrafficMapLegend extends StatelessWidget {
                       children: [
                         const _LegendItem(
                           level: DeliveryTrafficLevel.clear,
-                          label: 'Thoáng',
+                          label: '>40 km/h',
                         ),
                         const _LegendItem(
                           level: DeliveryTrafficLevel.moderate,
-                          label: 'Đông',
+                          label: '34–40 km/h',
                         ),
                         const _LegendItem(
                           level: DeliveryTrafficLevel.heavy,
-                          label: 'Di chuyển chậm',
+                          label: '28–34 km/h',
                         ),
                         const _LegendItem(
                           level: DeliveryTrafficLevel.congested,
-                          label: 'Hay tắc',
+                          label: '<28 km/h',
                         ),
                         if (hasUnavailable)
                           const _LegendItem(
@@ -126,7 +126,7 @@ class DeliveryTrafficMapLegend extends StatelessWidget {
                     const SizedBox(width: AppSpacing.sm),
                     Flexible(
                       child: Text(
-                        'Ngoài vùng UTraffic · tuyến OSRM',
+                        'Ngoài vùng demo AI · tuyến OSRM',
                         style: AppTextStyles.labelSmall.copyWith(
                           color: AppColors.textSecondary,
                           fontWeight: FontWeight.w700,

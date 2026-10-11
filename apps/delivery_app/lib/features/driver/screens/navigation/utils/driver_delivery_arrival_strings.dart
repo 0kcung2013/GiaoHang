@@ -1,8 +1,9 @@
 abstract final class DriverDeliveryArrivalStrings {
-  static const simulationStopped = 'GPS mô phỏng đã dừng';
-  static const swipeArrival = 'Gạt đã đến nơi giao hàng';
+  static const simulationStopped =
+      'Đã đến nơi. Giám sát hành trình vẫn hoạt động.';
+  static const swipeArrival = 'Đã đến điểm giao';
   static const deliverNow = 'Giao hàng ngay';
-  static const reportRecipient = 'Không liên lạc được với khách';
+  static const reportRecipient = 'Báo cáo và xin hoàn';
   static const evidenceRequired =
       'Thêm ảnh lịch sử thể hiện ít nhất 3 lần gọi người nhận trong 10 phút chờ.';
   static const evidenceHint =

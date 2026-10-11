@@ -131,11 +131,16 @@ final liveDriverLatLngProvider =
       (ref, orderId) => null,
     );
 
+final liveDriverSpeedProvider = StateProvider.family<double?, String>(
+  (ref, id) => null,
+);
+
 final driverLocationRealtimeProvider = FutureProvider.autoDispose
     .family<void, LocationRealtimeRequest>((ref, request) async {
       final realtimeService = ref.watch(realtimeServiceProvider);
       final freshness = ref.read(trackingLocationFreshnessProvider(request));
       DateTime? broadcastSampleTime;
+      double? broadcastSpeed;
       debugPrint(
         '[LocationRealtime] subscribing driver=${request.driverId} '
         'order=${request.orderId}',
@@ -158,8 +163,11 @@ final driverLocationRealtimeProvider = FutureProvider.autoDispose
             lat: lat,
             lng: lng,
           );
+          ref.read(liveDriverSpeedProvider(request.orderId).notifier).state =
+              broadcastSpeed;
         },
         onSampleTime: (sampledAt) => broadcastSampleTime = sampledAt,
+        onSpeed: (speed) => broadcastSpeed = speed,
       );
 
       // B) Postgres drivers UPDATE (backup)

@@ -1,4 +1,7 @@
-const riskReportSelection = '''
+import '../../support_orders/data/support_order_selection.dart';
+
+const riskReportSelection =
+    '''
     id,
     order_id,
     reported_by,
@@ -34,21 +37,6 @@ const riskReportSelection = '''
       state
     ),
     orders!risk_reports_order_id_fkey(
-      tracking_code,
-      status,
-      customer_id,
-      actual_picked_up_at,
-      driver_id,
-      pickup_address,
-      pickup_lat,
-      pickup_lng,
-      delivery_address,
-      delivery_lat,
-      delivery_lng,
-      delivery_fee,
-      recipient_name,
-      recipient_phone,
-      customer:users!orders_customer_id_fkey(full_name, phone, email, avatar_url),
-      driver:users!orders_driver_id_fkey(full_name, phone, email, avatar_url)
+      $supportOrderSelection
     )
   ''';

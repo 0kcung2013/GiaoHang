@@ -21,14 +21,14 @@ class RiskQueueTabs extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          for (final scope in RiskQueueScope.values) ...[
+          for (final scope in RiskQueueScope.adminScopes) ...[
             _QueueTab(
               scope: scope,
               selected: scope == value,
               count: countFor(scope),
               onTap: () => onChanged(scope),
             ),
-            if (scope != RiskQueueScope.values.last)
+            if (scope != RiskQueueScope.adminScopes.last)
               const SizedBox(width: AppSpacing.sm),
           ],
         ],
@@ -125,6 +125,7 @@ class _QueueTab extends StatelessWidget {
 }
 
 String _label(RiskQueueScope scope) => switch (scope) {
+  RiskQueueScope.active => 'Cần xử lý',
   RiskQueueScope.newReports => 'Mới',
   RiskQueueScope.overdue => 'Quá SLA',
   RiskQueueScope.mine => 'Của tôi',
@@ -134,6 +135,7 @@ String _label(RiskQueueScope scope) => switch (scope) {
 };
 
 IconData _icon(RiskQueueScope scope) => switch (scope) {
+  RiskQueueScope.active => Icons.inbox_outlined,
   RiskQueueScope.newReports => Icons.fiber_new_rounded,
   RiskQueueScope.overdue => Icons.timer_off_outlined,
   RiskQueueScope.mine => Icons.person_rounded,

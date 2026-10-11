@@ -60,7 +60,7 @@ class DriverNavigationArrivalBar extends StatelessWidget {
         !isLoading &&
         onPrimaryAction != null;
     final confirmingArrival =
-        order.status == 'picking_up' &&
+        (order.status == 'assigned' || order.status == 'picking_up') &&
         !pickupConfirmed &&
         order.pickupArrivedAt == null &&
         onConfirmPickupArrival != null;
@@ -70,8 +70,6 @@ class DriverNavigationArrivalBar extends StatelessWidget {
         deliveryArrivalFlow && deliveryArrival?.arrivedAt == null;
     final actionLabel = confirmingDeliveryArrival
         ? DriverDeliveryArrivalStrings.swipeArrival
-        : workflow.requiresArrival && !arrivedAtTarget
-        ? DriverNavigationStrings.arriveToConfirm
         : confirmingArrival
         ? DriverCancellationStrings.swipeArrived
         : workflow.primaryLabel;
@@ -195,7 +193,7 @@ class DriverNavigationArrivalBar extends StatelessWidget {
             key: const Key('driver-navigation-primary-action'),
             label: actionLabel,
             accent: AppColors.accent,
-            icon: confirmingDeliveryArrival
+            icon: confirmingArrival || confirmingDeliveryArrival
                 ? Icons.location_on_rounded
                 : workflow.primaryIcon,
             loading: isLoading,
@@ -210,46 +208,30 @@ class DriverNavigationArrivalBar extends StatelessWidget {
                 ? (confirmingArrival ? onConfirmPickupArrival : onPrimaryAction)
                 : null,
           ),
+          if (workflow.requiresArrival && !arrivedAtTarget) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              DriverNavigationStrings.arriveToConfirm,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
           if (deliveryArrivalFlow) ...[
             const SizedBox(height: AppSpacing.xs),
             if (deliveryArrival == null || arrivalError != null)
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: AppSpacing.sm,
-                children: [
-                  TextButton(
-                    onPressed: isLoading ? null : onRetryArrival,
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.accent,
-                      minimumSize: const Size(48, 48),
-                      textStyle: AppTextStyles.labelMedium,
-                    ),
-                    child: Text(
-                      arrivalError ?? DriverDeliveryArrivalStrings.loading,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: enabled ? onPrimaryAction : null,
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.textSecondary,
-                      minimumSize: const Size(48, 48),
-                      textStyle: AppTextStyles.labelMedium,
-                    ),
-                    child: const Text(DriverDeliveryArrivalStrings.deliverNow),
-                  ),
-                ],
-              )
-            else if (deliveryArrival!.arrivedAt == null)
               TextButton(
-                onPressed: enabled ? onPrimaryAction : null,
+                onPressed: isLoading ? null : onRetryArrival,
                 style: TextButton.styleFrom(
-                  foregroundColor: AppColors.textSecondary,
+                  foregroundColor: AppColors.accent,
                   minimumSize: const Size(48, 48),
                   textStyle: AppTextStyles.labelMedium,
                 ),
-                child: const Text(DriverDeliveryArrivalStrings.deliverNow),
+                child: Text(
+                  arrivalError ?? DriverDeliveryArrivalStrings.loading,
+                ),
               )
-            else
+            else if (deliveryArrival!.arrivedAt != null)
               TextButton.icon(
                 key: const Key('driver-report-recipient-action'),
                 onPressed: deliveryArrival!.canReport && !isLoading

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
@@ -16,12 +17,14 @@ class DriverPriorityOrders extends StatelessWidget {
     required this.driverOrders,
     required this.driverUserId,
     this.pickupDistancesMeters = const {},
+    this.driverPosition,
   });
 
   final List<OrderModel> availableOrders;
   final List<OrderModel> driverOrders;
   final String driverUserId;
   final Map<String, double> pickupDistancesMeters;
+  final LatLng? driverPosition;
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +83,7 @@ class DriverPriorityOrders extends StatelessWidget {
             child: DriverOrderCard(
               order: priority.order,
               acceptDriverId: priority.isActive ? null : driverUserId,
-              pickupDistanceMeters: pickupDistancesMeters[priority.order.id],
+              driverPosition: driverPosition,
             ),
           ),
         ),

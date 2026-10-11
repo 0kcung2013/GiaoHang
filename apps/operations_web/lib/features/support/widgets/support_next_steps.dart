@@ -4,6 +4,7 @@ import 'package:giaohang_domain/giaohang_domain.dart';
 import 'package:go_router/go_router.dart';
 import '../../support_orders/utils/support_order_ui.dart';
 import '../models/support_completion_context.dart';
+import '../constants/support_ticket_strings.dart';
 
 class SupportNextSteps extends StatelessWidget {
   const SupportNextSteps({
@@ -50,14 +51,6 @@ class SupportNextSteps extends StatelessWidget {
                 'Nhận xử lý để phản hồi và thực hiện nghiệp vụ.',
                 style: AppTextStyles.bodySmall,
               ),
-            for (final step in issue.verification)
-              Padding(
-                padding: const EdgeInsets.only(top: AppSpacing.sm),
-                child: Text('• $step', style: AppTextStyles.bodySmall),
-              ),
-            const SizedBox(height: AppSpacing.md),
-            Text('Trước khi kết thúc', style: AppTextStyles.labelMedium),
-            Text(issue.completionHint, style: AppTextStyles.bodySmall),
             if (loading) const LinearProgressIndicator(color: AppColors.accent),
             if (error != null)
               Text(
@@ -84,6 +77,32 @@ class SupportNextSteps extends StatelessWidget {
                 icon: const Icon(Icons.refresh_rounded),
                 label: const Text('Kiểm tra lại điều kiện'),
               ),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              shape: const Border(),
+              collapsedShape: const Border(),
+              title: Text(
+                SupportTicketStrings.handlingGuide,
+                style: AppTextStyles.labelMedium,
+              ),
+              children: [
+                for (final step in issue.verification)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('• $step', style: AppTextStyles.bodySmall),
+                    ),
+                  ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    issue.completionHint,
+                    style: AppTextStyles.bodySmall,
+                  ),
+                ),
+              ],
+            ),
           ],
         ],
       ),

@@ -36,6 +36,11 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
   bool _hasInitialCameraFit = false;
   Timer? _pollTimer;
   bool _pollInFlight = false;
+  final _speedProfileCache = DeliveryEtaRouteProfileCache();
+  Map<String, dynamic>? _observedEta;
+  DeliveryEtaRouteProfile? get _speedProfile => _speedProfileCache.resolve(
+    widget.order.copyWith(deliveryEtaData: _observedEta),
+  );
   final MapController _mapController = MapController();
 
   TrackingMapPhase get _phase =>
@@ -69,7 +74,10 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
         oldWidget.order.pickupLat != widget.order.pickupLat ||
         oldWidget.order.pickupLng != widget.order.pickupLng ||
         oldWidget.order.deliveryLat != widget.order.deliveryLat ||
-        oldWidget.order.deliveryLng != widget.order.deliveryLng) {
+        oldWidget.order.deliveryLng != widget.order.deliveryLng ||
+        oldWidget.order.deliveryEtaData?['computed_at'] !=
+            widget.order.deliveryEtaData?['computed_at']) {
+      _observedEta = null;
       _routeRequests = TrackingRouteRequestGate();
       _fullRoute = null;
       _trafficSnapshot = null;
@@ -195,6 +203,13 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
       widget.order.deliveryLng,
     );
 
+    final profile = _speedProfile;
+    if (profile != null) {
+      _acceptRoute(profile.points, current: driverPos, hasDriverOrigin: true);
+      _fitCamera(driverPos);
+      return;
+    }
+
     final List<LatLng> waypoints;
     if (driverPos == null) {
       waypoints = phase.routeWaypoints(
@@ -264,10 +279,19 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
     LatLng? current,
     required bool hasDriverOrigin,
   }) {
-    final snapshot = TrackingTrafficRouteSnapshot.build(
-      routePoints: route,
-      evaluatedAt: DateTime.now(),
-    );
+    final profile = _speedProfile;
+    final snapshot = profile == null
+        ? TrackingTrafficRouteSnapshot.build(
+            routePoints: route,
+            evaluatedAt:
+                TrafficDemoClock.forecastAt(widget.order.trafficDemoKey) ??
+                DateTime.now(),
+          )
+        : TrackingTrafficRouteSnapshot(
+            routePoints: profile.points,
+            segments: profile.trafficSegments,
+            evaluatedAt: profile.forecastAt,
+          );
     final progress = TrackingTrafficRouteProgress(snapshot);
     final snappedCurrent = current == null
         ? null
@@ -365,6 +389,18 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
+    if (order.driverId != null) {
+      final data = ref.watch(orderEtaProvider(order.id)).valueOrNull?.data;
+      if (data != null &&
+          data['driver_id'] == order.driverId &&
+          data['computed_at'] !=
+              (_observedEta ?? order.deliveryEtaData)?['computed_at']) {
+        _observedEta = data;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) unawaited(_loadRoute());
+        });
+      }
+    }
     final phase = _phase;
     final driverAsync = phase.tracksLiveDriver
         ? ref.watch(assignedDriverProvider(order.id))
@@ -456,6 +492,10 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
       deliveryPoint: deliveryPoint,
       driverPosition: driverPos,
       driverBearing: driverBearing,
+      driverSpeedKmh: phase.tracksLiveDriver && _speedProfile != null
+          ? ref.watch(liveDriverSpeedProvider(order.id)) ??
+                (order.trafficDemoKey != null ? 0 : null)
+          : null,
       completed: phase == TrackingMapPhase.completed,
       isFullscreen: widget.isFullscreen,
       phaseLegend: phase.legend,

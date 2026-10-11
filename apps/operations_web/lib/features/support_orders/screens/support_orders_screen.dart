@@ -6,6 +6,8 @@ import 'package:giaohang_design/giaohang_design.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../support/widgets/support_workspace_scaffold.dart';
+import '../../support/widgets/support_queue_controls.dart';
+import '../../support/constants/support_ticket_strings.dart';
 import '../data/support_order_repository.dart';
 import '../dialogs/support_order_detail_dialog.dart';
 import '../models/support_order.dart';
@@ -213,57 +215,9 @@ class _SupportOrdersScreenState extends State<SupportOrdersScreen> {
 
 class _SupportOrdersHeader extends StatelessWidget {
   const _SupportOrdersHeader();
-
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.xl2),
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: AppRadius.xl2,
-        boxShadow: AppShadow.card,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tra cứu đơn hàng',
-                  style: AppTextStyles.headingLarge.copyWith(
-                    color: AppColors.textOnDark,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  'Tìm mã đơn, xem hành trình và lịch sử trạng thái.',
-                  maxLines: 2,
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textOnDark.withValues(alpha: 0.72),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSpacing.lg),
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: AppColors.textOnDark.withValues(alpha: 0.1),
-              borderRadius: AppRadius.lg,
-            ),
-            child: const Icon(
-              Icons.manage_search_rounded,
-              size: 34,
-              color: AppColors.accent,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      const SupportQueueHeading(title: SupportTicketStrings.ordersQueue);
 }
 
 class _SupportOrdersLoading extends StatelessWidget {

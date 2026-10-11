@@ -4,6 +4,24 @@ class RiskReportStrings {
   static const title = 'Rủi ro hệ thống';
   static const supportTitle = 'Báo cáo người dùng';
   static const supportOperation = 'Xử lý đơn';
+  static const cargoCancellationRequest = 'Yêu cầu hủy trước nhận hàng';
+  static const cargoAcceptedResponsibility =
+      'Tài xế đã nhận hàng. Không duyệt hủy vì hàng sai thông tin.';
+  static const cargoVerificationHint =
+      'Đối chiếu ảnh với loại hàng, kích thước và trọng lượng đã khai báo.';
+  static const callVerification = 'Gọi xác thực';
+  static const callDemo = 'Gọi demo';
+  static const callAgain = 'Gọi lại demo';
+  static const stopCall = 'Dừng gọi';
+  static const demo = 'Demo';
+  static const callDemoHint = 'Mô phỏng cuộc gọi, không gọi thật.';
+  static const demoScenario = 'Kịch bản demo';
+  static const noAnswer = 'Không nghe máy';
+  static const lineBusy = 'Máy bận';
+  static const answered = 'Có trả lời';
+  static const ringing = 'Đang đổ chuông…';
+  static const callStopped = 'Đã dừng cuộc gọi';
+  static const contactCustomer = 'Chọn người cần gọi';
   static const verifyBeforeDecision = 'Xác minh báo cáo trước khi quyết định.';
   static const releaseDriver = 'Gỡ tài xế, giữ đơn';
   static const releaseDriverTitle = 'Gỡ tài xế khỏi đơn?';
@@ -21,6 +39,8 @@ class RiskReportStrings {
       'CSKH yêu cầu hủy đơn cho tài xế hiện tại. Dừng giao hàng và liên hệ CSKH để bàn giao hàng. Tài xế được giải phóng sau khi xác nhận bàn giao hoàn tất.';
   static const orderAndContacts = 'Thông tin đơn và liên hệ';
   static const handlingHistory = 'Lịch sử xử lý';
+  static const reportTab = 'Báo cáo';
+  static const conversationTab = 'Trao đổi';
   static const reportClosed = 'Hồ sơ đã kết thúc.';
   static const acceptBeforeReply = 'Nhận xử lý để phản hồi người báo cáo.';
   static const subtitle = 'Phát hiện, xác minh và xử lý theo mức độ';

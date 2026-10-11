@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../../core/models/order_model.dart';
 import '../driver_home_strings.dart';
 import '../utils/driver_home_formatters.dart';
-import '../utils/driver_order_distance.dart';
 import 'driver_offer_countdown.dart';
 import 'driver_order_offer_summary.dart';
 
@@ -13,12 +13,14 @@ class DriverIncomingOfferPresentation extends StatelessWidget {
     super.key,
     required this.order,
     required this.actions,
-    this.pickupDistanceMeters,
+    this.driverId,
+    this.driverPosition,
     this.now,
   });
 
   final OrderModel order;
-  final double? pickupDistanceMeters;
+  final String? driverId;
+  final LatLng? driverPosition;
   final DateTime Function()? now;
   final Widget actions;
 
@@ -75,10 +77,8 @@ class DriverIncomingOfferPresentation extends StatelessWidget {
                     const SizedBox(height: AppSpacing.xl2),
                     DriverOrderRouteSummary(
                       order: order,
-                      totalDistanceMeters: totalOrderDistanceFromPickup(
-                        order: order,
-                        pickupDistanceMeters: pickupDistanceMeters,
-                      ),
+                      driverId: driverId,
+                      driverPosition: driverPosition,
                     ),
                     if (order.offerExpiresAt != null) ...[
                       const SizedBox(height: AppSpacing.xl2),

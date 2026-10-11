@@ -15,6 +15,7 @@ class CreateOrderBody extends StatelessWidget {
     required this.noteController,
     required this.itemNameController,
     required this.itemDescriptionController,
+    required this.itemWeightController,
     required this.itemCategory,
     required this.cargoImage,
     required this.requiredText,
@@ -33,6 +34,7 @@ class CreateOrderBody extends StatelessWidget {
   final TextEditingController noteController;
   final TextEditingController itemNameController;
   final TextEditingController itemDescriptionController;
+  final TextEditingController itemWeightController;
   final String itemCategory;
   final XFile? cargoImage;
   final String? Function(String?) Function(String message) requiredText;
@@ -84,6 +86,7 @@ class CreateOrderBody extends StatelessWidget {
                     CreateOrderCargoSection(
                       itemNameController: itemNameController,
                       itemDescriptionController: itemDescriptionController,
+                      itemWeightController: itemWeightController,
                       itemCategory: itemCategory,
                       requiredText: requiredText,
                       onCategoryChanged: onCategoryChanged,

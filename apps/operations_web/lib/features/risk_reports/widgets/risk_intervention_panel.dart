@@ -80,13 +80,15 @@ class _RiskInterventionPanelState extends State<RiskInterventionPanel> {
                 : RiskReportStrings.supportOperation,
             style: AppTextStyles.headingSmall,
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            RiskReportStrings.verifyBeforeDecision,
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.textSecondary,
+          if (widget.showInternalNotes) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              RiskReportStrings.verifyBeforeDecision,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
-          ),
+          ],
           const SizedBox(height: AppSpacing.md),
           ..._operationalActions(context),
           if (widget.showInternalNotes) ...[
@@ -104,6 +106,11 @@ class _RiskInterventionPanelState extends State<RiskInterventionPanel> {
 
   List<Widget> _operationalActions(BuildContext context) {
     final intervention = widget.intervention;
+    if (widget.report.requestsCargoCancellation &&
+        widget.report.order.hasPickedUp &&
+        intervention.state == RiskInterventionState.awaitingTriage) {
+      return [const _InfoText(RiskReportStrings.cargoAcceptedResponsibility)];
+    }
     if (!widget.canManage) {
       return [
         _InfoText(
@@ -118,6 +125,13 @@ class _RiskInterventionPanelState extends State<RiskInterventionPanel> {
     }
     if (intervention.state == RiskInterventionState.awaitingTriage) {
       if (_beforePickup) {
+        if (widget.report.requestsCargoCancellation) {
+          return [
+            const _InfoText(RiskReportStrings.cargoVerificationHint),
+            const SizedBox(height: AppSpacing.md),
+            _cancelDriverButton(),
+          ];
+        }
         return [
           _PanelButton(
             key: const Key('release-driver-button'),
@@ -131,36 +145,41 @@ class _RiskInterventionPanelState extends State<RiskInterventionPanel> {
                 ? _confirmHoldBeforePickup
                 : _confirmCancelDriver,
           ),
-          const SizedBox(height: AppSpacing.sm),
-          const _InfoText(RiskReportStrings.releaseDriverExplanation),
+          if (widget.showInternalNotes) ...[
+            const SizedBox(height: AppSpacing.sm),
+            const _InfoText(RiskReportStrings.releaseDriverExplanation),
+          ],
         ];
       }
       if (widget.orderStatus == 'picking_up' ||
           widget.orderStatus == 'delivering') {
         return [
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _PanelButton(
                 key: const Key('continue-delivery-button'),
                 label: 'Tiếp tục giao',
                 icon: Icons.play_arrow_rounded,
+                secondary: !widget.showInternalNotes,
                 onTap: _busy ? null : _confirmContinueDelivery,
               ),
+              const SizedBox(height: AppSpacing.sm),
               _PanelButton(
                 key: const Key('return-order-button'),
                 label: 'Hoàn hàng',
                 icon: Icons.keyboard_return_rounded,
-                secondary: true,
+                secondary: widget.showInternalNotes,
                 onTap: _busy ? null : _requestReturn,
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-          const _InfoText(
-            'Tài xế vẫn bận đến khi hoàn trả hoặc bàn giao hàng xong.',
-          ),
+          if (widget.showInternalNotes) ...[
+            const SizedBox(height: AppSpacing.sm),
+            const _InfoText(
+              'Tài xế vẫn bận đến khi hoàn trả hoặc bàn giao hàng xong.',
+            ),
+          ],
         ];
       }
       return [

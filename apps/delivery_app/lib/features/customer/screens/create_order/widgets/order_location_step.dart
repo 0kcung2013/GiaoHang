@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
 import '../../../../../core/services/osrm_service.dart';
+import '../../../../../core/utils/delivery_eta_calculator.dart';
 import '../../../../../core/widgets/delivery_map_markers.dart';
 import 'order_location_controls.dart';
 import 'traffic_aware_order_route_layer.dart';
@@ -20,6 +21,9 @@ class OrderLocationStep extends StatefulWidget {
     required this.onPickPickup,
     required this.onPickDelivery,
     required this.onContinue,
+    required this.quotedAt,
+    this.osrm,
+    this.tileProvider,
     this.sampleRoutes,
   });
 
@@ -30,7 +34,10 @@ class OrderLocationStep extends StatefulWidget {
   final String deliveryAddress;
   final VoidCallback onPickPickup;
   final VoidCallback onPickDelivery;
-  final VoidCallback onContinue;
+  final ValueChanged<OsrmRouteResult?> onContinue;
+  final DateTime quotedAt;
+  final OsrmService? osrm;
+  final TileProvider? tileProvider;
   final Widget? sampleRoutes;
 
   @override
@@ -39,6 +46,7 @@ class OrderLocationStep extends StatefulWidget {
 
 class _OrderLocationStepState extends State<OrderLocationStep> {
   final MapController _mapController = MapController();
+  final GlobalKey _controlsKey = GlobalKey();
   List<LatLng>? _route;
   OsrmRouteResult? _routeData;
   var _isLoadingRoute = false;
@@ -50,6 +58,12 @@ class _OrderLocationStepState extends State<OrderLocationStep> {
   void initState() {
     super.initState();
     _refreshRoute();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _focusPoints();
   }
 
   @override
@@ -78,7 +92,7 @@ class _OrderLocationStepState extends State<OrderLocationStep> {
       _isLoadingRoute = true;
     });
     _focusPoints();
-    final route = await OsrmService().getRouteWithWaypoints(
+    final route = await (widget.osrm ?? OsrmService()).getRouteWithWaypoints(
       waypoints: [widget.pickup!, widget.delivery!],
     );
     if (!mounted || requestId != _requestId) return;
@@ -87,21 +101,36 @@ class _OrderLocationStepState extends State<OrderLocationStep> {
       _routeData = route;
       _isLoadingRoute = false;
     });
+    _focusPoints();
   }
 
   void _focusPoints() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final points = [
+        ..._visibleRoute,
         if (widget.pickup != null) widget.pickup!,
         if (widget.delivery != null) widget.delivery!,
       ];
+      final safePadding = MediaQuery.paddingOf(context);
+      final controlsBox = _controlsKey.currentContext?.findRenderObject();
+      final controlsHeight = controlsBox is RenderBox && controlsBox.hasSize
+          ? controlsBox.size.height
+          : 244.0;
       try {
         if (points.length >= 2) {
           _mapController.fitCamera(
             CameraFit.coordinates(
               coordinates: points,
-              padding: const EdgeInsets.fromLTRB(40, 124, 40, 260),
+              padding: EdgeInsets.fromLTRB(
+                40,
+                safePadding.top + 124,
+                40,
+                controlsHeight +
+                    safePadding.bottom +
+                    AppSpacing.xl +
+                    AppSpacing.sm,
+              ),
               maxZoom: 16,
             ),
           );
@@ -124,6 +153,21 @@ class _OrderLocationStepState extends State<OrderLocationStep> {
         if (widget.delivery != null) widget.delivery!,
       ];
 
+  DeliveryEtaEstimate? get _eta {
+    final route = _routeData;
+    if (route == null || !_hasRoutePoints) return null;
+    return DeliveryEtaCalculator.calculate(
+      distanceMeters: route.distanceMeters,
+      routeDurationSeconds: route.durationSeconds,
+      routePoints: route.points,
+      pickupLat: widget.pickup!.latitude,
+      pickupLng: widget.pickup!.longitude,
+      deliveryLat: widget.delivery!.latitude,
+      deliveryLng: widget.delivery!.longitude,
+      quotedAt: widget.quotedAt,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final route = _visibleRoute;
@@ -137,15 +181,26 @@ class _OrderLocationStepState extends State<OrderLocationStep> {
           ),
           children: [
             TileLayer(
+              tileProvider: widget.tileProvider,
               urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.datn.giaohang',
               subdomains: const ['a', 'b', 'c'],
               maxNativeZoom: 19,
             ),
-            if (route.length >= 2)
+            if (route.length >= 2 && _routeData != null)
               TrafficAwareOrderRouteLayer(
                 routePoints: route,
-                quotedAt: DateTime.now(),
+                quotedAt: widget.quotedAt,
+              ),
+            if (route.length >= 2 && _routeData == null)
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: route,
+                    color: AppColors.routeLine,
+                    strokeWidth: 4,
+                  ),
+                ],
               ),
             MarkerLayer(
               markers: [
@@ -191,15 +246,19 @@ class _OrderLocationStepState extends State<OrderLocationStep> {
           child: SafeArea(
             top: false,
             child: OrderLocationControlSheet(
+              key: _controlsKey,
               pickupAddress: widget.pickupAddress,
               deliveryAddress: widget.deliveryAddress,
               pickupSelected: widget.pickup != null,
               deliverySelected: widget.delivery != null,
               route: _routeData,
+              eta: _eta,
               isLoadingRoute: _isLoadingRoute,
               onPickPickup: widget.onPickPickup,
               onPickDelivery: widget.onPickDelivery,
-              onContinue: _hasRoutePoints ? widget.onContinue : null,
+              onContinue: _hasRoutePoints && !_isLoadingRoute
+                  ? () => widget.onContinue(_routeData)
+                  : null,
               sampleRoutes: widget.sampleRoutes,
             ),
           ),

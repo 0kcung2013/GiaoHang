@@ -10,6 +10,7 @@ class SupportChatMessages extends StatelessWidget {
     required this.scrollController,
     this.pendingBody,
     this.guidance,
+    this.welcomeText,
     super.key,
   });
 
@@ -18,13 +19,17 @@ class SupportChatMessages extends StatelessWidget {
   final ScrollController scrollController;
   final String? pendingBody;
   final String? guidance;
+  final String? welcomeText;
 
   @override
   Widget build(BuildContext context) {
     final source = messages;
+    // INSERT Realtime có thể lặp bản ghi đã có trong snapshot. Giữ riêng
+    // các tin khác ID, kể cả khi người dùng cố ý gửi cùng nội dung.
     final items = source == null
         ? null
-        : ([...source]..sort((a, b) => a.createdAt.compareTo(b.createdAt)));
+        : ({for (final message in source) message.id: message}.values.toList()
+            ..sort((a, b) => a.createdAt.compareTo(b.createdAt)));
     if (items == null) {
       return ListView(
         controller: scrollController,
@@ -50,7 +55,7 @@ class SupportChatMessages extends StatelessWidget {
         AppSpacing.xl2,
       ),
       children: [
-        const _WelcomeMessage(),
+        _WelcomeMessage(text: welcomeText),
         if (guidance != null)
           Padding(
             padding: const EdgeInsets.only(top: AppSpacing.md),
@@ -62,7 +67,8 @@ class SupportChatMessages extends StatelessWidget {
             _DateDivider(date: items[index].createdAt),
           _MessageBubble(
             message: items[index],
-            mine: items[index].senderId == requesterId,
+            mine:
+                !items[index].isSystem && items[index].senderId == requesterId,
           ),
           if (index < items.length - 1) const SizedBox(height: AppSpacing.sm),
         ],
@@ -85,7 +91,9 @@ class SupportChatMessages extends StatelessWidget {
 }
 
 class _WelcomeMessage extends StatelessWidget {
-  const _WelcomeMessage();
+  const _WelcomeMessage({this.text});
+
+  final String? text;
 
   @override
   Widget build(BuildContext context) {
@@ -110,8 +118,9 @@ class _WelcomeMessage extends StatelessWidget {
                 border: Border.all(color: AppColors.border),
               ),
               child: Text(
-                'GiaoHang đang ở đây để hỗ trợ. Bạn hãy mô tả vấn đề, '
-                'CSKH sẽ phản hồi ngay trong cuộc trò chuyện.',
+                text ??
+                    'GiaoHang đang ở đây để hỗ trợ. Bạn hãy mô tả vấn đề, '
+                        'CSKH sẽ phản hồi ngay trong cuộc trò chuyện.',
                 style: AppTextStyles.bodyMedium.copyWith(
                   color: AppColors.textPrimary,
                 ),
@@ -133,7 +142,9 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = mine
+    final label = message.isSystem
+        ? DriverMonitoringStrings.systemAuthor
+        : mine
         ? 'Bạn'
         : (message.senderName?.trim().isNotEmpty ?? false)
         ? message.senderName!

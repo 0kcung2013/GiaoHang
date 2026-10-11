@@ -4,6 +4,8 @@ import 'package:latlong2/latlong.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
+import '../../../../../core/models/delivery_eta_route_profile.dart';
+import '../../../../../core/widgets/delivery_traffic_map_layer.dart';
 import '../../../../../core/utils/delivery_map_utils.dart';
 import '../../../../../core/widgets/delivery_map_markers.dart';
 import '../utils/driver_navigation_motion.dart';
@@ -17,6 +19,8 @@ class DriverNavigationMap extends StatefulWidget {
     required this.center,
     required this.routePoints,
     required this.driverPosition,
+    this.speedProfile,
+    this.speedKmh,
   });
 
   final MapController mapController;
@@ -24,6 +28,8 @@ class DriverNavigationMap extends StatefulWidget {
   final LatLng center;
   final List<LatLng>? routePoints;
   final LatLng? driverPosition;
+  final DeliveryEtaRouteProfile? speedProfile;
+  final double? speedKmh;
 
   static Polyline activeRoutePolyline(List<LatLng> points) {
     return Polyline(points: points, color: AppColors.routeLine, strokeWidth: 7);
@@ -179,7 +185,14 @@ class _DriverNavigationMapState extends State<DriverNavigationMap>
               subdomains: const ['a', 'b', 'c'],
               maxNativeZoom: 19,
             ),
-            if (_remainingRoute != null && _remainingRoute!.length >= 2)
+            if (widget.speedProfile != null)
+              DeliveryTrafficRouteLayer(
+                segments: widget.speedProfile!.remainingSegments(
+                  _displayedDriverPosition,
+                ),
+                strokeWidth: 7,
+              )
+            else if (_remainingRoute != null && _remainingRoute!.length >= 2)
               PolylineLayer(
                 polylines: [
                   DriverNavigationMap.activeRoutePolyline(_remainingRoute!),
@@ -194,6 +207,11 @@ class _DriverNavigationMapState extends State<DriverNavigationMap>
                   DeliveryMapMarkers.navigationDriver(
                     _snapToRoute(_displayedDriverPosition)!,
                     bearingDegrees: _driverBearing,
+                  ),
+                if (_displayedDriverPosition != null && widget.speedKmh != null)
+                  DeliveryMapMarkers.speed(
+                    _displayedDriverPosition!,
+                    widget.speedKmh!,
                   ),
               ],
             ),

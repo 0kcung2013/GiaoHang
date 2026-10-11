@@ -6,9 +6,11 @@ import '../../../core/models/order_model.dart';
 import '../../driver/cancellation/driver_cancellation_strings.dart';
 import '../../returns/data/order_return_repository.dart';
 import '../../returns/driver_return_navigation_screen.dart';
+import '../../returns/models/return_redelivery_result.dart';
 import '../../returns/widgets/driver_return_mission_card.dart';
 import '../data/risk_intervention_repository.dart';
 import 'driver_risk_instruction_card.dart';
+import 'driver_pending_incident_region.dart';
 
 class DriverRiskInstructionRegion extends StatefulWidget {
   const DriverRiskInstructionRegion({
@@ -19,6 +21,7 @@ class DriverRiskInstructionRegion extends StatefulWidget {
     this.pickupConfirmed = false,
     this.onDriverReleased,
     this.orderReturnRepository,
+    this.onReturnCancelled,
     super.key,
   }) : assert(order != null || orderId != null);
 
@@ -28,6 +31,7 @@ class DriverRiskInstructionRegion extends StatefulWidget {
   final Future<void> Function()? onDriverReleased;
   final RiskInterventionRepository repository;
   final OrderReturnRepository? orderReturnRepository;
+  final ValueChanged<ReturnRedeliveryResult>? onReturnCancelled;
   final Widget Function(BuildContext context, bool blocksDelivery) builder;
 
   @override
@@ -75,9 +79,18 @@ class _RegionState extends State<DriverRiskInstructionRegion> {
         RiskInterventionState.released,
       ].contains(intervention.state);
 
+  void _handleReturnCancelled(ReturnRedeliveryResult result) {
+    if (!mounted) return;
+    // RPC đã xác nhận giao lại; đọc mới can thiệp thay vì giữ snapshot cũ
+    // đang khóa thanh gạt trong lúc Realtime chưa kịp gửi trạng thái mới.
+    setState(() => _stream = widget.repository.watchForOrder(_orderId));
+    widget.onReturnCancelled?.call(result);
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<RiskIntervention?>(
+      key: ValueKey(_stream),
       stream: _stream,
       builder: (context, snapshot) {
         final intervention = snapshot.data;
@@ -120,11 +133,14 @@ class _RegionState extends State<DriverRiskInstructionRegion> {
                 ),
                 child: _ReturnMissionRegion(
                   order: widget.order!,
+                  onReturnCancelled: _handleReturnCancelled,
                   repository:
                       widget.orderReturnRepository ?? _createReturnRepository(),
                 ),
               )
-            else if (intervention != null)
+            else if (intervention != null &&
+                !(_beforePickup &&
+                    intervention.state == RiskInterventionState.awaitingTriage))
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.lg,
@@ -138,10 +154,21 @@ class _RegionState extends State<DriverRiskInstructionRegion> {
                       .confirmCustodyResolved(intervention.riskReportId),
                 ),
               ),
-            widget.builder(
-              context,
-              riskInterventionBlocksDelivery(intervention),
-            ),
+            if (widget.order == null)
+              widget.builder(
+                context,
+                riskInterventionBlocksDelivery(intervention),
+              )
+            else
+              DriverPendingIncidentRegion(
+                order: widget.order!,
+                pickupConfirmed: widget.pickupConfirmed,
+                intervention: intervention,
+                builder: (context, pending) => widget.builder(
+                  context,
+                  pending || riskInterventionBlocksDelivery(intervention),
+                ),
+              ),
           ],
         );
       },
@@ -158,10 +185,15 @@ class _RegionState extends State<DriverRiskInstructionRegion> {
 }
 
 class _ReturnMissionRegion extends StatelessWidget {
-  const _ReturnMissionRegion({required this.order, this.repository});
+  const _ReturnMissionRegion({
+    required this.order,
+    this.repository,
+    this.onReturnCancelled,
+  });
 
   final OrderModel order;
   final OrderReturnRepository? repository;
+  final ValueChanged<ReturnRedeliveryResult>? onReturnCancelled;
 
   @override
   Widget build(BuildContext context) {
@@ -173,19 +205,27 @@ class _ReturnMissionRegion extends StatelessWidget {
       stream: source.watchForOrder(order.id),
       builder: (context, snapshot) {
         final mission = snapshot.data;
+        if (mission?.status == OrderReturnStatus.cancelled) {
+          return const SizedBox.shrink();
+        }
         return DriverReturnMissionCard(
           mission: mission,
           onOpen: mission == null
               ? null
-              : () => Navigator.of(context).push<bool>(
-                  MaterialPageRoute(
-                    builder: (_) => DriverReturnNavigationScreen(
-                      order: order,
-                      mission: mission,
-                      repository: source,
+              : () async {
+                  final result = await Navigator.of(context).push<Object?>(
+                    MaterialPageRoute(
+                      builder: (_) => DriverReturnNavigationScreen(
+                        order: order,
+                        mission: mission,
+                        repository: source,
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                  if (result is ReturnRedeliveryResult) {
+                    onReturnCancelled?.call(result);
+                  }
+                },
         );
       },
     );

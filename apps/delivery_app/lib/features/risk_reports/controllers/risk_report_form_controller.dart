@@ -3,6 +3,7 @@ import 'package:giaohang_domain/giaohang_domain.dart';
 
 import '../data/risk_report_repository.dart';
 import '../utils/risk_report_strings.dart';
+import '../utils/risk_recipient_return_request.dart';
 import '../../driver/screens/navigation/utils/driver_delivery_arrival_strings.dart';
 
 class RiskReportFormState {
@@ -114,6 +115,8 @@ class RiskReportFormController extends ChangeNotifier {
     double? initialLongitude,
     this.requireLocation = false,
     this.requireRecipientEvidence = false,
+    this.requireCargoEvidence = false,
+    this.allowedCategories,
     this.canReportRecipient,
   }) : _repository = repository,
        _state = initialLatitude != null && initialLongitude != null
@@ -128,9 +131,32 @@ class RiskReportFormController extends ChangeNotifier {
   final ParticipantRiskReportRepository _repository;
   final bool requireLocation;
   final bool requireRecipientEvidence;
+  final bool requireCargoEvidence;
+  final Set<RiskCategory>? allowedCategories;
+  bool get requestsCargoCancellation =>
+      requireCargoEvidence && _state.category == RiskCategory.cargoIssue;
+  bool get needsPhotoEvidence => needsCallEvidence || requestsCargoCancellation;
+  String get photoRequiredError => requestsCargoCancellation
+      ? RiskReportStrings.cargoPhotoRequired
+      : DriverDeliveryArrivalStrings.evidenceRequired;
   final Future<bool> Function()? canReportRecipient;
   bool get needsCallEvidence =>
       requireRecipientEvidence && _state.category == RiskCategory.contactIssue;
+  bool get requestsRecipientReturn => needsCallEvidence;
+  int get descriptionLimit => requestsRecipientReturn
+      ? RiskRecipientReturnRequest.descriptionLimit
+      : RiskRecipientReturnRequest.maximumDescriptionLength;
+
+  String? get _descriptionError {
+    if (_state.description.trim().length < 10) {
+      return 'Mô tả cần có ít nhất 10 ký tự.';
+    }
+    if (_state.description.length > descriptionLimit) {
+      return 'Mô tả tối đa $descriptionLimit ký tự.';
+    }
+    return null;
+  }
+
   RiskReportFormState _state;
   Future<RiskReportSubmissionResult?>? _inFlight;
 
@@ -180,23 +206,21 @@ class RiskReportFormController extends ChangeNotifier {
       return false;
     }
     if (_state.step == 1) {
-      final descriptionValid = _state.description.trim().length >= 10;
+      final descriptionValid = _descriptionError == null;
       final photosValid =
           _state.photos.length <= 5 &&
-          (!needsCallEvidence || _state.photos.isNotEmpty);
+          (!needsPhotoEvidence || _state.photos.isNotEmpty);
       final locationValid =
           !requireLocation ||
           (_state.latitude != null && _state.longitude != null);
       if (!descriptionValid || !photosValid || !locationValid) {
         _update(
           _state.copyWith(
-            descriptionError: descriptionValid
-                ? null
-                : 'Mô tả cần có ít nhất 10 ký tự.',
+            descriptionError: _descriptionError,
             photoError: photosValid
                 ? null
                 : _state.photos.isEmpty
-                ? DriverDeliveryArrivalStrings.evidenceRequired
+                ? photoRequiredError
                 : 'Bạn chỉ có thể chọn tối đa 5 ảnh.',
             locationError: locationValid
                 ? null
@@ -230,22 +254,29 @@ class RiskReportFormController extends ChangeNotifier {
 
   Future<RiskReportSubmissionResult?> _submitOnce() async {
     final category = _state.category;
+    if (category != null &&
+        allowedCategories != null &&
+        !allowedCategories!.contains(category)) {
+      _update(
+        _state.copyWith(categoryError: RiskReportStrings.reasonUnavailable),
+      );
+      return null;
+    }
     final locationValid =
         !requireLocation ||
         (_state.latitude != null && _state.longitude != null);
     final photosValid =
         _state.photos.length <= 5 &&
-        (!needsCallEvidence || _state.photos.isNotEmpty);
+        (!needsPhotoEvidence || _state.photos.isNotEmpty);
     if (category == null ||
-        _state.description.trim().length < 10 ||
+        _descriptionError != null ||
         !locationValid ||
         !photosValid) {
       _update(
         _state.copyWith(
           categoryError: category == null ? 'Vui lòng chọn loại sự cố.' : null,
-          descriptionError: _state.description.trim().length < 10
-              ? 'Mô tả cần có ít nhất 10 ký tự.'
-              : null,
+          descriptionError: _descriptionError,
+          clearDescriptionError: _descriptionError == null,
           locationError: locationValid
               ? null
               : RiskReportStrings.locationRequired,
@@ -253,7 +284,7 @@ class RiskReportFormController extends ChangeNotifier {
           photoError: photosValid
               ? null
               : _state.photos.isEmpty
-              ? DriverDeliveryArrivalStrings.evidenceRequired
+              ? photoRequiredError
               : 'Bạn chỉ có thể chọn tối đa 5 ảnh.',
           clearPhotoError: photosValid,
         ),
@@ -274,7 +305,9 @@ class RiskReportFormController extends ChangeNotifier {
         ParticipantRiskReportDraft(
           orderId: orderId,
           category: category,
-          description: _state.description,
+          description: requestsRecipientReturn
+              ? RiskRecipientReturnRequest.describe(_state.description)
+              : _state.description,
           photos: _state.photos,
           latitude: _state.latitude,
           longitude: _state.longitude,

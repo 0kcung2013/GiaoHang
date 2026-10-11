@@ -1,4 +1,8 @@
 import 'order_finance.dart';
+import 'order_route_distance.dart';
+import 'traffic_demo_clock.dart';
+import 'package:giaohang_domain/giaohang_domain.dart'
+    show parseCargoWeightKg, DriverMonitoring;
 
 class OrderModel {
   const OrderModel({
@@ -32,6 +36,7 @@ class OrderModel {
     this.itemCategory,
     this.itemDescription,
     this.itemImageUrl,
+    this.itemWeightKg,
     required this.deliveryFee,
     required this.serviceType,
     required this.paymentMethod,
@@ -53,6 +58,10 @@ class OrderModel {
     this.pickupRoadQuotedAt,
     this.pickupRoadOriginLat,
     this.pickupRoadOriginLng,
+    this.routeDistance,
+    this.driverMonitoring,
+    this.trafficDemoKey,
+    this.deliveryEtaData,
   });
 
   final String id;
@@ -85,6 +94,7 @@ class OrderModel {
   final String? itemCategory;
   final String? itemDescription;
   final String? itemImageUrl;
+  final double? itemWeightKg;
   final double deliveryFee;
   final String serviceType;
   final String paymentMethod;
@@ -108,6 +118,17 @@ class OrderModel {
   final DateTime? pickupRoadQuotedAt;
   final double? pickupRoadOriginLat;
   final double? pickupRoadOriginLng;
+
+  /// Read-only distances from the existing fixed delivery_eta snapshot.
+  /// This is not serialized into order writes.
+  final OrderRouteDistance? routeDistance;
+
+  /// Trạng thái chỉ đọc; không gửi vào payload tạo/sửa đơn.
+  final DriverMonitoring? driverMonitoring;
+  final String? trafficDemoKey;
+
+  /// Read-only backend forecast; never included in order submission writes.
+  final Map<String, dynamic>? deliveryEtaData;
 
   /// The backend snapshot opts new, fully paid goods into the deposit policy.
   /// Legacy prepaid orders with zero advance stay on their original contract.
@@ -152,6 +173,7 @@ class OrderModel {
       itemCategory: json['item_category']?.toString(),
       itemDescription: json['item_description']?.toString(),
       itemImageUrl: json['item_image_url']?.toString(),
+      itemWeightKg: parseCargoWeightKg(json['item_weight_kg']),
       deliveryFee: _parseDouble(json['delivery_fee']) ?? 0,
       serviceType: json['service_type']?.toString() ?? 'standard',
       paymentMethod: json['payment_method']?.toString() ?? 'cash',
@@ -178,6 +200,17 @@ class OrderModel {
       pickupRoadQuotedAt: _parseDateTime(json['pickup_road_quoted_at']),
       pickupRoadOriginLat: _parseDouble(json['pickup_road_origin_lat']),
       pickupRoadOriginLng: _parseDouble(json['pickup_road_origin_lng']),
+      routeDistance: OrderRouteDistance.fromFixedEta(
+        json['delivery_eta'],
+        json['driver_id']?.toString(),
+      ),
+      driverMonitoring: DriverMonitoring.fromJson(json['driver_monitoring']),
+      trafficDemoKey: TrafficDemoClock.validKey(
+        json['traffic_demo_key']?.toString(),
+      ),
+      deliveryEtaData: json['delivery_eta'] is Map
+          ? Map<String, dynamic>.from(json['delivery_eta'] as Map)
+          : null,
     );
   }
 
@@ -235,6 +268,7 @@ class OrderModel {
       'item_category': itemCategory,
       'item_description': itemDescription,
       'item_image_url': itemImageUrl,
+      if (itemWeightKg != null) 'item_weight_kg': itemWeightKg,
       'delivery_fee': deliveryFee,
       'service_type': serviceType,
       'payment_method': paymentMethod,
@@ -304,6 +338,7 @@ class OrderModel {
     String? itemCategory,
     String? itemDescription,
     String? itemImageUrl,
+    double? itemWeightKg,
     double? deliveryFee,
     String? serviceType,
     String? paymentMethod,
@@ -325,12 +360,22 @@ class OrderModel {
     DateTime? pickupRoadQuotedAt,
     double? pickupRoadOriginLat,
     double? pickupRoadOriginLng,
+    OrderRouteDistance? routeDistance,
+    String? trafficDemoKey,
+    Map<String, dynamic>? deliveryEtaData,
   }) {
     return OrderModel(
       id: id ?? this.id,
       customerId: customerId ?? this.customerId,
       driverId: driverId ?? this.driverId,
+      trafficDemoKey: trafficDemoKey ?? this.trafficDemoKey,
+      deliveryEtaData: driverId == null || driverId == this.driverId
+          ? deliveryEtaData ?? this.deliveryEtaData
+          : null,
       status: status ?? this.status,
+      driverMonitoring: driverId == null || driverId == this.driverId
+          ? driverMonitoring
+          : null,
       pickupAddress: pickupAddress ?? this.pickupAddress,
       pickupLat: pickupLat ?? this.pickupLat,
       pickupLng: pickupLng ?? this.pickupLng,
@@ -357,6 +402,7 @@ class OrderModel {
       itemCategory: itemCategory ?? this.itemCategory,
       itemDescription: itemDescription ?? this.itemDescription,
       itemImageUrl: itemImageUrl ?? this.itemImageUrl,
+      itemWeightKg: itemWeightKg ?? this.itemWeightKg,
       deliveryFee: deliveryFee ?? this.deliveryFee,
       serviceType: serviceType ?? this.serviceType,
       paymentMethod: paymentMethod ?? this.paymentMethod,
@@ -380,6 +426,15 @@ class OrderModel {
       pickupRoadQuotedAt: pickupRoadQuotedAt ?? this.pickupRoadQuotedAt,
       pickupRoadOriginLat: pickupRoadOriginLat ?? this.pickupRoadOriginLat,
       pickupRoadOriginLng: pickupRoadOriginLng ?? this.pickupRoadOriginLng,
+      routeDistance:
+          routeDistance ??
+          ((driverId == null || driverId == this.driverId) &&
+                  (pickupLat == null || pickupLat == this.pickupLat) &&
+                  (pickupLng == null || pickupLng == this.pickupLng) &&
+                  (deliveryLat == null || deliveryLat == this.deliveryLat) &&
+                  (deliveryLng == null || deliveryLng == this.deliveryLng)
+              ? this.routeDistance
+              : null),
     );
   }
 

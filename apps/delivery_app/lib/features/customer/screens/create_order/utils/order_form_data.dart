@@ -25,6 +25,7 @@ class OrderFormData {
   final String itemName;
   final String itemCategory;
   final String itemDescription;
+  final double? itemWeightKg;
   final XFile? cargoImage;
   final String paymentMethod;
   final DeliveryFeePayer deliveryFeePayer;
@@ -37,6 +38,7 @@ class OrderFormData {
   final String distanceSource;
   final DeliveryFeeBreakdown feeBreakdown;
   final DeliveryEtaEstimate deliveryEta;
+  final String? trafficDemoKey;
 
   const OrderFormData({
     required this.pickupAddress,
@@ -59,6 +61,7 @@ class OrderFormData {
     required this.itemName,
     required this.itemCategory,
     required this.itemDescription,
+    this.itemWeightKg,
     required this.cargoImage,
     required this.paymentMethod,
     required this.deliveryFeePayer,
@@ -71,6 +74,7 @@ class OrderFormData {
     this.distanceSource = 'haversine',
     required this.feeBreakdown,
     required this.deliveryEta,
+    this.trafficDemoKey,
   });
 
   double get distanceKm => distanceMeters / 1000;

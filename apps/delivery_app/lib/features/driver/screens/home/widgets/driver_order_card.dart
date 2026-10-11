@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
@@ -15,7 +16,6 @@ import '../../navigation/driver_navigation_screen.dart';
 import '../../navigation/driver_accepted_order_screen.dart';
 import '../../navigation/widgets/driver_order_cancellation_guard.dart';
 import '../utils/driver_home_formatters.dart';
-import '../utils/driver_order_distance.dart';
 import '../driver_home_strings.dart';
 import 'driver_order_card_components.dart';
 import 'driver_order_distance_summary.dart';
@@ -25,6 +25,13 @@ import 'driver_offer_expiry_builder.dart';
 import '../../../cancellation/driver_cancellation_providers.dart';
 import '../../../cancellation/driver_cancellation_strings.dart';
 import '../../../cancellation/widgets/driver_cancel_order_action.dart';
+import '../../../offer_transfer/dialogs/confirm_order_transfer_sheet.dart';
+import '../../../offer_transfer/driver_offer_transfer_strings.dart';
+import '../../../offer_transfer/models/driver_offer_transfer_state.dart';
+import '../../../offer_transfer/widgets/driver_transfer_limit_hint.dart';
+import '../../../offer_transfer/utils/refresh_transfer_acceptance.dart';
+import '../../../monitoring/widgets/driver_monitoring_panel.dart';
+import '../../../monitoring/driver_monitoring_gps_recovery.dart';
 
 /// Card đơn hàng dùng chung cho Tổng quan và danh sách đơn của tài xế.
 ///
@@ -35,13 +42,13 @@ class DriverOrderCard extends ConsumerStatefulWidget {
     super.key,
     required this.order,
     this.acceptDriverId,
-    this.pickupDistanceMeters,
+    this.driverPosition,
     this.showCancelAction = false,
   });
 
   final OrderModel order;
   final String? acceptDriverId;
-  final double? pickupDistanceMeters;
+  final LatLng? driverPosition;
   final bool showCancelAction;
 
   @override
@@ -51,13 +58,13 @@ class DriverOrderCard extends ConsumerStatefulWidget {
 class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
   bool _isAccepting = false;
   bool _isTransferring = false;
+  bool _isConfirmingTransfer = false;
+  bool get _offerActionBusy =>
+      _isAccepting || _isTransferring || _isConfirmingTransfer;
 
   Future<void> _acceptOrder() async {
     final driverId = widget.acceptDriverId;
-    if (_isAccepting ||
-        _isTransferring ||
-        driverId == null ||
-        driverId.isEmpty) {
+    if (_offerActionBusy || driverId == null || driverId.isEmpty) {
       return;
     }
     final acceptance = ref
@@ -111,69 +118,70 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
 
   Future<void> _transferOrder() async {
     final driverId = widget.acceptDriverId;
-    if (_isTransferring || driverId == null || driverId.isEmpty) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.bgCard,
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.xl),
-        title: Text(
-          'Chuyển đơn cho tài xế khác?',
-          style: AppTextStyles.headingSmall.copyWith(
-            color: AppColors.textPrimary,
-          ),
-        ),
-        content: Text(
-          'Hệ thống sẽ ưu tiên tài xế khác gần điểm lấy hàng. '
-          'Bạn sẽ không còn thấy đơn này.',
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.textSecondary,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(
-              'Huỷ',
-              style: AppTextStyles.labelMedium.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(
-              'Chuyển đơn',
-              style: AppTextStyles.labelMedium.copyWith(
-                color: AppColors.warning,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _isTransferring = true);
+    if (_offerActionBusy || driverId == null || driverId.isEmpty) {
+      return;
+    }
+    final acceptance = ref
+        .read(driverAcceptanceStateProvider(driverId))
+        .valueOrNull;
+    if (acceptance == null || acceptance.isLocked) return;
+    final container = ProviderScope.containerOf(context, listen: false);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isConfirmingTransfer = true);
     try {
+      final confirmed = await showConfirmOrderTransferSheet(
+        context,
+        transfers: acceptance.transfers,
+      );
+      if (!confirmed || !mounted) return;
+      if (!widget.order.isOfferedToDriverAt(driverId, acceptance.now())) {
+        container.invalidate(availableOrdersProvider(driverId));
+        _showSnackBar(DriverHomeStrings.offerExpiredAction, isError: true);
+        return;
+      }
+      setState(() {
+        _isConfirmingTransfer = false;
+        _isTransferring = true;
+      });
       final nextDriverId = await ref
           .read(customerOrderServiceProvider)
           .transferOrder(widget.order.id, driverId);
-      ref.invalidate(availableOrdersProvider(driverId));
-      ref.invalidate(driverOrdersProvider(driverId));
-      if (!mounted) return;
-      _showSnackBar(
-        nextDriverId?.isNotEmpty == true
-            ? 'Đã chuyển đơn cho tài xế gần hơn.'
-            : 'Đã chuyển đơn. Hiện chưa có tài xế khác phù hợp.',
-      );
+      container.invalidate(availableOrdersProvider(driverId));
+      container.invalidate(driverOrdersProvider(driverId));
+      final state = await refreshTransferAcceptance(container, driverId);
+      if (messenger.mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              state?.isLocked == true &&
+                      state?.lockReason == DriverOfferTransferState.lockReason
+                  ? DriverOfferTransferStrings.lockedMessage
+                  : nextDriverId?.isNotEmpty == true
+                  ? 'Đã chuyển đơn cho tài xế gần hơn.'
+                  : 'Đã chuyển đơn. Hiện chưa có tài xế khác phù hợp.',
+            ),
+            backgroundColor: state?.isLocked == true
+                ? AppColors.warning
+                : AppColors.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } catch (e) {
-      if (!mounted) return;
-      _showSnackBar(e.toString().replaceAll('Exception: ', ''), isError: true);
+      container.invalidate(driverAcceptanceStateProvider(driverId));
+      if (mounted) {
+        _showSnackBar(
+          e.toString().replaceAll('Exception: ', ''),
+          isError: true,
+        );
+      }
     } finally {
-      if (mounted) setState(() => _isTransferring = false);
+      if (mounted) {
+        setState(() {
+          _isConfirmingTransfer = false;
+          _isTransferring = false;
+        });
+      }
     }
   }
 
@@ -257,15 +265,11 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
         ? (requiredBalance - walletBalance).clamp(0, requiredBalance)
         : 0;
     final walletInsufficient = missingBalance > 0;
-    final totalDistance = totalOrderDistanceFromPickup(
-      order: order,
-      pickupDistanceMeters: widget.pickupDistanceMeters,
-    );
-
     if (order.status == 'pending' || order.status == 'confirmed') {
       return DriverAvailableOrderCard(
         order: order,
-        pickupDistanceMeters: widget.pickupDistanceMeters,
+        driverId: widget.acceptDriverId,
+        driverPosition: widget.driverPosition,
         now: acceptance?.now,
         actions: !canAccept
             ? null
@@ -289,11 +293,7 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                       icon: walletInsufficient
                           ? Icons.add_card_rounded
                           : Icons.check_circle_rounded,
-                      onTap:
-                          _isAccepting ||
-                              _isTransferring ||
-                              acceptanceBlocked ||
-                              expired
+                      onTap: _offerActionBusy || acceptanceBlocked || expired
                           ? null
                           : walletInsufficient
                           ? () => context.go('/driver-home?tab=earnings')
@@ -302,10 +302,12 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                     const SizedBox(height: AppSpacing.sm),
                     DriverTransferOrderButton(
                       isLoading: _isTransferring,
-                      onTap: _isAccepting || _isTransferring || expired
+                      onTap: _offerActionBusy || expired || acceptanceBlocked
                           ? null
                           : _transferOrder,
                     ),
+                    if (acceptance?.transfers != null && !acceptanceBlocked)
+                      DriverTransferLimitHint(state: acceptance!.transfers!),
                   ],
                 ),
               ),
@@ -395,8 +397,8 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     DriverOrderDistanceSummary(
-                      pickupDistanceMeters: widget.pickupDistanceMeters,
-                      totalDistanceMeters: totalDistance,
+                      order: order,
+                      driverPosition: widget.driverPosition,
                     ),
                     if (hasCargoInfo(order)) ...[
                       const SizedBox(height: AppSpacing.md),
@@ -428,6 +430,21 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                     ),
                     if (canContinueDelivery) ...[
                       const SizedBox(height: AppSpacing.lg),
+                      if (order.driverMonitoring != null &&
+                          order.driverId != null) ...[
+                        DriverMonitoringPanel(
+                          orderId: order.id,
+                          holdingGoods:
+                              order.actualPickedUpAt != null ||
+                              order.status == 'delivering',
+                          onRecover: () => recoverDriverOrderGps(
+                            ref,
+                            orderId: order.id,
+                            userId: order.driverId!,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                      ],
                       DriverContinueDeliveryButton(
                         status: order.status,
                         onTap: _openNavigation,

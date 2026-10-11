@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:giaohang_domain/giaohang_domain.dart' show formatCargoWeightKg;
 
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/utils/order_cargo_utils.dart';
+import '../../../../../core/utils/cargo_weight_strings.dart';
 import '../../../../../core/widgets/stored_media_image.dart';
 import '../../home/widgets/driver_order_offer_summary.dart';
 
@@ -85,6 +87,11 @@ class DriverOrderCargoDetails extends StatelessWidget {
                     ),
                   ),
                 ],
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '${CargoWeightStrings.declaredWeight}: ${formatCargoWeightKg(order.itemWeightKg)}',
+                  style: AppTextStyles.labelMedium,
+                ),
               ],
             ),
           ),

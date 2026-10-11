@@ -238,15 +238,19 @@ void main() {
       await tester.pump(const Duration(milliseconds: 200));
       expect(confirmed, 1);
       expect(delivered, 0);
-      await tester.tap(find.text('Giao hàng ngay'));
-      expect(delivered, 1);
+      expect(find.text('Giao hàng ngay'), findsNothing);
+      expect(delivered, 0);
       final waiting = DriverDeliveryArrival(
         arrivedAt: _now,
         serverNow: _now.add(const Duration(minutes: 9)),
         canReport: false,
       );
       await show(waiting, displayWait: const Duration(minutes: 11));
-      expect(find.text('Gạt đã giao'), findsOneWidget);
+      expect(find.text('Đã giao hàng'), findsOneWidget);
+      tester
+          .widget<DriverSwipeAction>(find.byType(DriverSwipeAction))
+          .onCompleted!();
+      expect(delivered, 1);
       await tester.tap(find.byKey(const Key('driver-report-recipient-action')));
       expect(
         reported,
@@ -318,7 +322,7 @@ void main() {
           );
           await tester.pump();
           expect(tester.takeException(), isNull);
-          expect(find.text('Gạt đã giao'), findsOneWidget);
+          expect(find.text('Đã giao hàng'), findsOneWidget);
           expect(find.text('Đang giao hàng'), findsOneWidget);
           expect(find.text('Chờ bắt đầu giao'), findsNothing);
           final bar = tester.getRect(find.byType(DriverNavigationArrivalBar));

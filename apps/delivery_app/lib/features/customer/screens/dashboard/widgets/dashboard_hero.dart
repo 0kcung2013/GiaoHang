@@ -6,6 +6,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/providers/customer_providers.dart';
+import '../../../../delivery_eta/widgets/order_eta_panel.dart';
 
 part 'dashboard_hero_components.dart';
 part 'dashboard_hero_utils.dart';
@@ -46,9 +47,6 @@ class _ActiveDeliveryHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final eta = _etaText(order);
-    final expectedTime = _expectedTime(order);
-
     return _HeroSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -76,29 +74,20 @@ class _ActiveDeliveryHero extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  eta ?? _statusTitle(order.status),
+                  _statusTitle(order.status),
                   style: AppTextStyles.displayLarge.copyWith(
                     color: AppColors.textPrimary,
-                    fontSize: eta == null ? 25 : 34,
+                    fontSize: 25,
                     height: 1.08,
                     letterSpacing: -0.7,
                   ),
                 ),
               ),
-              if (expectedTime != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 3),
-                  child: Text(
-                    'Dự kiến $expectedTime',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
+          OrderEtaPanel(order: order, showDetails: false),
+          const SizedBox(height: AppSpacing.lg),
           _RouteSummary(order: order),
           const SizedBox(height: AppSpacing.xl),
           _DeliveryProgress(status: order.status),
@@ -129,8 +118,6 @@ class _MultipleDeliveryHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final eta = _etaText(priorityOrder);
-
     return _HeroSurface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,15 +160,15 @@ class _MultipleDeliveryHero extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            eta == null
-                ? _statusTitle(priorityOrder.status)
-                : '$eta · ${_statusLabel(priorityOrder.status)}',
+            _statusTitle(priorityOrder.status),
             style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.textSecondary,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
+          OrderEtaPanel(order: priorityOrder, showDetails: false),
+          const SizedBox(height: AppSpacing.lg),
           _DeliveryProgress(status: priorityOrder.status),
           const SizedBox(height: AppSpacing.lg),
           _DriverSummary(

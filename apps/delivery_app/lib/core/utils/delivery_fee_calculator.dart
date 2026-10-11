@@ -53,33 +53,51 @@ class DeliveryFeeCalculator {
     OsrmService? osrm,
     DateTime? quotedAt,
   }) async {
-    final haversineM = GeoUtils.distanceMeters(
-      fromLat: pickupLat,
-      fromLng: pickupLng,
-      toLat: deliveryLat,
-      toLng: deliveryLng,
-    );
-
-    double meters = haversineM;
-    double? duration;
-    var source = 'haversine';
+    OsrmRouteResult? route;
 
     try {
-      final route = await (osrm ?? OsrmService()).getRoute(
+      route = await (osrm ?? OsrmService()).getRoute(
         startLat: pickupLat,
         startLng: pickupLng,
         endLat: deliveryLat,
         endLng: deliveryLng,
       );
-      if (route != null && route.distanceMeters > 0) {
-        meters = route.distanceMeters;
-        duration = route.durationSeconds;
-        source = 'osrm';
-      }
     } catch (_) {
       // giữ haversine
     }
 
+    return fromRoute(
+      route: route,
+      pickupLat: pickupLat,
+      pickupLng: pickupLng,
+      deliveryLat: deliveryLat,
+      deliveryLng: deliveryLng,
+      serviceType: serviceType,
+      quotedAt: quotedAt,
+    );
+  }
+
+  /// Reuse the exact OSRM route previewed on the map for fee and ETA.
+  static DeliveryFeeEstimate fromRoute({
+    required OsrmRouteResult? route,
+    required double pickupLat,
+    required double pickupLng,
+    required double deliveryLat,
+    required double deliveryLng,
+    required String serviceType,
+    DateTime? quotedAt,
+  }) {
+    final hasRoadRoute = route != null && route.distanceMeters > 0;
+    final meters = hasRoadRoute
+        ? route.distanceMeters
+        : GeoUtils.distanceMeters(
+            fromLat: pickupLat,
+            fromLng: pickupLng,
+            toLat: deliveryLat,
+            toLng: deliveryLng,
+          );
+    final duration = hasRoadRoute ? route.durationSeconds : null;
+    final source = hasRoadRoute ? 'osrm' : 'haversine';
     final feeBreakdown = DeliveryPricingPolicy.calculate(
       distanceMeters: meters,
     );
@@ -91,6 +109,7 @@ class DeliveryFeeCalculator {
       deliveryLat: deliveryLat,
       deliveryLng: deliveryLng,
       quotedAt: quotedAt,
+      routePoints: hasRoadRoute ? route.points : null,
     );
 
     return DeliveryFeeEstimate(

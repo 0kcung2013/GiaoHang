@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:giaohang_domain/giaohang_domain.dart' show formatCargoWeightKg;
 import '../../../../../core/utils/order_cargo_utils.dart';
+import '../../../../../core/utils/cargo_weight_strings.dart';
 import '../utils/order_form_data.dart';
 import 'confirmation_components.dart';
 import 'delivery_quote_card.dart';
@@ -334,6 +336,12 @@ class _CargoCard extends StatelessWidget {
             value: data.itemDescription,
           ),
         ],
+        const SizedBox(height: AppSpacing.md),
+        ConfirmationInfoRow(
+          icon: Icons.scale_rounded,
+          label: CargoWeightStrings.weight,
+          value: formatCargoWeightKg(data.itemWeightKg),
+        ),
         if (data.cargoImage != null) ...[
           const SizedBox(height: AppSpacing.md),
           ConfirmationInfoRow(

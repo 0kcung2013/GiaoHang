@@ -9,6 +9,43 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('driver arrival regression', () {
+    test('assigned orders unlock pickup arrival only within 100 meters', () {
+      const target = LatLng(10.0, 106.0);
+      const near = LatLng(10.0004, 106.0);
+      for (final source in [
+        DriverPositionSource.simulation,
+        DriverPositionSource.deviceGps,
+      ]) {
+        expect(
+          DriverArrivalPolicy.resolveArrival(
+            status: 'assigned',
+            current: near,
+            target: target,
+            source: source,
+          ),
+          near,
+        );
+        expect(
+          DriverArrivalPolicy.resolveArrival(
+            status: 'assigned',
+            current: const LatLng(10.002, 106.0),
+            target: target,
+            source: source,
+          ),
+          isNull,
+        );
+      }
+      expect(
+        DriverArrivalPolicy.resolveArrival(
+          status: 'assigned',
+          current: target,
+          target: target,
+          source: DriverPositionSource.targetFallback,
+        ),
+        isNull,
+      );
+    });
+
     test('a target fallback can never prove that the driver arrived', () {
       final arrival = DriverArrivalPolicy.resolveArrival(
         status: 'picking_up',
@@ -73,17 +110,6 @@ void main() {
       expect(
         DriverPositionSource.deviceGps.ingestCoordinateSpace,
         LocationIngestCoordinateSpace.rawGps,
-      );
-    });
-
-    test('navigation simulation runs at fifteen meters per second', () {
-      final source = File(
-        'lib/features/driver/screens/navigation/driver_navigation_screen.dart',
-      ).readAsStringSync();
-
-      expect(
-        source,
-        contains('static const double _simulationSpeedMetersPerSecond = 15.0;'),
       );
     });
 

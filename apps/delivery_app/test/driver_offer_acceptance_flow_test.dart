@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:delivery_app/core/models/order_model.dart';
+import 'package:delivery_app/core/models/order_route_distance.dart';
+import 'package:delivery_app/features/driver/screens/home/providers/driver_order_route_distance_provider.dart';
 import 'package:delivery_app/core/models/driver_wallet.dart';
 import 'package:delivery_app/core/providers/customer_providers.dart';
 import 'package:delivery_app/core/providers/driver_wallet_providers.dart';
@@ -231,6 +233,10 @@ Future<void> _pumpOffer(
           ),
         ),
         orderByIdProvider.overrideWith((ref, id) async => null),
+        driverOrderRouteDistanceProvider.overrideWith(
+          (ref, request) async =>
+              const OrderRouteDistance(pickupMeters: 500, deliveryMeters: 3500),
+        ),
       ],
       child: MaterialApp(
         builder: (context, child) => MediaQuery(

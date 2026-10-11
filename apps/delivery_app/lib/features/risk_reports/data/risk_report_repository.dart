@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../utils/risk_photo_processor.dart';
 import '../../driver/screens/navigation/utils/driver_delivery_arrival_strings.dart';
+import '../utils/risk_report_strings.dart';
 
 const _evidenceBucket = 'risk-report-evidence';
 const _requestTimeout = Duration(seconds: 20);
@@ -325,6 +326,8 @@ class SupabaseParticipantRiskReportRepository
     if (error is RiskReportRepositoryException) return error;
     if (error is PostgrestException) {
       for (final entry in {
+        'CARGO_REPORT_AFTER_PICKUP': RiskReportStrings.cargoAfterPickup,
+        'CARGO_PHOTO_REQUIRED': RiskReportStrings.cargoPhotoRequired,
         'DELIVERY_ARRIVAL_REQUIRED':
             DriverDeliveryArrivalStrings.arrivalRequired,
         'RECIPIENT_WAIT_REQUIRED': DriverDeliveryArrivalStrings.waitRequired,

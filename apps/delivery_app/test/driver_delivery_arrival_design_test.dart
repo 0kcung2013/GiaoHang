@@ -1,4 +1,5 @@
 import 'package:delivery_app/features/driver/screens/navigation/widgets/driver_delivery_wait_card.dart';
+import 'package:delivery_app/features/driver/screens/navigation/utils/driver_delivery_arrival_strings.dart';
 import 'package:delivery_app/features/risk_reports/widgets/risk_reason_step.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,14 +23,14 @@ void main() {
     );
     await show(const Duration(minutes: 9, seconds: 59));
     expect(find.text('Chờ thêm 0:01'), findsOneWidget);
-    await tester.tap(find.text('Không liên lạc được với khách'));
+    await tester.tap(find.text(DriverDeliveryArrivalStrings.reportRecipient));
     expect(calls, 0);
     await show(const Duration(minutes: 10));
-    await tester.tap(find.text('Không liên lạc được với khách'));
+    await tester.tap(find.text(DriverDeliveryArrivalStrings.reportRecipient));
     expect(calls, 1);
   });
 
-  testWidgets('compact driver reasons retain payment and other', (
+  testWidgets('driver reasons show only common pickup incidents', (
     tester,
   ) async {
     RiskCategory? chosen;
@@ -48,13 +49,10 @@ void main() {
       ),
     );
     expect(find.text('Vấn đề thanh toán'), findsNothing);
-    expect(find.text('Tai nạn / mất an toàn'), findsOneWidget);
-    await tester.tap(find.text('Thanh toán / sự cố khác'));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Vấn đề thanh toán'));
-    await tester.tap(find.text('Vấn đề thanh toán'));
-    expect(chosen, RiskCategory.payment);
-    expect(find.text('Vấn đề khác'), findsOneWidget);
+    expect(find.text('Hàng không đúng thông tin'), findsOneWidget);
+    expect(find.text('Không thể nhận hàng'), findsOneWidget);
+    await tester.tap(find.text('Sự cố khác'));
+    expect(chosen, RiskCategory.other);
   });
 
   testWidgets('waiting states fit short mobile with large text', (

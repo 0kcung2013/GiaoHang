@@ -5,18 +5,19 @@ import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
 import '../../../../../core/models/order_model.dart';
-import '../../../../order_help/widgets/order_help_progress_sheet.dart';
 import '../../../../risk_reports/data/participant_risk_report_query_repository.dart';
 import '../../../../risk_reports/data/risk_intervention_repository.dart';
 import '../../../../risk_reports/models/participant_risk_report_summary.dart';
+import '../../../../risk_reports/utils/risk_recipient_return_request.dart';
+import '../../../../risk_reports/widgets/risk_chat_sheet.dart';
 import '../data/driver_delivery_arrival_repository.dart';
-import '../models/driver_delivery_arrival.dart';
 import '../models/driver_recipient_wait.dart';
+import '../utils/driver_delivery_arrival_strings.dart';
 import '../utils/driver_recipient_wait_strings.dart';
 import 'driver_recipient_wait_card.dart';
 import 'driver_redelivery_fee_dialog.dart';
 
-/// Đồng hồ từ giờ server hiện có. Không thay đổi quyền nhận đơn của backend.
+/// Chờ CSKH duyệt sau báo cáo. Không tự cấp quyền hoàn hoặc nhận đơn mới.
 class DriverRecipientWaitRegion extends StatefulWidget {
   const DriverRecipientWaitRegion({
     super.key,
@@ -40,21 +41,18 @@ class DriverRecipientWaitRegion extends StatefulWidget {
 
 class _DriverRecipientWaitRegionState extends State<DriverRecipientWaitRegion>
     with WidgetsBindingObserver {
-  final Stopwatch _clock = Stopwatch();
-  late final DriverDeliveryArrivalRepository _arrivalRepository;
   StreamSubscription<List<ParticipantRiskReportSummary>>? _reportsSubscription;
   StreamSubscription<RiskIntervention?>? _interventionSubscription;
   List<ParticipantRiskReportSummary> _reports = [];
   RiskIntervention? _intervention;
-  DateTime? _serverNow;
-  Timer? _timer;
   String? _reportId;
   String? _error;
   bool _expanded = true;
-  bool _expired = false;
+  bool _synced = false;
   bool _refreshing = false;
   bool _sending = false;
   bool _returnRequested = false;
+  bool _openingSupport = false;
 
   DriverRecipientWait? get _wait => DriverRecipientWait.select(
     orderId: widget.order.id,
@@ -64,16 +62,10 @@ class _DriverRecipientWaitRegionState extends State<DriverRecipientWaitRegion>
     intervention: _intervention,
   );
 
-  Duration? get _remaining => _serverNow == null
-      ? null
-      : _wait?.remainingAt(_serverNow!.add(_clock.elapsed));
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _arrivalRepository =
-        widget.arrivalRepository ?? DriverDeliveryArrivalRepository();
     _reportsSubscription = widget.reports.watchForOrder(widget.order.id).listen(
       (reports) {
         setState(() => _reports = reports);
@@ -87,21 +79,13 @@ class _DriverRecipientWaitRegionState extends State<DriverRecipientWaitRegion>
           setState(() => _intervention = intervention);
           _updateWait();
         }, onError: (_) => _onDisconnected());
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (_wait == null || _serverNow == null) return;
-      final expired = _remaining == Duration.zero;
-      setState(() {
-        if (expired && !_expired) _expanded = true;
-        _expired = expired;
-      });
-    });
   }
 
   void _onDisconnected() {
     if (!mounted) return;
     setState(() {
-      _serverNow = null;
-      _error = DriverRecipientWaitStrings.clockError;
+      _synced = false;
+      _error = DriverRecipientWaitStrings.syncError;
     });
   }
 
@@ -109,10 +93,9 @@ class _DriverRecipientWaitRegionState extends State<DriverRecipientWaitRegion>
     final id = _wait?.report.id;
     if (id == _reportId) return;
     _reportId = id;
-    _serverNow = null;
-    _expired = false;
+    _synced = false;
     _expanded = true;
-    _returnRequested = false;
+    _returnRequested = _wait?.returnRequested ?? false;
     _error = null;
     if (id != null) unawaited(_refresh());
   }
@@ -121,27 +104,26 @@ class _DriverRecipientWaitRegionState extends State<DriverRecipientWaitRegion>
     if (_refreshing || _wait == null) return;
     final id = _wait!.report.id;
     _refreshing = true;
+    _synced = false;
     try {
       final results = await Future.wait<Object?>([
-        _arrivalRepository.read(widget.order.id),
         widget.reports.fetchForOrder(widget.order.id),
         widget.interventions.fetchForOrder(widget.order.id),
       ]);
       if (!mounted || _reportId != id) return;
-      final arrival = results[0] as DriverDeliveryArrival;
       setState(() {
-        _reports = results[1] as List<ParticipantRiskReportSummary>;
-        _intervention = results[2] as RiskIntervention?;
-        _serverNow = arrival.serverNow;
-        _clock
-          ..reset()
-          ..start();
+        _reports = results[0] as List<ParticipantRiskReportSummary>;
+        _intervention = results[1] as RiskIntervention?;
+        _returnRequested = _wait?.returnRequested ?? false;
         _error = null;
-        _expired = _remaining == Duration.zero;
-        if (_expired) _expanded = true;
       });
+      if (_wait?.report.id != id) {
+        _updateWait();
+        return;
+      }
       final repository = widget.reports;
-      if (repository is ParticipantRiskConversationRepository) {
+      if (!_returnRequested &&
+          repository is ParticipantRiskConversationRepository) {
         final messages =
             await (repository as ParticipantRiskConversationRepository)
                 .fetchMessages(id);
@@ -150,11 +132,12 @@ class _DriverRecipientWaitRegionState extends State<DriverRecipientWaitRegion>
             () => _returnRequested = messages.any(
               (message) =>
                   message.senderId == widget.order.driverId &&
-                  message.body == DriverRecipientWaitStrings.returnMessage,
+                  RiskRecipientReturnRequest.isRequestMessage(message.body),
             ),
           );
         }
       }
+      if (mounted && _reportId == id) setState(() => _synced = true);
     } catch (_) {
       if (mounted && _reportId == id) _onDisconnected();
     } finally {
@@ -165,10 +148,7 @@ class _DriverRecipientWaitRegionState extends State<DriverRecipientWaitRegion>
   }
 
   Future<void> _requestReturn() async {
-    if (_sending ||
-        _refreshing ||
-        _returnRequested ||
-        _remaining != Duration.zero) {
+    if (_sending || _refreshing || _returnRequested || !_synced) {
       return;
     }
     final repository = widget.reports;
@@ -181,17 +161,23 @@ class _DriverRecipientWaitRegionState extends State<DriverRecipientWaitRegion>
       _error = null;
     });
     try {
-      // Kiểm tra lại giờ và chỉ dẫn trước khi gửi tin nhắn xin phép.
+      // Báo cáo cũ chưa có yêu cầu hoàn: dùng lại case và kiểm tra quyền server.
       await _refresh();
-      if (!mounted || _wait?.report.id != id || _remaining != Duration.zero) {
+      if (!mounted || _wait?.report.id != id || !_synced || _returnRequested) {
         return;
       }
-      if (!_returnRequested) {
-        await (repository as ParticipantRiskConversationRepository).postMessage(
-          id,
-          DriverRecipientWaitStrings.returnMessage,
-        );
+      final arrival =
+          await (widget.arrivalRepository ?? DriverDeliveryArrivalRepository())
+              .read(widget.order.id);
+      if (!mounted || _wait?.report.id != id) return;
+      if (!arrival.canReport) {
+        setState(() => _error = DriverDeliveryArrivalStrings.waitRequired);
+        return;
       }
+      await (repository as ParticipantRiskConversationRepository).postMessage(
+        id,
+        RiskRecipientReturnRequest.message,
+      );
       if (mounted && _wait?.report.id == id) {
         setState(() => _returnRequested = true);
       }
@@ -204,31 +190,38 @@ class _DriverRecipientWaitRegionState extends State<DriverRecipientWaitRegion>
     }
   }
 
-  Future<void> _openReport() async {
-    final report = _wait?.report;
-    if (report != null) {
-      await showRiskReportProgressSheet(context, report, widget.reports);
+  Future<void> _openSupport() async {
+    if (_openingSupport || _wait == null) return;
+    _openingSupport = true;
+    try {
+      await showParticipantRiskChatSheet(
+        context,
+        report: _wait!.report,
+        requesterId: widget.order.driverId!,
+        orderCode: widget.order.trackingCode,
+        repository: widget.reports,
+      );
+    } finally {
+      _openingSupport = false;
     }
   }
 
   Future<void> _recall() async {
     final id = _wait?.report.id;
-    final openReport = await showDriverRedeliveryFeeDialog(
+    final contactSupport = await showDriverRedeliveryFeeDialog(
       context,
       deliveryAddress: widget.order.deliveryAddress,
     );
-    if (mounted && openReport == true && _wait?.report.id == id) {
-      await _openReport();
+    if (mounted && contactSupport == true && _wait?.report.id == id) {
+      await _openSupport();
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && _wait != null) {
-      setState(() => _serverNow = null);
+      setState(() => _synced = false);
       unawaited(_refresh());
-    } else if (state != AppLifecycleState.resumed) {
-      _clock.stop();
     }
   }
 
@@ -237,8 +230,6 @@ class _DriverRecipientWaitRegionState extends State<DriverRecipientWaitRegion>
     WidgetsBinding.instance.removeObserver(this);
     _reportsSubscription?.cancel();
     _interventionSubscription?.cancel();
-    _timer?.cancel();
-    _clock.stop();
     super.dispose();
   }
 
@@ -270,8 +261,6 @@ class _DriverRecipientWaitRegionState extends State<DriverRecipientWaitRegion>
                       orderCode: widget.order.trackingCode.isEmpty
                           ? widget.order.id
                           : widget.order.trackingCode,
-                      pickupAddress: widget.order.pickupAddress,
-                      remaining: _remaining,
                       error: _error,
                       sending: _sending,
                       returnRequested: _returnRequested,
@@ -279,11 +268,11 @@ class _DriverRecipientWaitRegionState extends State<DriverRecipientWaitRegion>
                       onRequestReturn:
                           widget.reports
                                   is ParticipantRiskConversationRepository &&
-                              _serverNow != null &&
+                              _synced &&
                               !_refreshing
                           ? () => unawaited(_requestReturn())
                           : null,
-                      onOpenReport: () => unawaited(_openReport()),
+                      onContactSupport: () => unawaited(_openSupport()),
                       onMinimize: () => setState(() => _expanded = false),
                       onRetry: () => unawaited(_refresh()),
                     ),
@@ -309,9 +298,9 @@ class _DriverRecipientWaitRegionState extends State<DriverRecipientWaitRegion>
               ),
               onPressed: () => setState(() => _expanded = true),
               child: Text(
-                _expired
-                    ? DriverRecipientWaitStrings.expired
-                    : '${DriverRecipientWaitStrings.waiting} · ${_remaining == null ? DriverRecipientWaitStrings.syncing : DriverRecipientWaitCard.formatRemaining(_remaining!)}',
+                _returnRequested
+                    ? DriverRecipientWaitStrings.waiting
+                    : DriverRecipientWaitStrings.requestTitle,
               ),
             ),
           ),

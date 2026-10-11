@@ -4,6 +4,7 @@ import 'package:giaohang_domain/giaohang_domain.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../risk_reports/widgets/risk_report_entry_action.dart';
 import '../../../../risk_reports/widgets/risk_report_sheet.dart';
+import '../../../../risk_reports/utils/risk_report_strings.dart';
 
 class DriverRiskAction extends StatelessWidget {
   const DriverRiskAction({
@@ -25,7 +26,7 @@ class DriverRiskAction extends StatelessWidget {
       return const SizedBox.shrink();
     }
     return RiskReportEntryAction(
-      label: 'Báo cáo sự cố',
+      label: RiskReportStrings.driverIncidentTitle,
       dark: dark,
       onPressed: () => showRiskReportSheet(
         context,

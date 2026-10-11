@@ -83,6 +83,7 @@ void main() {
             ticket: ticket,
             currentUserId: 'support-1',
             isAdmin: false,
+            embedded: true,
             repository: _FakeSupportRepository(),
           ),
         ),
@@ -91,6 +92,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Việc cần làm'), findsOneWidget);
+    expect(find.byType(Dialog), findsNothing);
     expect(find.text('Hội thoại'), findsOneWidget);
     expect(find.text('Lịch sử trao đổi'), findsOneWidget);
     expect(find.byKey(const Key('support-case-message-field')), findsOneWidget);

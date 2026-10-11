@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
-
 class CustomerReturnStatusBanner extends StatelessWidget {
   const CustomerReturnStatusBanner({required this.mission, super.key});
 
@@ -10,11 +9,15 @@ class CustomerReturnStatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (mission.status == OrderReturnStatus.cancelled) {
+      return const SizedBox.shrink();
+    }
     final completed = mission.status == OrderReturnStatus.returned;
     final title = switch (mission.status) {
       OrderReturnStatus.approved => 'Đơn đã được duyệt hoàn trả',
       OrderReturnStatus.returning => 'Tài xế đang hoàn hàng',
       OrderReturnStatus.returned => 'Hàng đã được hoàn tất',
+      OrderReturnStatus.cancelled => 'Đã hủy hoàn để tiếp tục giao',
     };
     return Semantics(
       container: true,

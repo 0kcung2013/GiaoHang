@@ -7,7 +7,6 @@ import '../../risk_reports/dialogs/risk_report_detail_dialog.dart';
 import '../data/support_ticket_repository.dart';
 import '../dialogs/support_ticket_detail_dialog.dart';
 import '../widgets/support_workspace_scaffold.dart';
-import '../widgets/support_case_queue.dart';
 
 /// URL-addressable case; the existing editor keeps its draft during refresh.
 class SupportCaseScreen extends StatefulWidget {
@@ -56,6 +55,7 @@ class _SupportCaseScreenState extends State<SupportCaseScreen> {
       currentUserId: actor,
       isAdmin: user['role'] == 'admin',
       repository: repository,
+      embedded: true,
     );
   }
 
@@ -69,21 +69,7 @@ class _SupportCaseScreenState extends State<SupportCaseScreen> {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done &&
             snapshot.hasData) {
-          return LayoutBuilder(
-            builder: (context, constraints) => Row(
-              children: [
-                if (!widget.risk && constraints.maxWidth >= 1100)
-                  SizedBox(
-                    width: 260,
-                    child: SupportCaseQueue(
-                      selectedId: widget.id,
-                      risk: widget.risk,
-                    ),
-                  ),
-                Expanded(child: snapshot.data!),
-              ],
-            ),
-          );
+          return snapshot.data!;
         }
         if (snapshot.hasError) {
           return Center(

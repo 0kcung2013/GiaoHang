@@ -60,7 +60,7 @@ void main() {
     );
 
     expect(find.text('Trao đổi với CSKH'), findsOneWidget);
-    expect(find.text('Báo cáo sự cố'), findsOneWidget);
+    expect(find.text('Báo sự cố đơn hàng'), findsOneWidget);
 
     await tester.tap(find.text('Trao đổi với CSKH'));
     await tester.pumpAndSettle();
@@ -96,14 +96,14 @@ void main() {
 
     expect(find.byKey(const Key('driver-help-menu-button')), findsOneWidget);
     expect(find.text('Trao đổi với CSKH'), findsNothing);
-    expect(find.text('Báo cáo sự cố'), findsNothing);
+    expect(find.text('Báo sự cố đơn hàng'), findsNothing);
 
     await tester.tap(find.byKey(const Key('driver-help-menu-button')));
     await tester.pumpAndSettle();
 
     expect(find.text('Hỗ trợ chuyến đi'), findsOneWidget);
     expect(find.text('Trao đổi với CSKH'), findsOneWidget);
-    expect(find.text('Báo cáo sự cố'), findsOneWidget);
+    expect(find.text('Báo sự cố đơn hàng'), findsOneWidget);
     expect(find.byKey(const Key('driver-help-support-option')), findsOneWidget);
     expect(find.byKey(const Key('driver-help-risk-option')), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -200,7 +200,7 @@ void main() {
 
     expect(find.text('Mở quy trình giao hàng'), findsOneWidget);
     expect(find.text('Trao đổi với CSKH'), findsNothing);
-    expect(find.text('Báo cáo sự cố'), findsNothing);
+    expect(find.text('Báo sự cố đơn hàng'), findsNothing);
   });
 
   testWidgets('driver navigation keeps support and incident actions', (
@@ -222,13 +222,13 @@ void main() {
 
     expect(find.byKey(const Key('driver-help-menu-button')), findsOneWidget);
     expect(find.text('Trao đổi với CSKH'), findsNothing);
-    expect(find.text('Báo cáo sự cố'), findsNothing);
+    expect(find.text('Báo sự cố đơn hàng'), findsNothing);
 
     await tester.tap(find.byKey(const Key('driver-help-menu-button')));
     await tester.pumpAndSettle();
 
     expect(find.text('Trao đổi với CSKH'), findsOneWidget);
-    expect(find.text('Báo cáo sự cố'), findsOneWidget);
+    expect(find.text('Báo sự cố đơn hàng'), findsOneWidget);
   });
 }
 

@@ -114,15 +114,18 @@ void main() {
     expect(_confirmButton(tester).onPressed, isNull);
 
     await tester.tap(find.text('Đã nhận đúng kiện hàng của đơn này'));
+    await tester.ensureVisible(
+      find.text('Đã kiểm tra loại hàng, kích thước và trọng lượng'),
+    );
     await tester.tap(
-      find.text('Đã kiểm tra tình trạng bên ngoài của kiện hàng'),
+      find.text('Đã kiểm tra loại hàng, kích thước và trọng lượng'),
     );
     await tester.pump();
 
     expect(find.textContaining('Đã ứng'), findsNothing);
     expect(_confirmButton(tester).onPressed, isNotNull);
-    await tester.ensureVisible(find.text('Đã nhận hàng'));
-    await tester.tap(find.text('Đã nhận hàng'));
+    await tester.ensureVisible(find.text('Đã lấy hàng'));
+    await tester.tap(find.text('Đã lấy hàng'));
     await tester.pumpAndSettle();
 
     expect(result?.proof?.image, isNotNull);

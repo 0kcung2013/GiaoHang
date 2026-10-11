@@ -7,8 +7,9 @@ extension _DriverNavigationDeadlineActions on _DriverNavigationScreenState {
           'assigned',
           'picking_up',
           'delivering',
-        }.contains(_currentOrder.status))
+        }.contains(_currentOrder.status)) {
       return;
+    }
     final orderId = _currentOrder.id;
     try {
       final response = await acceptDriverOrderWithDeadline(
@@ -22,7 +23,7 @@ extension _DriverNavigationDeadlineActions on _DriverNavigationScreenState {
         rows.first['estimated_delivery_at']?.toString() ?? '',
       );
       if (mounted && _currentOrder.id == orderId && deadline != null) {
-        setState(
+        _updateUi(
           () => _currentOrder = _currentOrder.copyWith(
             estimatedDeliveryAt: deadline,
           ),

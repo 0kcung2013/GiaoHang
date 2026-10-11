@@ -5,7 +5,7 @@ class DriverCancellationStrings {
   static const supportCancellationWaiting =
       'CSKH đang xử lý đơn. Vui lòng chờ thông báo.';
   static const understood = 'Đã hiểu';
-  static const swipeArrived = 'Gạt xác nhận đã đến';
+  static const swipeArrived = 'Đã đến điểm lấy hàng';
   static const arrived = 'Đã xác nhận đến điểm lấy';
   static const lockError =
       'Bạn đang tạm khóa nhận đơn. Vui lòng chờ hết 30 phút.';

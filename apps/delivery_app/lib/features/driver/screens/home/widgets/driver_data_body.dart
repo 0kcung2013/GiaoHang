@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/providers/customer_providers.dart';
 import '../../../../../core/providers/location_providers.dart';
-import '../../../../../core/utils/geo_utils.dart';
+import '../providers/driver_order_route_distance_provider.dart';
 import '../utils/driver_dashboard_location.dart';
 import '../utils/driver_home_formatters.dart';
 import 'driver_home_banner.dart';
@@ -14,7 +15,10 @@ import 'driver_priority_orders.dart';
 import 'driver_quick_stats.dart';
 import 'driver_state_widgets.dart';
 import '../../../cancellation/driver_cancellation_providers.dart';
+import '../../../cancellation/driver_cancellation_strings.dart';
 import '../../../cancellation/widgets/driver_acceptance_lock_card.dart';
+import '../../../offer_transfer/models/driver_offer_transfer_state.dart';
+import '../../../offer_transfer/driver_offer_transfer_strings.dart';
 
 /// Dashboard: thời gian khóa, thống kê và các đơn ưu tiên.
 class DriverDashboardBody extends ConsumerWidget {
@@ -111,14 +115,16 @@ class DriverDashboardBody extends ConsumerWidget {
         );
         final pickupDistancesMeters = <String, double>{
           ..._pickupDistances(
+            ref: ref,
             orders: visibleAvailable,
-            originLat: offerPosition?.latitude,
-            originLng: offerPosition?.longitude,
+            driverId: driver.userId,
+            driverPosition: offerPosition,
           ),
           ..._pickupDistances(
+            ref: ref,
             orders: activeOrders,
-            originLat: dashboardPosition?.latitude,
-            originLng: dashboardPosition?.longitude,
+            driverId: driver.userId,
+            driverPosition: dashboardPosition,
           ),
         };
 
@@ -131,6 +137,10 @@ class DriverDashboardBody extends ConsumerWidget {
               DriverAcceptanceLockCard(
                 lockedUntil: acceptance.lockedUntil!,
                 now: acceptance.now,
+                description:
+                    acceptance.lockReason == DriverOfferTransferState.lockReason
+                    ? DriverOfferTransferStrings.lockDescription
+                    : DriverCancellationStrings.lockDescription,
                 onExpired: () {
                   ref.invalidate(driverAcceptanceStateProvider(userId));
                   ref.invalidate(availableOrdersProvider(userId));
@@ -159,6 +169,7 @@ class DriverDashboardBody extends ConsumerWidget {
                 driverOrders: driverOrders,
                 driverUserId: driver.userId,
                 pickupDistancesMeters: pickupDistancesMeters,
+                driverPosition: offerPosition,
               ),
             ],
           ],
@@ -169,25 +180,23 @@ class DriverDashboardBody extends ConsumerWidget {
 }
 
 Map<String, double> _pickupDistances({
+  required WidgetRef ref,
   required List<OrderModel> orders,
-  required double? originLat,
-  required double? originLng,
+  required String driverId,
+  required LatLng? driverPosition,
 }) {
-  if (originLat == null ||
-      originLng == null ||
-      (originLat == 0 && originLng == 0)) {
-    return const {};
-  }
-
   final distances = <String, double>{};
   for (final order in orders) {
-    if (order.pickupLat == 0 && order.pickupLng == 0) continue;
-    distances[order.id] = GeoUtils.distanceMeters(
-      fromLat: originLat,
-      fromLng: originLng,
-      toLat: order.pickupLat,
-      toLng: order.pickupLng,
+    final request = driverOrderRouteRequest(
+      order,
+      driverId: driverId,
+      driverPosition: driverPosition,
     );
+    final meters = ref
+        .watch(driverOrderRouteDistanceProvider(request))
+        .valueOrNull
+        ?.pickupMeters;
+    if (meters != null) distances[order.id] = meters;
   }
   return distances;
 }

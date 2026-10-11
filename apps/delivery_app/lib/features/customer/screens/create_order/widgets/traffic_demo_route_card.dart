@@ -18,8 +18,12 @@ class TrafficDemoRouteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final trafficColor = scenario.isCongested
+        ? AppColors.error
+        : AppColors.success;
     return Semantics(
       button: true,
+      selected: isApplied,
       label: isApplied
           ? 'Tuyến AI mẫu đã được điền: ${scenario.title}'
           : 'Dùng tuyến AI mẫu: ${scenario.title}',
@@ -37,12 +41,12 @@ class TrafficDemoRouteCard extends StatelessWidget {
             child: Ink(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
               decoration: BoxDecoration(
-                color: AppColors.info.withValues(alpha: 0.06),
+                color: trafficColor.withValues(alpha: isApplied ? 0.08 : 0.03),
                 borderRadius: AppRadius.md,
                 border: Border.all(
                   color: isApplied
-                      ? AppColors.success.withValues(alpha: 0.45)
-                      : AppColors.info.withValues(alpha: 0.26),
+                      ? trafficColor.withValues(alpha: 0.45)
+                      : trafficColor.withValues(alpha: 0.26),
                 ),
               ),
               child: Row(
@@ -51,16 +55,17 @@ class TrafficDemoRouteCard extends StatelessWidget {
                     width: 20,
                     height: 20,
                     decoration: BoxDecoration(
-                      color: (isApplied ? AppColors.success : AppColors.info)
-                          .withValues(alpha: 0.12),
+                      color: trafficColor.withValues(alpha: 0.12),
                       borderRadius: AppRadius.full,
                     ),
                     child: Icon(
                       isApplied
                           ? Icons.check_rounded
-                          : Icons.auto_awesome_rounded,
+                          : scenario.isCongested
+                          ? Icons.traffic_rounded
+                          : Icons.route_rounded,
                       size: 14,
-                      color: isApplied ? AppColors.success : AppColors.info,
+                      color: trafficColor,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.xs),
@@ -70,10 +75,8 @@ class TrafficDemoRouteCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isApplied
-                              ? 'Đã chọn · ${scenario.title}'
-                              : scenario.title,
-                          maxLines: 1,
+                          scenario.title,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: AppTextStyles.labelMedium.copyWith(
                             color: AppColors.textPrimary,
@@ -89,7 +92,7 @@ class TrafficDemoRouteCard extends StatelessWidget {
                         ? Icons.refresh_rounded
                         : Icons.arrow_forward_rounded,
                     size: 16,
-                    color: AppColors.info,
+                    color: trafficColor,
                   ),
                 ],
               ),

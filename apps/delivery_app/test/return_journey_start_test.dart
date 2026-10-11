@@ -21,7 +21,7 @@ void main() {
     const staleProfileGps = LatLng(10.77716, 106.67237);
 
     final start = resolveReturnJourneyStart(
-      isWeb: true,
+      usesRouteSimulation: true,
       returnStarted: false,
       missionOrigin: missionOrigin,
       currentPosition: staleProfileGps,
@@ -36,7 +36,7 @@ void main() {
     const simulated = LatLng(11.01, 106.64);
 
     final start = resolveReturnJourneyStart(
-      isWeb: true,
+      usesRouteSimulation: true,
       returnStarted: true,
       missionOrigin: missionOrigin,
       currentPosition: const LatLng(10.77716, 106.67237),
@@ -51,7 +51,7 @@ void main() {
     const deviceGps = LatLng(11.029, 106.623);
 
     final start = resolveReturnJourneyStart(
-      isWeb: false,
+      usesRouteSimulation: false,
       returnStarted: true,
       missionOrigin: missionOrigin,
       currentPosition: deviceGps,
@@ -60,5 +60,35 @@ void main() {
     );
 
     expect(start, deviceGps);
+  });
+
+  test('restored simulation stays at handoff despite an older profile', () {
+    const handoff = LatLng(11.01, 106.64);
+    expect(
+      resolveReturnJourneyStart(
+        usesRouteSimulation: true,
+        returnStarted: true,
+        missionOrigin: missionOrigin,
+        currentPosition: missionOrigin,
+        previousPosition: handoff,
+        previousSource: DriverPositionSource.restoredSession,
+      ),
+      handoff,
+    );
+  });
+
+  test('fresh device GPS takes priority over a saved return position', () {
+    const freshGps = LatLng(11.02, 106.63);
+    expect(
+      resolveReturnJourneyStart(
+        usesRouteSimulation: false,
+        returnStarted: true,
+        missionOrigin: missionOrigin,
+        currentPosition: freshGps,
+        previousPosition: const LatLng(11.01, 106.64),
+        previousSource: DriverPositionSource.restoredSession,
+      ),
+      freshGps,
+    );
   });
 }

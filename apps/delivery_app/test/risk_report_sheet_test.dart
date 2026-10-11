@@ -1,11 +1,53 @@
 import 'package:delivery_app/core/models/order_model.dart';
 import 'package:delivery_app/features/risk_reports/data/risk_report_repository.dart';
 import 'package:delivery_app/features/risk_reports/widgets/risk_report_sheet.dart';
+import 'package:delivery_app/features/risk_reports/utils/risk_report_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
 void main() {
+  testWidgets(
+    'driver contact report clearly includes a return request and requires call evidence',
+    (tester) async {
+      final repository = _FakeRepository();
+      await _pumpLauncher(
+        tester,
+        repository: repository,
+        role: RiskReporterRole.driver,
+        initialCategory: RiskCategory.contactIssue,
+      );
+      await tester.tap(find.text('Mở báo cáo'));
+      await tester.pumpAndSettle();
+      expect(find.text(RiskReportStrings.recipientReturnTitle), findsOneWidget);
+      expect(find.text('Thêm ảnh cuộc gọi'), findsOneWidget);
+      await tester.enterText(
+        find.byType(TextField),
+        'Khách không nghe máy sau ba lần gọi.',
+      );
+      await tester.tap(find.text(RiskReportStrings.sendRecipientReturn));
+      await tester.pumpAndSettle();
+      expect(find.text('Xác nhận yêu cầu'), findsNothing);
+      expect(repository.submitCalls, 0);
+      expect(find.textContaining('Thêm ảnh lịch sử'), findsOneWidget);
+      await tester.ensureVisible(find.text(RiskReportStrings.otherIncident));
+      await tester.tap(find.text(RiskReportStrings.otherIncident));
+      await tester.pumpAndSettle();
+      expect(find.text(RiskReportStrings.driverIncidentTitle), findsOneWidget);
+      expect(find.text('Khách không nghe máy sau ba lần gọi.'), findsOneWidget);
+      expect(find.text('Thêm ảnh'), findsOneWidget);
+      expect(find.text('Thêm ảnh cuộc gọi'), findsNothing);
+      expect(find.text('Xác nhận báo cáo'), findsNothing);
+      await tester.tap(find.text(RiskReportStrings.sendIncident));
+      await tester.pumpAndSettle();
+      expect(repository.submitCalls, 1);
+      expect(repository.lastDraft?.category, RiskCategory.other);
+      expect(
+        repository.lastDraft?.description,
+        'Khách không nghe máy sau ba lần gọi.',
+      );
+    },
+  );
   testWidgets('completes three steps and shows the report reference', (
     tester,
   ) async {
@@ -90,21 +132,33 @@ Future<void> _pumpLauncher(
   WidgetTester tester, {
   required ParticipantRiskReportRepository repository,
   TextScaler textScaler = TextScaler.noScaling,
+  RiskReporterRole role = RiskReporterRole.customer,
+  RiskCategory? initialCategory,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
       home: MediaQuery(
         data: MediaQueryData(textScaler: textScaler),
-        child: _Launcher(repository: repository),
+        child: _Launcher(
+          repository: repository,
+          role: role,
+          initialCategory: initialCategory,
+        ),
       ),
     ),
   );
 }
 
 class _Launcher extends StatefulWidget {
-  const _Launcher({required this.repository});
+  const _Launcher({
+    required this.repository,
+    this.role = RiskReporterRole.customer,
+    this.initialCategory,
+  });
 
   final ParticipantRiskReportRepository repository;
+  final RiskReporterRole role;
+  final RiskCategory? initialCategory;
 
   @override
   State<_Launcher> createState() => _LauncherState();
@@ -123,7 +177,14 @@ class _LauncherState extends State<_Launcher> {
                   final value = await showRiskReportSheet(
                     context,
                     order: _order,
-                    role: RiskReporterRole.customer,
+                    role: widget.role,
+                    initialCategory: widget.initialCategory,
+                    initialLatitude: widget.role == RiskReporterRole.driver
+                        ? 10.7
+                        : null,
+                    initialLongitude: widget.role == RiskReporterRole.driver
+                        ? 106.6
+                        : null,
                     repository: widget.repository,
                   );
                   if (mounted) setState(() => result = value);

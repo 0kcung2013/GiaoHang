@@ -10,6 +10,7 @@ import '../utils/risk_report_ui.dart';
 import 'risk_attachment_section.dart';
 import 'risk_badge.dart';
 import 'risk_case_conversation.dart';
+import 'risk_call_verification_card.dart';
 import 'risk_intervention_panel.dart';
 import 'risk_message_evidence_section.dart';
 import 'risk_report_detail_content.dart';
@@ -19,6 +20,7 @@ import 'risk_case_overview.dart';
 import 'support_risk_workspace.dart';
 import '../../support/widgets/support_order_context.dart';
 import '../../support/widgets/support_linked_tickets.dart';
+import '../../support_orders/widgets/support_order_information.dart';
 
 class RiskReportDetailBody extends StatelessWidget {
   const RiskReportDetailBody({
@@ -131,6 +133,16 @@ class RiskReportDetailBody extends StatelessWidget {
                 report: report,
                 attachments: attachments,
               ),
+              verification: report.isSystemIncident
+                  ? null
+                  : RiskCallVerificationCard(
+                      key: ValueKey(report.id),
+                      report: report,
+                      enabled:
+                          !report.status.isClosed &&
+                          (report.assignedTo == null ||
+                              report.assignedTo == currentUserId),
+                    ),
               operation: intervention == null
                   ? null
                   : RiskInterventionPanel(
@@ -174,10 +186,9 @@ class RiskReportDetailBody extends StatelessWidget {
                 children: [
                   RiskReporterProfileCard(report: report),
                   const SizedBox(height: AppSpacing.lg),
-                  RiskOrderRoute(report: report),
-                  if (!report.isSystemIncident) ...[
+                  if (!report.isSystemIncident && !showOrderContext) ...[
                     const SizedBox(height: AppSpacing.lg),
-                    RiskRelatedParties(report: report),
+                    SupportOrderInformation(order: report.order),
                   ],
                   const SizedBox(height: AppSpacing.lg),
                   RiskCaseOverview(report: report),
@@ -188,6 +199,7 @@ class RiskReportDetailBody extends StatelessWidget {
                 ],
               ),
               history: RiskEventTimeline(events: events),
+              hasMessageEvidence: messageEvidence?.isNotEmpty ?? false,
               messageEvidence: report.isSystemIncident
                   ? null
                   : SupportRiskDetailsSection(

@@ -2,12 +2,14 @@ part of 'driver_return_navigation_screen.dart';
 
 extension _DriverReturnJourneyLoader on _DriverReturnNavigationScreenState {
   Future<void> _loadJourney() async {
-    _tracker.stopSimulation();
+    await _tracker.stop();
     _updateUi(() {
       _loading = true;
       _error = null;
     });
     try {
+      await _restoreNavigationSession();
+      if (!mounted) return;
       var missionOrigin = LatLng(
         _mission.routeOriginLat,
         _mission.routeOriginLng,
@@ -30,14 +32,20 @@ extension _DriverReturnJourneyLoader on _DriverReturnNavigationScreenState {
       LatLng? currentPoint;
       var currentSource = DriverPositionSource.targetFallback;
       if (_mission.status != OrderReturnStatus.approved) {
-        final loaded = await _loadCurrentPosition();
-        currentPoint = loaded.$1;
-        currentSource = loaded.$2;
+        try {
+          final loaded = await _loadCurrentPosition();
+          currentPoint = loaded.$1;
+          currentSource = loaded.$2;
+        } catch (_) {
+          if (_position == null) rethrow;
+          // Khôi phục tiến trình nếu GPS/mạng tạm thời chưa có vị trí mới.
+        }
       }
+      if (!mounted) return;
       final previousPosition = _position;
       final previousSource = _positionSource;
       final start = resolveReturnJourneyStart(
-        isWeb: kIsWeb,
+        usesRouteSimulation: _usesRouteSimulation,
         returnStarted: _mission.status == OrderReturnStatus.returning,
         missionOrigin: missionOrigin,
         currentPosition: currentPoint,
@@ -46,20 +54,34 @@ extension _DriverReturnJourneyLoader on _DriverReturnNavigationScreenState {
       );
       final startSource = _mission.status == OrderReturnStatus.approved
           ? DriverPositionSource.targetFallback
-          : previousSource == DriverPositionSource.simulation &&
-                previousPosition != null
+          : shouldKeepReturnJourneyPosition(
+              usesRouteSimulation: _usesRouteSimulation,
+              previousPosition: previousPosition,
+              previousSource: previousSource,
+            )
           ? previousSource
           : currentPoint != null
           ? currentSource
           : previousPosition != null
           ? previousSource
           : DriverPositionSource.targetFallback;
-      final result = await OsrmService().getRoute(
-        startLat: start.latitude,
-        startLng: start.longitude,
-        endLat: _destination.latitude,
-        endLng: _destination.longitude,
-      );
+      final arrived =
+          _mission.status == OrderReturnStatus.returning &&
+          ReturnCompletionGuard.distanceMeters(
+                currentLat: start.latitude,
+                currentLng: start.longitude,
+                destinationLat: _destination.latitude,
+                destinationLng: _destination.longitude,
+              ) <=
+              ReturnNavigationTracker.routeEndDistanceMeters;
+      final result = arrived
+          ? null
+          : await OsrmService().getRoute(
+              startLat: start.latitude,
+              startLng: start.longitude,
+              endLat: _destination.latitude,
+              endLng: _destination.longitude,
+            );
       if (!mounted) return;
       _updateUi(() {
         _position = start;
@@ -67,19 +89,20 @@ extension _DriverReturnJourneyLoader on _DriverReturnNavigationScreenState {
         _route = result?.points ?? [start, _destination];
         _navigationSteps = result?.steps ?? const [];
         _activeNavigationStepIndex = 0;
-        _distance =
-            result?.distanceMeters ?? _mission.routeDistanceMeters.toDouble();
-        _duration =
-            result?.durationSeconds ?? _mission.routeDurationSeconds.toDouble();
+        _distance = arrived
+            ? 0
+            : result?.distanceMeters ??
+                  DeliveryMapUtils.remainingMeters([start, _destination]);
+        _duration = arrived ? 0 : result?.durationSeconds ?? _distance! / 6.1;
       });
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_mission.status == OrderReturnStatus.returning &&
-            _position != null) {
-          _followPosition();
-        } else {
-          _fitRoute();
-        }
-      });
+      unawaited(_saveNavigationSession());
+      await _loadCancellationState();
+      if (!mounted) return;
+      if (_usesRouteSimulation &&
+          startSource == DriverPositionSource.restoredSession) {
+        await _publishPosition(start, force: arrived);
+        if (!mounted) return;
+      }
       _startMovement();
     } catch (_) {
       if (mounted) {
@@ -93,7 +116,7 @@ extension _DriverReturnJourneyLoader on _DriverReturnNavigationScreenState {
   }
 
   Future<(LatLng?, DriverPositionSource)> _loadCurrentPosition() async {
-    if (!kIsWeb) {
+    if (!_usesRouteSimulation) {
       final permission = await Geolocator.checkPermission();
       final allowed =
           permission == LocationPermission.always ||
@@ -114,7 +137,7 @@ extension _DriverReturnJourneyLoader on _DriverReturnNavigationScreenState {
     }
 
     try {
-      final serverPosition = await _loadServerProfilePosition();
+      final serverPosition = await _loadServerProfilePosition(refresh: true);
       if (serverPosition != null) {
         return (serverPosition, DriverPositionSource.serverProfile);
       }
@@ -140,32 +163,15 @@ extension _DriverReturnJourneyLoader on _DriverReturnNavigationScreenState {
         : await ref.read(provider.future);
     final lat = driver?.currentLat;
     final lng = driver?.currentLng;
-    if (lat == null || lng == null || lat == 0 || lng == 0) return null;
-    return LatLng(lat, lng);
-  }
-
-  void _fitRoute() {
-    final points = _route;
-    if (!mounted || points == null || points.length < 2) return;
-    _mapController.fitCamera(
-      CameraFit.coordinates(
-        coordinates: points,
-        padding: const EdgeInsets.fromLTRB(48, 230, 48, 220),
-      ),
-    );
-  }
-
-  void _followPosition({LatLng? position, List<LatLng>? route}) {
-    final currentPosition = position ?? _position;
-    if (currentPosition == null) {
-      _fitRoute();
-      return;
+    if (lat == null ||
+        lng == null ||
+        !lat.isFinite ||
+        !lng.isFinite ||
+        lat.abs() > 90 ||
+        lng.abs() > 180 ||
+        (lat == 0 && lng == 0)) {
+      return null;
     }
-    DriverNavigationRouteLogic.followRouteCamera(
-      controller: _mapController,
-      driverPosition: currentPosition,
-      routePoints: route ?? _route,
-      fallbackTarget: _destination,
-    );
+    return LatLng(lat, lng);
   }
 }

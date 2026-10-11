@@ -1,6 +1,7 @@
 import 'package:delivery_app/core/models/order_model.dart';
 import 'package:delivery_app/features/driver/screens/navigation/widgets/driver_risk_action.dart';
 import 'package:delivery_app/features/risk_reports/widgets/risk_report_entry_action.dart';
+import 'package:delivery_app/features/risk_reports/utils/risk_report_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:giaohang_design/giaohang_design.dart';
@@ -15,7 +16,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Báo cáo sự cố'), findsNothing);
+    expect(find.text(RiskReportStrings.driverIncidentTitle), findsNothing);
   });
 
   testWidgets('keeps driver risk reporting while delivery is active', (
@@ -27,7 +28,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Báo cáo sự cố'), findsOneWidget);
+    expect(find.text(RiskReportStrings.driverIncidentTitle), findsOneWidget);
   });
 
   testWidgets('dark map action uses an opaque high-contrast surface', (

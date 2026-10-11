@@ -18,6 +18,7 @@ class DriverNavSession {
     this.routeCompleted = false,
     this.pickupConfirmed = false,
     this.simRouteIndex = 0,
+    this.movementRunning = false,
     this.locationMode,
     this.updatedAt,
   });
@@ -32,6 +33,7 @@ class DriverNavSession {
   final bool routeCompleted;
   final bool pickupConfirmed;
   final int simRouteIndex;
+  final bool movementRunning;
   final DriverLocationMode? locationMode;
   final DateTime? updatedAt;
 
@@ -40,7 +42,11 @@ class DriverNavSession {
     required String activeStatus,
     DriverLocationMode? activeLocationMode,
   }) {
-    const activeStatuses = {'assigned', 'picking_up', 'delivering'};
+    const deliveryStatuses = {'assigned', 'picking_up', 'delivering'};
+    final matchesJourney = activeStatus == 'returning'
+        ? status == 'returning'
+        : deliveryStatuses.contains(activeStatus) &&
+              deliveryStatuses.contains(status);
     final hasValidCoordinates =
         lat.isFinite &&
         lng.isFinite &&
@@ -51,7 +57,7 @@ class DriverNavSession {
         (lat != 0 || lng != 0);
 
     return orderId == activeOrderId &&
-        activeStatuses.contains(activeStatus) &&
+        matchesJourney &&
         (activeLocationMode == null ||
             (locationMode ?? DriverLocationMode.deviceGps) ==
                 activeLocationMode) &&
@@ -67,6 +73,7 @@ class DriverNavSession {
     bool? routeCompleted,
     bool? pickupConfirmed,
     int? simRouteIndex,
+    bool? movementRunning,
     DriverLocationMode? locationMode,
     DateTime? updatedAt,
   }) {
@@ -79,6 +86,7 @@ class DriverNavSession {
       routeCompleted: routeCompleted ?? this.routeCompleted,
       pickupConfirmed: pickupConfirmed ?? this.pickupConfirmed,
       simRouteIndex: simRouteIndex ?? this.simRouteIndex,
+      movementRunning: movementRunning ?? this.movementRunning,
       locationMode: locationMode ?? this.locationMode,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -93,6 +101,7 @@ class DriverNavSession {
     'routeCompleted': routeCompleted,
     'pickupConfirmed': pickupConfirmed,
     'simRouteIndex': simRouteIndex,
+    'movementRunning': movementRunning,
     'locationMode': locationMode?.name,
     'updatedAt': updatedAt?.toIso8601String(),
   };
@@ -110,6 +119,7 @@ class DriverNavSession {
           : json['arrivedAtTarget'] == true,
       pickupConfirmed: json['pickupConfirmed'] == true,
       simRouteIndex: (json['simRouteIndex'] as num?)?.toInt() ?? 0,
+      movementRunning: json['movementRunning'] == true,
       locationMode: DriverLocationMode.values
           .cast<DriverLocationMode?>()
           .firstWhere(
@@ -140,6 +150,8 @@ class DriverNavSessionsNotifier
 
   /// Chờ đọc xong SharedPreferences (hot restart).
   Future<void> get ready => _hydrated.future;
+
+  DriverNavSession? sessionFor(String orderId) => state[orderId];
 
   Future<void> hydrate() async {
     try {

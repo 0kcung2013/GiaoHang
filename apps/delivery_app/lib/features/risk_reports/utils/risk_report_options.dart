@@ -1,5 +1,7 @@
 import 'package:giaohang_domain/giaohang_domain.dart';
 
+import 'risk_report_strings.dart';
+
 class RiskReportOption {
   const RiskReportOption({
     required this.category,
@@ -16,11 +18,6 @@ const _deliveryDelay = RiskReportOption(
   category: RiskCategory.deliveryDelay,
   label: 'Giao hàng chậm',
   description: 'Thời gian giao lâu hơn dự kiến.',
-);
-const _suspiciousAddress = RiskReportOption(
-  category: RiskCategory.suspiciousAddress,
-  label: 'Sai / không tìm được địa chỉ',
-  description: 'Địa chỉ sai, không tiếp cận được hoặc có dấu hiệu bất thường.',
 );
 const _contactIssue = RiskReportOption(
   category: RiskCategory.contactIssue,
@@ -48,18 +45,32 @@ const _other = RiskReportOption(
   description: 'Sự cố không nằm trong các lựa chọn trên.',
 );
 
-const _driverContact = RiskReportOption(
+const _driverPickup = RiskReportOption(
   category: RiskCategory.contactIssue,
-  label: 'Không liên lạc / chưa gặp được',
-  description: 'Người gửi hoặc người nhận không phản hồi, chưa ra bàn giao.',
+  label: RiskReportStrings.pickupUnavailable,
+  description: RiskReportStrings.pickupUnavailableHint,
 );
-const _driverSafety = RiskReportOption(
-  category: RiskCategory.safety,
-  label: 'Tai nạn / mất an toàn',
-  description: 'Tai nạn, đe dọa hoặc nguy cơ với người và hàng hóa.',
+const _driverDelivery = RiskReportOption(
+  category: RiskCategory.contactIssue,
+  label: RiskReportStrings.deliveryUnavailable,
+  description: RiskReportStrings.deliveryUnavailableHint,
+);
+const _driverCargo = RiskReportOption(
+  category: RiskCategory.cargoIssue,
+  label: RiskReportStrings.cargoMismatch,
+  description: RiskReportStrings.cargoMismatchHint,
+);
+const _driverOther = RiskReportOption(
+  category: RiskCategory.other,
+  label: RiskReportStrings.otherIncident,
+  description: RiskReportStrings.otherIncidentHint,
 );
 
-List<RiskReportOption> riskOptionsFor(RiskReporterRole role) {
+List<RiskReportOption> riskOptionsFor(
+  RiskReporterRole role, {
+  String orderStatus = 'assigned',
+  bool hasPickedUp = false,
+}) {
   return switch (role) {
     RiskReporterRole.customer => const [
       _deliveryDelay,
@@ -69,21 +80,33 @@ List<RiskReportOption> riskOptionsFor(RiskReporterRole role) {
       _safety,
       _other,
     ],
-    RiskReporterRole.driver => const [
-      _driverSafety,
-      _suspiciousAddress,
-      _driverContact,
-      _cargoIssue,
-      _payment,
-      _other,
-    ],
+    RiskReporterRole.driver =>
+      hasPickedUp ||
+              const [
+                'delivering',
+                'delivered',
+                'return_approved',
+                'returning',
+                'returned',
+              ].contains(orderStatus)
+          ? const [_driverDelivery, _driverOther]
+          : const [_driverCargo, _driverPickup, _driverOther],
     _ => const [],
   };
 }
 
-RiskReportOption? riskOptionFor(RiskReporterRole role, RiskCategory? category) {
+RiskReportOption? riskOptionFor(
+  RiskReporterRole role,
+  RiskCategory? category, {
+  String orderStatus = 'assigned',
+  bool hasPickedUp = false,
+}) {
   if (category == null) return null;
-  for (final option in riskOptionsFor(role)) {
+  for (final option in riskOptionsFor(
+    role,
+    orderStatus: orderStatus,
+    hasPickedUp: hasPickedUp,
+  )) {
     if (option.category == category) return option;
   }
   return null;

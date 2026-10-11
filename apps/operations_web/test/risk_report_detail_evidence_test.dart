@@ -35,6 +35,10 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byType(Dialog), findsNothing);
+    expect(find.text('Trao đổi với khách hàng'), findsNothing);
+    await tester.ensureVisible(find.text('Trao đổi'));
+    await tester.tap(find.text('Trao đổi'));
+    await tester.pumpAndSettle();
     expect(find.text('Trao đổi với khách hàng'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -101,17 +105,18 @@ void main() {
       ),
     );
 
-    expect(find.textContaining('Nguyễn An'), findsOneWidget);
-    expect(find.text('0901234567'), findsNothing);
-    expect(find.text('Trao đổi với khách hàng'), findsOneWidget);
+    expect(find.text('Nguyễn An · Khách hàng'), findsOneWidget);
+    expect(find.text('0901234567'), findsOneWidget);
+    expect(find.text('Gọi demo'), findsOneWidget);
+    expect(find.text('Trao đổi với khách hàng'), findsNothing);
     expect(find.text('Nội bộ'), findsNothing);
     expect(find.text('Thông tin đơn và liên hệ'), findsOneWidget);
     expect(find.text('Lịch sử xử lý'), findsOneWidget);
     await tester.ensureVisible(find.text('Thông tin đơn và liên hệ'));
     await tester.tap(find.text('Thông tin đơn và liên hệ'));
     await tester.pumpAndSettle();
-    expect(find.text('Nguyễn An'), findsOneWidget);
-    expect(find.text('0901234567'), findsOneWidget);
+    expect(find.text('Nguyễn An'), findsNWidgets(2));
+    expect(find.text('0901234567'), findsNWidgets(2));
     expect(find.text('an@example.com'), findsOneWidget);
     expect(find.text('Người gửi báo cáo'), findsOneWidget);
     expect(
@@ -121,7 +126,7 @@ void main() {
     await tester.ensureVisible(find.text('Thông tin đơn và liên hệ'));
     await tester.tap(find.text('Thông tin đơn và liên hệ'));
     await tester.pumpAndSettle();
-    expect(find.text('0901234567'), findsNothing);
+    expect(find.text('0901234567'), findsOneWidget);
   });
 
   testWidgets('first delivery decision accepts an unassigned report inline', (

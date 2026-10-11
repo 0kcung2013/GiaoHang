@@ -32,6 +32,9 @@ verify_jwt = true
 [functions.accept-driver-order]
 verify_jwt = true
 
+[functions.refresh-order-eta]
+verify_jwt = true
+
 [functions.dispatch-road-orders]
 # Custom server authentication is checked against Vault inside a restricted RPC.
 verify_jwt = false

@@ -6,6 +6,7 @@ import '../../../../../core/services/delivery_proof_watermark_service.dart';
 import '../../../../../core/utils/money_formatter.dart';
 import '../models/driver_delivery_workflow.dart';
 import 'driver_proof_photo_field.dart';
+import '../../../../risk_reports/utils/risk_report_strings.dart';
 
 class DriverDeliveryConfirmationResult {
   const DriverDeliveryConfirmationResult({this.proof});
@@ -68,10 +69,10 @@ class _DriverDeliveryConfirmationSheetState
 
   List<String> get _checklist {
     return switch (widget.action) {
-      DriverDeliveryAction.startPickupJourney => const [],
+      DriverDeliveryAction.confirmPickupArrival => const [],
       DriverDeliveryAction.confirmPickup => [
         'Đã nhận đúng kiện hàng của đơn này',
-        'Đã kiểm tra tình trạng bên ngoài của kiện hàng',
+        'Đã kiểm tra loại hàng, kích thước và trọng lượng',
       ],
       DriverDeliveryAction.startDelivery => const [],
       DriverDeliveryAction.confirmDelivery => [
@@ -318,26 +319,25 @@ class _SheetHandle extends StatelessWidget {
 })
 _config(DriverDeliveryAction action) {
   return switch (action) {
-    DriverDeliveryAction.startPickupJourney => (
-      title: 'Bắt đầu hành trình lấy hàng?',
+    DriverDeliveryAction.confirmPickupArrival => (
+      title: 'Đã đến điểm lấy hàng?',
       description:
-          'Khách hàng sẽ được thông báo rằng bạn đang di chuyển đến điểm lấy.',
-      confirmLabel: 'Bắt đầu hành trình',
-      icon: Icons.navigation_rounded,
+          'Ghi nhận đã đến điểm lấy hàng và bắt đầu thời gian chờ người gửi.',
+      confirmLabel: 'Đã đến điểm lấy hàng',
+      icon: Icons.location_on_rounded,
       accent: AppColors.accent,
     ),
     DriverDeliveryAction.confirmPickup => (
-      title: 'Xác nhận đã nhận hàng',
-      description:
-          'Ảnh xác nhận sẽ được lưu. GPS chỉ chạy lại khi bạn bắt đầu giao.',
-      confirmLabel: 'Đã nhận hàng',
+      title: 'Xác nhận đã lấy hàng',
+      description: RiskReportStrings.pickupResponsibility,
+      confirmLabel: 'Đã lấy hàng',
       icon: Icons.inventory_2_rounded,
       accent: AppColors.markerPickup,
     ),
     DriverDeliveryAction.startDelivery => (
-      title: 'Bắt đầu giao hàng?',
-      description: 'Lộ trình sẽ chuyển sang địa chỉ người nhận.',
-      confirmLabel: 'Bắt đầu giao',
+      title: 'Xác nhận đã lấy hàng',
+      description: 'Đồng bộ trạng thái đơn và chuyển lộ trình sang người nhận.',
+      confirmLabel: 'Đã lấy hàng',
       icon: Icons.local_shipping_rounded,
       accent: AppColors.accent,
     ),

@@ -1,6 +1,66 @@
 part of 'driver_return_navigation_screen.dart';
 
 extension _DriverReturnNavigationActions on _DriverReturnNavigationScreenState {
+  Future<void> _loadCancellationState() async {
+    final source = widget.repository;
+    if (source is! OrderReturnRedeliveryRepository ||
+        _mission.status != OrderReturnStatus.returning) {
+      return;
+    }
+    try {
+      final allowed = await (source as OrderReturnRedeliveryRepository)
+          .canCancelReturn(widget.order.id);
+      _updateUi(() => _canCancelReturn = allowed);
+    } catch (_) {
+      _updateUi(() => _canCancelReturn = false);
+    }
+  }
+
+  Future<void> _cancelReturn() async {
+    final source = widget.repository;
+    if (_submitting ||
+        !_canCancelReturn ||
+        source is! OrderReturnRedeliveryRepository) {
+      return;
+    }
+    if (!await showCancelReturnSheet(context) || !mounted) return;
+    _updateUi(() => _submitting = true);
+    try {
+      final mission = await (source as OrderReturnRedeliveryRepository)
+          .cancelReturn(
+            orderId: widget.order.id,
+            reason: ReturnNavigationStrings.cancelReturnReason,
+          );
+      if (mission.status != OrderReturnStatus.cancelled) {
+        throw StateError('RETURN_CANCEL_NOT_ALLOWED');
+      }
+      await _tracker.stop();
+      if (!mounted) return;
+      _updateUi(() {
+        _mission = mission;
+        _movementStarted = false;
+        _canCancelReturn = false;
+      });
+      await ref
+          .read(driverNavSessionsProvider.notifier)
+          .remove(widget.order.id);
+      if (!mounted) return;
+      Navigator.of(context).pop(
+        ReturnRedeliveryResult(
+          order: widget.order.copyWith(
+            status: 'delivering',
+            statusNote: ReturnNavigationStrings.cancelReturnReason,
+          ),
+          position: _position,
+        ),
+      );
+    } catch (_) {
+      _updateUi(() => _error = ReturnNavigationStrings.cancelReturnError);
+    } finally {
+      _updateUi(() => _submitting = false);
+    }
+  }
+
   Future<void> _startReturn() async {
     _updateUi(() => _submitting = true);
     try {
@@ -10,7 +70,8 @@ extension _DriverReturnNavigationActions on _DriverReturnNavigationScreenState {
           _mission = mission;
           _error = null;
         });
-        _startMovement();
+        unawaited(_saveNavigationSession());
+        await _loadCancellationState();
       }
     } catch (error) {
       if (mounted) {
@@ -72,7 +133,12 @@ extension _DriverReturnNavigationActions on _DriverReturnNavigationScreenState {
       );
       if (!mounted) return;
       _updateUi(() => _mission = mission);
-      _tracker.stopSimulation();
+      await _tracker.stop();
+      _movementStarted = false;
+      await ref
+          .read(driverNavSessionsProvider.notifier)
+          .remove(widget.order.id);
+      if (!mounted) return;
       await showReturnSuccessDialog(
         context,
         returnFee: _mission.driverReturnEarning,
@@ -89,7 +155,7 @@ extension _DriverReturnNavigationActions on _DriverReturnNavigationScreenState {
 
   Future<LatLng?> _resolveReturnConfirmationPosition() async {
     final strategy = ReturnConfirmationPositionPolicy.resolve(
-      isWeb: kIsWeb,
+      isWeb: _usesRouteSimulation,
       displayedSource: _positionSource,
     );
     if (strategy == ReturnConfirmationPositionStrategy.displayedPosition) {

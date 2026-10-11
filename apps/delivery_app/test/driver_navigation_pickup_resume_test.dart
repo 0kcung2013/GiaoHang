@@ -63,8 +63,8 @@ void main() {
         );
         final waitingToStart = scenario.status == 'picking_up';
         expect(
-          find.text('Chờ bắt đầu giao'),
-          waitingToStart ? findsOneWidget : findsNothing,
+          find.text('Đã lấy hàng'),
+          waitingToStart ? findsWidgets : findsNothing,
         );
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump(const Duration(milliseconds: 1));

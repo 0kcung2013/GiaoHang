@@ -9,6 +9,7 @@ import 'risk_report_selection.dart';
 import '../models/risk_message_evidence.dart';
 import '../models/risk_report.dart';
 import '../../support/data/case_pagination.dart';
+import '../../support_orders/data/support_order_contacts_loader.dart';
 
 export 'risk_dashboard_metrics.dart';
 export 'risk_report_attachment_repository.dart';
@@ -68,15 +69,25 @@ class SupabaseRiskReportRepository
   final R2MediaClient _r2Client;
 
   @override
-  Future<RiskReport> fetchReport(String reportId) async => RiskReport.fromJson(
-    _mergeInterventionTriage(
+  Future<RiskReport> fetchReport(String reportId) async {
+    final row = _mergeInterventionTriage(
       await _client
           .from('risk_reports')
           .select(riskReportSelection)
           .eq('id', reportId)
           .single(),
-    ),
-  );
+    );
+    if (row['order_id'] != null && row['orders'] is Map) {
+      final contacts = await SupabaseSupportOrderContactsLoader(
+        _client,
+      ).fetch([row['order_id'].toString()], reportId: reportId);
+      row['orders'] = contacts.enrichOrder(
+        Map<String, dynamic>.from(row['orders'] as Map),
+      );
+      row['reporter'] = contacts.reporter ?? row['reporter'];
+    }
+    return RiskReport.fromJson(row);
+  }
 
   @override
   Stream<void> watchReport(String reportId) => _client

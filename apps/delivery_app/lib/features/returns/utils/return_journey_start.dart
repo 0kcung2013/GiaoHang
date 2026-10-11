@@ -7,8 +7,18 @@ LatLng resolveReturnMissionOrigin({
   required LatLng? incidentOrigin,
 }) => incidentOrigin ?? approvedOrigin;
 
+bool shouldKeepReturnJourneyPosition({
+  required bool usesRouteSimulation,
+  required LatLng? previousPosition,
+  required DriverPositionSource previousSource,
+}) =>
+    usesRouteSimulation &&
+    previousPosition != null &&
+    (previousSource == DriverPositionSource.simulation ||
+        previousSource == DriverPositionSource.restoredSession);
+
 LatLng resolveReturnJourneyStart({
-  required bool isWeb,
+  required bool usesRouteSimulation,
   required bool returnStarted,
   required LatLng missionOrigin,
   required LatLng? currentPosition,
@@ -16,12 +26,12 @@ LatLng resolveReturnJourneyStart({
   required DriverPositionSource previousSource,
 }) {
   if (!returnStarted) return missionOrigin;
-  if (!isWeb) {
-    return currentPosition ?? previousPosition ?? missionOrigin;
-  }
-  if (previousSource == DriverPositionSource.simulation &&
-      previousPosition != null) {
-    return previousPosition;
+  if (shouldKeepReturnJourneyPosition(
+    usesRouteSimulation: usesRouteSimulation,
+    previousPosition: previousPosition,
+    previousSource: previousSource,
+  )) {
+    return previousPosition!;
   }
   return currentPosition ?? previousPosition ?? missionOrigin;
 }

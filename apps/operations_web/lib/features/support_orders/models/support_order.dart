@@ -1,3 +1,5 @@
+import 'package:giaohang_domain/giaohang_domain.dart';
+
 class SupportOrder {
   const SupportOrder({
     required this.id,
@@ -16,6 +18,7 @@ class SupportOrder {
     this.paymentMethod,
     this.customerId,
     this.driverId,
+    this.details,
   });
 
   final String id;
@@ -34,6 +37,28 @@ class SupportOrder {
   final String? paymentMethod;
   final String? customerId;
   final String? driverId;
+  final RiskOrderSummary? details;
+
+  RiskOrderSummary get information =>
+      details ??
+      RiskOrderSummary(
+        id: id,
+        trackingCode: trackingCode,
+        status: status,
+        pickupAddress: pickupAddress,
+        deliveryAddress: deliveryAddress,
+        customerId: customerId,
+        driverId: driverId,
+        recipientName: recipientName,
+        recipientPhone: recipientPhone,
+        itemName: itemName,
+        note: note,
+        paymentMethod: paymentMethod,
+        totalPrice: totalPrice.round(),
+        deliveryFee: deliveryFee.round(),
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+      );
 
   factory SupportOrder.fromJson(Map<String, dynamic> json) {
     return SupportOrder(
@@ -53,6 +78,7 @@ class SupportOrder {
       paymentMethod: json['payment_method']?.toString(),
       customerId: json['customer_id']?.toString(),
       driverId: json['driver_id']?.toString(),
+      details: RiskOrderSummary.fromJson(json),
     );
   }
 

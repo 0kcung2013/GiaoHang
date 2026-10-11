@@ -1,122 +1,132 @@
 import 'package:flutter/material.dart';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:latlong2/latlong.dart';
+
+import '../../../../../core/models/order_model.dart';
 import '../driver_home_strings.dart';
+import '../providers/driver_order_route_distance_provider.dart';
 import '../utils/driver_order_distance.dart';
 
-/// Hai quãng đường quan trọng nhất để tài xế quyết định nhận đơn.
-class DriverOrderDistanceSummary extends StatelessWidget {
+/// Hiển thị cả hai chặng cùng nguồn khoảng cách theo tuyến đường.
+class DriverOrderDistanceSummary extends ConsumerWidget {
   const DriverOrderDistanceSummary({
     super.key,
-    required this.pickupDistanceMeters,
-    required this.totalDistanceMeters,
+    required this.order,
+    this.driverId,
+    this.driverPosition,
   });
 
-  final double? pickupDistanceMeters;
-  final double? totalDistanceMeters;
+  final OrderModel order;
+  final String? driverId;
+  final LatLng? driverPosition;
 
   @override
-  Widget build(BuildContext context) {
-    final pickupText = distanceKilometersText(pickupDistanceMeters);
-    final totalText = distanceKilometersText(totalDistanceMeters);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final request = driverOrderRouteRequest(
+      order,
+      driverId: driverId,
+      driverPosition: driverPosition,
+    );
+    final state = ref.watch(driverOrderRouteDistanceProvider(request));
+    final distance = state.valueOrNull;
+    final status = state.isLoading
+        ? DriverHomeStrings.routeDistanceLoading
+        : distance?.totalMeters == null
+        ? DriverHomeStrings.routeDistanceUnavailable
+        : DriverHomeStrings.routeDistanceSource;
 
-    return Semantics(
-      container: true,
-      label: DriverHomeStrings.distanceSummarySemantic(
-        pickupText: pickupText,
-        totalText: totalText,
-      ),
-      child: ExcludeSemantics(
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: _DistanceMetric(
-                  icon: Icons.storefront_rounded,
-                  label: DriverHomeStrings.pickupDistanceLabel,
-                  value: pickupText,
-                  color: AppColors.info,
-                ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: AppSpacing.sm,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              DriverHomeStrings.totalDistanceLabel,
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
               ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: _DistanceMetric(
-                  icon: Icons.route_rounded,
-                  label: DriverHomeStrings.totalDistanceLabel,
-                  value: totalText,
-                  color: AppColors.accent,
-                  emphasized: true,
-                ),
-              ),
-            ],
+            ),
+            Text(
+              distanceKilometersText(distance?.totalMeters),
+              key: const ValueKey('driver-route-total-distance'),
+              style: AppTextStyles.headingLarge,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          status,
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.textSecondary,
           ),
         ),
-      ),
+        const SizedBox(height: AppSpacing.sm),
+        Wrap(
+          spacing: AppSpacing.lg,
+          runSpacing: AppSpacing.xs,
+          children: [
+            _DistanceLeg(
+              label: DriverHomeStrings.pickupDistanceLabel,
+              meters: distance?.pickupMeters,
+              icon: Icons.storefront_rounded,
+              color: AppColors.markerPickup,
+            ),
+            _DistanceLeg(
+              label: DriverHomeStrings.deliveryDistanceLabel,
+              meters: distance?.deliveryMeters,
+              icon: Icons.local_shipping_rounded,
+              color: AppColors.markerDrop,
+            ),
+          ],
+        ),
+        if (!state.isLoading && distance?.totalMeters == null)
+          TextButton.icon(
+            onPressed: () =>
+                ref.invalidate(driverOrderRouteDistanceProvider(request)),
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text(DriverHomeStrings.routeDistanceRetry),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.accent,
+              textStyle: AppTextStyles.labelMedium,
+              minimumSize: const Size(48, 48),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+            ),
+          ),
+      ],
     );
   }
 }
 
-class _DistanceMetric extends StatelessWidget {
-  const _DistanceMetric({
-    required this.icon,
+class _DistanceLeg extends StatelessWidget {
+  const _DistanceLeg({
     required this.label,
-    required this.value,
+    required this.meters,
+    required this.icon,
     required this.color,
-    this.emphasized = false,
   });
 
-  final IconData icon;
   final String label;
-  final String value;
+  final double? meters;
+  final IconData icon;
   final Color color;
-  final bool emphasized;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: emphasized ? 0.11 : 0.07),
-        borderRadius: AppRadius.md,
-        border: Border.all(
-          color: color.withValues(alpha: emphasized ? 0.38 : 0.24),
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: 18, color: color),
+      const SizedBox(width: AppSpacing.xs),
+      Flexible(
+        child: Text(
+          '$label: ${distanceKilometersText(meters)}',
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.textSecondary,
+          ),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, color: color, size: 18),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            value,
-            maxLines: 1,
-            style: AppTextStyles.headingLarge.copyWith(
-              color: emphasized ? AppColors.accent : AppColors.textPrimary,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.4,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+    ],
+  );
 }

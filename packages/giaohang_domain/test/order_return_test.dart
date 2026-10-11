@@ -35,6 +35,14 @@ void main() {
     expect(value.driverReturnEarning, 26000);
     expect(value.canComplete, isTrue);
     expect(value.toJson()['destination_type'], 'processing_center');
+    final cancelled = OrderReturn.fromJson({
+      ...value.toJson(),
+      'status': 'cancelled',
+    });
+    expect(cancelled.status, OrderReturnStatus.cancelled);
+    expect(cancelled.isActive, isFalse);
+    expect(cancelled.canStart, isFalse);
+    expect(cancelled.canComplete, isFalse);
   });
 
   test('approval draft maps typed values to RPC parameters', () {

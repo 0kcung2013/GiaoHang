@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
 import '../../../widgets/driver_swipe_action.dart';
+import '../utils/driver_delivery_arrival_strings.dart';
 
 /// Presentation only. Arrival and elapsed time must come from the server.
 /// A null arrival callback leaves the swipe disabled until integration is ready.
@@ -105,7 +106,7 @@ class DriverDeliveryWaitCard extends StatelessWidget {
                       ? Icons.phone_disabled_rounded
                       : Icons.lock_clock_rounded,
                 ),
-                label: const Text('Không liên lạc được với khách'),
+                label: const Text(DriverDeliveryArrivalStrings.reportRecipient),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.accent,
                   disabledForegroundColor: AppColors.textSecondary,

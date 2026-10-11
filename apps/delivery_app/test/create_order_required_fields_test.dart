@@ -45,8 +45,10 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final name = TextEditingController();
     final description = TextEditingController();
+    final weight = TextEditingController();
     addTearDown(name.dispose);
     addTearDown(description.dispose);
+    addTearDown(weight.dispose);
     final form = GlobalKey<FormState>();
     var category = '';
     XFile? image;
@@ -73,6 +75,7 @@ void main() {
                         CreateOrderCargoSection(
                           itemNameController: name,
                           itemDescriptionController: description,
+                          itemWeightController: weight,
                           itemCategory: category,
                           requiredText: requiredOrderText,
                           onCategoryChanged: (value) =>
@@ -99,7 +102,16 @@ void main() {
     expect(find.text('Danh mục *', findRichText: true), findsOneWidget);
     expect(find.text('Ảnh kiện hàng *', findRichText: true), findsOneWidget);
     expect(find.text(OrderFormValidationText.photoRequired), findsOneWidget);
+    expect(find.text(OrderFormValidationText.weightRequired), findsOneWidget);
     await tester.enterText(find.byType(TextFormField).first, 'Hồ sơ');
+    await tester.ensureVisible(find.byKey(const Key('order-cargo-weight')));
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const Key('order-cargo-weight')),
+        matching: find.byType(TextFormField),
+      ),
+      '0,5',
+    );
     await tester.ensureVisible(find.text('Tài liệu'));
     await tester.tap(find.text('Tài liệu'));
     await tester.pumpAndSettle();

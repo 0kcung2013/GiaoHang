@@ -4,13 +4,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../core/location/driver_foreground_location_service.dart';
 import '../../../core/models/order_model.dart';
 import '../../../core/providers/customer_providers.dart';
 import '../../../core/providers/location_providers.dart';
-import '../../../core/utils/geo_utils.dart';
 import '../../notifications/models/notification_inbox_item.dart';
 import '../../notifications/widgets/notification_bell_button.dart';
 import 'account/driver_account_screen.dart';
@@ -85,13 +85,9 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
           ? availableOffers
           : const [],
     );
-    final incomingOfferPickupDistance =
-        currentUser == null || incomingOffer == null
+    final incomingOfferPosition = currentUser == null || incomingOffer == null
         ? null
-        : _resolveIncomingOfferPickupDistance(
-            currentUser: currentUser,
-            order: incomingOffer,
-          );
+        : _resolveIncomingOfferPosition(currentUser: currentUser);
 
     if (currentUser != null) {
       ref.watch(driverCancelledOrderRealtimeProvider(currentUser.id));
@@ -200,7 +196,7 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
             child: DriverIncomingOfferOverlay(
               order: incomingOffer,
               driverUserId: currentUser.id,
-              pickupDistanceMeters: incomingOfferPickupDistance,
+              driverPosition: incomingOfferPosition,
             ),
           ),
       ],
@@ -232,12 +228,7 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
     );
   }
 
-  double? _resolveIncomingOfferPickupDistance({
-    required User currentUser,
-    required OrderModel order,
-  }) {
-    if (order.pickupLat == 0 && order.pickupLng == 0) return null;
-
+  LatLng? _resolveIncomingOfferPosition({required User currentUser}) {
     final driver = ref
         .watch(driverByUserIdProvider(currentUser.id))
         .valueOrNull;
@@ -257,14 +248,7 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
       storedLat: driver.currentLat,
       storedLng: driver.currentLng,
     );
-    if (offerPosition == null) return null;
-
-    return GeoUtils.distanceMeters(
-      fromLat: offerPosition.latitude,
-      fromLng: offerPosition.longitude,
-      toLat: order.pickupLat,
-      toLng: order.pickupLng,
-    );
+    return offerPosition;
   }
 
   void _showGpsDebugSheet() {

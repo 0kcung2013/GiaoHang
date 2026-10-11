@@ -10,6 +10,8 @@ import 'package:delivery_app/features/driver/screens/navigation/widgets/driver_r
 import 'package:delivery_app/features/risk_reports/data/participant_risk_report_query_repository.dart';
 import 'package:delivery_app/features/risk_reports/data/risk_intervention_repository.dart';
 import 'package:delivery_app/features/risk_reports/models/participant_risk_report_summary.dart';
+import 'package:delivery_app/features/risk_reports/utils/risk_recipient_return_request.dart';
+import 'package:delivery_app/features/driver/screens/navigation/utils/driver_delivery_arrival_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
@@ -39,6 +41,7 @@ ParticipantRiskReportSummary _report({
   String role = 'driver',
   String category = 'contact_issue',
   String status = 'open',
+  String? description,
 }) => ParticipantRiskReportSummary.fromJson({
   'id': 'report',
   'order_id': 'order',
@@ -46,6 +49,11 @@ ParticipantRiskReportSummary _report({
   'reporter_role_snapshot': role,
   'category': category,
   'status': status,
+  'description':
+      description ??
+      RiskRecipientReturnRequest.describe(
+        'Khách không nghe máy sau ba lần gọi.',
+      ),
   'created_at': _created.toIso8601String(),
   'updated_at': _created.toIso8601String(),
 });
@@ -61,30 +69,68 @@ RiskIntervention _intervention(RiskInterventionState state) => RiskIntervention(
 );
 
 void main() {
-  test(
-    '15 minutes begins at report creation, independently of CSKH deadline',
-    () {
-      final wait = DriverRecipientWait(_report());
-      expect(wait.remainingAt(_created), const Duration(minutes: 15));
-      expect(
-        wait.remainingAt(_created.add(const Duration(minutes: 10))),
-        const Duration(minutes: 5),
+  for (final entry in ['new-report', 'redelivery', 'legacy-request']) {
+    testWidgets('$entry opens conversation for the waiting risk report', (
+      tester,
+    ) async {
+      final reports = _Reports();
+      final interventions = _Interventions();
+      addTearDown(reports.close);
+      addTearDown(interventions.close);
+      if (entry == 'legacy-request') {
+        reports.values = [_report(description: 'Báo cáo từ phiên bản cũ.')];
+        reports.messages.add(
+          CaseMessage(
+            id: 'request',
+            caseId: 'report',
+            senderId: 'driver',
+            senderRole: 'driver',
+            visibility: CaseMessageVisibility.public,
+            body: RiskRecipientReturnRequest.legacyMessage,
+            createdAt: _created,
+          ),
+        );
+      }
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DriverRecipientWaitRegion(
+            order: _order,
+            reports: reports,
+            interventions: interventions,
+            arrivalRepository: _arrival(
+              () => _created.add(const Duration(minutes: 1)),
+            ),
+            child: const Scaffold(body: Text('Bản đồ')),
+          ),
+        ),
       );
-      expect(
-        wait.remainingAt(_created.add(const Duration(minutes: 15))),
-        Duration.zero,
+      await tester.pumpAndSettle();
+      if (entry == 'redelivery') {
+        await tester.tap(find.text(DriverRecipientWaitStrings.recall));
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(
+        find.text(DriverRecipientWaitStrings.contactSupport).last,
       );
-      expect(
-        wait.remainingAt(_created.add(const Duration(hours: 2))),
-        Duration.zero,
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('risk-chat-sheet')), findsOneWidget);
+      expect(find.text('Nội dung đã gửi'), findsNothing);
+      expect(find.text('Tiến độ'), findsNothing);
+      expect(find.text('Bổ sung thông tin cho CSKH'), findsNothing);
+      await tester.enterText(
+        find.byKey(const Key('support-chat-composer')),
+        'Khách vừa gọi lại, cần hướng dẫn giao lại.',
       );
-      expect(
-        wait.remainingAt(_created.subtract(const Duration(hours: 2))),
-        DriverRecipientWait.window,
-      );
-      expect(DriverRecipientWait.redeliveryPerKm, 5000);
-    },
-  );
+      await tester.tap(find.byKey(const Key('send-support-chat-message')));
+      await tester.pumpAndSettle();
+      expect(reports.messages.last.caseId, 'report');
+      expect(reports.messages.last.body, contains('Khách vừa gọi lại'));
+      expect(reports.posts, 1);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
 
   test('wait selects only own driver contact report awaiting a decision', () {
     DriverRecipientWait? select(
@@ -116,7 +162,7 @@ void main() {
     }
   });
 
-  testWidgets('reopening restores remaining time and opens fee terms', (
+  testWidgets('new report waits for CSKH immediately and opens fee terms', (
     tester,
   ) async {
     final reports = _Reports();
@@ -140,31 +186,39 @@ void main() {
     }
 
     await mount();
-    expect(find.text('10:00'), findsOneWidget);
+    expect(find.text('10:00'), findsNothing);
+    expect(find.text('15:00'), findsNothing);
     expect(find.text(DriverRecipientWaitStrings.waiting), findsOneWidget);
     await tester.tap(find.text(DriverRecipientWaitStrings.recall));
     await tester.pumpAndSettle();
     expect(find.byType(DriverRedeliveryFeeDialog), findsOneWidget);
     expect(find.text(DriverRecipientWaitStrings.origin), findsOneWidget);
-    expect(find.text(DriverRecipientWaitStrings.payer), findsNWidgets(2));
+    expect(find.text(DriverRecipientWaitStrings.payer), findsOneWidget);
     expect(find.text(DriverRecipientWaitStrings.rate), findsOneWidget);
     await tester.tap(find.text(DriverRecipientWaitStrings.close));
     await tester.pumpAndSettle();
     await tester.pumpWidget(const SizedBox());
     await mount();
-    expect(find.text('10:00'), findsOneWidget);
+    expect(find.text(DriverRecipientWaitStrings.waiting), findsOneWidget);
+    expect(find.text(DriverRecipientWaitStrings.sendReturn), findsNothing);
+    expect(reports.posts, 0);
     await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets(
-    'expiry on resume reopens request, sends once and restores sent state',
+    'reopen and resume preserve combined request without posting again',
     (tester) async {
-      var serverNow = _created.add(const Duration(minutes: 14));
       final reports = _Reports();
       final interventions = _Interventions();
       addTearDown(reports.close);
       addTearDown(interventions.close);
-      final arrival = _arrival(() => serverNow);
+      var arrivalReads = 0;
+      final arrival = DriverDeliveryArrivalRepository(
+        invoke: (_, _) async {
+          arrivalReads++;
+          throw StateError('Combined reports do not need another arrival read');
+        },
+      );
       Future<void> mount() async {
         await tester.pumpWidget(
           MaterialApp(
@@ -184,57 +238,49 @@ void main() {
       await tester.tap(find.text(DriverRecipientWaitStrings.minimize));
       await tester.pumpAndSettle();
       expect(find.byType(DriverRecipientWaitCard), findsNothing);
-      serverNow = _created.add(const Duration(minutes: 16));
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
-      expect(find.text(DriverRecipientWaitStrings.expired), findsOneWidget);
-      expect(reports.posts, 0);
-      await tester.tap(find.text(DriverRecipientWaitStrings.sendReturn));
+      expect(find.byType(DriverRecipientWaitCard), findsNothing);
+      await tester.tap(find.text(DriverRecipientWaitStrings.waiting));
       await tester.pumpAndSettle();
-      expect(reports.posts, 1);
-      expect(find.text(DriverRecipientWaitStrings.returnSent), findsOneWidget);
+      expect(find.byType(DriverRecipientWaitCard), findsOneWidget);
+      expect(reports.posts, 0);
+      expect(find.text(DriverRecipientWaitStrings.sendReturn), findsNothing);
       await tester.pumpWidget(const SizedBox());
       await mount();
-      expect(find.text(DriverRecipientWaitStrings.returnSent), findsOneWidget);
+      expect(find.text(DriverRecipientWaitStrings.waiting), findsOneWidget);
       expect(find.text(DriverRecipientWaitStrings.sendReturn), findsNothing);
-      expect(reports.posts, 1);
+      expect(reports.posts, 0);
+      expect(arrivalReads, 0);
       await tester.pumpWidget(const SizedBox());
     },
   );
 
   testWidgets(
-    'CSKH decision removes form; offline clock disables return request',
+    'offline refresh retries and CSKH decision removes approval form',
     (tester) async {
-      var offline = true;
-      final reports = _Reports();
+      final reports = _Reports()..failFetch = true;
       final interventions = _Interventions();
       addTearDown(reports.close);
       addTearDown(interventions.close);
-      final arrival = DriverDeliveryArrivalRepository(
-        invoke: (_, _) async {
-          if (offline) throw StateError('network');
-          return _snapshot(_created.add(const Duration(minutes: 16)));
-        },
-      );
       await tester.pumpWidget(
         MaterialApp(
           home: DriverRecipientWaitRegion(
             order: _order,
             reports: reports,
             interventions: interventions,
-            arrivalRepository: arrival,
             child: const Scaffold(body: Text('Bản đồ')),
           ),
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text(DriverRecipientWaitStrings.clockError), findsOneWidget);
+      expect(find.text(DriverRecipientWaitStrings.syncError), findsOneWidget);
       expect(find.text(DriverRecipientWaitStrings.sendReturn), findsNothing);
-      offline = false;
+      reports.failFetch = false;
       await tester.tap(find.text(DriverRecipientWaitStrings.retry));
       await tester.pumpAndSettle();
-      expect(find.text(DriverRecipientWaitStrings.sendReturn), findsOneWidget);
+      expect(find.text(DriverRecipientWaitStrings.waiting), findsOneWidget);
       interventions.value = _intervention(RiskInterventionState.returnRequired);
       interventions.controller.add(interventions.value);
       await tester.pumpAndSettle();
@@ -247,7 +293,8 @@ void main() {
   testWidgets('request checks fresh CSKH decision before posting', (
     tester,
   ) async {
-    final reports = _Reports();
+    final reports = _Reports()
+      ..values = [_report(description: 'Báo cáo cũ chưa xin hoàn.')];
     final interventions = _Interventions();
     addTearDown(reports.close);
     addTearDown(interventions.close);
@@ -275,9 +322,67 @@ void main() {
   });
 
   testWidgets(
+    'legacy report requests return at ten minutes without another wait',
+    (tester) async {
+      final reports = _Reports()
+        ..values = [_report(description: 'Báo cáo cũ chưa xin hoàn.')];
+      final interventions = _Interventions();
+      addTearDown(reports.close);
+      addTearDown(interventions.close);
+      var allowed = false;
+      final arrival = DriverDeliveryArrivalRepository(
+        invoke: (_, _) async => {
+          ..._snapshot(
+            allowed ? _created : _created.subtract(const Duration(seconds: 1)),
+          ),
+          'can_report_recipient': allowed,
+        },
+      );
+      Future<void> mount() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: DriverRecipientWaitRegion(
+              order: _order,
+              reports: reports,
+              interventions: interventions,
+              arrivalRepository: arrival,
+              child: const Scaffold(body: Text('Bản đồ')),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      await mount();
+      expect(find.text(DriverRecipientWaitStrings.sendReturn), findsOneWidget);
+      await tester.tap(find.text(DriverRecipientWaitStrings.sendReturn));
+      await tester.pumpAndSettle();
+      expect(reports.posts, 0);
+      expect(
+        find.text(DriverDeliveryArrivalStrings.waitRequired),
+        findsOneWidget,
+      );
+      allowed = true;
+      await tester.tap(find.text(DriverRecipientWaitStrings.sendReturn));
+      await tester.tap(find.text(DriverRecipientWaitStrings.sendReturn));
+      await tester.pumpAndSettle();
+      expect(reports.posts, 1);
+      expect(find.text(DriverRecipientWaitStrings.waiting), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      await mount();
+      expect(find.text(DriverRecipientWaitStrings.sendReturn), findsNothing);
+      expect(find.text(DriverRecipientWaitStrings.waiting), findsOneWidget);
+      expect(reports.posts, 1);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
     'failed return request stays retryable and never claims success',
     (tester) async {
-      final reports = _Reports()..failPost = true;
+      final reports = _Reports()
+        ..values = [_report(description: 'Báo cáo cũ chưa xin hoàn.')]
+        ..failPost = true;
       final interventions = _Interventions();
       addTearDown(reports.close);
       addTearDown(interventions.close);
@@ -298,21 +403,22 @@ void main() {
       await tester.tap(find.text(DriverRecipientWaitStrings.sendReturn));
       await tester.pumpAndSettle();
       expect(find.text(DriverRecipientWaitStrings.sendError), findsOneWidget);
-      expect(find.text(DriverRecipientWaitStrings.returnSent), findsNothing);
+      expect(find.text(DriverRecipientWaitStrings.waiting), findsNothing);
       reports.failPost = false;
       await tester.tap(find.text(DriverRecipientWaitStrings.sendReturn));
       await tester.pumpAndSettle();
       expect(reports.messages, hasLength(1));
-      expect(find.text(DriverRecipientWaitStrings.returnSent), findsOneWidget);
+      expect(find.text(DriverRecipientWaitStrings.waiting), findsOneWidget);
+      expect(reports.messages.single.body, RiskRecipientReturnRequest.message);
       await tester.pumpWidget(const SizedBox());
     },
   );
 
   for (final size in [const Size(320, 568), const Size(390, 844)]) {
     for (final scale in [1.0, 1.6]) {
-      for (final expired in [false, true]) {
+      for (final returnRequested in [false, true]) {
         testWidgets(
-          'wait card ${size.width} scale $scale expired $expired fits and scrolls',
+          'approval card ${size.width} scale $scale requested $returnRequested fits',
           (tester) async {
             tester.view.physicalSize = size;
             tester.view.devicePixelRatio = 1;
@@ -331,13 +437,10 @@ void main() {
                         padding: const EdgeInsets.all(16),
                         child: DriverRecipientWaitCard(
                           orderCode: 'GH-10179',
-                          pickupAddress: _order.pickupAddress,
-                          remaining: expired
-                              ? Duration.zero
-                              : const Duration(minutes: 15),
+                          returnRequested: returnRequested,
                           onRecall: () {},
                           onRequestReturn: () {},
-                          onOpenReport: () {},
+                          onContactSupport: () {},
                           onMinimize: () {},
                           onRetry: () {},
                         ),
@@ -405,6 +508,7 @@ class _Reports
   final messages = <CaseMessage>[];
   int posts = 0;
   bool failPost = false;
+  bool failFetch = false;
   Future<void> close() => controller.close();
   @override
   Stream<List<ParticipantRiskReportSummary>> watchForOrder(
@@ -417,7 +521,11 @@ class _Reports
   @override
   Future<List<ParticipantRiskReportSummary>> fetchForOrder(
     String orderId,
-  ) async => values;
+  ) async {
+    if (failFetch) throw StateError('network');
+    return values;
+  }
+
   @override
   Future<ParticipantRiskReportSummary?> findActive(
     String orderId,

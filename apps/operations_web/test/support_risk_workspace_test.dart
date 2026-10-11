@@ -6,6 +6,66 @@ import 'package:operations_web/features/risk_reports/widgets/risk_case_conversat
 import 'package:operations_web/features/risk_reports/widgets/risk_report_detail_body.dart';
 
 void main() {
+  testWidgets(
+    'demo call survives tabs and responsive layout without deciding the order',
+    (tester) async {
+      tester.view.physicalSize = const Size(1280, 850);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      var decisions = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: _body(
+              orderStatus: 'delivering',
+              category: RiskCategory.contactIssue,
+              onDecision: (_, _) async => decisions++,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('risk-call-demo')));
+      await tester.pump();
+      await tester.tap(find.text('Trao đổi'));
+      await tester.pump();
+      tester.view.physicalSize = const Size(320, 568);
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('Demo · Không nghe máy'), findsOneWidget);
+      expect(decisions, 0);
+      expect(find.byKey(const Key('return-order-button')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets('risk reply draft survives tab changes and narrow resize', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: _body())));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('risk-case-message-field')), findsNothing);
+    await tester.tap(find.text('Trao đổi'));
+    await tester.pumpAndSettle();
+    final field = find.byKey(const Key('risk-case-message-field'));
+    await tester.enterText(field, 'Đang xác minh thông tin người nhận.');
+    await tester.ensureVisible(find.text('Báo cáo'));
+    await tester.tap(find.text('Báo cáo'));
+    await tester.pumpAndSettle();
+    expect(field, findsNothing);
+    await tester.tap(find.text('Trao đổi'));
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(375, 568);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(field).controller!.text,
+      'Đang xác minh thông tin người nhận.',
+    );
+    expect(tester.takeException(), isNull);
+  });
   for (final viewport in [
     (size: const Size(375, 568), scale: 1.6),
     (size: const Size(882, 849), scale: 1.0),
@@ -165,6 +225,7 @@ void main() {
             body: _body(
               orderStatus: state.status,
               actualPickedUpAt: state.pickedUpAt,
+              category: RiskCategory.contactIssue,
             ),
           ),
         ),
@@ -257,6 +318,7 @@ Widget _body({
   String orderStatus = 'assigned',
   RiskStatus status = RiskStatus.investigating,
   String owner = 'staff',
+  RiskCategory category = RiskCategory.cargoIssue,
   DateTime? actualPickedUpAt,
   RiskInterventionState interventionState =
       RiskInterventionState.awaitingTriage,
@@ -268,7 +330,7 @@ Widget _body({
     orderId: 'order',
     reportedBy: 'driver',
     assignedTo: owner,
-    category: RiskCategory.cargoIssue,
+    category: category,
     severity: RiskSeverity.medium,
     status: status,
     title: 'Hàng hóa có vấn đề',
@@ -284,6 +346,8 @@ Widget _body({
       actualPickedUpAt: actualPickedUpAt,
       pickupAddress: 'Kho trung tâm',
       deliveryAddress: 'Điểm giao',
+      recipientName: 'Trần Thu Hà',
+      recipientPhone: '0909000001',
     ),
   );
   return RiskReportDetailBody(

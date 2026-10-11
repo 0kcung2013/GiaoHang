@@ -35,6 +35,7 @@ class TrackingMapCanvas extends StatelessWidget {
     required this.deliveryPoint,
     required this.driverPosition,
     required this.driverBearing,
+    this.driverSpeedKmh,
     required this.completed,
     required this.isFullscreen,
     required this.phaseLegend,
@@ -50,6 +51,7 @@ class TrackingMapCanvas extends StatelessWidget {
   final LatLng deliveryPoint;
   final LatLng? driverPosition;
   final double? driverBearing;
+  final double? driverSpeedKmh;
   final bool completed;
   final bool isFullscreen;
   final String phaseLegend;
@@ -94,6 +96,8 @@ class TrackingMapCanvas extends StatelessWidget {
                     driverPosition!,
                     bearingDegrees: driverBearing,
                   ),
+                if (driverPosition != null && driverSpeedKmh != null)
+                  DeliveryMapMarkers.speed(driverPosition!, driverSpeedKmh!),
               ],
             ),
           ],

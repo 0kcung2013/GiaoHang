@@ -53,22 +53,3 @@ String _orderCode(OrderModel order) {
   final length = order.id.length >= 8 ? 8 : order.id.length;
   return '#${order.id.substring(0, length).toUpperCase()}';
 }
-
-String? _etaText(OrderModel order) {
-  final estimated = order.estimatedDeliveryAt;
-  if (estimated == null) return null;
-  final minutes = estimated.difference(DateTime.now()).inMinutes;
-  if (minutes <= 0) return 'Sắp đến';
-  if (minutes < 60) return '$minutes phút';
-  final hours = minutes ~/ 60;
-  final remainder = minutes % 60;
-  return remainder == 0 ? '$hours giờ' : '$hours giờ $remainder phút';
-}
-
-String? _expectedTime(OrderModel order) {
-  final estimated = order.estimatedDeliveryAt;
-  if (estimated == null) return null;
-  final hour = estimated.hour.toString().padLeft(2, '0');
-  final minute = estimated.minute.toString().padLeft(2, '0');
-  return '$hour:$minute';
-}

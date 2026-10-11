@@ -13,6 +13,7 @@ class SupportChatHeader extends StatelessWidget {
     this.onRetry,
     this.showSubject = true,
     this.compact = false,
+    this.title = 'CSKH GiaoHang',
     super.key,
   });
 
@@ -26,6 +27,72 @@ class SupportChatHeader extends StatelessWidget {
   final VoidCallback? onRetry;
   final bool showSubject;
   final bool compact;
+  final String title;
+
+  Widget _orderSummary() => Row(
+    children: [
+      if (showSubject) ...[
+        Container(
+          width: AppSpacing.xl4,
+          height: AppSpacing.xl4,
+          decoration: const BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: AppRadius.md,
+          ),
+          child: const Icon(
+            Icons.inventory_2_outlined,
+            size: 20,
+            color: AppColors.primary,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+      ],
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Tooltip(
+              message: orderLabel,
+              child: Text(
+                orderLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.mono.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            if (showSubject) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                subject,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    ],
+  );
+
+  Widget _statusBadge() => Container(
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.sm,
+      vertical: AppSpacing.xs,
+    ),
+    decoration: BoxDecoration(
+      color: statusColor.withValues(alpha: 0.1),
+      borderRadius: AppRadius.full,
+    ),
+    child: Text(
+      statusLabel,
+      style: AppTextStyles.labelSmall.copyWith(color: statusColor),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +159,7 @@ class SupportChatHeader extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'CSKH GiaoHang',
+                        title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTextStyles.headingSmall.copyWith(
@@ -148,71 +215,28 @@ class SupportChatHeader extends StatelessWidget {
                   bottom: BorderSide(color: AppColors.border),
                 ),
               ),
-              child: Row(
-                children: [
-                  if (showSubject) ...[
-                    Container(
-                      width: AppSpacing.xl4,
-                      height: AppSpacing.xl4,
-                      decoration: const BoxDecoration(
-                        color: AppColors.bgCard,
-                        borderRadius: AppRadius.md,
-                      ),
-                      child: const Icon(
-                        Icons.inventory_2_outlined,
-                        size: 20,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                  ],
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Tooltip(
-                          message: orderLabel,
-                          child: Text(
-                            orderLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.mono.copyWith(
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                        if (showSubject) ...[
-                          const SizedBox(height: AppSpacing.xs),
-                          Text(
-                            subject,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm,
-                      vertical: AppSpacing.xs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.1),
-                      borderRadius: AppRadius.full,
-                    ),
-                    child: Text(
-                      statusLabel,
-                      style: AppTextStyles.labelSmall.copyWith(
-                        color: statusColor,
-                      ),
-                    ),
-                  ),
-                ],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final narrow =
+                      constraints.maxWidth <
+                      320 * MediaQuery.textScalerOf(context).scale(1);
+                  return narrow
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _orderSummary(),
+                            const SizedBox(height: AppSpacing.sm),
+                            _statusBadge(),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(child: _orderSummary()),
+                            const SizedBox(width: AppSpacing.sm),
+                            _statusBadge(),
+                          ],
+                        );
+                },
               ),
             ),
         ],

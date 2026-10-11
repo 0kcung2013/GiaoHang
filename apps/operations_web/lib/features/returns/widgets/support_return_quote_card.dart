@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
+import '../constants/return_approval_strings.dart';
 import '../services/return_route_quote_service.dart';
 
 class SupportReturnQuoteCard extends StatelessWidget {
@@ -21,46 +22,140 @@ class SupportReturnQuoteCard extends StatelessWidget {
     final returnFee = OrderReturnPricingPolicy.calculateReturnFee(deliveryFee);
     final totalDriverEarning =
         OrderReturnPricingPolicy.calculateTotalDriverEarning(deliveryFee);
+    final customerCharge = payer == ReturnFeePayer.customer ? returnFee : 0;
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: const BoxDecoration(
-        color: AppColors.bgLight,
+      decoration: BoxDecoration(
+        color: AppColors.bgCard,
         borderRadius: AppRadius.lg,
+        border: Border.all(color: AppColors.border),
       ),
-      child: Wrap(
-        spacing: AppSpacing.xl,
-        runSpacing: AppSpacing.sm,
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _value(
-            'Quãng hoàn',
-            '${(quote.distanceMeters / 1000).toStringAsFixed(1)} km',
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _FeeRow(
+                  label: ReturnApprovalStrings.returnFee,
+                  amount: returnFee,
+                  prominent: true,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '${payer == ReturnFeePayer.customer ? ReturnApprovalStrings.customerPays : ReturnApprovalStrings.platformPays}'
+                  ' · ${ReturnApprovalStrings.extraCustomerCharge} ${_vnd(customerCharge)}',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Wrap(
+                  spacing: AppSpacing.lg,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    _RouteValue(
+                      icon: Icons.route_rounded,
+                      text:
+                          '${(quote.distanceMeters / 1000).toStringAsFixed(1)} km',
+                    ),
+                    _RouteValue(
+                      icon: Icons.schedule_rounded,
+                      text: '${(quote.durationSeconds / 60).ceil()} phút',
+                    ),
+                    if (quote.source == ReturnQuoteSource.fallback)
+                      Text(
+                        ReturnApprovalStrings.estimatedRoute,
+                        style: AppTextStyles.labelSmall.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          _value('Dự kiến', '${(quote.durationSeconds / 60).ceil()} phút'),
-          _value('Cước giao gốc', _vnd(deliveryFee)),
-          _value('Phí hoàn hàng (50%)', _vnd(returnFee)),
-          _value('Tổng tài xế nhận', _vnd(totalDriverEarning)),
-          _value(
-            'Khách trả thêm',
-            _vnd(payer == ReturnFeePayer.customer ? returnFee : 0),
+          const Divider(height: 1, color: AppColors.border),
+          ExpansionTile(
+            key: const Key('return-fee-details'),
+            shape: const Border(),
+            collapsedShape: const Border(),
+            iconColor: AppColors.accent,
+            collapsedIconColor: AppColors.textSecondary,
+            title: Text(
+              ReturnApprovalStrings.feeDetails,
+              style: AppTextStyles.labelMedium,
+            ),
+            childrenPadding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              0,
+              AppSpacing.lg,
+              AppSpacing.lg,
+            ),
+            children: [
+              _FeeRow(
+                label: ReturnApprovalStrings.deliveryFee,
+                amount: deliveryFee,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              _FeeRow(
+                label: ReturnApprovalStrings.driverTotal,
+                amount: totalDriverEarning,
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _value(String label, String value) => SizedBox(
-    width: 135,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppTextStyles.labelSmall.copyWith(color: AppColors.textMuted),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(value, style: AppTextStyles.labelMedium),
-      ],
-    ),
+class _FeeRow extends StatelessWidget {
+  const _FeeRow({
+    required this.label,
+    required this.amount,
+    this.prominent = false,
+  });
+  final String label;
+  final int amount;
+  final bool prominent;
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    alignment: WrapAlignment.spaceBetween,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    spacing: AppSpacing.md,
+    runSpacing: AppSpacing.xs,
+    children: [
+      Text(
+        label,
+        style: prominent ? AppTextStyles.labelLarge : AppTextStyles.bodySmall,
+      ),
+      Text(
+        _vnd(amount),
+        style: prominent
+            ? AppTextStyles.headingMedium
+            : AppTextStyles.labelMedium,
+      ),
+    ],
+  );
+}
+
+class _RouteValue extends StatelessWidget {
+  const _RouteValue({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: 18, color: AppColors.textSecondary),
+      const SizedBox(width: AppSpacing.sm),
+      Text(text, style: AppTextStyles.bodySmall),
+    ],
   );
 }
 

@@ -13,7 +13,7 @@ ThemeData supportWorkspaceTheme(BuildContext context) {
   );
   return base.copyWith(
     colorScheme: scheme,
-    scaffoldBackgroundColor: AppColors.bgWarm,
+    scaffoldBackgroundColor: AppColors.bgLight,
     canvasColor: AppColors.bgCard,
     dividerColor: AppColors.border,
     focusColor: AppColors.accentLight,

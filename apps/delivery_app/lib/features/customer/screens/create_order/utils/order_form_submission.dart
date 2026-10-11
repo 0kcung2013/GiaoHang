@@ -21,6 +21,7 @@ OrderModel buildOrderFromForm({
   note: data.combinedDriverNote.isEmpty ? null : data.combinedDriverNote,
   createdAt: now,
   trackingCode: '',
+  trafficDemoKey: data.trafficDemoKey,
   recipientName: data.recipientName.trim(),
   recipientPhone: data.recipientPhone.trim(),
   itemName: data.itemName.trim(),
@@ -29,6 +30,7 @@ OrderModel buildOrderFromForm({
       ? null
       : data.itemDescription.trim(),
   itemImageUrl: itemImageUrl,
+  itemWeightKg: data.itemWeightKg,
   deliveryFee: data.deliveryFee,
   serviceType: 'standard',
   paymentMethod: data.paymentMethod,

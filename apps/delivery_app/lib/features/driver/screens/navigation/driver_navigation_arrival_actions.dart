@@ -38,9 +38,7 @@ extension _DriverNavigationArrivalActions on _DriverNavigationScreenState {
       initialLongitude: _driverPos?.longitude,
     );
     if (result != null && mounted) {
-      _showWorkflowMessage(
-        'Đã gửi báo cáo. CSKH sẽ kiểm tra ảnh cuộc gọi và hướng dẫn xử lý.',
-      );
+      _showWorkflowMessage(RiskReportStrings.recipientReturnSent);
     }
   }
 
@@ -48,6 +46,11 @@ extension _DriverNavigationArrivalActions on _DriverNavigationScreenState {
     if (_isUpdatingStatus || !_arrivedAtTarget || _driverPos == null) return;
     _updateUi(() => _isUpdatingStatus = true);
     try {
+      // Tái sử dụng chuỗi trạng thái backend hiện có, không thêm bước UI.
+      if (_currentOrder.status == 'assigned') {
+        await _advanceOrderStatus();
+        if (!mounted || _currentOrder.status != 'picking_up') return;
+      }
       final arrived = await ref
           .read(driverCancellationRepositoryProvider)
           .confirmArrival(

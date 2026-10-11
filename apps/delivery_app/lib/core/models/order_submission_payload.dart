@@ -9,6 +9,7 @@ Map<String, dynamic> buildOrderSubmissionPayload(OrderModel order) {
     'delivery_lat': order.deliveryLat,
     'delivery_lng': order.deliveryLng,
     'note': order.note,
+    if (order.trafficDemoKey != null) 'traffic_demo_key': order.trafficDemoKey,
     'estimated_pickup_at': order.estimatedPickupAt?.toUtc().toIso8601String(),
     'estimated_delivery_at': order.estimatedDeliveryAt
         ?.toUtc()
@@ -21,6 +22,7 @@ Map<String, dynamic> buildOrderSubmissionPayload(OrderModel order) {
     'item_category': order.itemCategory,
     'item_description': order.itemDescription,
     'item_image_url': order.itemImageUrl,
+    if (order.itemWeightKg != null) 'item_weight_kg': order.itemWeightKg,
     'goods_value': order.goodsValue,
     'cod_collection_amount': order.codCollectionAmount,
     'delivery_fee_payer': order.deliveryFeePayer.databaseValue,

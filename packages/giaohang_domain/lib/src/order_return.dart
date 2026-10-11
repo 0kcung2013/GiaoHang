@@ -1,7 +1,8 @@
 enum OrderReturnStatus {
   approved,
   returning,
-  returned;
+  returned,
+  cancelled;
 
   static OrderReturnStatus fromDatabase(Object? value) => values.firstWhere(
     (status) => status.name == value?.toString(),
@@ -138,7 +139,9 @@ class OrderReturn {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  bool get isActive => status != OrderReturnStatus.returned;
+  bool get isActive =>
+      status == OrderReturnStatus.approved ||
+      status == OrderReturnStatus.returning;
   bool get canStart => status == OrderReturnStatus.approved;
   bool get canComplete => status == OrderReturnStatus.returning;
 

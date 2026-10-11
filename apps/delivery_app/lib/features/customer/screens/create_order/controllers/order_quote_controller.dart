@@ -1,5 +1,6 @@
 import '../../../../../core/utils/delivery_fee_calculator.dart';
 import '../../../../../core/utils/geo_utils.dart';
+import '../../../../../core/services/osrm_service.dart';
 
 typedef OrderQuoteEstimator =
     Future<DeliveryFeeEstimate> Function({
@@ -12,15 +13,17 @@ typedef OrderQuoteEstimator =
 
 class OrderQuoteController {
   OrderQuoteController({OrderQuoteEstimator? estimator})
-    : _estimator = estimator ?? DeliveryFeeCalculator.estimate;
+    : _estimator = estimator;
 
-  final OrderQuoteEstimator _estimator;
+  final OrderQuoteEstimator? _estimator;
 
   Future<DeliveryFeeEstimate> calculate({
     required double pickupLat,
     required double pickupLng,
     required double deliveryLat,
     required double deliveryLng,
+    OsrmRouteResult? route,
+    DateTime? quotedAt,
   }) {
     if (pickupLat == 0 || pickupLng == 0) {
       throw const OrderQuoteException(
@@ -45,7 +48,31 @@ class OrderQuoteController {
       );
     }
 
-    return _estimator(
+    if (route != null) {
+      return Future.value(
+        DeliveryFeeCalculator.fromRoute(
+          route: route,
+          pickupLat: pickupLat,
+          pickupLng: pickupLng,
+          deliveryLat: deliveryLat,
+          deliveryLng: deliveryLng,
+          serviceType: 'standard',
+          quotedAt: quotedAt,
+        ),
+      );
+    }
+    final estimator = _estimator;
+    if (estimator == null) {
+      return DeliveryFeeCalculator.estimate(
+        pickupLat: pickupLat,
+        pickupLng: pickupLng,
+        deliveryLat: deliveryLat,
+        deliveryLng: deliveryLng,
+        serviceType: 'standard',
+        quotedAt: quotedAt,
+      );
+    }
+    return estimator(
       pickupLat: pickupLat,
       pickupLng: pickupLng,
       deliveryLat: deliveryLat,

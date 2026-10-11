@@ -8,6 +8,8 @@ import '../../../../risk_reports/data/risk_intervention_repository.dart';
 import '../../../../risk_reports/data/participant_risk_report_query_repository.dart';
 import '../../../../risk_reports/widgets/driver_risk_instruction_card.dart';
 import '../../../../order_contact/widgets/driver_incoming_message_alert.dart';
+import '../../../../order_contact/services/order_message_alert_transport.dart';
+import '../../../../delivery_eta/widgets/order_eta_panel.dart';
 import '../models/driver_delivery_workflow.dart';
 import '../utils/driver_delivery_arrival_strings.dart';
 import 'driver_help_actions.dart';
@@ -17,6 +19,8 @@ import '../models/driver_delivery_arrival.dart';
 import '../data/driver_delivery_arrival_repository.dart';
 import 'driver_recipient_wait_region.dart';
 import 'driver_order_details_layout.dart';
+import 'driver_map_start_control.dart';
+import '../../../../returns/models/return_redelivery_result.dart';
 import '../../../cancellation/widgets/driver_cancel_order_action.dart';
 
 class DriverNavigationView extends StatelessWidget {
@@ -40,6 +44,7 @@ class DriverNavigationView extends StatelessWidget {
     this.onContact,
     this.currentUserId,
     this.onOpenMessageChat,
+    this.messageAlertTransport,
     this.riskInterventionRepository,
     this.onConfirmPickupArrival,
     this.onPrepareDeliveryArrival,
@@ -49,6 +54,12 @@ class DriverNavigationView extends StatelessWidget {
     this.onDriverReleased,
     this.showOrderDetails = false,
     this.onOrderCancelled,
+    this.showMapStart = false,
+    this.simulationRunning = false,
+    this.onStartSimulation,
+    this.onStopSimulation,
+    this.onReturnCancelled,
+    this.monitoringPanel,
   });
 
   final OrderModel order;
@@ -69,6 +80,7 @@ class DriverNavigationView extends StatelessWidget {
   final VoidCallback? onContact;
   final String? currentUserId;
   final Future<void> Function()? onOpenMessageChat;
+  final OrderMessageAlertTransport? messageAlertTransport;
   final RiskInterventionRepository? riskInterventionRepository;
   final VoidCallback? onConfirmPickupArrival;
   final Future<void> Function()? onPrepareDeliveryArrival;
@@ -78,11 +90,27 @@ class DriverNavigationView extends StatelessWidget {
   final Future<void> Function()? onDriverReleased;
   final bool showOrderDetails;
   final VoidCallback? onOrderCancelled;
+  final bool showMapStart;
+  final bool simulationRunning;
+  final VoidCallback? onStartSimulation;
+  final VoidCallback? onStopSimulation;
+  final ValueChanged<ReturnRedeliveryResult>? onReturnCancelled;
+  final Widget? monitoringPanel;
 
   @override
   Widget build(BuildContext context) {
     final workflow = DriverDeliveryWorkflow.fromStatus(
       order.status,
+      pickupConfirmed: pickupConfirmed,
+    );
+    final instruction = _NavigationInstructionCard(
+      order: order,
+      step: navigationStep,
+      maneuverDistance: maneuverDistance,
+      distance: totalDistance,
+      duration: totalDuration,
+      arrivedAtTarget: arrivedAtTarget,
+      routeCompleted: routeCompleted,
       pickupConfirmed: pickupConfirmed,
     );
     Widget buildMap(VoidCallback back, {bool includeFooter = true}) => Scaffold(
@@ -107,6 +135,7 @@ class DriverNavigationView extends StatelessWidget {
                 child: Column(
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _MapControlButton(
                           icon: Icons.arrow_back_rounded,
@@ -115,42 +144,44 @@ class DriverNavigationView extends StatelessWidget {
                         ),
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: _StatusPill(
-                              status: order.status,
-                              pickupConfirmed: pickupConfirmed,
-                            ),
+                          child: !includeFooter
+                              ? instruction
+                              : Align(
+                                  alignment: Alignment.centerRight,
+                                  child: _StatusPill(
+                                    status: order.status,
+                                    pickupConfirmed: pickupConfirmed,
+                                  ),
+                                ),
+                        ),
+                        if (includeFooter) ...[
+                          const SizedBox(width: AppSpacing.sm),
+                          DriverHelpActions(
+                            order: order,
+                            initialLatitude: driverLatitude,
+                            initialLongitude: driverLongitude,
+                            dark: true,
+                            collapsed: true,
                           ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        DriverHelpActions(
-                          order: order,
-                          initialLatitude: driverLatitude,
-                          initialLongitude: driverLongitude,
-                          dark: true,
-                          collapsed: true,
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        _MapControlButton(
-                          icon: Icons.my_location_rounded,
-                          tooltip: 'Theo vị trí',
-                          onPressed: onFitMap,
-                        ),
+                          const SizedBox(width: AppSpacing.sm),
+                          _MapControlButton(
+                            icon: Icons.my_location_rounded,
+                            tooltip: 'Theo vị trí',
+                            onPressed: onFitMap,
+                          ),
+                        ],
                       ],
                     ),
-                    const SizedBox(height: AppSpacing.sm),
-                    _NavigationInstructionCard(
-                      order: order,
-                      step: navigationStep,
-                      maneuverDistance: maneuverDistance,
-                      distance: totalDistance,
-                      duration: totalDuration,
-                      arrivedAtTarget: arrivedAtTarget,
-                      routeCompleted: routeCompleted,
-                      pickupConfirmed: pickupConfirmed,
-                    ),
-                    if (workflow.allowsContactChat &&
+                    if (includeFooter) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      instruction,
+                    ],
+                    if (monitoringPanel != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      monitoringPanel!,
+                    ],
+                    if (!showOrderDetails &&
+                        workflow.allowsContactChat &&
                         currentUserId != null &&
                         onOpenMessageChat != null) ...[
                       const SizedBox(height: AppSpacing.sm),
@@ -160,6 +191,7 @@ class DriverNavigationView extends StatelessWidget {
                           orderId: order.id,
                           currentUserId: currentUserId!,
                           onOpenChat: onOpenMessageChat!,
+                          transport: messageAlertTransport,
                         ),
                       ),
                     ],
@@ -175,6 +207,36 @@ class DriverNavigationView extends StatelessWidget {
               bottom: 0,
               child: SafeArea(top: false, child: _footer()),
             ),
+          if (!includeFooter && showMapStart)
+            Positioned(
+              left: AppSpacing.lg,
+              right: AppSpacing.lg + 48 + AppSpacing.sm,
+              bottom: AppSpacing.lg,
+              child: SafeArea(
+                top: false,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: DriverMapStartControl(
+                    running: simulationRunning,
+                    onStart: onStartSimulation,
+                    onStop: onStopSimulation,
+                  ),
+                ),
+              ),
+            ),
+          if (!includeFooter)
+            Positioned(
+              right: AppSpacing.lg,
+              bottom: AppSpacing.lg,
+              child: SafeArea(
+                top: false,
+                child: _MapControlButton(
+                  icon: Icons.my_location_rounded,
+                  tooltip: 'Theo vị trí',
+                  onPressed: onFitMap,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -183,7 +245,21 @@ class DriverNavigationView extends StatelessWidget {
             order: order,
             onBack: onBack,
             mapBuilder: (back) => buildMap(back, includeFooter: false),
-            footer: _footer(),
+            footer: _workflowFooter(),
+            etaPanel: _etaPanel(),
+            monitoringPanel: monitoringPanel,
+            messageAlert:
+                workflow.allowsContactChat &&
+                    currentUserId != null &&
+                    onOpenMessageChat != null
+                ? DriverIncomingMessageAlert(
+                    key: ValueKey('driver-message-alert-${order.id}'),
+                    orderId: order.id,
+                    currentUserId: currentUserId!,
+                    onOpenChat: onOpenMessageChat!,
+                    transport: messageAlertTransport,
+                  )
+                : null,
             cancellationAction: DriverCancelOrderAction(
               order: order,
               pickupConfirmed: pickupConfirmed,
@@ -223,13 +299,28 @@ class DriverNavigationView extends StatelessWidget {
     );
   }
 
-  Widget _footer() => riskInterventionRepository == null
+  Widget _footer() => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [?_etaPanel(), _workflowFooter()],
+  );
+
+  Widget? _etaPanel() =>
+      currentUserId != null &&
+          const {'assigned', 'picking_up', 'delivering'}.contains(order.status)
+      ? Padding(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          child: OrderEtaPanel(order: order, showDetails: false),
+        )
+      : null;
+
+  Widget _workflowFooter() => riskInterventionRepository == null
       ? _arrivalBar()
       : DriverRiskInstructionRegion(
           order: order,
           pickupConfirmed: pickupConfirmed,
           onDriverReleased: onDriverReleased,
           repository: riskInterventionRepository!,
+          onReturnCancelled: onReturnCancelled,
           builder: (_, blocksDelivery) =>
               _arrivalBar(blocksDelivery: blocksDelivery),
         );
@@ -324,7 +415,7 @@ class _NavigationInstructionCard extends StatelessWidget {
         ? 'Đi đến điểm giao hàng'
         : 'Đi đến điểm lấy hàng';
     final title = waitingToStartDelivery
-        ? 'Đã nhận hàng • Chờ bắt đầu giao'
+        ? 'Đã lấy hàng · Chờ cập nhật'
         : arrivedAtTarget
         ? (isDelivery ? 'Đã đến điểm giao' : 'Đã đến điểm lấy')
         : step?.instruction ?? fallbackTitle;
@@ -446,6 +537,7 @@ class _MapControlButton extends StatelessWidget {
       elevation: 3,
       shadowColor: AppColors.primary.withValues(alpha: 0.2),
       child: IconButton(
+        constraints: const BoxConstraints.tightFor(width: 48, height: 48),
         onPressed: onPressed,
         tooltip: tooltip,
         icon: Icon(icon, color: AppColors.primary, size: 22),
@@ -463,7 +555,7 @@ class _StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = status == 'picking_up' && pickupConfirmed
-        ? 'Chờ bắt đầu giao'
+        ? 'Đã lấy hàng'
         : switch (status) {
             'assigned' => 'Đã nhận đơn',
             'picking_up' => 'Đang lấy hàng',

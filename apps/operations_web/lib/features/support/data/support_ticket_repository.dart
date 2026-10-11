@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/support_ticket.dart';
 import 'case_pagination.dart';
+import 'support_ticket_contacts_loader.dart';
 
 abstract interface class SupportTicketCommandRepository {
   Future<void> acceptTicket(String ticketId);
@@ -70,14 +71,16 @@ class SupabaseSupportTicketRepository
       'order_context:orders!support_tickets_order_id_fkey(tracking_code)';
 
   @override
-  Future<SupportTicket> fetchTicket(String ticketId) async =>
-      SupportTicket.fromJson(
-        await _client
-            .from('support_tickets')
-            .select(selection)
-            .eq('id', ticketId)
-            .single(),
-      );
+  Future<SupportTicket> fetchTicket(String ticketId) async {
+    final row = await _client
+        .from('support_tickets')
+        .select(selection)
+        .eq('id', ticketId)
+        .single();
+    return SupportTicket.fromJson(
+      (await SupportTicketContactsLoader(_client).enrich([row])).single,
+    );
+  }
 
   @override
   Stream<void> watchTicket(String ticketId) => _client
@@ -106,9 +109,9 @@ class SupabaseSupportTicketRepository
           .limit(1, referencedTable: 'last_message')
           .limit(200);
     });
-    return List<Map<String, dynamic>>.from(
-      rows,
-    ).map(SupportTicket.fromJson).toList();
+    return (await SupportTicketContactsLoader(_client).enrich(
+      List<Map<String, dynamic>>.from(rows),
+    )).map(SupportTicket.fromJson).toList();
   }
 
   @override

@@ -12,3 +12,5 @@ export 'src/support_ticket.dart';
 export 'src/support_issue.dart';
 export 'src/vietnam_time.dart';
 export 'src/case_message_content.dart';
+export 'src/cargo_weight.dart';
+export 'src/driver_monitoring.dart';

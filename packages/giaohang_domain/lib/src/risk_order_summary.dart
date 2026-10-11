@@ -1,3 +1,6 @@
+import 'cargo_weight.dart';
+import 'driver_monitoring.dart';
+
 class RiskOrderSummary {
   const RiskOrderSummary({
     required this.trackingCode,
@@ -16,6 +19,32 @@ class RiskOrderSummary {
     this.recipientName,
     this.recipientPhone,
     this.actualPickedUpAt,
+    this.id = '',
+    this.itemName,
+    this.itemCategory,
+    this.itemDescription,
+    this.itemImageUrl,
+    this.itemWeightKg,
+    this.note,
+    this.statusNote,
+    this.serviceType,
+    this.paymentMethod,
+    this.deliveryFeePayer,
+    this.paymentStatus,
+    this.totalPrice,
+    this.goodsValue,
+    this.codCollectionAmount,
+    this.driverAdvanceAmount,
+    this.receiverCollectionAmount,
+    this.driverNetEarning,
+    this.createdAt,
+    this.updatedAt,
+    this.estimatedPickupAt,
+    this.estimatedDeliveryAt,
+    this.actualDeliveredAt,
+    this.cancelledAt,
+    this.deliveryEta,
+    this.driverMonitoring,
   });
 
   final String trackingCode;
@@ -34,6 +63,37 @@ class RiskOrderSummary {
   final String? recipientName;
   final String? recipientPhone;
   final DateTime? actualPickedUpAt;
+  final String id;
+  final String? itemName;
+  final String? itemCategory;
+  final String? itemDescription;
+  final String? itemImageUrl;
+  final double? itemWeightKg;
+  final String? note;
+  final String? statusNote;
+  final String? serviceType;
+  final String? paymentMethod;
+  final String? deliveryFeePayer;
+  final String? paymentStatus;
+  final int? totalPrice;
+  final int? goodsValue;
+  final int? codCollectionAmount;
+  final int? driverAdvanceAmount;
+  final int? receiverCollectionAmount;
+  final int? driverNetEarning;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final DateTime? estimatedPickupAt;
+  final DateTime? estimatedDeliveryAt;
+  final DateTime? actualDeliveredAt;
+  final DateTime? cancelledAt;
+  final Map<String, dynamic>? deliveryEta;
+  final DriverMonitoring? driverMonitoring;
+
+  DateTime? get predictedDeliveryAt =>
+      driverId != null && deliveryEta?['driver_id'] == driverId
+      ? _date(deliveryEta?['predicted_at'])
+      : null;
 
   bool get hasPickedUp =>
       actualPickedUpAt != null ||
@@ -61,10 +121,38 @@ class RiskOrderSummary {
       pickupLng: _optionalDouble(json['pickup_lng']),
       deliveryLat: _optionalDouble(json['delivery_lat']),
       deliveryLng: _optionalDouble(json['delivery_lng']),
-      deliveryFee: (json['delivery_fee'] as num?)?.round() ?? 0,
+      deliveryFee: _integer(json['delivery_fee']) ?? 0,
       actualPickedUpAt: DateTime.tryParse(
         json['actual_picked_up_at']?.toString() ?? '',
       ),
+      id: json['id']?.toString() ?? '',
+      itemName: json['item_name']?.toString(),
+      itemCategory: json['item_category']?.toString(),
+      itemDescription: json['item_description']?.toString(),
+      itemImageUrl: json['item_image_url']?.toString(),
+      itemWeightKg: parseCargoWeightKg(json['item_weight_kg']),
+      note: json['note']?.toString(),
+      statusNote: json['status_note']?.toString(),
+      serviceType: json['service_type']?.toString(),
+      paymentMethod: json['payment_method']?.toString(),
+      deliveryFeePayer: json['delivery_fee_payer']?.toString(),
+      paymentStatus: json['payment_status']?.toString(),
+      totalPrice: _integer(json['total_price']),
+      goodsValue: _integer(json['goods_value']),
+      codCollectionAmount: _integer(json['cod_collection_amount']),
+      driverAdvanceAmount: _integer(json['driver_advance_amount']),
+      receiverCollectionAmount: _integer(json['receiver_collection_amount']),
+      driverNetEarning: _integer(json['driver_net_earning']),
+      createdAt: _date(json['created_at']),
+      updatedAt: _date(json['updated_at']),
+      estimatedPickupAt: _date(json['estimated_pickup_at']),
+      estimatedDeliveryAt: _date(json['estimated_delivery_at']),
+      actualDeliveredAt: _date(json['actual_delivered_at']),
+      cancelledAt: _date(json['cancelled_at']),
+      deliveryEta: json['delivery_eta'] is Map
+          ? Map<String, dynamic>.from(json['delivery_eta'] as Map)
+          : null,
+      driverMonitoring: DriverMonitoring.fromJson(json['driver_monitoring']),
     );
   }
 
@@ -85,6 +173,32 @@ class RiskOrderSummary {
     'delivery_lng': deliveryLng,
     'delivery_fee': deliveryFee,
     'actual_picked_up_at': actualPickedUpAt?.toIso8601String(),
+    'id': id,
+    'item_name': itemName,
+    'item_category': itemCategory,
+    'item_description': itemDescription,
+    'item_image_url': itemImageUrl,
+    'item_weight_kg': itemWeightKg,
+    'note': note,
+    'status_note': statusNote,
+    'service_type': serviceType,
+    'payment_method': paymentMethod,
+    'delivery_fee_payer': deliveryFeePayer,
+    'payment_status': paymentStatus,
+    'total_price': totalPrice,
+    'goods_value': goodsValue,
+    'cod_collection_amount': codCollectionAmount,
+    'driver_advance_amount': driverAdvanceAmount,
+    'receiver_collection_amount': receiverCollectionAmount,
+    'driver_net_earning': driverNetEarning,
+    'created_at': createdAt?.toIso8601String(),
+    'updated_at': updatedAt?.toIso8601String(),
+    'estimated_pickup_at': estimatedPickupAt?.toIso8601String(),
+    'estimated_delivery_at': estimatedDeliveryAt?.toIso8601String(),
+    'actual_delivered_at': actualDeliveredAt?.toIso8601String(),
+    'cancelled_at': cancelledAt?.toIso8601String(),
+    'delivery_eta': deliveryEta,
+    'driver_monitoring': driverMonitoring?.toJson(),
   };
 }
 
@@ -118,3 +232,9 @@ double? _optionalDouble(dynamic value) {
   if (value is num) return value.toDouble();
   return double.tryParse(value?.toString() ?? '');
 }
+
+int? _integer(Object? value) => value is num
+    ? value.round()
+    : num.tryParse(value?.toString() ?? '')?.round();
+
+DateTime? _date(Object? value) => DateTime.tryParse(value?.toString() ?? '');

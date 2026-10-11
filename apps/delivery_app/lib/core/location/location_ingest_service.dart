@@ -27,9 +27,11 @@ class LocationIngestService {
     SupabaseClient? client,
     LocationThrottle? throttle,
     LocationHistoryQueue? historyQueue,
+    DateTime Function()? monitoringClock,
   }) : _supabase = client ?? Supabase.instance.client,
        _throttle = throttle ?? LocationThrottle(),
-       _historyQueue = historyQueue ?? LocationHistoryQueue(client: client) {
+       _historyQueue = historyQueue ?? LocationHistoryQueue(client: client),
+       _monitoringClock = monitoringClock ?? DateTime.now {
     _historyQueue.start();
   }
 
@@ -40,11 +42,15 @@ class LocationIngestService {
     minDistanceMeters: LocationIngestConfig.navigationMinDistanceMeters,
   );
   final LocationHistoryQueue _historyQueue;
+  final DateTime Function() _monitoringClock;
 
   DateTime? _lastRealtimePgAt;
   String? _cachedProfileId;
   String? _cachedProfileUserId;
   bool _edgeUnavailable = false;
+  DateTime? _lastMonitoringAttemptAt;
+  String? _lastMonitoringOrderId;
+  bool _monitoringPending = false;
 
   /// Ingest một sample GPS.
   ///
@@ -58,6 +64,9 @@ class LocationIngestService {
     required double lng,
     double? heading,
     double? speed,
+    double? accuracy,
+    DateTime? capturedAt,
+    LatLng? monitoringPosition,
     bool force = false,
     bool prioritySync = false,
     LocationIngestCoordinateSpace coordinateSpace =
@@ -72,6 +81,16 @@ class LocationIngestService {
     final adjusted = coordinateSpace.shouldApplyDemoOffset
         ? GeoUtils.applyTestDriverOffset(email: email, lat: lat, lng: lng)
         : LatLng(lat, lng);
+
+    // Chạy trước lọc theo quãng đường: đứng yên vẫn có mẫu GPS mới hợp lệ.
+    if (orderId != null && accuracy != null && capturedAt != null) {
+      await _recordMonitoring(
+        orderId,
+        monitoringPosition ?? adjusted,
+        accuracy,
+        capturedAt,
+      );
+    }
 
     if (!force) {
       if (prioritySync) {
@@ -186,6 +205,43 @@ class LocationIngestService {
         debugPrint('[LocationIngest] edge error: $e');
       }
       return false;
+    }
+  }
+
+  Future<void> _recordMonitoring(
+    String orderId,
+    LatLng position,
+    double accuracy,
+    DateTime capturedAt,
+  ) async {
+    final now = _monitoringClock();
+    if (_monitoringPending ||
+        (_lastMonitoringOrderId == orderId &&
+            _lastMonitoringAttemptAt != null &&
+            now.difference(_lastMonitoringAttemptAt!) <
+                const Duration(seconds: 5))) {
+      return;
+    }
+    _monitoringPending = true;
+    _lastMonitoringOrderId = orderId;
+    _lastMonitoringAttemptAt = now;
+    try {
+      await _supabase
+          .rpc(
+            'record_driver_monitoring_position',
+            params: {
+              'p_order_id': orderId,
+              'p_lat': position.latitude,
+              'p_lng': position.longitude,
+              'p_accuracy': accuracy,
+              'p_captured_at': capturedAt.toUtc().toIso8601String(),
+            },
+          )
+          .timeout(const Duration(seconds: 10));
+    } catch (error) {
+      if (kDebugMode) debugPrint('[DriverMonitoring] sample pending: $error');
+    } finally {
+      _monitoringPending = false;
     }
   }
 

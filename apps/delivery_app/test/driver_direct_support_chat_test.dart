@@ -14,6 +14,24 @@ import 'package:giaohang_storage/giaohang_storage.dart';
 import 'package:image_picker/image_picker.dart';
 
 void main() {
+  testWidgets('repeated message ID in Realtime snapshot renders once', (
+    tester,
+  ) async {
+    final repository = _Repository();
+    addTearDown(repository.close);
+    await _mount(tester, repository, initial: repository.ticket);
+    repository.emit('hello');
+    await tester.pumpAndSettle();
+    final message = repository.messages.single;
+    repository.stream.add([message, message]);
+    await tester.pumpAndSettle();
+    expect(find.text('hello'), findsOneWidget);
+    // Gửi cùng nội dung lần nữa vẫn phải giữ hai ID khác nhau.
+    repository.emit('hello');
+    await tester.pumpAndSettle();
+    expect(find.text('hello'), findsNWidgets(2));
+  });
+
   final png = base64Decode(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==',
   );

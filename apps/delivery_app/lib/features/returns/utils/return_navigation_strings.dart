@@ -21,4 +21,32 @@ class ReturnNavigationStrings {
   static const notAtHandoff = 'Chưa đến điểm trả';
   static const swipeStartReturn = 'Gạt để hoàn hàng';
   static const swipeConfirmHandoff = 'Gạt đã trả hàng';
+  static const pickupTab = 'Lấy';
+  static const deliveryTab = 'Giao';
+  static const returnPoint = 'Điểm hoàn';
+  static const deliveryPoint = 'Điểm giao';
+  static const openMap = 'Mở bản đồ';
+  static const startGps = 'Start';
+  static const gpsRunning = 'Đang chạy';
+  static const gpsArrived = 'Đã đến';
+  static const arrivedTitle = 'Đã đến điểm hoàn';
+  static const startReturnFirst = 'Bắt đầu hoàn ở trang chính trước';
+  static const deliveryLocked = 'Đơn đang được xử lý hoàn hàng';
+  static const swipeDelivered = 'Gạt giao thành công';
+  static const goods = 'Hàng hóa';
+  static const recipient = 'Người nhận';
+  static const note = 'Ghi chú';
+  static const routeError = 'Chưa tải được tuyến đường. Vui lòng thử lại.';
+  static const retry = 'Thử lại';
+  static const gpsError = 'Chưa thể chạy GPS. Vui lòng thử lại.';
+  static const osmAttribution = '© OpenStreetMap contributors';
+  static const cancelReturn = 'Hủy hoàn hàng';
+  static const confirmRedelivery = 'Xác nhận giao lại';
+  static const continueReturn = 'Tiếp tục hoàn';
+  static const cancelReturnMessage =
+      'Khách đã liên hệ và đồng ý nhận hàng. Tiếp tục giao lại?';
+  static const cancelReturnReason =
+      'Khách đã liên hệ và đồng ý nhận hàng; tài xế hủy hoàn để giao lại.';
+  static const cancelReturnError =
+      'Chưa thể hủy hoàn. Hãy cập nhật đơn và thử lại.';
 }

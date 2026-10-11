@@ -63,6 +63,10 @@ class RiskReport {
   final RiskInterventionState? interventionState;
 
   bool get isSystemIncident => scope == RiskScope.system;
+  bool get requestsCargoCancellation =>
+      category == RiskCategory.cargoIssue &&
+      reporterRole == RiskReporterRole.driver &&
+      !isSystemIncident;
 
   bool get responseOverdue =>
       responseDueAt != null &&

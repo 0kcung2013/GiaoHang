@@ -1,4 +1,5 @@
 import 'package:latlong2/latlong.dart';
+import '../../../../../core/models/traffic_demo_clock.dart';
 
 class TrafficDemoScenario {
   const TrafficDemoScenario({
@@ -9,6 +10,7 @@ class TrafficDemoScenario {
     required this.pickup,
     required this.deliveryAddress,
     required this.delivery,
+    required this.isCongested,
   });
 
   final String id;
@@ -18,24 +20,32 @@ class TrafficDemoScenario {
   final LatLng pickup;
   final String deliveryAddress;
   final LatLng delivery;
+  final bool isCongested;
+
+  /// Fixed synthetic comparison times; unrelated to the actual assignment clock.
+  String get key =>
+      isCongested ? TrafficDemoClock.peak : TrafficDemoClock.offPeak;
+  DateTime get forecastAt => TrafficDemoClock.forecastAt(key)!;
 
   static const hcmHistoricCongestion = TrafficDemoScenario(
     id: 'hcm_tran_quoc_thao_historic_congestion',
-    title: 'Ùn tắc',
-    subtitle: 'Tuyến AI lịch sử',
-    pickupAddress: 'Khu vực đầu tuyến trung tâm TP.HCM',
-    pickup: LatLng(10.786000, 106.678950),
-    deliveryAddress: 'Khu vực cuối tuyến trung tâm, TP.HCM',
-    delivery: LatLng(10.821000, 106.678950),
+    title: 'Cao điểm · 07:00',
+    subtitle: 'Demo cùng quãng đường',
+    pickupAddress: 'Điểm lấy mẫu · trung tâm TP.HCM',
+    pickup: LatLng(10.784900, 106.668400),
+    deliveryAddress: 'Điểm giao mẫu · TP.HCM',
+    delivery: LatLng(10.793838, 106.651842),
+    isCongested: true,
   );
 
   static const hcmHistoricClearTraffic = TrafficDemoScenario(
     id: 'hcm_central_historic_clear_traffic',
-    title: 'Thông thoáng',
-    subtitle: 'Tuyến đối chứng',
-    pickupAddress: 'Đầu tuyến đối chứng trung tâm, TP.HCM',
-    pickup: LatLng(10.776000, 106.687000),
-    deliveryAddress: 'Cuối tuyến đối chứng trung tâm, TP.HCM',
-    delivery: LatLng(10.807000, 106.709000),
+    title: 'Ngoài cao điểm · 14:00',
+    subtitle: 'Demo cùng quãng đường',
+    pickupAddress: 'Điểm lấy mẫu · trung tâm TP.HCM',
+    pickup: LatLng(10.784900, 106.668400),
+    deliveryAddress: 'Điểm giao mẫu · TP.HCM',
+    delivery: LatLng(10.793838, 106.651842),
+    isCongested: false,
   );
 }

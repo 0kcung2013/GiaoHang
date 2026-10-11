@@ -16,15 +16,15 @@ void main() {
         DeliveryTrafficLevel.clear,
       );
       expect(
-        DeliveryTrafficRouteAnalyzer.classifyMultiplier(1.20),
+        DeliveryTrafficRouteAnalyzer.classifyMultiplier(1.35),
         DeliveryTrafficLevel.moderate,
       );
       expect(
-        DeliveryTrafficRouteAnalyzer.classifyMultiplier(1.45),
+        DeliveryTrafficRouteAnalyzer.classifyMultiplier(1.60),
         DeliveryTrafficLevel.heavy,
       );
       expect(
-        DeliveryTrafficRouteAnalyzer.classifyMultiplier(1.65),
+        DeliveryTrafficRouteAnalyzer.classifyMultiplier(2.00),
         DeliveryTrafficLevel.congested,
       );
     });
@@ -104,11 +104,11 @@ void main() {
       ),
     );
 
-    expect(find.text('UTraffic · dự báo lịch sử'), findsOneWidget);
-    expect(find.text('Thoáng'), findsOneWidget);
-    expect(find.text('Đông'), findsOneWidget);
-    expect(find.text('Di chuyển chậm'), findsOneWidget);
-    expect(find.text('Hay tắc'), findsOneWidget);
+    expect(find.text('Vận tốc theo tuyến'), findsOneWidget);
+    expect(find.text('>40 km/h'), findsOneWidget);
+    expect(find.text('34–40 km/h'), findsOneWidget);
+    expect(find.text('28–34 km/h'), findsOneWidget);
+    expect(find.text('<28 km/h'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

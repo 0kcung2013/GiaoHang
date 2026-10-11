@@ -4,6 +4,24 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
 void main() {
+  testWidgets('cancelled return stops showing customer return instructions', (
+    tester,
+  ) async {
+    final mission = _mission(
+      status: OrderReturnStatus.cancelled,
+      feePayer: ReturnFeePayer.platform,
+      customerCharge: 0,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: CustomerReturnStatusBanner(mission: mission)),
+      ),
+    );
+    expect(find.text('Tài xế đang hoàn hàng'), findsNothing);
+    expect(find.text('Xem chi tiết'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('customer sees live return status and transparent charge', (
     tester,
   ) async {

@@ -6,11 +6,15 @@ class RiskReportSheetHeader extends StatelessWidget {
   const RiskReportSheetHeader({
     required this.step,
     required this.onClose,
+    this.title = RiskReportStrings.reportTitle,
+    this.showSteps = true,
     super.key,
   });
 
   final int step;
-  final VoidCallback onClose;
+  final VoidCallback? onClose;
+  final String title;
+  final bool showSteps;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +39,12 @@ class RiskReportSheetHeader extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text('Báo cáo sự cố', style: AppTextStyles.headingLarge),
+                child: Text(
+                  title,
+                  style: showSteps
+                      ? AppTextStyles.headingLarge
+                      : AppTextStyles.headingMedium,
+                ),
               ),
               TextButton(
                 onPressed: onClose,
@@ -48,23 +57,26 @@ class RiskReportSheetHeader extends StatelessWidget {
               ),
             ],
           ),
-          Row(
-            children: List.generate(
-              3,
-              (index) => Expanded(
-                child: Container(
-                  height: 4,
-                  margin: EdgeInsets.only(
-                    right: index == 2 ? 0 : AppSpacing.sm,
-                  ),
-                  decoration: BoxDecoration(
-                    color: index <= step ? AppColors.accent : AppColors.border,
-                    borderRadius: AppRadius.full,
+          if (showSteps)
+            Row(
+              children: List.generate(
+                3,
+                (index) => Expanded(
+                  child: Container(
+                    height: 4,
+                    margin: EdgeInsets.only(
+                      right: index == 2 ? 0 : AppSpacing.sm,
+                    ),
+                    decoration: BoxDecoration(
+                      color: index <= step
+                          ? AppColors.accent
+                          : AppColors.border,
+                      borderRadius: AppRadius.full,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -79,6 +91,8 @@ class RiskReportSheetFooter extends StatelessWidget {
     required this.errorMessage,
     required this.onBack,
     required this.onPrimary,
+    this.submitLabel = RiskReportStrings.sendReport,
+    this.singlePage = false,
     super.key,
   });
 
@@ -88,6 +102,8 @@ class RiskReportSheetFooter extends StatelessWidget {
   final String? errorMessage;
   final VoidCallback onBack;
   final VoidCallback onPrimary;
+  final String submitLabel;
+  final bool singlePage;
 
   @override
   Widget build(BuildContext context) {
@@ -139,7 +155,7 @@ class RiskReportSheetFooter extends StatelessWidget {
               ],
               Row(
                 children: [
-                  if (step > 0) ...[
+                  if (!singlePage && step > 0) ...[
                     Expanded(
                       child: _SheetButton(
                         label: 'Quay lại',
@@ -152,7 +168,7 @@ class RiskReportSheetFooter extends StatelessWidget {
                   Expanded(
                     flex: step > 0 ? 2 : 1,
                     child: _SheetButton(
-                      label: step == 2 ? 'Gửi cho CSKH' : 'Tiếp tục',
+                      label: singlePage || step == 2 ? submitLabel : 'Tiếp tục',
                       onTap: submitting ? null : onPrimary,
                       loading: submitting,
                     ),
@@ -182,26 +198,22 @@ class _SheetButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: secondary ? AppColors.bgCard : AppColors.accent,
-      borderRadius: AppRadius.md,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: AppRadius.md,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 52),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: AppRadius.md,
-            border: secondary ? Border.all(color: AppColors.border) : null,
-          ),
-          child: Text(
-            loading ? 'Vui lòng chờ…' : label,
-            style: AppTextStyles.labelLarge.copyWith(
-              color: secondary ? AppColors.textPrimary : AppColors.textOnAccent,
-            ),
-          ),
-        ),
+    return FilledButton(
+      onPressed: onTap,
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(48, 52),
+        padding: const EdgeInsets.all(AppSpacing.md),
+        backgroundColor: secondary ? AppColors.bgCard : AppColors.accent,
+        foregroundColor: secondary
+            ? AppColors.textPrimary
+            : AppColors.textOnAccent,
+        side: secondary ? const BorderSide(color: AppColors.border) : null,
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.md),
+        textStyle: AppTextStyles.labelLarge,
+      ),
+      child: Text(
+        loading ? 'Vui lòng chờ…' : label,
+        textAlign: TextAlign.center,
       ),
     );
   }

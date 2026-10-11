@@ -6,12 +6,14 @@ import 'cargo_image_picker.dart';
 import 'create_order_inputs.dart';
 import 'create_order_options.dart';
 import 'order_field_label.dart';
+import '../../../../../core/utils/cargo_weight_strings.dart';
 
 class CreateOrderCargoSection extends StatelessWidget {
   const CreateOrderCargoSection({
     super.key,
     required this.itemNameController,
     required this.itemDescriptionController,
+    required this.itemWeightController,
     required this.itemCategory,
     required this.requiredText,
     required this.onCategoryChanged,
@@ -19,6 +21,7 @@ class CreateOrderCargoSection extends StatelessWidget {
 
   final TextEditingController itemNameController;
   final TextEditingController itemDescriptionController;
+  final TextEditingController itemWeightController;
   final String itemCategory;
   final String? Function(String?) Function(String message) requiredText;
   final ValueChanged<String> onCategoryChanged;
@@ -39,6 +42,18 @@ class CreateOrderCargoSection extends StatelessWidget {
           icon: Icons.inventory_2_outlined,
           textInputAction: TextInputAction.next,
           validator: requiredText('Vui lòng nhập tên hàng hoá.'),
+          requiredField: true,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        CreateOrderTextField(
+          key: const Key('order-cargo-weight'),
+          controller: itemWeightController,
+          label: CargoWeightStrings.inputLabel,
+          hint: CargoWeightStrings.inputHint,
+          icon: Icons.scale_rounded,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          textInputAction: TextInputAction.next,
+          validator: validateOrderWeight,
           requiredField: true,
         ),
         const SizedBox(height: AppSpacing.lg),

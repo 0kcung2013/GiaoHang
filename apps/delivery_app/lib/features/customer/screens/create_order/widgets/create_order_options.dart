@@ -19,7 +19,12 @@ class CargoCategorySelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 520 ? 3 : 2;
+        final largeText = MediaQuery.textScalerOf(context).scale(1) >= 1.3;
+        final columns = largeText || constraints.maxWidth < 280
+            ? 1
+            : constraints.maxWidth >= 520
+            ? 3
+            : 2;
         final spacing = AppSpacing.sm * (columns - 1);
         final itemWidth = (constraints.maxWidth - spacing) / columns;
 

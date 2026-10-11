@@ -18,6 +18,8 @@ import '../widgets/risk_report_filters.dart';
 import '../widgets/risk_report_header.dart';
 import '../widgets/risk_report_states.dart';
 import '../widgets/risk_queue_tabs.dart';
+import '../../support/constants/support_ticket_strings.dart';
+import '../../support/widgets/support_queue_controls.dart';
 
 class RiskReportsView extends StatefulWidget {
   const RiskReportsView({
@@ -83,6 +85,7 @@ class _RiskReportsViewState extends State<RiskReportsView> {
 
   bool _matchesScope(RiskReport report, RiskQueueScope scope) =>
       switch (scope) {
+        RiskQueueScope.active => !report.status.isClosed,
         RiskQueueScope.newReports =>
           report.status == RiskStatus.open && report.assignedTo == null,
         RiskQueueScope.overdue =>
@@ -104,6 +107,7 @@ class _RiskReportsViewState extends State<RiskReportsView> {
   @override
   void initState() {
     super.initState();
+    _scope = widget.isAdmin ? RiskQueueScope.newReports : RiskQueueScope.active;
     if (widget.repository != null && widget.currentUserId != null) {
       _repository = widget.repository!;
       _currentUserId = widget.currentUserId!;
@@ -262,34 +266,62 @@ class _RiskReportsViewState extends State<RiskReportsView> {
                   12,
                 ),
                 sliver: SliverToBoxAdapter(
-                  child: RiskReportFilters(
-                    searchController: _searchController,
-                    selectedSeverity: _severity,
-                    selectedStatus: _status,
-                    onSearchChanged: (value) => setState(() => _query = value),
-                    onSeverityChanged: (value) =>
-                        setState(() => _severity = value),
-                    onStatusChanged: (value) => setState(() => _status = value),
-                    showSeverity: widget.isAdmin,
-                    showStatus: widget.isAdmin,
-                  ),
+                  child: widget.isAdmin
+                      ? RiskReportFilters(
+                          searchController: _searchController,
+                          selectedSeverity: _severity,
+                          selectedStatus: _status,
+                          onSearchChanged: (value) =>
+                              setState(() => _query = value),
+                          onSeverityChanged: (value) =>
+                              setState(() => _severity = value),
+                          onStatusChanged: (value) =>
+                              setState(() => _status = value),
+                          showSeverity: widget.isAdmin,
+                          showStatus: widget.isAdmin,
+                        )
+                      : SupportQueueControls<RiskQueueScope>(
+                          searchController: _searchController,
+                          searchKey: const Key('risk-search-field'),
+                          searchHint: SupportTicketStrings.searchHint,
+                          onSearchChanged: (value) =>
+                              setState(() => _query = value),
+                          value: _scope,
+                          onChanged: (value) => setState(() => _scope = value),
+                          choices: [
+                            for (final scope in RiskQueueScope.supportScopes)
+                              SupportQueueChoice(
+                                value: scope,
+                                label: switch (scope) {
+                                  RiskQueueScope.mine =>
+                                    SupportTicketStrings.mine,
+                                  RiskQueueScope.closed =>
+                                    SupportTicketStrings.finished,
+                                  _ => SupportTicketStrings.pending,
+                                },
+                                count: _countForScope(scope),
+                                key: ValueKey('risk-queue-${scope.name}'),
+                              ),
+                          ],
+                        ),
                 ),
               ),
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  horizontalPadding,
-                  0,
-                  horizontalPadding,
-                  16,
-                ),
-                sliver: SliverToBoxAdapter(
-                  child: RiskQueueTabs(
-                    value: _scope,
-                    countFor: _countForScope,
-                    onChanged: (value) => setState(() => _scope = value),
+              if (widget.isAdmin)
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    0,
+                    horizontalPadding,
+                    16,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: RiskQueueTabs(
+                      value: _scope,
+                      countFor: _countForScope,
+                      onChanged: (value) => setState(() => _scope = value),
+                    ),
                   ),
                 ),
-              ),
               if (_loading)
                 SliverPadding(
                   padding: EdgeInsets.fromLTRB(
@@ -313,10 +345,14 @@ class _RiskReportsViewState extends State<RiskReportsView> {
                 SliverFillRemaining(
                   hasScrollBody: false,
                   child: RiskReportEmpty(
-                    title: _reports.isEmpty
+                    title: !widget.isAdmin && _query.trim().isEmpty
+                        ? SupportTicketStrings.queueEmpty
+                        : _reports.isEmpty
                         ? RiskReportStrings.noReports
                         : RiskReportStrings.noResults,
-                    subtitle: _reports.isEmpty
+                    subtitle: !widget.isAdmin && _query.trim().isEmpty
+                        ? SupportTicketStrings.queueEmptyHint
+                        : _reports.isEmpty
                         ? 'Tạo báo cáo đầu tiên khi phát hiện dấu hiệu bất thường.'
                         : 'Thử thay đổi từ khóa hoặc bộ lọc.',
                   ),

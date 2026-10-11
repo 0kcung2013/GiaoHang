@@ -5,6 +5,93 @@ import 'package:operations_web/features/risk_reports/widgets/risk_report_actions
 import 'package:operations_web/features/risk_reports/widgets/risk_intervention_panel.dart';
 
 void main() {
+  testWidgets(
+    'existing custody decision remains completable for legacy cargo reports',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RiskInterventionPanel(
+              report: _report(
+                orderStatus: 'delivering',
+                driverCargo: true,
+                picked: true,
+              ),
+              intervention: _intervention(
+                RiskInterventionState.handoffRequired,
+              ),
+              orderStatus: 'delivering',
+              onHoldBeforePickup: () async {},
+              onDecision: (_, _) async {},
+              onConfirmCustody: () async {},
+              onResumeOrder: () async {},
+              onAddNote: (_) async {},
+            ),
+          ),
+        ),
+      );
+      expect(find.text('Xác nhận đã giải quyết hàng hóa'), findsOneWidget);
+    },
+  );
+  testWidgets(
+    'cargo mismatch after custody cannot request driver cancellation or return',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RiskInterventionPanel(
+              report: _report(
+                orderStatus: 'picking_up',
+                driverCargo: true,
+                picked: true,
+              ),
+              intervention: _intervention(RiskInterventionState.awaitingTriage),
+              orderStatus: 'picking_up',
+              onHoldBeforePickup: () async {},
+              onDecision: (_, _) async {},
+              onConfirmCustody: () async {},
+              onResumeOrder: () async {},
+              onAddNote: (_) async {},
+            ),
+          ),
+        ),
+      );
+      expect(find.textContaining('Tài xế đã nhận hàng'), findsOneWidget);
+      expect(find.byKey(const Key('release-driver-button')), findsNothing);
+      expect(find.byKey(const Key('return-order-button')), findsNothing);
+    },
+  );
+  testWidgets(
+    'cargo mismatch before custody allows verified driver cancellation',
+    (tester) async {
+      var cancelled = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RiskInterventionPanel(
+              report: _report(orderStatus: 'picking_up', driverCargo: true),
+              intervention: _intervention(RiskInterventionState.awaitingTriage),
+              orderStatus: 'picking_up',
+              onHoldBeforePickup: () async {
+                cancelled = true;
+              },
+              onDecision: (_, _) async {},
+              onConfirmCustody: () async {},
+              onResumeOrder: () async {},
+              onAddNote: (_) async {},
+            ),
+          ),
+        ),
+      );
+      expect(find.textContaining('Đối chiếu ảnh'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('release-driver-button')));
+      await tester.pumpAndSettle();
+      expect(cancelled, isFalse);
+      await tester.tap(find.byKey(const Key('confirm-risk-operation')));
+      await tester.pumpAndSettle();
+      expect(cancelled, isTrue);
+    },
+  );
   testWidgets('locks manual report status while driver is returning cargo', (
     tester,
   ) async {
@@ -214,12 +301,17 @@ void main() {
 RiskReport _report({
   RiskStatus status = RiskStatus.investigating,
   String orderStatus = 'delivering',
+  bool driverCargo = false,
+  bool picked = false,
 }) => RiskReport(
   id: 'risk-1',
   orderId: 'order-1',
-  reportedBy: 'customer-1',
+  reportedBy: driverCargo ? 'driver-1' : 'customer-1',
+  reporterRole: driverCargo
+      ? RiskReporterRole.driver
+      : RiskReporterRole.customer,
   assignedTo: 'staff-1',
-  category: RiskCategory.safety,
+  category: driverCargo ? RiskCategory.cargoIssue : RiskCategory.safety,
   severity: RiskSeverity.medium,
   status: status,
   title: 'Vấn đề an toàn',
@@ -232,6 +324,7 @@ RiskReport _report({
     status: orderStatus,
     pickupAddress: 'Điểm lấy',
     deliveryAddress: 'Điểm giao',
+    actualPickedUpAt: picked ? DateTime(2026) : null,
   ),
 );
 

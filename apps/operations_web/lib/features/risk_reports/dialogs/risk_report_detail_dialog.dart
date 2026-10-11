@@ -380,8 +380,8 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
     final screen = MediaQuery.sizeOf(context);
 
     final content = Material(
-      color: AppColors.bgWarm,
-      borderRadius: AppRadius.xl,
+      color: widget.isAdmin ? AppColors.bgWarm : AppColors.bgLight,
+      borderRadius: widget.embedded ? BorderRadius.zero : AppRadius.xl,
       elevation: 0,
       clipBehavior: Clip.antiAlias,
       child: Column(

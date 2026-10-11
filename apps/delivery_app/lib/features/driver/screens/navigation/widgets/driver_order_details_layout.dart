@@ -20,6 +20,9 @@ class DriverOrderDetailsLayout extends StatefulWidget {
     this.notice,
     this.cancellationAction,
     this.goodsDeposit,
+    this.messageAlert,
+    this.etaPanel,
+    this.monitoringPanel,
   });
 
   final OrderModel order;
@@ -31,6 +34,9 @@ class DriverOrderDetailsLayout extends StatefulWidget {
   final Widget? notice;
   final Widget? cancellationAction;
   final DriverGoodsDeposit? goodsDeposit;
+  final Widget? messageAlert;
+  final Widget? etaPanel;
+  final Widget? monitoringPanel;
 
   @override
   State<DriverOrderDetailsLayout> createState() =>
@@ -131,11 +137,29 @@ class _DriverOrderDetailsLayoutState extends State<DriverOrderDetailsLayout> {
                     notice: widget.notice,
                     cancellationAction: widget.cancellationAction,
                     goodsDeposit: widget.goodsDeposit,
+                    monitoringPanel: widget.monitoringPanel,
                   ),
               ],
             ),
           ),
-          SafeArea(top: false, child: widget.footer),
+          if (widget.messageAlert != null)
+            SafeArea(
+              top: false,
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: widget.messageAlert!,
+                ),
+              ),
+            ),
+          if (widget.etaPanel != null)
+            SafeArea(top: false, bottom: false, child: widget.etaPanel!),
+          Offstage(
+            offstage: _showMap,
+            child: SafeArea(top: false, child: widget.footer),
+          ),
         ],
       ),
     ),

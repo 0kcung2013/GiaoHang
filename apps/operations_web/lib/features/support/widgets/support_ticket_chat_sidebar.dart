@@ -7,6 +7,7 @@ import '../utils/support_ticket_ui.dart';
 import 'support_order_context.dart';
 import 'support_next_steps.dart';
 import '../models/support_completion_context.dart';
+import '../constants/support_ticket_strings.dart';
 
 class SupportTicketChatSidebar extends StatelessWidget {
   const SupportTicketChatSidebar({
@@ -46,11 +47,12 @@ class SupportTicketChatSidebar extends StatelessWidget {
                 label: SupportTicketUi.statusLabel(ticket.status),
                 color: statusColor,
               ),
-              _Badge(
-                icon: Icons.flag_outlined,
-                label: SupportTicketUi.priorityLabel(ticket.priority),
-                color: SupportTicketUi.priorityColor(ticket.priority),
-              ),
+              if (ticket.priority == SupportTicketPriority.high)
+                _Badge(
+                  icon: Icons.flag_outlined,
+                  label: SupportTicketUi.priorityLabel(ticket.priority),
+                  color: SupportTicketUi.priorityColor(ticket.priority),
+                ),
               if (ticket.responseOverdue)
                 const _Badge(
                   icon: Icons.timer_off_outlined,
@@ -61,6 +63,22 @@ class SupportTicketChatSidebar extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xl),
           _PersonBlock(ticket: ticket),
+          if (ticket.requesterPhone?.trim().isNotEmpty == true) ...[
+            const SizedBox(height: AppSpacing.md),
+            _InfoRow(
+              icon: Icons.phone_outlined,
+              label: 'Số điện thoại người yêu cầu',
+              value: ticket.requesterPhone!,
+            ),
+          ],
+          if (ticket.requesterEmail?.trim().isNotEmpty == true) ...[
+            const SizedBox(height: AppSpacing.md),
+            _InfoRow(
+              icon: Icons.email_outlined,
+              label: 'Email người yêu cầu',
+              value: ticket.requesterEmail!,
+            ),
+          ],
           const SizedBox(height: AppSpacing.lg),
           SupportNextSteps(
             ticket: ticket,
@@ -97,30 +115,22 @@ class SupportTicketChatSidebar extends StatelessWidget {
                       SupportTicketUi.shortId(ticket.assignedTo!),
           ),
           const SizedBox(height: AppSpacing.xl),
-          Text(
-            'Vấn đề cần hỗ trợ',
-            style: AppTextStyles.labelSmall.copyWith(
-              color: AppColors.textMuted,
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            shape: const Border(),
+            collapsedShape: const Border(),
+            title: Text(
+              SupportTicketStrings.initialMessage,
+              style: AppTextStyles.labelMedium,
             ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(ticket.subject, style: AppTextStyles.headingSmall),
-          const SizedBox(height: AppSpacing.sm),
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.bgWarm,
-              borderRadius: AppRadius.md,
-              border: Border.all(
-                color: AppColors.accent.withValues(alpha: 0.16),
+            children: [
+              Text(
+                CaseMessageContent.decode(ticket.message).text,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
-            ),
-            child: Text(
-              CaseMessageContent.decode(ticket.message).text,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
+            ],
           ),
           if ((ticket.resolution ?? '').trim().isNotEmpty) ...[
             const SizedBox(height: AppSpacing.lg),
@@ -134,10 +144,21 @@ class SupportTicketChatSidebar extends StatelessWidget {
             Text(ticket.resolution!, style: AppTextStyles.bodySmall),
           ],
           if (showOrderContext && ticket.orderId != null)
-            SupportOrderContext(
-              orderId: ticket.orderId!,
-              currentTicketId: ticket.id,
-              subject: ticket.subject,
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              shape: const Border(),
+              collapsedShape: const Border(),
+              title: Text(
+                SupportTicketStrings.orderDetails,
+                style: AppTextStyles.labelMedium,
+              ),
+              children: [
+                SupportOrderContext(
+                  orderId: ticket.orderId!,
+                  currentTicketId: ticket.id,
+                  subject: ticket.subject,
+                ),
+              ],
             ),
         ],
       ),
@@ -223,10 +244,8 @@ class _InfoRow extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
-            Text(
+            SelectableText(
               value,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
               style: AppTextStyles.bodySmall.copyWith(
                 color: AppColors.textPrimary,
               ),

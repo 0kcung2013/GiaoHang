@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
 import '../../../../../core/utils/delivery_eta_calculator.dart';
+import '../utils/delivery_eta_strings.dart';
 
 class EtaAiDetailPanel extends StatefulWidget {
   const EtaAiDetailPanel({super.key, required this.eta});
@@ -20,19 +21,19 @@ class _EtaAiDetailPanelState extends State<EtaAiDetailPanel> {
   Widget build(BuildContext context) {
     final eta = widget.eta;
     final applied = eta.usedAiCorrection;
-    final statusColor = applied ? AppColors.success : AppColors.warning;
+    final statusColor = applied ? AppColors.info : AppColors.textSecondary;
 
     return Semantics(
       button: true,
-      label: applied
-          ? 'Cách ước tính thời gian giao hàng theo lộ trình và khung giờ'
-          : 'Cách ước tính thời gian giao hàng theo lộ trình',
-      hint: _expanded ? 'Chạm để thu gọn' : 'Chạm để xem cách tính',
+      label: DeliveryEtaStrings.detailsSemantics,
+      hint: _expanded
+          ? DeliveryEtaStrings.collapseDetails
+          : DeliveryEtaStrings.expandDetails,
       child: Container(
         decoration: BoxDecoration(
           color: applied
               ? AppColors.info.withValues(alpha: 0.055)
-              : AppColors.warning.withValues(alpha: 0.07),
+              : AppColors.bgLight,
           borderRadius: AppRadius.lg,
           border: Border.all(color: statusColor.withValues(alpha: 0.2)),
         ),
@@ -59,7 +60,9 @@ class _EtaAiDetailPanelState extends State<EtaAiDetailPanel> {
                           borderRadius: AppRadius.sm,
                         ),
                         child: Icon(
-                          applied ? Icons.route_rounded : Icons.shield_outlined,
+                          applied
+                              ? Icons.route_rounded
+                              : Icons.schedule_rounded,
                           size: 18,
                           color: statusColor,
                         ),
@@ -70,9 +73,7 @@ class _EtaAiDetailPanelState extends State<EtaAiDetailPanel> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              applied
-                                  ? 'Ước tính thời gian giao'
-                                  : 'Thời gian giao dự kiến',
+                              DeliveryEtaStrings.detailTitle,
                               style: AppTextStyles.labelMedium.copyWith(
                                 color: AppColors.textPrimary,
                                 fontWeight: FontWeight.w800,
@@ -83,7 +84,7 @@ class _EtaAiDetailPanelState extends State<EtaAiDetailPanel> {
                               children: [
                                 Icon(
                                   applied
-                                      ? Icons.check_circle_rounded
+                                      ? Icons.traffic_rounded
                                       : Icons.info_rounded,
                                   size: 14,
                                   color: statusColor,
@@ -92,12 +93,10 @@ class _EtaAiDetailPanelState extends State<EtaAiDetailPanel> {
                                 Flexible(
                                   child: Text(
                                     applied
-                                        ? 'Dựa trên lộ trình và khung giờ giao hàng'
-                                        : 'Dựa trên lộ trình giao hàng',
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
+                                        ? DeliveryEtaStrings.historicalTraffic
+                                        : DeliveryEtaStrings.routeEstimate,
                                     style: AppTextStyles.labelSmall.copyWith(
-                                      color: statusColor,
+                                      color: AppColors.textSecondary,
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
@@ -147,10 +146,6 @@ class _EtaBreakdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final adjustmentValue = eta.usedAiCorrection
-        ? '+${eta.aiAdjustmentMinutes.toStringAsFixed(1)} phút'
-        : 'Không áp dụng';
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.md,
@@ -164,24 +159,17 @@ class _EtaBreakdown extends StatelessWidget {
           Container(height: 1, color: AppColors.border),
           const SizedBox(height: AppSpacing.md),
           _DetailRow(
-            icon: Icons.route_outlined,
-            label: eta.usedRouteDuration
-                ? 'Thời gian theo lộ trình'
-                : 'Thời gian theo quãng đường',
-            value: '${eta.baselineTravelMinutes.toStringAsFixed(1)} phút',
+            icon: Icons.route_rounded,
+            label: DeliveryEtaStrings.travelLabel,
+            value: DeliveryEtaStrings.travelMinutes(
+              eta.calibratedTravelMinutes,
+            ),
           ),
           const SizedBox(height: AppSpacing.sm),
           _DetailRow(
-            icon: Icons.traffic_rounded,
-            label: 'Điều chỉnh theo khung giờ',
-            value: adjustmentValue,
-            emphasized: eta.usedAiCorrection,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          _DetailRow(
-            icon: Icons.inventory_2_outlined,
-            label: 'Nhận và bàn giao hàng',
-            value: '+${eta.handlingMinutes} phút',
+            icon: Icons.inventory_2_rounded,
+            label: DeliveryEtaStrings.handlingLabel,
+            value: DeliveryEtaStrings.handlingMinutes(eta.handlingMinutes),
           ),
           const SizedBox(height: AppSpacing.md),
           Container(
@@ -192,9 +180,7 @@ class _EtaBreakdown extends StatelessWidget {
               borderRadius: AppRadius.sm,
             ),
             child: Text(
-              eta.usedAiCorrection
-                  ? 'Dựa trên lộ trình và dữ liệu giao thông theo khung giờ tại TP.HCM. Thời gian có thể thay đổi theo thực tế.'
-                  : 'Dựa trên lộ trình và tốc độ di chuyển trong đô thị. Thời gian có thể thay đổi theo thực tế.',
+              DeliveryEtaStrings.rangeExplanation,
               style: AppTextStyles.labelSmall.copyWith(
                 color: AppColors.textSecondary,
                 height: 1.5,
@@ -212,24 +198,18 @@ class _DetailRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
-    this.emphasized = false,
   });
 
   final IconData icon;
   final String label;
   final String value;
-  final bool emphasized;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          size: 16,
-          color: emphasized ? AppColors.info : AppColors.textMuted,
-        ),
+        Icon(icon, size: 16, color: AppColors.info),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Text(
@@ -240,12 +220,14 @@ class _DetailRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: AppSpacing.sm),
-        Text(
-          value,
-          textAlign: TextAlign.right,
-          style: AppTextStyles.labelSmall.copyWith(
-            color: emphasized ? AppColors.info : AppColors.textPrimary,
-            fontWeight: FontWeight.w800,
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: AppTextStyles.labelSmall.copyWith(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
       ],

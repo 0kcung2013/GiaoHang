@@ -11,11 +11,13 @@ class DriverAcceptanceLockCard extends StatelessWidget {
     required this.lockedUntil,
     required this.onExpired,
     this.now = DateTime.now,
+    this.description = DriverCancellationStrings.lockDescription,
   });
 
   final DateTime lockedUntil;
   final VoidCallback onExpired;
   final DateTime Function() now;
+  final String description;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -46,7 +48,7 @@ class DriverAcceptanceLockCard extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.lg),
         Text(
-          DriverCancellationStrings.lockDescription,
+          description,
           textAlign: TextAlign.center,
           style: AppTextStyles.bodySmall.copyWith(color: AppColors.textOnDark),
         ),

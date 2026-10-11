@@ -18,6 +18,7 @@ class ReturnBottomPanel extends StatelessWidget {
     required this.error,
     required this.onRefresh,
     required this.onAction,
+    this.onCancelReturn,
     super.key,
   });
 
@@ -30,6 +31,7 @@ class ReturnBottomPanel extends StatelessWidget {
   final String? error;
   final VoidCallback onRefresh;
   final VoidCallback onAction;
+  final VoidCallback? onCancelReturn;
 
   @override
   Widget build(BuildContext context) {
@@ -183,6 +185,21 @@ class ReturnBottomPanel extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: AppSpacing.sm),
+              if (onCancelReturn != null)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    key: const Key('return-cancel'),
+                    onPressed: actionEnabled ? onCancelReturn : null,
+                    style: TextButton.styleFrom(
+                      textStyle: AppTextStyles.labelMedium,
+                      foregroundColor: AppColors.info,
+                      minimumSize: const Size(0, 48),
+                    ),
+                    icon: const Icon(Icons.undo_rounded, size: 20),
+                    label: const Text(ReturnNavigationStrings.cancelReturn),
+                  ),
+                ),
               Row(
                 children: [
                   IconButton.outlined(
@@ -237,11 +254,13 @@ class _MetricItem extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: foreground),
         const SizedBox(width: AppSpacing.xs),
-        Text(
-          label,
-          style: AppTextStyles.labelSmall.copyWith(
-            color: foreground,
-            fontWeight: FontWeight.w700,
+        Flexible(
+          child: Text(
+            label,
+            style: AppTextStyles.labelSmall.copyWith(
+              color: foreground,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ],

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart';
+import 'package:giaohang_domain/giaohang_domain.dart';
 
 import '../ml/delivery_eta_ai_calibrator.dart';
 
@@ -11,14 +12,18 @@ class DeliveryTrafficSegment {
     required this.points,
     required this.level,
     required this.maxHistoricalMultiplier,
+    this.distanceMeters = 0,
+    this.meanHistoricalMultiplier,
   });
 
   final List<LatLng> points;
   final DeliveryTrafficLevel level;
   final double? maxHistoricalMultiplier;
+  final double distanceMeters;
+  final double? meanHistoricalMultiplier;
 }
 
-/// Converts an OSRM polyline into short, historically-scored traffic sections.
+/// Colors an OSRM polyline by simulated speed, not observed street congestion.
 class DeliveryTrafficRouteAnalyzer {
   DeliveryTrafficRouteAnalyzer._();
 
@@ -48,6 +53,7 @@ class DeliveryTrafficRouteAnalyzer {
       rawSegments.add(
         _scoreChunk(
           points: List.unmodifiable(chunk),
+          distanceMeters: chunkMeters,
           quotedAt: quotedAt,
           isPeakHour: peakHour,
         ),
@@ -63,29 +69,40 @@ class DeliveryTrafficRouteAnalyzer {
     if (multiplier == null || !multiplier.isFinite) {
       return DeliveryTrafficLevel.unavailable;
     }
-    if (multiplier < 1.15) return DeliveryTrafficLevel.clear;
-    if (multiplier < 1.35) return DeliveryTrafficLevel.moderate;
-    if (multiplier < 1.55) return DeliveryTrafficLevel.heavy;
+    // Display bands from speed = 50 / ratio; these are not learned LOS labels.
+    if (multiplier < 1.25) return DeliveryTrafficLevel.clear;
+    if (multiplier < 50 / 34) return DeliveryTrafficLevel.moderate;
+    if (multiplier < 50 / 28) return DeliveryTrafficLevel.heavy;
     return DeliveryTrafficLevel.congested;
   }
 
   static DeliveryTrafficSegment _scoreChunk({
     required List<LatLng> points,
+    required double distanceMeters,
     required DateTime quotedAt,
     required bool isPeakHour,
   }) {
     final midpoint = points[points.length ~/ 2];
     final multiplier =
-        DeliveryEtaAiCalibrator.predictHistoricalTrafficMultiplierAt(
-          latitude: midpoint.latitude,
-          longitude: midpoint.longitude,
-          quotedAt: quotedAt,
-          isPeakHour: isPeakHour,
-        );
+        !points.every(
+          (p) => DeliveryEtaAiCalibrator.supportsPoint(
+            latitude: p.latitude,
+            longitude: p.longitude,
+          ),
+        )
+        ? null
+        : DeliveryEtaAiCalibrator.predictHistoricalTrafficMultiplierAt(
+            latitude: midpoint.latitude,
+            longitude: midpoint.longitude,
+            quotedAt: quotedAt,
+            isPeakHour: isPeakHour,
+          );
     return DeliveryTrafficSegment(
       points: points,
       level: classifyMultiplier(multiplier),
       maxHistoricalMultiplier: multiplier,
+      distanceMeters: distanceMeters,
+      meanHistoricalMultiplier: multiplier,
     );
   }
 
@@ -112,6 +129,15 @@ class DeliveryTrafficRouteAnalyzer {
             previous.maxHistoricalMultiplier,
             segment.maxHistoricalMultiplier,
           ),
+          distanceMeters: previous.distanceMeters + segment.distanceMeters,
+          meanHistoricalMultiplier:
+              previous.meanHistoricalMultiplier == null ||
+                  segment.meanHistoricalMultiplier == null
+              ? null
+              : (previous.meanHistoricalMultiplier! * previous.distanceMeters +
+                        segment.meanHistoricalMultiplier! *
+                            segment.distanceMeters) /
+                    (previous.distanceMeters + segment.distanceMeters),
         ),
       );
     }
@@ -125,6 +151,7 @@ class DeliveryTrafficRouteAnalyzer {
   }
 
   static bool _isPeakHour(DateTime value) {
+    value = VietnamTime.toWallClock(value);
     final minuteOfDay = value.hour * 60 + value.minute;
     return (minuteOfDay >= 6 * 60 + 30 && minuteOfDay < 9 * 60) ||
         (minuteOfDay >= 16 * 60 + 30 && minuteOfDay < 19 * 60 + 30);
@@ -132,6 +159,22 @@ class DeliveryTrafficRouteAnalyzer {
 }
 
 extension DeliveryTrafficSegmentSummary on List<DeliveryTrafficSegment> {
+  /// Display summary at the quoted time. ETA separately advances time along
+  /// the route using predicted speed; this average is not an ETA input.
+  /// Missing coverage must not silently become clear traffic.
+  double? get meanHistoricalTrafficMultiplier {
+    if (isEmpty || hasUnavailableTraffic) return null;
+    var distance = 0.0;
+    var weighted = 0.0;
+    for (final segment in this) {
+      final multiplier = segment.meanHistoricalMultiplier;
+      if (multiplier == null || !multiplier.isFinite) return null;
+      distance += segment.distanceMeters;
+      weighted += segment.distanceMeters * multiplier;
+    }
+    return distance > 0 ? weighted / distance : null;
+  }
+
   bool get hasHistoricalTraffic =>
       any((segment) => segment.level != DeliveryTrafficLevel.unavailable);
 

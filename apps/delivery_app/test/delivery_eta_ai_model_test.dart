@@ -1,74 +1,55 @@
-import 'package:delivery_app/core/ml/delivery_eta_ai_model.dart';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:delivery_app/core/ml/delivery_eta_ai_model.dart';
+import 'package:delivery_app/core/ml/delivery_eta_ai_calibrator.dart';
 
 void main() {
-  test('Dart LightGBM inference matches Python reference predictions', () {
-    final cases = <(List<double>, double)>[
-      (
-        [
-          10.785519950000001,
-          106.689677,
-          0.9914448613738104,
-          0.1305261922200517,
-          0,
-          1,
-          0,
-          0,
-          15,
-          35,
-          2,
-          1,
-        ],
-        0.005077286533963487,
-      ),
-      (
-        [
-          10.79359165,
-          106.65915530000001,
-          0.9914448613738104,
-          0.1305261922200517,
-          0,
-          1,
-          0,
-          0,
-          37,
-          35,
-          4,
-          1,
-        ],
-        0.005077286533963487,
-      ),
-      (
-        [
-          10.79934115,
-          106.6597985,
-          0.9914448613738104,
-          0.1305261922200517,
-          0.7818314824680298,
-          0.6234898018587336,
-          0,
-          0,
-          18,
-          35,
-          2,
-          1.4583213889844435,
-        ],
-        0.14415510757544736,
-      ),
-    ];
-
-    for (final (features, expected) in cases) {
+  test('Dart speed matches Python for every minute of a full week', () {
+    final cases =
+        jsonDecode(
+              File(
+                'test/fixtures/smarttraffic_speed_parity.json',
+              ).readAsStringSync(),
+            )
+            as List;
+    for (final c in cases) {
       expect(
-        DeliveryEtaAiModel.predictLogTrafficMultiplier(features),
-        closeTo(expected, 1e-9),
+        DeliveryEtaAiCalibrator.predictSpeed(DateTime.parse(c['at'])),
+        closeTo(c['speed'], 1e-9),
+        reason: c['at'],
       );
     }
   });
-
-  test('rejects malformed feature vectors', () {
-    expect(
-      () => DeliveryEtaAiModel.predictLogTrafficMultiplier([1, 2]),
-      throwsArgumentError,
-    );
+  test('Dart route time matches Edge including hour/day crossings', () {
+    final cases =
+        jsonDecode(
+              File(
+                'test/fixtures/smarttraffic_route_parity.json',
+              ).readAsStringSync(),
+            )
+            as List;
+    for (final c in cases) {
+      expect(
+        DeliveryEtaAiCalibrator.travelMinutesForDistance(
+          (c['meters'] as num) / 1000,
+          DateTime.parse(c['at']),
+        ),
+        closeTo(c['minutes'], 1e-9),
+      );
+    }
   });
+  test(
+    'speed feature contract rejects old feature vectors and nonfinite values',
+    () {
+      expect(
+        () => DeliveryEtaAiModel.predictSpeed([1, 2]),
+        throwsArgumentError,
+      );
+      expect(
+        () => DeliveryEtaAiModel.predictSpeed([double.nan, 0, 0]),
+        throwsArgumentError,
+      );
+    },
+  );
 }

@@ -3,20 +3,20 @@ import 'dart:typed_data';
 
 import 'delivery_eta_ai_model_data.dart';
 
-/// Local LightGBM inference for the TP.HCM historical traffic model.
+/// Local LightGBM inference for the SmartTraffic synthetic speed model.
 ///
 /// The model is intentionally wrapped by geographic and plausibility guardrails
 /// in [DeliveryEtaCalculator].
 class DeliveryEtaAiModel {
   DeliveryEtaAiModel._();
 
-  static const int featureCount = 12;
+  static const int featureCount = 3;
   static const int _nodeSize = 15;
   static final List<_EtaTree> _trees = _decodeTrees();
 
   static String get version => deliveryEtaAiModelVersion;
 
-  static double predictLogTrafficMultiplier(List<double> features) {
+  static double predictSpeed(List<double> features) {
     if (features.length != featureCount ||
         features.any((value) => !value.isFinite)) {
       throw ArgumentError.value(

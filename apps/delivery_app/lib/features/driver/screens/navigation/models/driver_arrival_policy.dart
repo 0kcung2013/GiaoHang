@@ -15,7 +15,10 @@ class DriverArrivalPolicy {
     required LatLng target,
     required DriverPositionSource source,
   }) {
-    final isActiveLeg = status == 'picking_up' || status == 'delivering';
+    final isActiveLeg =
+        status == 'assigned' ||
+        status == 'picking_up' ||
+        status == 'delivering';
     if (!isActiveLeg || !source.canConfirmArrival) return null;
 
     final meters = const Distance().as(LengthUnit.Meter, current, target);

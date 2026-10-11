@@ -1,22 +1,17 @@
 import 'package:giaohang_domain/giaohang_domain.dart';
 
 import '../../../../risk_reports/models/participant_risk_report_summary.dart';
+import '../../../../risk_reports/utils/risk_recipient_return_request.dart';
 
-/// Chỉ là trạng thái trình bày; không cấp quyền nhận đơn hoặc thu phí.
+/// Chờ quyết định CSKH; không cấp quyền hoàn hàng, nhận đơn hoặc thu phí.
 class DriverRecipientWait {
   const DriverRecipientWait(this.report);
 
-  static const window = Duration(minutes: 15);
   static const redeliveryPerKm = 5000;
   final ParticipantRiskReportSummary report;
 
-  DateTime get endsAt => report.createdAt.add(window);
-
-  Duration remainingAt(DateTime serverNow) {
-    final remaining = endsAt.difference(serverNow);
-    if (remaining.isNegative) return Duration.zero;
-    return remaining > window ? window : remaining;
-  }
+  bool get returnRequested =>
+      RiskRecipientReturnRequest.isIncludedIn(report.description);
 
   static DriverRecipientWait? select({
     required String orderId,

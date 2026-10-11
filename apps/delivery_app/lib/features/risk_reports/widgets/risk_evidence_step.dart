@@ -3,7 +3,6 @@ import 'package:giaohang_design/giaohang_design.dart';
 
 import '../data/risk_report_repository.dart';
 import '../utils/risk_report_strings.dart';
-import '../../driver/screens/navigation/utils/driver_delivery_arrival_strings.dart';
 
 class RiskEvidenceStep extends StatelessWidget {
   const RiskEvidenceStep({
@@ -20,6 +19,12 @@ class RiskEvidenceStep extends StatelessWidget {
     required this.onPickPhotos,
     required this.onCaptureLocation,
     this.callEvidenceRequired = false,
+    this.photoRequired = false,
+    this.compact = false,
+    this.showLocation = true,
+    this.onRemovePhoto,
+    this.descriptionHint = 'Điều gì đã xảy ra?',
+    this.descriptionLimit = 4000,
     super.key,
   });
 
@@ -36,6 +41,12 @@ class RiskEvidenceStep extends StatelessWidget {
   final VoidCallback onPickPhotos;
   final VoidCallback onCaptureLocation;
   final bool callEvidenceRequired;
+  final bool photoRequired;
+  final bool compact;
+  final bool showLocation;
+  final ValueChanged<int>? onRemovePhoto;
+  final String descriptionHint;
+  final int descriptionLimit;
 
   @override
   Widget build(BuildContext context) {
@@ -44,28 +55,21 @@ class RiskEvidenceStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Thêm thông tin', style: AppTextStyles.headingMedium),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          callEvidenceRequired
-              ? RiskReportStrings.callEvidenceSummary
-              : 'Mô tả ngắn gọn; bằng chứng là tùy chọn.',
-          style: AppTextStyles.bodyMedium.copyWith(
-            color: AppColors.textSecondary,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Text('Mô tả sự cố', style: AppTextStyles.labelMedium),
+        if (!compact) ...[
+          Text('Thêm thông tin', style: AppTextStyles.headingMedium),
+          const SizedBox(height: AppSpacing.lg),
+        ],
+        Text('Mô tả', style: AppTextStyles.labelMedium),
         const SizedBox(height: AppSpacing.sm),
         TextField(
           controller: descriptionController,
           onChanged: onDescriptionChanged,
           minLines: 3,
           maxLines: 5,
-          maxLength: 4000,
+          maxLength: descriptionLimit,
           style: AppTextStyles.bodyMedium,
           decoration: InputDecoration(
-            hintText: 'Điều gì đã xảy ra?',
+            hintText: descriptionHint,
             hintStyle: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.textMuted,
             ),
@@ -89,15 +93,19 @@ class RiskEvidenceStep extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.md),
         _EvidenceAction(
-          label: 'Thêm ảnh',
-          value: photos.isEmpty ? 'Tối đa 5 ảnh' : '${photos.length}/5 ảnh',
+          label: callEvidenceRequired ? 'Thêm ảnh cuộc gọi' : 'Thêm ảnh',
+          value: photos.isEmpty
+              ? callEvidenceRequired || photoRequired
+                    ? 'Bắt buộc · tối đa 5 ảnh'
+                    : 'Tùy chọn · tối đa 5 ảnh'
+              : '${photos.length}/5 ảnh',
           onTap: onPickPhotos,
         ),
         if (callEvidenceRequired)
           Padding(
             padding: const EdgeInsets.only(top: AppSpacing.sm),
             child: Text(
-              DriverDeliveryArrivalStrings.evidenceHint,
+              RiskReportStrings.callEvidenceHint,
               style: AppTextStyles.bodySmall.copyWith(
                 color: AppColors.textSecondary,
               ),
@@ -111,30 +119,54 @@ class RiskEvidenceStep extends StatelessWidget {
               style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
             ),
           ),
-        const SizedBox(height: AppSpacing.sm),
-        _EvidenceAction(
-          label: 'Gửi vị trí hiện tại',
-          value: !hasLocation
-              ? locationRequired
-                    ? RiskReportStrings.locationRequiredShort
-                    : 'Không bắt buộc'
-              : locationAddress ?? RiskReportStrings.locationResolving,
-          onTap: locationLocked ? null : onCaptureLocation,
-          complete: hasLocation,
-          muted: locationLocked,
-          semanticsKey: const ValueKey('risk-required-location-action'),
-          semanticsLabel: locationLocked
-              ? 'Vị trí hiện tại bắt buộc, đã tự động đính kèm'
-              : null,
-        ),
-        if (locationError != null)
+        if (photos.isNotEmpty && onRemovePhoto != null)
           Padding(
-            padding: const EdgeInsets.only(top: AppSpacing.xs),
-            child: Text(
-              locationError!,
-              style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
+            padding: const EdgeInsets.only(top: AppSpacing.sm),
+            child: Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: List.generate(
+                photos.length,
+                (index) => InputChip(
+                  label: Text('Ảnh ${index + 1}'),
+                  onDeleted: () => onRemovePhoto!(index),
+                  deleteButtonTooltipMessage: 'Bỏ ảnh ${index + 1}',
+                  backgroundColor: AppColors.bgLight,
+                  labelStyle: AppTextStyles.labelMedium,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: AppRadius.md,
+                  ),
+                  side: const BorderSide(color: AppColors.border),
+                ),
+              ),
             ),
           ),
+        if (showLocation) ...[
+          const SizedBox(height: AppSpacing.sm),
+          _EvidenceAction(
+            label: 'Gửi vị trí hiện tại',
+            value: !hasLocation
+                ? locationRequired
+                      ? RiskReportStrings.locationRequiredShort
+                      : 'Không bắt buộc'
+                : locationAddress ?? RiskReportStrings.locationResolving,
+            onTap: locationLocked ? null : onCaptureLocation,
+            complete: hasLocation,
+            muted: locationLocked,
+            semanticsKey: const ValueKey('risk-required-location-action'),
+            semanticsLabel: locationLocked
+                ? 'Vị trí hiện tại bắt buộc, đã tự động đính kèm'
+                : null,
+          ),
+          if (locationError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.xs),
+              child: Text(
+                locationError!,
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
+              ),
+            ),
+        ],
       ],
     );
   }

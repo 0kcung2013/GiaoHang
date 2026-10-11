@@ -42,11 +42,13 @@ class RiskMessageEvidenceSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.sm,
           children: [
-            Expanded(
-              child: Text(_Strings.title, style: AppTextStyles.headingSmall),
-            ),
+            Text(_Strings.title, style: AppTextStyles.headingSmall),
             OutlinedButton.icon(
               onPressed: loading || attaching
                   ? null

@@ -9,8 +9,11 @@ class DriverActiveDeliveryTrackingPolicy {
   static bool usesRouteSimulation({
     required bool isWeb,
     required DriverLocationMode locationMode,
+    bool isTrafficDemo = false,
   }) {
-    return isWeb || locationMode != DriverLocationMode.deviceGps;
+    return isTrafficDemo ||
+        isWeb ||
+        locationMode != DriverLocationMode.deviceGps;
   }
 
   /// Khi map đóng, GPS thật tiếp tục chạy ở device mode. Với session mô phỏng,
@@ -20,10 +23,15 @@ class DriverActiveDeliveryTrackingPolicy {
     required DriverLocationMode locationMode,
     required bool isNavigationMapOpen,
     required bool hasRestoredNavigationSession,
+    bool isTrafficDemo = false,
   }) {
-    if (isNavigationMapOpen) return false;
+    if (isNavigationMapOpen || isTrafficDemo) return false;
     if (hasRestoredNavigationSession &&
-        usesRouteSimulation(isWeb: isWeb, locationMode: locationMode)) {
+        usesRouteSimulation(
+          isWeb: isWeb,
+          locationMode: locationMode,
+          isTrafficDemo: isTrafficDemo,
+        )) {
       return false;
     }
     return true;
@@ -36,8 +44,13 @@ class DriverActiveDeliveryTrackingPolicy {
     required bool isNavigationMapOpen,
     required bool hasRestoredNavigationSession,
     required bool canSimulateMovement,
+    bool isTrafficDemo = false,
   }) {
-    return usesRouteSimulation(isWeb: isWeb, locationMode: locationMode) &&
+    return usesRouteSimulation(
+          isWeb: isWeb,
+          locationMode: locationMode,
+          isTrafficDemo: isTrafficDemo,
+        ) &&
         !isNavigationMapOpen &&
         hasRestoredNavigationSession &&
         canSimulateMovement;

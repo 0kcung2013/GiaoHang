@@ -18,6 +18,7 @@ import 'risk_evidence_step.dart';
 import 'risk_reason_step.dart';
 import 'risk_review_step.dart';
 import 'risk_report_sheet_chrome.dart';
+import 'driver_incident_form.dart';
 import '../../driver/screens/navigation/data/driver_delivery_arrival_repository.dart';
 import '../../driver/screens/navigation/utils/driver_delivery_arrival_strings.dart';
 
@@ -70,6 +71,7 @@ class RiskReportSheet extends StatefulWidget {
 }
 
 class _RiskReportSheetState extends State<RiskReportSheet> {
+  bool get _compactDriver => widget.role == RiskReporterRole.driver;
   late final RiskReportFormController _controller;
   late final TextEditingController _descriptionController;
   final ReverseGeocodingService _reverseGeocodingService =
@@ -84,7 +86,14 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
       repository: widget.repository,
       initialLatitude: widget.initialLatitude,
       initialLongitude: widget.initialLongitude,
-      requireLocation: widget.role == RiskReporterRole.driver,
+      requireCargoEvidence: _compactDriver,
+      allowedCategories: _compactDriver
+          ? riskOptionsFor(
+              widget.role,
+              orderStatus: widget.order.status,
+              hasPickedUp: widget.order.actualPickedUpAt != null,
+            ).map((option) => option.category).toSet()
+          : null,
       requireRecipientEvidence:
           widget.role == RiskReporterRole.driver &&
           widget.order.status == 'delivering',
@@ -94,9 +103,16 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
           )).canReport,
     );
     final initialCategory = widget.initialCategory;
-    if (initialCategory != null) {
+    if (initialCategory != null &&
+        riskOptionFor(
+              widget.role,
+              initialCategory,
+              orderStatus: widget.order.status,
+              hasPickedUp: widget.order.actualPickedUpAt != null,
+            ) !=
+            null) {
       _controller.selectCategory(initialCategory);
-      _controller.next();
+      if (!_compactDriver) _controller.next();
     }
     _controller.addListener(_refresh);
     _descriptionController = TextEditingController();
@@ -104,10 +120,6 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
     final longitude = widget.initialLongitude;
     if (latitude != null && longitude != null) {
       unawaited(_resolveLocationAddress(latitude, longitude));
-    } else if (widget.role == RiskReporterRole.driver) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_captureLocation());
-      });
     }
   }
 
@@ -128,48 +140,70 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
   Widget build(BuildContext context) {
     final state = _controller.state;
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
-    return Padding(
-      padding: EdgeInsets.only(bottom: keyboard),
-      child: FractionallySizedBox(
-        heightFactor: 0.92,
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            color: AppColors.bgCard,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            boxShadow: AppShadow.elevated,
-          ),
-          child: Column(
-            children: [
-              RiskReportSheetHeader(
-                step: state.step,
-                onClose: () => Navigator.pop(context),
+    return PopScope(
+      canPop: !state.isSubmitting,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640),
+        child: Padding(
+          padding: EdgeInsets.only(bottom: keyboard),
+          child: FractionallySizedBox(
+            heightFactor: 0.92,
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                color: AppColors.bgCard,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                boxShadow: AppShadow.elevated,
               ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.screenH,
-                    AppSpacing.md,
-                    AppSpacing.screenH,
-                    AppSpacing.xl,
+              child: Column(
+                children: [
+                  RiskReportSheetHeader(
+                    step: state.step,
+                    showSteps: !_compactDriver,
+                    title: _controller.requestsRecipientReturn
+                        ? RiskReportStrings.recipientReturnTitle
+                        : _compactDriver
+                        ? RiskReportStrings.driverIncidentTitle
+                        : RiskReportStrings.reportTitle,
+                    onClose: state.isSubmitting
+                        ? null
+                        : () => Navigator.pop(context),
                   ),
-                  child: AnimatedSwitcher(
-                    duration: AppDuration.normal,
-                    child: KeyedSubtree(
-                      key: ValueKey(state.step),
-                      child: _stepContent(state),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.screenH,
+                        AppSpacing.md,
+                        AppSpacing.screenH,
+                        AppSpacing.xl,
+                      ),
+                      child: AnimatedSwitcher(
+                        duration: AppDuration.normal,
+                        child: KeyedSubtree(
+                          key: ValueKey(state.step),
+                          child: _stepContent(state),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  RiskReportSheetFooter(
+                    step: state.step,
+                    singlePage: _compactDriver,
+                    submitLabel: _controller.requestsRecipientReturn
+                        ? RiskReportStrings.sendRecipientReturn
+                        : _compactDriver
+                        ? RiskReportStrings.sendIncident
+                        : RiskReportStrings.sendReport,
+                    submitting: state.isSubmitting,
+                    submissionLabel: _submissionLabel(state.submissionPhase),
+                    errorMessage: state.errorMessage,
+                    onBack: _controller.back,
+                    onPrimary: _compactDriver || state.step == 2
+                        ? _submit
+                        : _next,
+                  ),
+                ],
               ),
-              RiskReportSheetFooter(
-                step: state.step,
-                submitting: state.isSubmitting,
-                submissionLabel: _submissionLabel(state.submissionPhase),
-                errorMessage: state.errorMessage,
-                onBack: _controller.back,
-                onPrimary: state.step < 2 ? _next : _submit,
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -177,6 +211,15 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
   }
 
   Widget _stepContent(RiskReportFormState state) {
+    if (_compactDriver) {
+      return DriverIncidentForm(
+        order: widget.order,
+        controller: _controller,
+        descriptionController: _descriptionController,
+        onPickPhotos: _pickPhotos,
+        onCaptureLocation: _captureLocation,
+      );
+    }
     if (state.step == 0) {
       return RiskReasonStep(
         role: widget.role,
@@ -194,6 +237,7 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
         locationAddress: state.locationAddress,
         locationRequired: widget.role == RiskReporterRole.driver,
         callEvidenceRequired: _controller.needsCallEvidence,
+        descriptionLimit: _controller.descriptionLimit,
         descriptionError: state.descriptionError,
         photoError: state.photoError,
         locationError: state.locationError,
@@ -209,6 +253,7 @@ class _RiskReportSheetState extends State<RiskReportSheet> {
       photoCount: state.photos.length,
       hasLocation: state.latitude != null,
       locationAddress: state.locationAddress,
+      requestsRecipientReturn: _controller.requestsRecipientReturn,
     );
   }
 

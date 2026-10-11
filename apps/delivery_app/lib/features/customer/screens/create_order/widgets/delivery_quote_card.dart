@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/utils/delivery_pricing_policy.dart';
 import '../utils/create_order_formatters.dart';
+import '../utils/delivery_eta_strings.dart';
 import '../utils/order_form_data.dart';
-import 'eta_ai_detail_panel.dart';
 
 class DeliveryQuoteCard extends StatelessWidget {
   const DeliveryQuoteCard({super.key, required this.data});
@@ -34,9 +34,7 @@ class DeliveryQuoteCard extends StatelessWidget {
         children: [
           _QuoteHeader(total: fee.total),
           const SizedBox(height: AppSpacing.lg),
-          _EtaPanel(data: data),
-          const SizedBox(height: AppSpacing.md),
-          EtaAiDetailPanel(eta: data.deliveryEta),
+          const _EtaPanel(),
           const SizedBox(height: AppSpacing.lg),
           Container(height: 1, color: AppColors.border),
           const SizedBox(height: AppSpacing.lg),
@@ -119,7 +117,21 @@ class _QuoteHeader extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: AppSpacing.xs),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  formatDeliveryFee(total),
+                  maxLines: 1,
+                  style: AppTextStyles.headingLarge.copyWith(
+                    color: AppColors.accent,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
               Text(
                 'Báo giá cho dịch vụ tiêu chuẩn',
                 style: AppTextStyles.bodySmall.copyWith(
@@ -129,28 +141,16 @@ class _QuoteHeader extends StatelessWidget {
             ],
           ),
         ),
-        Text(
-          formatDeliveryFee(total),
-          style: AppTextStyles.headingLarge.copyWith(
-            color: AppColors.accent,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.4,
-          ),
-        ),
       ],
     );
   }
 }
 
 class _EtaPanel extends StatelessWidget {
-  const _EtaPanel({required this.data});
-
-  final OrderFormData data;
+  const _EtaPanel();
 
   @override
   Widget build(BuildContext context) {
-    final eta = data.deliveryEta;
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -179,50 +179,31 @@ class _EtaPanel extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.xs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Flexible(
-                      child: Text(
-                        'Giao hàng dự kiến',
-                        style: AppTextStyles.labelMedium.copyWith(
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    Text(
+                      DeliveryEtaStrings.estimatedDelivery,
+                      style: AppTextStyles.labelMedium.copyWith(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    if (eta.isPeakHour) ...[
-                      const SizedBox(width: AppSpacing.sm),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm,
-                          vertical: 3,
-                        ),
-                        decoration: const BoxDecoration(
-                          color: AppColors.warning,
-                          borderRadius: AppRadius.full,
-                        ),
-                        child: Text(
-                          'Giờ cao điểm',
-                          style: AppTextStyles.labelSmall.copyWith(
-                            color: AppColors.textOnAccent,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ],
                   ],
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  eta.rangeLabel,
-                  style: AppTextStyles.headingLarge.copyWith(
+                  DeliveryEtaStrings.waitingForDriver,
+                  style: AppTextStyles.headingSmall.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Tính từ khi tài xế nhận hàng · đã gồm thời gian bàn giao',
+                  DeliveryEtaStrings.afterAssignment,
                   style: AppTextStyles.bodySmall.copyWith(
                     color: AppColors.textSecondary,
                     height: 1.4,

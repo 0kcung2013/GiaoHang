@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import { quoteRoute, validPoint } from './deadline.mjs';
+import { validPoint } from './deadline.mjs';
+import { calculateEta, fixedEtaForOrder } from '../_shared/delivery_eta.mjs';
 import { AUTOMATIC_ROAD_LIMIT, FREE_PICK_ROAD_LIMIT, quotePickupRoute } from '../_shared/road_distance.mjs';
 import { createRoadRedis, roadRouteOptions } from '../_shared/road_redis.mjs';
 
@@ -46,7 +47,6 @@ Deno.serve(async (req) => {
       (order.driver_id === null && !body.free_pick && order.offered_driver_id !== user.id)) {
       return json({ error: 'ORDER_NOT_AVAILABLE' }, 409);
     }
-    const points: number[][] = [];
     const age = Date.now() - Date.parse(driver.location_updated_at ?? '');
     const fresh = Number.isFinite(age) && age >= -30000 && age <= 180000;
     const hasOrigin = fresh && validPoint(driver.current_lat, driver.current_lng);
@@ -65,23 +65,46 @@ Deno.serve(async (req) => {
         return json({ error: 'FREE_PICK_OUT_OF_RANGE' }, 409);
       }
     }
-    if (hasOrigin) points.push([driver.current_lng, driver.current_lat]);
     if (!validPoint(order.pickup_lat,order.pickup_lng) || !validPoint(order.delivery_lat,order.delivery_lng)) {
       return json({ error: 'INVALID_ORDER_COORDINATES' }, 409);
     }
-    if (order.status !== 'delivering' || !hasOrigin) points.push([order.pickup_lng,order.pickup_lat]);
-    points.push([order.delivery_lng,order.delivery_lat]);
-    const quote = await quoteRoute(points);
-    // No fresh driver origin: add 15 minutes and mark the estimate as fallback.
-    const seconds = Math.min(86400, quote.seconds + (hasOrigin ? 0 : 900));
     const { data, error } = await admin.rpc('accept_driver_order_with_road_quote', {
       p_order_id: order.id, p_driver_id: user.id,
-      p_route_duration_s: seconds, p_free_pick: body.free_pick === true,
-      p_quote_source: hasOrigin ? quote.source : 'distance_fallback',
+      // Retain the RPC contract; route seconds no longer determine the deadline.
+      p_route_duration_s: 0, p_free_pick: body.free_pick === true,
+      p_quote_source: 'osrm',
       p_existing_only: body.existing_only === true,
       p_pickup_quote: pickupQuote,
     });
     if (error) return json({ error: error.message }, 409);
+    // Assignment must succeed even when routing is temporarily unavailable.
+    // refresh-order-eta can retry; committing ETA also commits its deadline.
+    try {
+      const { data: assigned, error: lookupError } = await admin.from('orders')
+        .select('id,driver_id,status,pickup_lat,pickup_lng,delivery_lat,delivery_lng,delivery_eta,estimated_delivery_at,traffic_demo_key')
+        .eq('id', order.id).single();
+      if (lookupError) throw lookupError;
+      if (!fixedEtaForOrder(assigned)) {
+        const snapshot = await calculateEta({ order: assigned, driver,
+          assignedAt: assigned.delivery_eta?.assigned_at,
+          departedAt: assigned.delivery_eta?.departed_at });
+        if (snapshot) {
+          const { error: commitError } = await admin.rpc('commit_order_delivery_eta', {
+            p_order_id: assigned.id, p_driver_id: user.id, p_status: assigned.status,
+            p_pickup_arrived_at: null, p_actual_picked_up_at: null,
+            p_delivery_arrived_at: null, p_snapshot: snapshot,
+          });
+          if (commitError) throw commitError;
+        }
+      }
+      const { data: saved } = await admin.from('orders').select('estimated_delivery_at')
+        .eq('id', order.id).eq('driver_id', user.id).single();
+      if (saved && Array.isArray(data)) {
+        for (const row of data) row.estimated_delivery_at = saved.estimated_delivery_at;
+      }
+    } catch {
+      console.warn('[AcceptOrder] ETA pending; deadline will be set with the first forecast.');
+    }
     return json(data);
   } catch {
     return json({ error: 'ACCEPT_ORDER_UNAVAILABLE' }, 500);

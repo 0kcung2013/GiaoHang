@@ -40,11 +40,13 @@ class CreateOrderConfirmationController {
     required String itemName,
     required String itemCategory,
     required String itemDescription,
+    required double itemWeightKg,
     required XFile? cargoImage,
     required int codCollectionAmount,
     required int goodsValue,
     required DeliveryFeePayer deliveryFeePayer,
     required DeliveryFeeEstimate quote,
+    String? trafficDemoKey,
   }) async {
     final error = validateOrderDetails(
       recipientName: recipientName,
@@ -52,6 +54,7 @@ class CreateOrderConfirmationController {
       itemName: itemName,
       itemCategory: itemCategory,
       hasPhoto: cargoImage != null,
+      itemWeight: itemWeightKg.toString(),
     );
     if (error != null) throw CreateOrderPreparationException(error);
     late final SenderContactData sender;
@@ -82,6 +85,7 @@ class CreateOrderConfirmationController {
       itemName: itemName,
       itemCategory: itemCategory,
       itemDescription: itemDescription,
+      itemWeightKg: itemWeightKg,
       cargoImage: cargoImage,
       paymentMethod: deliveryFeePayer == DeliveryFeePayer.sender
           ? 'vnpay'
@@ -96,6 +100,7 @@ class CreateOrderConfirmationController {
       distanceSource: quote.source,
       feeBreakdown: quote.feeBreakdown,
       deliveryEta: quote.eta,
+      trafficDemoKey: trafficDemoKey,
     );
   }
 }

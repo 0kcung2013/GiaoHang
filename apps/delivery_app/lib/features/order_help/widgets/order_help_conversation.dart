@@ -85,7 +85,12 @@ class _OrderHelpConversationState extends State<OrderHelpConversation> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      message.senderRole == 'customer' ? 'Bạn' : 'CSKH',
+                      switch (message.senderRole) {
+                        'system' => DriverMonitoringStrings.systemAuthor,
+                        'driver' => 'Tài xế',
+                        'customer' => 'Bạn',
+                        _ => 'CSKH',
+                      },
                       style: AppTextStyles.labelSmall.copyWith(
                         color: AppColors.primary,
                       ),

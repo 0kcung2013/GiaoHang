@@ -1,4 +1,6 @@
 import 'package:delivery_app/core/models/order_model.dart';
+import 'package:delivery_app/core/models/order_route_distance.dart';
+import 'package:delivery_app/features/driver/screens/home/providers/driver_order_route_distance_provider.dart';
 import 'package:delivery_app/core/providers/customer_providers.dart';
 import 'package:delivery_app/features/driver/screens/navigation/driver_accepted_order_screen.dart';
 import 'package:delivery_app/core/utils/money_formatter.dart';
@@ -66,6 +68,14 @@ void main() {
       final order = _order().copyWith(status: status);
       await tester.pumpWidget(
         ProviderScope(
+          overrides: [
+            driverOrderRouteDistanceProvider.overrideWith(
+              (ref, request) async => const OrderRouteDistance(
+                pickupMeters: 1200,
+                deliveryMeters: 750,
+              ),
+            ),
+          ],
           child: MaterialApp(
             home: Scaffold(
               body: SingleChildScrollView(child: DriverOrderCard(order: order)),
@@ -141,6 +151,14 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
         addTearDown(tester.view.resetPhysicalSize);
         Widget wrap(Widget child) => ProviderScope(
+          overrides: [
+            driverOrderRouteDistanceProvider.overrideWith(
+              (ref, request) async => const OrderRouteDistance(
+                pickupMeters: 1200,
+                deliveryMeters: 750,
+              ),
+            ),
+          ],
           child: MaterialApp(
             home: MediaQuery(
               data: MediaQueryData(
@@ -155,7 +173,6 @@ void main() {
           wrap(
             DriverIncomingOfferPresentation(
               order: _order(),
-              pickupDistanceMeters: 1200,
               actions: FilledButton(
                 onPressed: () {},
                 child: const Text('Nhận đơn'),
@@ -163,6 +180,7 @@ void main() {
             ),
           ),
         );
+        await tester.pump();
         expect(tester.takeException(), isNull);
         expect(find.text(_order().itemName!), findsNothing);
         await tester.pumpWidget(

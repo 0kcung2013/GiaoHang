@@ -6,10 +6,30 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import '../utils/delivery_traffic_route_analyzer.dart';
+import 'delivery_traffic_map_layer.dart';
 
 /// Marker thống nhất L / G / T cho map khách & tài xế.
 class DeliveryMapMarkers {
   DeliveryMapMarkers._();
+
+  static Marker speed(LatLng point, double kmh) => Marker(
+    point: point,
+    width: DriverSpeedLabel.width,
+    height: DriverSpeedLabel.height,
+    alignment: Alignment.center,
+    rotate: true,
+    child: Transform.translate(
+      // Cùng neo GPS với xe, nhãn nằm bên phải và luôn đọc ngang khi xoay map.
+      offset: const Offset(
+        DriverVehicleMarker.size / 2 +
+            AppSpacing.sm +
+            DriverSpeedLabel.width / 2,
+        0,
+      ),
+      child: DriverSpeedLabel(speedKmh: kmh),
+    ),
+  );
 
   static Marker pickup(LatLng point) => Marker(
     point: point,
@@ -133,7 +153,7 @@ class _BubbleMarker extends StatelessWidget {
 class DriverVehicleMarker extends StatelessWidget {
   const DriverVehicleMarker({required this.isActive, super.key});
 
-  static const double size = 40;
+  static const double size = 44;
   static const String assetPath = 'assets/images/delivery_scooter_marker.svg';
 
   final bool isActive;
@@ -148,13 +168,61 @@ class DriverVehicleMarker extends StatelessWidget {
         child: RepaintBoundary(
           child: Opacity(
             opacity: isActive ? 1 : 0.58,
-            child: SvgPicture.asset(
-              assetPath,
-              key: Key('driver-vehicle-marker'),
+            child: Container(
               width: size,
               height: size,
-              fit: BoxFit.contain,
-              excludeFromSemantics: true,
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.bgCard,
+                border: Border.all(color: AppColors.markerDriver, width: 2.5),
+                boxShadow: AppShadow.card,
+              ),
+              child: SvgPicture.asset(
+                assetPath,
+                key: Key('driver-vehicle-marker'),
+                width: 30,
+                height: 30,
+                fit: BoxFit.contain,
+                excludeFromSemantics: true,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class DriverSpeedLabel extends StatelessWidget {
+  const DriverSpeedLabel({required this.speedKmh, super.key});
+  static const double width = 96;
+  static const double height = 32;
+  final double speedKmh;
+  @override
+  Widget build(BuildContext context) {
+    final color = speedKmh <= 0
+        ? AppColors.textSecondary
+        : deliveryTrafficColor(
+            DeliveryTrafficRouteAnalyzer.classifyMultiplier(50 / speedKmh),
+          );
+    return Semantics(
+      label: 'Vận tốc ${speedKmh.round()} kilômét mỗi giờ',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: AppRadius.full,
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+          boxShadow: AppShadow.subtle,
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            '${speedKmh.round()} km/h',
+            style: AppTextStyles.labelSmall.copyWith(
+              color: color,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ),

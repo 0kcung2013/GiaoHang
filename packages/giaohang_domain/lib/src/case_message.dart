@@ -34,6 +34,7 @@ class CaseMessage {
   final String? senderName;
 
   bool get isInternal => visibility == CaseMessageVisibility.internal;
+  bool get isSystem => senderRole == 'system';
 
   factory CaseMessage.fromJson(
     Map<String, dynamic> json, {

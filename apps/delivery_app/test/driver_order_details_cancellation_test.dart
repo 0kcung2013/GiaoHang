@@ -12,12 +12,14 @@ import 'package:delivery_app/features/driver/cancellation/driver_cancellation_st
 import 'package:delivery_app/features/driver/screens/navigation/driver_navigation_screen.dart';
 import 'package:delivery_app/features/driver/screens/navigation/widgets/driver_navigation_view.dart';
 import 'package:delivery_app/features/driver/screens/navigation/widgets/driver_order_details_content.dart';
+import 'package:delivery_app/features/driver/widgets/driver_swipe_action.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:latlong2/latlong.dart';
 
 final _serverNow = DateTime.utc(2026, 10, 8, 12);
 
@@ -26,6 +28,46 @@ void main() {
     GoogleFonts.config.allowRuntimeFetching = false;
     SharedPreferences.setMockInitialValues({});
   });
+
+  for (final viewport in [const Size(320, 568), const Size(390, 844)]) {
+    testWidgets('MAP separates swipes and requires Start at $viewport', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = viewport;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      var starts = 0;
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(1.6)),
+              child: child!,
+            ),
+            home: _view(onStartSimulation: () => starts++),
+          ),
+        ),
+      );
+      expect(find.byType(DriverSwipeAction), findsOneWidget);
+      expect(find.byKey(const ValueKey('driver-map-start')), findsNothing);
+      await tester.ensureVisible(find.byKey(const ValueKey('driver-open-map')));
+      await tester.tap(find.byKey(const ValueKey('driver-open-map')));
+      await tester.pump();
+      expect(find.byType(DriverSwipeAction), findsNothing);
+      await tester.pump(const Duration(seconds: 3));
+      expect(starts, 0);
+      await tester.tap(find.byKey(const ValueKey('driver-map-start')));
+      await tester.pump();
+      expect(starts, 1);
+      await tester.tap(find.byTooltip('Quay lại'));
+      await tester.pump();
+      expect(find.byType(DriverSwipeAction), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('details uses the existing reason sheet and store wait', (
     tester,
@@ -250,18 +292,23 @@ void main() {
   }
 }
 
-Widget _view({OrderModel? order, bool pickupConfirmed = false}) =>
-    DriverNavigationView(
-      showOrderDetails: true,
-      order: order ?? _order(),
-      pickupConfirmed: pickupConfirmed,
-      map: const ColoredBox(color: Colors.white),
-      arrivedAtTarget: false,
-      isUpdatingStatus: false,
-      onBack: () {},
-      onFitMap: () {},
-      onPrimaryAction: () {},
-    );
+Widget _view({
+  OrderModel? order,
+  bool pickupConfirmed = false,
+  VoidCallback? onStartSimulation,
+}) => DriverNavigationView(
+  showOrderDetails: true,
+  order: order ?? _order(),
+  pickupConfirmed: pickupConfirmed,
+  showMapStart: onStartSimulation != null,
+  onStartSimulation: onStartSimulation,
+  map: const ColoredBox(color: Colors.white),
+  arrivedAtTarget: false,
+  isUpdatingStatus: false,
+  onBack: () {},
+  onFitMap: () {},
+  onPrimaryAction: () {},
+);
 
 OrderModel _order() => OrderModel(
   id: 'order-1',
@@ -299,6 +346,9 @@ class _NoopLocationServices implements RealtimeService, LocationIngestService {
     required double lng,
     double? heading,
     double? speed,
+    double? accuracy,
+    DateTime? capturedAt,
+    LatLng? monitoringPosition,
     bool force = false,
     bool prioritySync = false,
     LocationIngestCoordinateSpace coordinateSpace =

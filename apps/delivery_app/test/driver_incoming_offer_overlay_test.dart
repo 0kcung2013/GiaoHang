@@ -1,8 +1,8 @@
 import 'package:delivery_app/core/models/order_model.dart';
+import 'package:delivery_app/core/models/order_route_distance.dart';
 import 'package:delivery_app/features/driver/screens/home/driver_home_strings.dart';
-import 'package:delivery_app/features/driver/screens/home/utils/driver_order_distance.dart';
+import 'package:delivery_app/features/driver/screens/home/providers/driver_order_route_distance_provider.dart';
 import 'package:delivery_app/features/driver/screens/home/widgets/driver_incoming_offer_overlay.dart';
-import 'package:delivery_app/features/driver/screens/home/widgets/driver_order_offer_summary.dart';
 import 'package:delivery_app/features/driver/cancellation/driver_cancellation_providers.dart';
 import 'package:delivery_app/features/driver/cancellation/models/driver_acceptance_state.dart';
 import 'package:delivery_app/core/widgets/stored_media_image.dart';
@@ -36,6 +36,12 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          driverOrderRouteDistanceProvider.overrideWith(
+            (ref, request) async => const OrderRouteDistance(
+              pickupMeters: 504.4,
+              deliveryMeters: 4952.8,
+            ),
+          ),
           driverAcceptanceStateProvider.overrideWith(
             (ref, id) =>
                 Stream.value(DriverAcceptanceState(serverNow: DateTime.now())),
@@ -50,7 +56,6 @@ void main() {
               child: DriverIncomingOfferOverlay(
                 order: _order(),
                 driverUserId: 'driver-user-1',
-                pickupDistanceMeters: 1200,
               ),
             ),
           ),
@@ -65,19 +70,11 @@ void main() {
     expect(find.text(DriverHomeStrings.incomingOfferTitle), findsOneWidget);
     expect(find.text('12 Nguyễn Huệ, Quận 1'), findsOneWidget);
     expect(find.text('85 Lê Lợi, Quận 1'), findsOneWidget);
-    expect(find.text(DriverOrderPresentationStrings.total), findsOneWidget);
+    expect(find.text(DriverHomeStrings.totalDistanceLabel), findsOneWidget);
     expect(find.text(formatVnd(_order().driverNetEarning)), findsOneWidget);
-    expect(
-      find.text(
-        distanceKilometersText(
-          totalOrderDistanceFromPickup(
-            order: _order(),
-            pickupDistanceMeters: 1200,
-          ),
-        ),
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('5.5 km'), findsOneWidget);
+    expect(find.text('Đến điểm lấy: 0.5 km'), findsOneWidget);
+    expect(find.text('Lấy → giao: 5.0 km'), findsOneWidget);
     expect(find.text(_order().itemName!), findsNothing);
     expect(find.text(_order().itemDescription!), findsNothing);
     expect(find.byType(StoredMediaImage), findsNothing);

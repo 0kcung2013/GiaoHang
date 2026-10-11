@@ -22,6 +22,8 @@ class DriverDemoMovementTracker {
     required LatLng currentPosition,
     required int nextRouteIndex,
     required bool Function() canMove,
+    double Function(LatLng position)? speedKmhAt,
+    double geometryScale = 1,
     required void Function(LatLng position, int nextIndex, bool reachedEnd)
     onPosition,
   }) {
@@ -40,7 +42,10 @@ class DriverDemoMovementTracker {
         current: current,
         nextRouteIndex: index,
         maxDistanceMeters:
-            speedMetersPerSecond *
+            (speedKmhAt == null
+                ? speedMetersPerSecond
+                : speedKmhAt(current) / 3.6) *
+            geometryScale *
             interval.inMilliseconds /
             Duration.millisecondsPerSecond,
       );

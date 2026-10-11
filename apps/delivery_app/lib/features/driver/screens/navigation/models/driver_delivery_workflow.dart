@@ -5,7 +5,7 @@ import 'driver_arrival_policy.dart';
 import '../utils/driver_navigation_strings.dart';
 
 enum DriverDeliveryAction {
-  startPickupJourney,
+  confirmPickupArrival,
   confirmPickup,
   startDelivery,
   confirmDelivery,
@@ -18,7 +18,8 @@ extension DriverDeliveryActionRules on DriverDeliveryAction {
       this == DriverDeliveryAction.confirmDelivery;
 
   bool get advancesOrderStatusImmediately =>
-      this == DriverDeliveryAction.startPickupJourney ||
+      this == DriverDeliveryAction.confirmPickupArrival ||
+      this == DriverDeliveryAction.confirmPickup ||
       this == DriverDeliveryAction.startDelivery ||
       this == DriverDeliveryAction.confirmDelivery;
 }
@@ -60,7 +61,7 @@ class DriverDeliveryWorkflow {
       stepIndex == 3;
 
   bool get allowsContactChat =>
-      action == DriverDeliveryAction.startPickupJourney ||
+      action == DriverDeliveryAction.confirmPickupArrival ||
       action == DriverDeliveryAction.confirmPickup;
 
   String get contactRoleLabel => contactsRecipient
@@ -85,9 +86,9 @@ class DriverDeliveryWorkflow {
     if (status == 'picking_up' && pickupConfirmed) {
       return const DriverDeliveryWorkflow(
         stepIndex: 2,
-        eyebrow: 'CHỜ BẮT ĐẦU GIAO',
+        eyebrow: 'ĐÃ LẤY HÀNG',
         title: 'Đã lấy hàng',
-        description: 'GPS đang tạm dừng. Bắt đầu khi bạn sẵn sàng.',
+        description: 'Xác nhận lại để đồng bộ đơn và chuyển sang chặng giao.',
         primaryLabel: DriverNavigationStrings.swipeStartDelivery,
         primaryIcon: Icons.local_shipping_rounded,
         accent: AppColors.accent,
@@ -100,14 +101,14 @@ class DriverDeliveryWorkflow {
       'assigned' => const DriverDeliveryWorkflow(
         stepIndex: 0,
         eyebrow: 'ĐƠN ĐÃ ĐƯỢC NHẬN',
-        title: 'Sẵn sàng đến điểm lấy',
+        title: 'Đi đến điểm lấy hàng',
         description:
-            'Kiểm tra thông tin đơn và bắt đầu hành trình khi bạn đã sẵn sàng.',
-        primaryLabel: DriverNavigationStrings.swipeStartPickup,
-        primaryIcon: Icons.navigation_rounded,
+            'Mở MAP và bấm Start. Xác nhận đã đến khi ở gần người gửi.',
+        primaryLabel: DriverNavigationStrings.swipeConfirmPickupArrival,
+        primaryIcon: Icons.location_on_rounded,
         accent: AppColors.accent,
-        action: DriverDeliveryAction.startPickupJourney,
-        requiresArrival: false,
+        action: DriverDeliveryAction.confirmPickupArrival,
+        requiresArrival: true,
       ),
       'picking_up' => const DriverDeliveryWorkflow(
         stepIndex: 1,
@@ -168,6 +169,8 @@ class DriverDeliveryWorkflow {
     // Khi đã xác nhận lấy hàng, chờ tài xế chủ động bắt đầu chặng tiếp theo.
     if (routeCompleted) return false;
     if (status == 'picking_up' && pickupConfirmed) return false;
-    return status == 'picking_up' || status == 'delivering';
+    return status == 'assigned' ||
+        status == 'picking_up' ||
+        status == 'delivering';
   }
 }

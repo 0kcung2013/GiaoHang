@@ -83,7 +83,7 @@ class DriverRedeliveryFeeDialog extends StatelessWidget {
                   ),
                 ),
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text(DriverRecipientWaitStrings.report),
+                child: const Text(DriverRecipientWaitStrings.contactSupport),
               ),
             ),
             const SizedBox(height: AppSpacing.sm),

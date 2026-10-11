@@ -4,6 +4,7 @@ import 'package:delivery_app/core/utils/delivery_eta_calculator.dart';
 import 'package:delivery_app/core/utils/delivery_fee_calculator.dart';
 import 'package:delivery_app/core/utils/delivery_pricing_policy.dart';
 import 'package:delivery_app/features/customer/screens/create_order/utils/order_form_data.dart';
+import 'package:delivery_app/features/customer/screens/create_order/utils/delivery_eta_strings.dart';
 import 'package:delivery_app/features/customer/screens/create_order/widgets/delivery_quote_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -49,16 +50,13 @@ void main() {
     test('uses TP.HCM traffic AI when coordinates are supported', () {
       final eta = _hcmEta(quotedAt: DateTime(2026, 7, 29, 17, 30));
 
-      expect(eta.usedRouteDuration, isTrue);
+      expect(eta.usedRouteDuration, isFalse);
       expect(eta.usedAiCorrection, isTrue);
-      expect(eta.aiModelVersion, 'hcm_utraffic_lgbm_v2_road_profile');
-      expect(eta.aiDatasetLabel, 'UTraffic TP.HCM');
+      expect(eta.aiModelVersion, 'smarttraffic_hcm_speed_v1');
+      expect(eta.aiDatasetLabel, 'SmartTraffic TP.HCM');
       expect(eta.aiUsesRealtimeTraffic, isFalse);
-      expect(eta.aiTrafficMultiplier, greaterThanOrEqualTo(1));
-      expect(
-        eta.calibratedTravelMinutes,
-        greaterThanOrEqualTo(eta.baselineTravelMinutes),
-      );
+      expect(eta.aiTrafficMultiplier, greaterThan(0));
+      expect(eta.calibratedTravelMinutes, lessThan(eta.baselineTravelMinutes));
       expect(eta.aiFallbackReason, isNull);
     });
 
@@ -73,10 +71,12 @@ void main() {
         quotedAt: DateTime(2026, 7, 29, 17, 30),
       );
 
-      expect(eta.usedRouteDuration, isTrue);
+      expect(eta.usedRouteDuration, isFalse);
       expect(eta.usedAiCorrection, isFalse);
       expect(eta.aiFallbackReason, 'Ngoài vùng dữ liệu giao thông TP.HCM');
-      expect(eta.calibratedTravelMinutes, 25);
+      expect(eta.calibratedTravelMinutes, closeTo(21.6, 1e-9));
+      expect(eta.minMinutes, 27);
+      expect(eta.maxMinutes, 27);
     });
 
     test('rejects an implausibly fast OSRM duration', () {
@@ -111,85 +111,96 @@ void main() {
     expect(quote.distanceKm, 9);
     expect(quote.deliveryFee, 53000);
     expect(quote.eta.usedAiCorrection, isTrue);
-    expect(quote.eta.aiModelVersion, 'hcm_utraffic_lgbm_v2_road_profile');
+    expect(quote.eta.aiModelVersion, 'smarttraffic_hcm_speed_v1');
   });
 
-  testWidgets('quote card shows a customer-friendly ETA breakdown', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(375, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  for (final config in [
+    (const Size(390, 760), 1.0),
+    (const Size(320, 600), 1.6),
+  ]) {
+    for (final usesTraffic in [true, false]) {
+      testWidgets(
+        'quote waits for assignment at ${config.$1}, traffic=$usesTraffic',
+        (tester) async {
+          await tester.binding.setSurfaceSize(config.$1);
+          addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    final fee = DeliveryPricingPolicy.calculate(distanceMeters: 9000);
-    final eta = _hcmEta(quotedAt: DateTime(2026, 7, 29, 17, 30));
-    final data = OrderFormData(
-      pickupAddress: 'Điểm lấy hàng TP.HCM',
-      pickupLat: 10.775,
-      pickupLng: 106.68,
-      deliveryAddress: 'Điểm giao hàng TP.HCM',
-      deliveryLat: 10.825,
-      deliveryLng: 106.73,
-      senderName: 'Người gửi',
-      senderPhone: '0900000000',
-      recipientName: 'Người nhận',
-      recipientPhone: '0911111111',
-      note: '',
-      itemName: 'Tài liệu',
-      itemCategory: 'document',
-      itemDescription: '',
-      cargoImage: null,
-      paymentMethod: 'cash',
-      deliveryFeePayer: DeliveryFeePayer.recipient,
-      goodsValue: 0,
-      codCollectionAmount: 0,
-      deliveryFee: fee.total,
-      totalPrice: fee.total,
-      distanceMeters: 9000,
-      durationSeconds: 20 * 60,
-      distanceSource: 'osrm',
-      feeBreakdown: fee,
-      deliveryEta: eta,
-    );
+          final fee = DeliveryPricingPolicy.calculate(distanceMeters: 9000);
+          final eta = usesTraffic
+              ? _hcmEta(quotedAt: DateTime(2026, 7, 29, 17, 30))
+              : DeliveryEtaCalculator.calculate(
+                  distanceMeters: 9000,
+                  routeDurationSeconds: 20 * 60,
+                  pickupLat: 11.05,
+                  pickupLng: 106.66,
+                  deliveryLat: 11.10,
+                  deliveryLng: 106.70,
+                  quotedAt: DateTime(2026, 7, 29, 17, 30),
+                );
+          final data = OrderFormData(
+            pickupAddress: 'Điểm lấy hàng TP.HCM',
+            pickupLat: 10.775,
+            pickupLng: 106.68,
+            deliveryAddress: 'Điểm giao hàng TP.HCM',
+            deliveryLat: 10.825,
+            deliveryLng: 106.73,
+            senderName: 'Người gửi',
+            senderPhone: '0900000000',
+            recipientName: 'Người nhận',
+            recipientPhone: '0911111111',
+            note: '',
+            itemName: 'Tài liệu',
+            itemCategory: 'document',
+            itemDescription: '',
+            cargoImage: null,
+            paymentMethod: 'cash',
+            deliveryFeePayer: DeliveryFeePayer.recipient,
+            goodsValue: 0,
+            codCollectionAmount: 0,
+            deliveryFee: fee.total,
+            totalPrice: fee.total,
+            distanceMeters: 9000,
+            durationSeconds: 20 * 60,
+            distanceSource: 'osrm',
+            feeBreakdown: fee,
+            deliveryEta: eta,
+          );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: DeliveryQuoteCard(data: data),
+          await tester.pumpWidget(
+            MaterialApp(
+              home: MediaQuery(
+                data: MediaQueryData(
+                  size: config.$1,
+                  textScaler: TextScaler.linear(config.$2),
+                ),
+                child: Scaffold(
+                  body: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: DeliveryQuoteCard(data: data),
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
-    );
+          );
 
-    expect(find.text('Giao hàng dự kiến'), findsOneWidget);
-    expect(find.text(eta.rangeLabel), findsOneWidget);
-    expect(find.text('Ước tính thời gian giao'), findsOneWidget);
-    expect(
-      find.text('Dựa trên lộ trình và khung giờ giao hàng'),
-      findsOneWidget,
-    );
-    expect(find.textContaining('km đường bộ'), findsNothing);
-    expect(find.textContaining('Tìm tài xế tối đa'), findsNothing);
+          expect(find.text('Dự kiến giao'), findsOneWidget);
+          expect(find.text(eta.rangeLabel), findsNothing);
+          expect(
+            find.text(DeliveryEtaStrings.waitingForDriver),
+            findsOneWidget,
+          );
+          expect(find.text(DeliveryEtaStrings.afterAssignment), findsOneWidget);
+          expect(find.textContaining('km đường bộ'), findsNothing);
+          expect(find.textContaining('Tìm tài xế tối đa'), findsNothing);
 
-    await tester.tap(find.byKey(const Key('eta-ai-details-toggle')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Thời gian theo lộ trình'), findsOneWidget);
-    expect(find.text('Điều chỉnh theo khung giờ'), findsOneWidget);
-    expect(
-      find.text('×${eta.aiTrafficMultiplier!.toStringAsFixed(2)}'),
-      findsNothing,
-    );
-    expect(find.text('+4 phút'), findsOneWidget);
-    expect(
-      find.textContaining('Thời gian có thể thay đổi theo thực tế'),
-      findsOneWidget,
-    );
-    expect(tester.takeException(), isNull);
-  });
+          expect(find.byKey(const Key('eta-ai-details-toggle')), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
 }
 
 DeliveryEtaEstimate _hcmEta({required DateTime quotedAt}) {

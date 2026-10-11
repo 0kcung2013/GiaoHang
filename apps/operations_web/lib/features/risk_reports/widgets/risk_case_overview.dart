@@ -23,6 +23,11 @@ class RiskCaseOverview extends StatelessWidget {
         spacing: AppSpacing.xl2,
         runSpacing: AppSpacing.md,
         children: [
+          if (report.requestsCargoCancellation)
+            const _Fact(
+              label: 'Yêu cầu',
+              value: RiskReportStrings.cargoCancellationRequest,
+            ),
           _Fact(
             label: RiskReportStrings.owner,
             value: report.assignedTo == null

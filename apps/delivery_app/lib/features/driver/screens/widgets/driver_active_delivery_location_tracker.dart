@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../../core/location/driver_active_delivery_tracking_policy.dart';
 import '../../../../core/location/driver_location_producer_policy.dart';
 import '../../../../core/models/order_model.dart';
+import '../../../../core/models/delivery_eta_route_profile.dart';
 import '../../../../core/providers/customer_providers.dart';
 import '../../../../core/providers/driver_nav_session_provider.dart';
 import '../../../../core/providers/location_providers.dart';
@@ -16,6 +17,9 @@ import '../navigation/models/driver_delivery_workflow.dart';
 import '../navigation/utils/driver_demo_movement_tracker.dart';
 import '../navigation/utils/driver_navigation_route_logic.dart';
 import '../../../../core/services/osrm_service.dart';
+import '../../monitoring/widgets/driver_monitoring_guard.dart';
+import '../../monitoring/widgets/driver_order_location_heartbeat.dart';
+import '../../monitoring/driver_monitoring_release_actions.dart';
 
 /// GPS bền vững ở cấp Driver Shell, không phụ thuộc route Map đang mở hay đóng.
 class DriverActiveDeliveryLocationTracker extends ConsumerStatefulWidget {
@@ -32,6 +36,7 @@ class _DriverActiveDeliveryLocationTrackerState
     extends ConsumerState<DriverActiveDeliveryLocationTracker> {
   final _demoMovementTracker = DriverDemoMovementTracker();
   String? _requestedDemoKey;
+  String? _monitoredOrderId;
 
   @override
   void dispose() {
@@ -41,13 +46,58 @@ class _DriverActiveDeliveryLocationTrackerState
 
   @override
   Widget build(BuildContext context) {
+    final orders = ref.watch(driverOrdersProvider(widget.userId)).valueOrNull;
+    final active = orders?.where(isActiveDriverOrder).firstOrNull;
+    if (active != null) _monitoredOrderId = active.id;
+    final driver = ref.watch(driverByUserIdProvider(widget.userId)).valueOrNull;
+    final child = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (active != null && driver != null)
+          DriverOrderLocationHeartbeat(
+            orderId: active.id,
+            driverProfileId: driver.id,
+            driverUserId: widget.userId,
+            isTrafficDemo: active.trafficDemoKey != null,
+          ),
+        _buildMovement(context),
+      ],
+    );
+    final monitored = _monitoredOrderId;
+    return monitored == null
+        ? child
+        : DriverMonitoringGuard(
+            orderId: monitored,
+            enabled:
+                ref.watch(activeDriverNavigationOrderProvider) != monitored,
+            onReleased: (ticketId) => handleDriverMonitoringRelease(
+              context,
+              ref,
+              orderId: monitored,
+              userId: widget.userId,
+              ticketId: ticketId,
+            ),
+            onInactive: () {
+              if (mounted && _monitoredOrderId == monitored) {
+                setState(() => _monitoredOrderId = null);
+                ref.invalidate(driverOrdersProvider(widget.userId));
+              }
+            },
+            child: child,
+          );
+  }
+
+  Widget _buildMovement(BuildContext context) {
     final userId = widget.userId;
     final driver = ref.watch(driverByUserIdProvider(userId)).valueOrNull;
     final orders = ref.watch(driverOrdersProvider(userId)).valueOrNull;
     final activeOrders =
         orders?.where(isActiveDriverOrder).toList() ?? const <OrderModel>[];
     final activeOrder = activeOrders.isEmpty ? null : activeOrders.first;
-    if (driver == null || activeOrder == null) return const SizedBox.shrink();
+    if (driver == null || activeOrder == null) {
+      _stopDemoPublisher();
+      return const SizedBox.shrink();
+    }
 
     final session = ref.watch(driverNavSessionsProvider)[activeOrder.id];
     final locationMode = ref.watch(driverLocationModeProvider);
@@ -73,8 +123,9 @@ class _DriverActiveDeliveryLocationTrackerState
           isNavigationMapOpen: isNavigationMapOpen,
           hasRestoredNavigationSession: hasRestoredNavigationSession,
           canSimulateMovement: canSimulateMovement,
+          isTrafficDemo: activeOrder.trafficDemoKey != null,
         );
-    if (shouldRunDemoPublisher) {
+    if (shouldRunDemoPublisher && session?.movementRunning == true) {
       _requestDemoPublisher(
         _DemoPublisherRequest(
           order: activeOrder,
@@ -92,6 +143,7 @@ class _DriverActiveDeliveryLocationTrackerState
       locationMode: locationMode,
       isNavigationMapOpen: isNavigationMapOpen,
       hasRestoredNavigationSession: hasRestoredNavigationSession,
+      isTrafficDemo: activeOrder.trafficDemoKey != null,
     )) {
       return const SizedBox.shrink();
     }
@@ -122,12 +174,14 @@ class _DriverActiveDeliveryLocationTrackerState
       order: request.order,
       driverPosition: initialPosition,
     );
-    final route = await OsrmService().getRouteWithWaypoints(
-      waypoints: waypoints,
-    );
+    final profile = DeliveryEtaRouteProfile.forOrder(request.order);
+    if (request.order.trafficDemoKey != null && profile == null) return;
+    final route = profile != null
+        ? null
+        : await OsrmService().getRouteWithWaypoints(waypoints: waypoints);
     if (!mounted || _requestedDemoKey != request.key) return;
 
-    final points = route?.points ?? waypoints;
+    final points = profile?.points ?? route?.points ?? waypoints;
     if (points.length < 2) return;
 
     final nearest = DriverNavigationRouteLogic.nearestRouteIndex(
@@ -145,8 +199,14 @@ class _DriverActiveDeliveryLocationTrackerState
       route: points,
       currentPosition: initialPosition,
       nextRouteIndex: nextRouteIndex,
+      speedKmhAt: (point) => profile?.speedAt(point) ?? 25,
+      geometryScale: profile?.geometryScale ?? 1,
       canMove: () =>
           mounted &&
+          ref
+                  .read(driverNavSessionsProvider)[request.order.id]
+                  ?.movementRunning ==
+              true &&
           _requestedDemoKey == request.key &&
           DriverDeliveryWorkflow.canSimulateMovement(
             status: request.order.status,
@@ -161,6 +221,7 @@ class _DriverActiveDeliveryLocationTrackerState
             position: position,
             nextRouteIndex: nextIndex,
             reachedEnd: reachedEnd,
+            speedKmh: reachedEnd ? 0 : profile?.speedAt(position) ?? 25,
           ),
         );
       },
@@ -172,6 +233,7 @@ class _DriverActiveDeliveryLocationTrackerState
     required LatLng position,
     required int nextRouteIndex,
     required bool reachedEnd,
+    required double speedKmh,
   }) async {
     if (!mounted || _requestedDemoKey != request.key) return;
 
@@ -182,6 +244,7 @@ class _DriverActiveDeliveryLocationTrackerState
             orderId: request.order.id,
             lat: position.latitude,
             lng: position.longitude,
+            speedKmh: speedKmh,
           ),
     );
     unawaited(
@@ -194,6 +257,9 @@ class _DriverActiveDeliveryLocationTrackerState
             lat: position.latitude,
             lng: position.longitude,
             prioritySync: true,
+            speed: speedKmh / 3.6,
+            accuracy: 0,
+            capturedAt: DateTime.now(),
             coordinateSpace: LocationIngestCoordinateSpace.mapCoordinates,
           ),
     );
@@ -206,6 +272,7 @@ class _DriverActiveDeliveryLocationTrackerState
             simRouteIndex: nextRouteIndex,
             arrivedAtTarget: reachedEnd || request.session.arrivedAtTarget,
             routeCompleted: reachedEnd || request.session.routeCompleted,
+            movementRunning: !reachedEnd,
             updatedAt: DateTime.now().toUtc(),
           ),
         );
@@ -225,5 +292,6 @@ class _DemoPublisherRequest {
   final String driverUserId;
   final DriverNavSession session;
 
-  String get key => '${order.id}:${order.status}:${session.pickupConfirmed}';
+  String get key =>
+      '${order.id}:${order.status}:${session.pickupConfirmed}:${session.movementRunning}:${order.deliveryEtaData?['computed_at']}';
 }

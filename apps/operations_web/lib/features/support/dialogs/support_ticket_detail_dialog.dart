@@ -10,6 +10,7 @@ import '../data/support_completion_repository.dart';
 import '../models/support_completion_context.dart';
 import '../models/support_ticket.dart';
 import '../widgets/support_ticket_actions.dart';
+import '../widgets/support_ticket_workspace.dart';
 import '../utils/support_ticket_ui.dart';
 import '../widgets/support_live_conversation.dart';
 import '../widgets/support_ticket_chat_sidebar.dart';
@@ -23,6 +24,7 @@ class SupportTicketDetailDialog extends StatefulWidget {
     required this.isAdmin,
     required this.repository,
     this.completionRepository,
+    this.embedded = false,
     super.key,
   });
 
@@ -31,6 +33,7 @@ class SupportTicketDetailDialog extends StatefulWidget {
   final bool isAdmin;
   final SupportTicketRepository repository;
   final SupportCompletionRepository? completionRepository;
+  final bool embedded;
 
   @override
   State<SupportTicketDetailDialog> createState() =>
@@ -316,125 +319,86 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
   Widget build(BuildContext context) {
     final ticket = _ticket;
     final screen = MediaQuery.sizeOf(context);
-    return Dialog(
-      insetPadding: const EdgeInsets.all(AppSpacing.lg),
-      backgroundColor: Colors.transparent,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 980,
-          maxHeight: screen.height - AppSpacing.xl3,
-        ),
-        child: Material(
-          color: AppColors.bgCard,
-          borderRadius: AppRadius.xl,
-          elevation: 0,
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              SupportTicketDetailHeader(
-                ticket: ticket,
-                onRefresh: _busy || _retrying ? null : _retry,
-              ),
-              if (_retrying)
-                const LinearProgressIndicator(color: AppColors.accent),
-              if (_error != null) _ErrorBanner(message: _error!),
-              if (_messageError != null) _ErrorBanner(message: _messageError!),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final chat = SupportLiveConversation(
-                      key: _conversationKey,
-                      replyTemplate: SupportIssue.fromSubject(
-                        ticket.subject,
-                      ).replyTemplate(forDriver: ticket.isDriverRequester),
-                      messages: _messages,
-                      currentUserId: widget.currentUserId,
-                      canReply: _assignedToMe && !ticket.status.isClosed,
-                      recipientLabel:
-                          '${SupportTicketUi.requesterRoleLabel(ticket.requesterRole)} — ${ticket.requesterName ?? SupportTicketUi.shortId(ticket.requesterId)}',
-                      lockedMessage: ticket.status.isClosed
-                          ? 'Hồ sơ đã kết thúc. Mở lại để tiếp tục trao đổi.'
-                          : 'Nhận xử lý hồ sơ để bắt đầu phản hồi',
-                      onSend: _sendMessage,
-                    );
-                    final sidebar = SupportTicketChatSidebar(
-                      ticket: ticket,
-                      scrollController: _contextScrollController,
-                      completion: _completion,
-                      completionLoading: _checkingCompletion,
-                      completionError: _completionError,
-                      onCheckCompletion: _completionRepository == null
-                          ? null
-                          : _checkCompletion,
-                      showOrderContext:
-                          widget.repository is SupabaseSupportTicketRepository,
-                    );
-                    if (constraints.maxWidth < 720) {
-                      return Column(
-                        children: [
-                          Wrap(
-                            spacing: AppSpacing.sm,
-                            children: [
-                              TextButton.icon(
-                                onPressed: () =>
-                                    setState(() => _showContext = false),
-                                icon: const Icon(Icons.forum_outlined),
-                                label: const Text('Trao đổi'),
-                              ),
-                              TextButton.icon(
-                                onPressed: () =>
-                                    setState(() => _showContext = true),
-                                icon: const Icon(Icons.inventory_2_outlined),
-                                label: const Text('Thông tin hồ sơ'),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 1, color: AppColors.border),
-                          Expanded(
-                            child: IndexedStack(
-                              index: _showContext ? 1 : 0,
-                              children: [chat, sidebar],
-                            ),
-                          ),
-                        ],
-                      );
-                    }
-                    return Row(
-                      children: [
-                        Expanded(child: chat),
-                        const VerticalDivider(
-                          width: 1,
-                          color: AppColors.border,
-                        ),
-                        SizedBox(width: 292, child: sidebar),
-                      ],
-                    );
-                  },
-                ),
-              ),
-              SupportTicketActions(
-                ticket: ticket,
-                assignedToMe: _assignedToMe,
-                isAdmin: widget.isAdmin,
-                busy: _busy || _checkingCompletion,
-                completionBlocked:
-                    _completionError != null ||
-                    (_completion?.blockers.isNotEmpty ?? false),
-                onShowContext: () {
-                  setState(() => _showContext = true);
-                  if (_contextScrollController.hasClients) {
-                    _contextScrollController.jumpTo(0);
-                  }
-                },
-                onAccept: _accept,
-                onTakeOver: _takeOver,
-                onTransition: _transition,
-                onConvert: _convertToRisk,
-              ),
-            ],
+    final content = ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: widget.embedded ? double.infinity : 980,
+        maxHeight: widget.embedded
+            ? double.infinity
+            : screen.height - AppSpacing.xl3,
+      ),
+      child: Material(
+        color: AppColors.bgCard,
+        borderRadius: widget.embedded ? BorderRadius.zero : AppRadius.xl,
+        elevation: 0,
+        clipBehavior: Clip.antiAlias,
+        child: SupportTicketWorkspace(
+          header: SupportTicketDetailHeader(
+            ticket: ticket,
+            onRefresh: _busy || _retrying ? null : _retry,
+          ),
+          alerts: [
+            if (_retrying)
+              const LinearProgressIndicator(color: AppColors.accent),
+            if (_error != null) _ErrorBanner(message: _error!),
+            if (_messageError != null) _ErrorBanner(message: _messageError!),
+          ],
+          showContext: _showContext,
+          onContextChanged: (value) => setState(() => _showContext = value),
+          chat: SupportLiveConversation(
+            key: _conversationKey,
+            replyTemplate: SupportIssue.fromSubject(
+              ticket.subject,
+            ).replyTemplate(forDriver: ticket.isDriverRequester),
+            messages: _messages,
+            currentUserId: widget.currentUserId,
+            canReply: _assignedToMe && !ticket.status.isClosed,
+            recipientLabel:
+                '${SupportTicketUi.requesterRoleLabel(ticket.requesterRole)} — ${ticket.requesterName ?? SupportTicketUi.shortId(ticket.requesterId)}',
+            lockedMessage: ticket.status.isClosed
+                ? 'Hồ sơ đã kết thúc. Mở lại để tiếp tục trao đổi.'
+                : 'Nhận xử lý hồ sơ để bắt đầu phản hồi',
+            onSend: _sendMessage,
+          ),
+          contextPanel: SupportTicketChatSidebar(
+            ticket: ticket,
+            scrollController: _contextScrollController,
+            completion: _completion,
+            completionLoading: _checkingCompletion,
+            completionError: _completionError,
+            onCheckCompletion: _completionRepository == null
+                ? null
+                : _checkCompletion,
+            showOrderContext:
+                widget.repository is SupabaseSupportTicketRepository,
+          ),
+          actions: SupportTicketActions(
+            ticket: ticket,
+            assignedToMe: _assignedToMe,
+            isAdmin: widget.isAdmin,
+            busy: _busy || _checkingCompletion,
+            completionBlocked:
+                _completionError != null ||
+                (_completion?.blockers.isNotEmpty ?? false),
+            onShowContext: () {
+              FocusScope.of(context).unfocus();
+              setState(() => _showContext = true);
+              if (_contextScrollController.hasClients) {
+                _contextScrollController.jumpTo(0);
+              }
+            },
+            onAccept: _accept,
+            onTakeOver: _takeOver,
+            onTransition: _transition,
+            onConvert: _convertToRisk,
           ),
         ),
       ),
+    );
+    if (widget.embedded) return content;
+    return Dialog(
+      insetPadding: const EdgeInsets.all(AppSpacing.lg),
+      backgroundColor: Colors.transparent,
+      child: content,
     );
   }
 }

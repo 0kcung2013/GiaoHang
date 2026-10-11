@@ -12,6 +12,7 @@ class RiskReviewStep extends StatelessWidget {
     required this.photoCount,
     required this.hasLocation,
     required this.locationAddress,
+    this.requestsRecipientReturn = false,
     super.key,
   });
 
@@ -21,19 +22,18 @@ class RiskReviewStep extends StatelessWidget {
   final int photoCount;
   final bool hasLocation;
   final String? locationAddress;
+  final bool requestsRecipientReturn;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Xác nhận báo cáo', style: AppTextStyles.headingMedium),
-        const SizedBox(height: AppSpacing.xs),
         Text(
-          'CSKH sẽ kiểm tra và phản hồi trong quá trình xử lý.',
-          style: AppTextStyles.bodyMedium.copyWith(
-            color: AppColors.textSecondary,
-          ),
+          requestsRecipientReturn
+              ? RiskReportStrings.recipientReturnReview
+              : 'Xác nhận báo cáo',
+          style: AppTextStyles.headingMedium,
         ),
         const SizedBox(height: AppSpacing.lg),
         Container(
@@ -63,7 +63,7 @@ class RiskReviewStep extends StatelessWidget {
               ],
               const Divider(height: AppSpacing.xl2, color: AppColors.border),
               Text(
-                '$photoCount ảnh · ${hasLocation ? 'Có vị trí' : 'Không vị trí'}',
+                '$photoCount ảnh${hasLocation ? '' : ' · Không có vị trí'}',
                 style: AppTextStyles.bodySmall.copyWith(
                   color: AppColors.textSecondary,
                 ),
@@ -73,7 +73,9 @@ class RiskReviewStep extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.md),
         Text(
-          'Báo cáo không tự động kết luận vi phạm hoặc dừng đơn hàng.',
+          requestsRecipientReturn
+              ? RiskReportStrings.recipientReturnHint
+              : RiskReportStrings.reviewHint,
           style: AppTextStyles.bodySmall.copyWith(
             color: AppColors.textSecondary,
           ),
@@ -102,6 +104,7 @@ class _SummaryRow extends StatelessWidget {
             ),
           ),
         ),
+        const SizedBox(width: AppSpacing.sm),
         Expanded(child: Text(value, style: AppTextStyles.labelMedium)),
       ],
     );

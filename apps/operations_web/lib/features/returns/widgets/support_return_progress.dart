@@ -19,6 +19,7 @@ class SupportReturnProgress extends StatelessWidget {
       OrderReturnStatus.approved => 'Đã gửi lệnh cho tài xế',
       OrderReturnStatus.returning => 'Tài xế đang di chuyển về điểm hoàn',
       OrderReturnStatus.returned => 'Đã hoàn hàng và lưu bằng chứng',
+      OrderReturnStatus.cancelled => 'Đã hủy hoàn để giao lại cho khách',
       null => 'Đang đồng bộ nhiệm vụ hoàn đơn',
     };
     return Container(

@@ -24,25 +24,14 @@ class _TrackedOrderHero extends StatelessWidget {
             builder: (context, constraints) {
               final mapHeight = constraints.maxWidth >= 600 ? 400.0 : 340.0;
               return SizedBox(
-                height: mapHeight + 150,
-                child: Stack(
-                  clipBehavior: Clip.none,
+                child: Column(
                   children: [
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 0,
-                      child: _TrackingMap(order: order, height: mapHeight),
-                    ),
-                    Positioned(
-                      left: AppSpacing.md,
-                      right: AppSpacing.md,
-                      bottom: 0,
-                      child: _TrackingStatusSurface(
-                        order: order,
-                        isRefreshing: isRefreshing,
-                        onRefresh: onRefresh,
-                      ),
+                    _TrackingMap(order: order, height: mapHeight),
+                    const SizedBox(height: AppSpacing.md),
+                    _TrackingStatusSurface(
+                      order: order,
+                      isRefreshing: isRefreshing,
+                      onRefresh: onRefresh,
                     ),
                   ],
                 ),
@@ -142,10 +131,9 @@ class _TrackingStatusSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = order.effectiveStatusAt(DateTime.now());
     final statusColor = _trackingStatusColor(status);
-    final eta = _trackingEta(order, status);
     return Semantics(
       container: true,
-      label: '${_statusLabel(status)}. ${eta.label}: ${eta.value}',
+      label: _statusLabel(status),
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.xl),
         decoration: BoxDecoration(
@@ -214,43 +202,15 @@ class _TrackingStatusSurface extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.md,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.bgWarm,
-                borderRadius: AppRadius.lg,
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.schedule_rounded,
-                    color: AppColors.accent,
-                    size: 21,
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Text(
-                      eta.label,
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    eta.value,
-                    style: AppTextStyles.labelLarge.copyWith(
-                      color: AppColors.accent,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            if (status == 'cancelled')
+              Text(OrderEtaStrings.ended, style: AppTextStyles.bodySmall)
+            else if (status == 'delivered' && order.actualDeliveredAt != null)
+              Text(
+                'Đã giao lúc ${_formatTrackingClock(order.actualDeliveredAt!)}',
+                style: AppTextStyles.bodySmall,
+              )
+            else
+              OrderEtaPanel(order: order),
           ],
         ),
       ),
@@ -302,29 +262,6 @@ class _TrackingRefreshButton extends StatelessWidget {
       ),
     );
   }
-}
-
-({String label, String value}) _trackingEta(OrderModel order, String status) {
-  final deliveredAt = order.actualDeliveredAt ?? order.estimatedDeliveryAt;
-  if (status == 'delivered' && deliveredAt != null) {
-    return (label: 'Đã giao lúc', value: _formatTrackingClock(deliveredAt));
-  }
-  if (status == 'cancelled') {
-    return (label: 'Trạng thái', value: 'Đơn đã kết thúc');
-  }
-  if (order.estimatedDeliveryAt != null) {
-    return (
-      label: 'Dự kiến giao',
-      value: _formatTrackingClock(order.estimatedDeliveryAt!),
-    );
-  }
-  if (order.estimatedPickupAt != null && status == 'picking_up') {
-    return (
-      label: 'Dự kiến lấy hàng',
-      value: _formatTrackingClock(order.estimatedPickupAt!),
-    );
-  }
-  return (label: 'Thời gian dự kiến', value: 'Đang cập nhật');
 }
 
 String _formatTrackingClock(DateTime value) {

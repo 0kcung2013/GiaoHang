@@ -22,8 +22,8 @@ enum DriverLocationPermission { denied, whileInUse, always }
 ///
 /// Service độc lập với màn Map: isolate nền tự lấy GPS và gọi pipeline ingest
 /// hiện có. Vì thế khách vẫn nhận vị trí mới khi tài xế thu nhỏ app hoặc trở về
-/// dashboard. Service chỉ khởi động từ thao tác mở điều hướng và phải dừng khi
-/// đơn hoàn tất/hủy.
+/// dashboard. Service khởi động sau nhận đơn hoặc khi mở điều hướng; dừng khi
+/// đơn hoàn tất, hủy hoặc bị thu hồi trước nhận hàng.
 class DriverForegroundLocationService {
   DriverForegroundLocationService._();
 
@@ -145,6 +145,8 @@ class _DriverForegroundLocationTaskHandler extends TaskHandler {
   String? _driverUserId;
   String? _orderId;
   bool _uploading = false;
+  bool _sampling = false;
+  DateTime? _lastSampleAt;
 
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
@@ -157,8 +159,28 @@ class _DriverForegroundLocationTaskHandler extends TaskHandler {
 
   @override
   void onRepeatEvent(DateTime timestamp) {
-    // GPS stream chủ động theo thay đổi vị trí; repeat giữ foreground isolate
-    // hoạt động đều đặn để Android không thu hồi service giữa phiên giao.
+    if (_sampling ||
+        (_lastSampleAt != null &&
+            DateTime.now().difference(_lastSampleAt!) <
+                const Duration(seconds: 15))) {
+      return;
+    }
+    _sampling = true;
+    unawaited(() async {
+      try {
+        final position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 10),
+          ),
+        );
+        _publish(position);
+      } catch (error) {
+        debugPrint('[ForegroundGPS] Fresh sample unavailable: $error');
+      } finally {
+        _sampling = false;
+      }
+    }());
   }
 
   @override
@@ -237,6 +259,7 @@ class _DriverForegroundLocationTaskHandler extends TaskHandler {
       return;
     }
     _uploading = true;
+    _lastSampleAt = DateTime.now();
     unawaited(() async {
       try {
         await _ingest!.ingest(
@@ -247,6 +270,8 @@ class _DriverForegroundLocationTaskHandler extends TaskHandler {
           lng: position.longitude,
           heading: position.heading,
           speed: position.speed,
+          accuracy: position.accuracy,
+          capturedAt: position.timestamp,
           prioritySync: true,
         );
         FlutterForegroundTask.sendDataToMain({
