@@ -1,0 +1,474 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
+
+import 'package:giaohang_design/giaohang_design.dart';
+import '../../../../../core/models/order_model.dart';
+import '../../../../../core/providers/customer_providers.dart';
+import '../../../../../core/providers/driver_nav_session_provider.dart';
+import '../../../../../core/providers/driver_wallet_providers.dart';
+import '../../../../../core/utils/money_formatter.dart';
+import '../../../../../core/utils/order_cargo_utils.dart';
+import '../../../../../core/widgets/order_cargo_info_block.dart';
+import '../../../../reviews/widgets/driver_rate_customer_sheet.dart';
+import '../../navigation/driver_navigation_screen.dart';
+import '../../navigation/driver_accepted_order_screen.dart';
+import '../../navigation/widgets/driver_order_cancellation_guard.dart';
+import '../utils/driver_home_formatters.dart';
+import '../driver_home_strings.dart';
+import '../providers/driver_offer_acceptance_provider.dart';
+import 'driver_order_card_components.dart';
+import 'driver_order_distance_summary.dart';
+import 'driver_order_finance_panel.dart';
+import 'driver_available_order_card.dart';
+import 'driver_offer_expiry_builder.dart';
+import '../../../cancellation/driver_cancellation_providers.dart';
+import '../../../cancellation/driver_cancellation_strings.dart';
+import '../../../cancellation/widgets/driver_cancel_order_action.dart';
+import '../../../offer_transfer/dialogs/confirm_order_transfer_sheet.dart';
+import '../../../offer_transfer/driver_offer_transfer_strings.dart';
+import '../../../offer_transfer/models/driver_offer_transfer_state.dart';
+import '../../../offer_transfer/widgets/driver_transfer_limit_hint.dart';
+import '../../../offer_transfer/utils/refresh_transfer_acceptance.dart';
+import '../../../monitoring/widgets/driver_monitoring_panel.dart';
+import '../../../monitoring/driver_monitoring_gps_recovery.dart';
+
+/// Card đơn hàng dùng chung cho Tổng quan và danh sách đơn của tài xế.
+///
+/// File này chỉ giữ state/nghiệp vụ. Các thành phần trình bày được tách sang
+/// [driver_order_card_components.dart].
+class DriverOrderCard extends ConsumerStatefulWidget {
+  const DriverOrderCard({
+    super.key,
+    required this.order,
+    this.acceptDriverId,
+    this.driverPosition,
+    this.showCancelAction = false,
+  });
+
+  final OrderModel order;
+  final String? acceptDriverId;
+  final LatLng? driverPosition;
+  final bool showCancelAction;
+
+  @override
+  ConsumerState<DriverOrderCard> createState() => _DriverOrderCardState();
+}
+
+class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
+  bool _isAccepting = false;
+  bool _isTransferring = false;
+  bool _isConfirmingTransfer = false;
+  bool get _offerActionBusy =>
+      _isAccepting || _isTransferring || _isConfirmingTransfer;
+
+  Future<void> _acceptOrder() async {
+    final driverId = widget.acceptDriverId;
+    if (_offerActionBusy || driverId == null || driverId.isEmpty) {
+      return;
+    }
+    final acceptance = ref
+        .read(driverAcceptanceStateProvider(driverId))
+        .valueOrNull;
+    if (acceptance == null || acceptance.isLocked) {
+      _showSnackBar(DriverCancellationStrings.lockError, isError: true);
+      return;
+    }
+    if (!widget.order.isOfferedToDriverAt(driverId, acceptance.now())) {
+      ref.invalidate(availableOrdersProvider(driverId));
+      _showSnackBar(DriverHomeStrings.offerExpiredAction, isError: true);
+      return;
+    }
+    final container = ProviderScope.containerOf(context, listen: false);
+    final messenger = ScaffoldMessenger.of(context);
+
+    final openAccepted = prepareDriverAcceptedOrderNavigation(
+      context,
+      widget.order.id,
+    );
+    setState(() => _isAccepting = true);
+    try {
+      await ref.read(driverOfferAcceptanceProvider)(
+        widget.order,
+        driverId,
+        orderCodeHint: displayOrderCode(widget.order),
+      );
+      container.invalidate(availableOrdersProvider(driverId));
+      container.invalidate(driverOrdersProvider(driverId));
+      openAccepted();
+    } catch (e) {
+      container.invalidate(availableOrdersProvider(driverId));
+      container.invalidate(driverOrdersProvider(driverId));
+      if (messenger.mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isAccepting = false);
+    }
+  }
+
+  Future<void> _transferOrder() async {
+    final driverId = widget.acceptDriverId;
+    if (_offerActionBusy || driverId == null || driverId.isEmpty) {
+      return;
+    }
+    final acceptance = ref
+        .read(driverAcceptanceStateProvider(driverId))
+        .valueOrNull;
+    if (acceptance == null || acceptance.isLocked) return;
+    final container = ProviderScope.containerOf(context, listen: false);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isConfirmingTransfer = true);
+    try {
+      final confirmed = await showConfirmOrderTransferSheet(
+        context,
+        transfers: acceptance.transfers,
+      );
+      if (!confirmed || !mounted) return;
+      if (!widget.order.isOfferedToDriverAt(driverId, acceptance.now())) {
+        container.invalidate(availableOrdersProvider(driverId));
+        _showSnackBar(DriverHomeStrings.offerExpiredAction, isError: true);
+        return;
+      }
+      setState(() {
+        _isConfirmingTransfer = false;
+        _isTransferring = true;
+      });
+      final nextDriverId = await ref
+          .read(customerOrderServiceProvider)
+          .transferOrder(widget.order.id, driverId);
+      container.invalidate(availableOrdersProvider(driverId));
+      container.invalidate(driverOrdersProvider(driverId));
+      final state = await refreshTransferAcceptance(container, driverId);
+      if (messenger.mounted) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              state?.isLocked == true &&
+                      state?.lockReason == DriverOfferTransferState.lockReason
+                  ? DriverOfferTransferStrings.lockedMessage
+                  : nextDriverId?.isNotEmpty == true
+                  ? 'Đã chuyển đơn cho tài xế gần hơn.'
+                  : 'Đã chuyển đơn. Hiện chưa có tài xế khác phù hợp.',
+            ),
+            backgroundColor: state?.isLocked == true
+                ? AppColors.warning
+                : AppColors.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      container.invalidate(driverAcceptanceStateProvider(driverId));
+      if (mounted) {
+        _showSnackBar(
+          e.toString().replaceAll('Exception: ', ''),
+          isError: true,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isConfirmingTransfer = false;
+          _isTransferring = false;
+        });
+      }
+    }
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppColors.error : AppColors.success,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _openNavigation() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => DriverOrderCancellationGuard(
+          orderId: widget.order.id,
+          onCancelled: () {
+            return ref
+                .read(driverNavSessionsProvider.notifier)
+                .remove(widget.order.id);
+          },
+          child: DriverNavigationScreen(order: widget.order),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openRateCustomer() async {
+    final order = widget.order;
+    if (order.status != 'delivered') return;
+
+    final existing = await ref.read(
+      driverCustomerReviewProvider(order.id).future,
+    );
+    if (!mounted) return;
+
+    if (existing != null) {
+      _showSnackBar('Bạn đã đánh giá khách ${existing.rating}/5 cho đơn này.');
+      return;
+    }
+
+    await showDriverRateCustomerSheet(context: context, order: order);
+    if (mounted) {
+      ref.invalidate(driverCustomerReviewProvider(order.id));
+    }
+  }
+
+  void _onCardTap() {
+    if (isActiveDriverOrder(widget.order)) {
+      _openNavigation();
+    } else if (widget.order.status == 'delivered') {
+      _openRateCustomer();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final order = widget.order;
+    final color = statusColor(order.status);
+    final canAccept = widget.acceptDriverId != null && isAvailableOrder(order);
+    final acceptance = canAccept
+        ? ref
+              .watch(driverAcceptanceStateProvider(widget.acceptDriverId!))
+              .valueOrNull
+        : null;
+    final acceptanceBlocked =
+        canAccept && (acceptance == null || acceptance.isLocked);
+    final canContinueDelivery = !canAccept && isActiveDriverOrder(order);
+    final isDelivered = order.status == 'delivered';
+    final canTap = isActiveDriverOrder(order) || isDelivered;
+    final reviewAsync = isDelivered
+        ? ref.watch(driverCustomerReviewProvider(order.id))
+        : null;
+    final walletBalance = canAccept
+        ? ref.watch(driverWalletSummaryProvider).valueOrNull?.availableBalance
+        : null;
+    final requiredBalance = order.driverAdvanceAmount;
+    final missingBalance = requiredBalance > 0 && walletBalance != null
+        ? (requiredBalance - walletBalance).clamp(0, requiredBalance)
+        : 0;
+    final walletInsufficient = missingBalance > 0;
+    if (order.status == 'pending' || order.status == 'confirmed') {
+      return DriverAvailableOrderCard(
+        order: order,
+        driverId: widget.acceptDriverId,
+        driverPosition: widget.driverPosition,
+        now: acceptance?.now,
+        actions: !canAccept
+            ? null
+            : DriverOfferExpiryBuilder(
+                order: order,
+                now: acceptance?.now,
+                builder: (context, expired) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DriverAcceptOrderButton(
+                      isLoading: _isAccepting,
+                      label: acceptance == null
+                          ? DriverHomeStrings.acceptanceChecking
+                          : acceptanceBlocked
+                          ? DriverCancellationStrings.lockTitle
+                          : expired
+                          ? DriverHomeStrings.offerExpiredAction
+                          : walletInsufficient
+                          ? 'Nạp ${formatVnd(missingBalance)}'
+                          : 'Nhận đơn',
+                      icon: walletInsufficient
+                          ? Icons.add_card_rounded
+                          : Icons.check_circle_rounded,
+                      onTap: _offerActionBusy || acceptanceBlocked || expired
+                          ? null
+                          : walletInsufficient
+                          ? () => context.go('/driver-home?tab=earnings')
+                          : _acceptOrder,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    DriverTransferOrderButton(
+                      isLoading: _isTransferring,
+                      onTap: _offerActionBusy || expired || acceptanceBlocked
+                          ? null
+                          : _transferOrder,
+                    ),
+                    if (acceptance?.transfers != null && !acceptanceBlocked)
+                      DriverTransferLimitHint(state: acceptance!.transfers!),
+                  ],
+                ),
+              ),
+      );
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: canTap ? _onCardTap : null,
+        borderRadius: AppRadius.lg,
+        child: Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: AppRadius.lg,
+            border: Border.all(
+              color: canAccept
+                  ? AppColors.accent.withValues(alpha: 0.28)
+                  : AppColors.border,
+            ),
+            boxShadow: AppShadow.subtle,
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: ColoredBox(
+                  color: color,
+                  child: const SizedBox(width: 4),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xl,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            statusIcon(order.status),
+                            color: color,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.md),
+                        Expanded(
+                          child: Text(
+                            displayOrderCode(order),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.labelMedium.copyWith(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        DriverStatusBadge(status: order.status),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    DriverOrderInfoRow(
+                      icon: Icons.storefront_rounded,
+                      iconColor: AppColors.accent,
+                      text: order.pickupAddress,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    DriverOrderInfoRow(
+                      icon: Icons.location_on_rounded,
+                      iconColor: AppColors.markerDrop,
+                      text: order.deliveryAddress,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    DriverOrderDistanceSummary(
+                      order: order,
+                      driverPosition: widget.driverPosition,
+                    ),
+                    if (hasCargoInfo(order)) ...[
+                      const SizedBox(height: AppSpacing.md),
+                      OrderCargoInfoBlock(order: order, compact: true),
+                    ],
+                    const SizedBox(height: AppSpacing.md),
+                    DriverOrderFinancePanel(
+                      order: order,
+                      availableBalance: walletBalance,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.sm,
+                      children: [
+                        DriverMetaPill(
+                          icon: Icons.payments_outlined,
+                          text: priceText(order),
+                        ),
+                        DriverMetaPill(
+                          icon: Icons.local_shipping_rounded,
+                          text: serviceTypeLabel(order.serviceType),
+                        ),
+                        DriverMetaPill(
+                          icon: Icons.access_time_rounded,
+                          text: createdTimeText(order),
+                        ),
+                      ],
+                    ),
+                    if (canContinueDelivery) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      if (order.driverMonitoring != null &&
+                          order.driverId != null) ...[
+                        DriverMonitoringPanel(
+                          orderId: order.id,
+                          holdingGoods:
+                              order.actualPickedUpAt != null ||
+                              order.status == 'delivering',
+                          onRecover: () => recoverDriverOrderGps(
+                            ref,
+                            orderId: order.id,
+                            userId: order.driverId!,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                      ],
+                      DriverContinueDeliveryButton(
+                        status: order.status,
+                        onTap: _openNavigation,
+                      ),
+                      if (widget.showCancelAction) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        DriverCancelOrderAction(order: order),
+                      ],
+                    ],
+                    if (isDelivered) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      DriverRateCustomerAction(
+                        alreadyRated: reviewAsync?.valueOrNull != null,
+                        isLoading: reviewAsync?.isLoading ?? false,
+                        onTap: reviewAsync?.isLoading == true
+                            ? null
+                            : _openRateCustomer,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

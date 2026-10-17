@@ -2,12 +2,13 @@
 
 ## Architecture Decision
 
-Project là **một monorepo với hai Flutter app** dùng chung Supabase và các package nền tảng:
+Project là **một monorepo với ba Flutter app** dùng chung Supabase và các package nền tảng:
 
-- `apps/delivery_app`: Customer + Driver, phát hành Android/iOS.
+- `apps/customer_app`: Customer, phát hành Android/iOS; đăng nhập/đăng ký khách hàng riêng.
+- `apps/driver_app`: Driver, phát hành Android/iOS; đăng nhập và đăng ký KYC tài xế riêng.
 - `apps/operations_web`: Support (CSKH) + Admin, phát hành Web.
 
-Không tách thành nhiều repository và không sao chép models/design tokens giữa hai app.
+Không tách thành nhiều repository và không sao chép models/design tokens giữa các app.
 
 ## Mô tả Project
 Ứng dụng giao hàng gồm 4 giao diện: khách hàng đặt đơn, tài xế nhận & giao hàng, Support (CSKH) tra cứu/xử lý yêu cầu, admin quản lý hệ thống. Tích hợp bản đồ thực tế và thuật toán tối ưu route giao hàng.
@@ -16,9 +17,11 @@ Không tách thành nhiều repository và không sao chép models/design tokens
 ```
 GiaoHang/
 ├── apps/
-│   ├── delivery_app/      # Customer + Driver, Android/iOS
+│   ├── customer_app/      # Customer, Android/iOS
+│   ├── driver_app/        # Driver, Android/iOS
 │   └── operations_web/    # Support + Admin, Web
 ├── packages/
+│   ├── giaohang_mobile/   # Nghiệp vụ, UI, assets dùng chung hai app mobile
 │   ├── giaohang_config/   # Runtime config dùng chung
 │   ├── giaohang_design/   # Design tokens dùng chung
 │   ├── giaohang_domain/   # Domain models dùng chung
@@ -42,8 +45,8 @@ GiaoHang/
 ## Commands
 ```bash
 flutter pub get                                      # Cài dependencies toàn workspace
-cd apps/delivery_app                                 # Vào Delivery App
-flutter analyze && flutter test && flutter run       # Analyze/test/chạy Customer/Driver
+cd apps/customer_app                                 # App khách hàng (hoặc ../driver_app)
+flutter analyze && flutter test && flutter run       # Analyze/test/chạy app đã chọn
 cd ../operations_web                                # Vào Operations Web
 flutter analyze && flutter run -d chrome             # Analyze/chạy Support/Admin
 flutter build web                                    # Build Operations Web
@@ -184,7 +187,7 @@ Quan trọng: không thay đổi Supabase schema, RLS policies, migrations, Edge
 Recommended customer order structure:
 
 ```text
-apps/delivery_app/lib/features/customer/screens/order/
+packages/giaohang_mobile/lib/features/customer/screens/order/
 ├── order_screen.dart
 ├── widgets/
 ├── dialogs/
@@ -195,7 +198,7 @@ apps/delivery_app/lib/features/customer/screens/order/
 Recommended customer tracking structure:
 
 ```text
-apps/delivery_app/lib/features/customer/screens/tracking/
+packages/giaohang_mobile/lib/features/customer/screens/tracking/
 ├── tracking_screen.dart
 ├── widgets/
 ├── dialogs/
@@ -209,7 +212,7 @@ apps/delivery_app/lib/features/customer/screens/tracking/
 - Supabase URL và anon key lưu trong `.env` — không commit lên Git
 - RLS phải bật cho tất cả bảng trước khi deploy
 
-Current runtime note: hai app đọc Supabase URL/anon key từ `packages/giaohang_config/lib/src/supabase_constants.dart`. Việc chuyển sang `.env` là cleanup riêng trong tương lai; không đổi runtime config trong Phase 1.
+Current runtime note: ba app đọc Supabase URL/anon key từ `packages/giaohang_config/lib/src/supabase_constants.dart`. Việc chuyển sang `.env` là cleanup riêng trong tương lai; không đổi runtime config trong Phase 1.
 
 
 ## UI Design Rules

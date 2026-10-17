@@ -48,6 +48,19 @@ cùng object key. Redis giữ batch đang xử lý đến khi R2 xác nhận th�
 Chi tiết và các trường log nằm trong
 [`README_GPS_PIPELINE.md`](../../supabase/functions/README_GPS_PIPELINE.md).
 
+## Đọc lịch sử để giám sát hành trình
+
+`POST /v1/gps/history` nhận `{ "orderId": "...", "cursor": "..." }`.
+Tái sử dụng JWT Supabase, chỉ cho CSKH/Admin và kiểm tra quyền đọc đơn bằng
+JWT của người gọi trước khi truy cập R2. Không dùng service-role để bỏ qua RLS.
+Mỗi trang đọc tối đa 20 chunk, trả `points`, `nextCursor`, `unavailableChunks`;
+client đọc hết các trang, sắp xếp và loại mẫu trùng. Chỉ trả mẫu trong 14 ngày
+gần nhất, không cache phản hồi, không thay đổi pipeline ghi hay lifecycle.
+Mẫu mới có thể chưa xuất hiện cho đến khi cron flush hoàn tất. Không suy diễn
+tuyến đi từ OSRM/AI khi thiếu dữ liệu. UI ngắt polyline khi thiếu mẫu >60 giây,
+đổi tài xế hoặc bước nhảy tương đương trên 150 km/h; đây là quy tắc hiển thị,
+không phải kết luận vi phạm.
+
 ## Kiểm tra nhanh
 
 ```bash

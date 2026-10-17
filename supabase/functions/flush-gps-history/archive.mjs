@@ -83,7 +83,12 @@ function normalizePoint(raw, now) {
   } catch { return null; }
 }
 
-export function createGpsArchiveHandler({ getEnv, fetcher = fetch, now = Date.now, log = console }) {
+/** @param {{getEnv: (name: string) => string | undefined, fetcher?: typeof fetch,
+ * now?: () => number, log?: Pick<Console, "info" | "error">,
+ * maintainLocations?: (context: {redis: (command: unknown[]) => Promise<unknown>,
+ * now: () => number}) => Promise<unknown>}} options */
+export function createGpsArchiveHandler({ getEnv, fetcher = fetch, now = Date.now, log = console,
+  maintainLocations = undefined }) {
   return async (request) => {
     if (request.method === "OPTIONS") return json(null, 204);
     if (request.method !== "POST" && request.method !== "GET") {
@@ -96,17 +101,27 @@ export function createGpsArchiveHandler({ getEnv, fetcher = fetch, now = Date.no
       const redisToken = requiredEnv(getEnv, "UPSTASH_REDIS_REST_TOKEN");
       const gatewayUrl = requiredEnv(getEnv, "R2_GATEWAY_URL").replace(/\/$/, "");
       const ingestSecret = requiredEnv(getEnv, "R2_GPS_INGEST_SECRET");
-      const result = await flushGpsHistory({ now,
-        redis: async (command) => {
-          const response = await fetcher(redisUrl, { method: "POST",
-            signal: AbortSignal.timeout(15000),
-            headers: { Authorization: `Bearer ${redisToken}`, "Content-Type": "application/json" },
-            body: JSON.stringify(command) });
-          if (!response.ok) throw new Error(`Redis HTTP ${response.status}`);
-          const data = await response.json();
-          if (data.error) throw new Error(`Redis: ${data.error}`);
-          return data.result;
-        },
+      const redis = async (command) => {
+        const response = await fetcher(redisUrl, { method: "POST",
+          signal: AbortSignal.timeout(15000),
+          headers: { Authorization: `Bearer ${redisToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify(command) });
+        if (!response.ok) throw new Error(`Redis HTTP ${response.status}`);
+        const data = await response.json();
+        if (data.error) throw new Error(`Redis: ${data.error}`);
+        return data.result;
+      };
+      // Run even with an empty history queue. A cleanup failure must not prevent
+      // the existing R2 archiver from acknowledging its own history batches.
+      let locationCleanup;
+      if (maintainLocations) {
+        try { locationCleanup = await maintainLocations({ redis, now }); }
+        catch (error) {
+          log.error("[DriverLocationCleanup]", error);
+          locationCleanup = { ok: false, retry_next_run: true };
+        }
+      }
+      const result = await flushGpsHistory({ now, redis,
         archive: async (body) => {
           const response = await fetcher(`${gatewayUrl}/v1/gps/chunks`, {
             method: "POST", signal: AbortSignal.timeout(45000),
@@ -116,6 +131,7 @@ export function createGpsArchiveHandler({ getEnv, fetcher = fetch, now = Date.no
           return response.json();
         },
       });
+      if (locationCleanup) result.location_cleanup = locationCleanup;
       log.info("[GpsArchive]", JSON.stringify(result));
       return json(result);
     } catch (error) {

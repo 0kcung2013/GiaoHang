@@ -1,0 +1,49 @@
+{
+  "driver": {
+    "user_id": "primary-demo-driver",
+    "lat": 10.84923,
+    "lng": 106.747293
+  },
+  "pickup": {
+    "lat": 10.8456193,
+    "lng": 106.7459414
+  },
+  "source_url": "https://router.project-osrm.org/table/v1/driving/106.747293,10.84923;106.7459414,10.8456193?sources=0&destinations=1&annotations=distance,duration",
+  "table": {
+    "code": "Ok",
+    "distances": [
+      [
+        425.8
+      ]
+    ],
+    "destinations": [
+      {
+        "hint": "on0Dh6PNNIheAAAANAAAABEAAAAAAAAAOAfSQrtkZUJ2PptBAAAAAF4AAAA0AAAAEQAAAAAAAACIKAEAG9BcBsl9pQBV0FwGs32lAAQAnwwAAAAA",
+        "location": [
+          106.745883,
+          10.845641
+        ],
+        "name": "Linh Đông",
+        "distance": 6.793216249
+      }
+    ],
+    "durations": [
+      [
+        38.5
+      ]
+    ],
+    "sources": [
+      {
+        "hint": "K88Ki7bPCos9AAAAHAAAAAAAAAAbAAAAY_CIQrVM8UEAAAAAFXjwQT0AAAAcAAAAAAAAABsAAACIKAEAXdVcBuWLpQCd1VwGzoulAAAAjwwAAAAA",
+        "location": [
+          106.747229,
+          10.849253
+        ],
+        "name": "Linh Đông",
+        "distance": 7.446573243
+      }
+    ]
+  },
+  "eligible": true,
+  "checked_at": "2026-10-12T04:02:20.529Z"
+}

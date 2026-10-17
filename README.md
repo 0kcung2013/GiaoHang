@@ -1,8 +1,9 @@
 # GiaoHang
 
-Monorepo Flutter cho hệ thống giao hàng thông minh, gồm hai sản phẩm triển khai độc lập và dùng chung một backend Supabase.
+Monorepo Flutter cho hệ thống giao hàng thông minh, gồm ba sản phẩm triển khai độc lập và dùng chung một backend Supabase.
 
-- **Delivery App:** Customer đặt/theo dõi đơn; Driver nhận và giao đơn.
+- **Customer App:** khách hàng đặt và theo dõi đơn.
+- **Driver App:** tài xế đăng ký KYC, nhận và giao/hoàn đơn.
 - **Operations Web:** Support xử lý yêu cầu CSKH; Admin quản lý đơn, tài xế và vận hành.
 
 ## Cấu trúc
@@ -10,9 +11,11 @@ Monorepo Flutter cho hệ thống giao hàng thông minh, gồm hai sản phẩm
 ```text
 GiaoHang/
 ├── apps/
-│   ├── delivery_app/       # Flutter Android/iOS — Customer + Driver
+│   ├── customer_app/       # Flutter Android/iOS — Customer
+│   ├── driver_app/         # Flutter Android/iOS — Driver
 │   └── operations_web/     # Flutter Web — Support + Admin
 ├── packages/
+│   ├── giaohang_mobile/   # Nghiệp vụ, UI, assets dùng chung hai app mobile
 │   ├── giaohang_config/    # Supabase runtime config dùng chung
 │   ├── giaohang_design/    # AppColors, typography, spacing, radius
 │   └── giaohang_domain/    # Domain models dùng chung
@@ -26,7 +29,7 @@ GiaoHang/
 └── pubspec.yaml            # Dart/Flutter workspace
 ```
 
-Hai app có bootstrap và router riêng. Delivery App không chứa màn hình Admin/Support; Operations Web từ chối mặc định mọi role ngoài `admin` và `support`. Việc tách giao diện không thay thế RLS — Supabase vẫn là nơi quyết định quyền dữ liệu.
+Ba app có entry point riêng. Hai app mobile cố định role và bảng route theo app; Operations Web từ chối mặc định mọi role ngoài `admin` và `support`. Việc tách giao diện không thay thế RLS — Supabase vẫn là nơi quyết định quyền dữ liệu.
 
 ## Tech stack
 
@@ -41,6 +44,20 @@ Phân công tự động xếp tài xế theo độ dài tuyến OSRM đến đi
 FreePick dùng quãng đường trên 2 đến 3 km. Khi routing lỗi, đơn chờ thử lại.
 Chi tiết luồng backend và kiểm thử: [Phân công theo quãng đường](supabase/functions/README_ROAD_DISPATCH.md).
 
+## Dữ liệu AI
+
+Pipeline demo mới dùng LightGBM dự đoán ETA toàn tuyến từ dữ liệu mô phỏng trên
+đường Việt Nam. Dataset chính nằm ở `output/eta_simulation/simulated_trips.csv`;
+model app ở `packages/giaohang_mobile/assets/ml/eta_simulation_model.json`;
+mã tạo dữ liệu và huấn luyện ở `experiments/eta_simulation/`.
+Đã tích hợp Flutter và triển khai server: `accept-driver-order` v10,
+`refresh-order-eta` v8. Hai phía dùng cùng model; profile v2 phân bổ phần chờ
+gần giao lộ/chỗ rẽ. ETA đơn đã nhận được giữ nguyên.
+Xem [kết quả và phạm vi ETA mô phỏng](docs/ETA_MO_PHONG_LIGHTGBM.md).
+UTraffic được giữ để đối chiếu lịch sử.
+
+Xem [bản đồ thư mục dữ liệu và mô hình](experiments/README.md) để tìm đúng file.
+
 ## Cài dependencies
 
 Chạy tại repository root:
@@ -51,10 +68,10 @@ flutter pub get
 
 Workspace chỉ có một `pubspec.lock` ở root.
 
-## Delivery App
+## Customer App và Driver App
 
 ```bash
-cd apps/delivery_app
+cd apps/customer_app  # hoặc apps/driver_app từ repository root
 flutter analyze
 flutter test
 flutter run
@@ -63,11 +80,14 @@ flutter build apk
 
 Source chính:
 
-- `apps/delivery_app/lib/features/customer/`
-- `apps/delivery_app/lib/features/driver/`
-- `apps/delivery_app/lib/core/router.dart`
+- `packages/giaohang_mobile/lib/features/customer/`
+- `packages/giaohang_mobile/lib/features/driver/`
+- `packages/giaohang_mobile/lib/core/router.dart`
 
-Nếu Admin hoặc Support đăng nhập vào Delivery App, hệ thống chỉ hướng dẫn chuyển sang Operations Web.
+Mỗi app chỉ cho phép tài khoản đúng vai trò. Không có lựa chọn chuyển vai trò trên trang đăng nhập/đăng ký.
+
+Kiểm thử nghiệp vụ dùng chung: `cd packages/giaohang_mobile` rồi `flutter test`.
+Chi tiết cấu hình, callback và chạy hai app: [Tách app mobile](docs/mobile_apps.md).
 
 ## Operations Web
 
@@ -88,7 +108,7 @@ Operations Web không cung cấp đăng ký công khai. Tài khoản Support ph�
 
 ## Shared packages
 
-- `giaohang_design`: nguồn duy nhất cho design tokens của cả hai app.
+- `giaohang_design`: nguồn duy nhất cho design tokens của các app.
 - `giaohang_domain`: model dùng ở cả Delivery và Operations; hiện bắt đầu với `DriverModel`.
 - `giaohang_config`: runtime Supabase config dùng chung. Chuyển sang `.env` là cleanup riêng trong tương lai.
 
@@ -102,7 +122,7 @@ Sau đợt gộp ngày 2026-10-09, schema `public` có 24 bảng nghiệp vụ.
 Lịch sử GPS cũ trong `driver_locations` đã được loại bỏ; lịch sử mới nằm trên R2.
 Chi tiết: [Gộp bảng CSKH và bằng chứng](docs/DATABASE_CONSOLIDATION.md).
 
-Migrations và Edge Functions nằm ở root để cả hai app dùng cùng nguồn dữ liệu:
+Migrations và Edge Functions nằm ở root để các app dùng cùng nguồn dữ liệu:
 
 ```text
 supabase/migrations/

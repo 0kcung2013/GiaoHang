@@ -2,8 +2,8 @@
 
 ## Phạm vi và nguồn tham chiếu
 
-Tài liệu này quy định ngôn ngữ thị giác và nguyên tắc tương tác cho hai Flutter app:
-`apps/delivery_app` (Customer, Driver) và `apps/operations_web` (Support, Admin).
+Tài liệu này quy định ngôn ngữ thị giác và nguyên tắc tương tác cho ba Flutter app:
+`apps/customer_app` (Customer), `apps/driver_app` (Driver) và `apps/operations_web` (Support, Admin).
 `AGENTS.md` quy định kiến trúc và phạm vi thay đổi; luồng, route và trạng thái đang chạy
 phải được kiểm tra trong code của màn hình tương ứng trước khi thiết kế lại.
 

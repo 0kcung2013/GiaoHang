@@ -43,6 +43,7 @@ migrate_working_dir/
 
 # Local ETA training artifacts
 /data/hcm_traffic_raw/
+/data/vietnam_osm/
 /output/
 
 # Runtime secrets

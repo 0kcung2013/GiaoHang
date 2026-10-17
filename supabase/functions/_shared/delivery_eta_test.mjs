@@ -83,11 +83,11 @@ test('driver proximity changes the approach leg, without a fabricated 2 km',asyn
   near(eta.approach.baseline_minutes,0.24);
   near(eta.remaining_minutes,27.24);
 });
-test('delivery forecast uses the expected future departure after approach and pickup',async()=>{
+test('both legs share assignment traffic time without ETA-dependent resampling',async()=>{
   const times=[];
   await calculateEta({...base,predict:(r,at)=>{times.push(at);return r.distance_meters/1000/25*60;}});
-  assert.equal(times[0],new Date(now+5*60000).toISOString());
-  assert.equal(times[1],new Date(now+(5+2.4+5)*60000).toISOString());
+  assert.equal(times[0],new Date(now).toISOString());
+  assert.equal(times[1],times[0]);
 });
 test('early pickup arrival, pickup completion and delivery arrival keep every initial value',async()=>{
   const initial=await calculateEta(base);
@@ -200,34 +200,7 @@ test('valid OSRM route uses longitude-latitude and full geometry',async()=>{
   assert.match(url,/overview=full&geometries=geojson/);
   assert.equal(r.distance_meters,2000);
 });
-test('historical traffic uses the same Vietnam instant regardless of input timezone',()=>{
-  const point=[106.68,10.78];
-  assert.equal(predictMultiplier(point,'2026-08-07T17:30:00+07:00'),predictMultiplier(point,'2026-08-07T10:30:00Z'));
-  assert.equal(predictMultiplier([106.68,11.05],new Date(now)),null);
-  assert.equal(modelVersion,'smarttraffic_hcm_speed_v1');
-});
-test('SmartTraffic predicts speed consistently with Python for every minute in a week',()=>{
-  const cases=JSON.parse(readFileSync(new URL('../../../apps/delivery_app/test/fixtures/smarttraffic_speed_parity.json',import.meta.url)));
-  for(const c of cases) near(predictSpeed(c.at),c.speed);
-});
-test('synthetic time model changes ETA by time, not road name',()=>{
-  const r=route(6000);
-  const peak=routeTravelMinutes(r,'2026-10-12T08:00:00+07:00');
-  const noon=routeTravelMinutes(r,'2026-10-12T12:00:00+07:00');
-  assert.ok(peak>noon+4);
-  near(predictMultiplier([106.68,10.78],new Date(now)),predictMultiplier([106.70,10.80],new Date(now)));
-});
-test('AI speed may reduce baseline time; service allowances remain unchanged',async()=>{
-  const eta=await calculateEta({...base,predict:routeTravelMinutes});
-  assert.ok(eta.delivery.travel_minutes<eta.delivery.baseline_minutes);
-  assert.equal(eta.is_synthetic,true);
-  assert.ok(eta.delivery.predicted_speed_kmh>25);
-  near(eta.remaining_minutes,15+eta.approach.travel_minutes+eta.delivery.travel_minutes);
-});
-test('route leaving demo region and invalid time use no AI',()=>{
-  assert.equal(routeTravelMinutes({...route(1000),points:[[106.68,10.78],[106.68,11.0],[106.71,10.80]]},new Date(now)),null);
-  assert.equal(routeTravelMinutes(route(1000),'bad-time'),null);
-});
+// Model-specific assertions are covered by UTraffic research parity.
 test('invalid or throwing speed inference uses the fixed fallback',async()=>{
   for(const value of [null,NaN,Infinity,-5,0]) {
     const eta=await calculateEta({...base,predict:()=>value});

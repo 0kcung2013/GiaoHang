@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     if (body.free_pick === true && order.driver_id === null) {
       if (!hasOrigin) return json({ error: 'DRIVER_LOCATION_STALE' }, 409);
       try {
-        const redis = createRoadRedis(name => Deno.env.get(name));
+        const redis = createRoadRedis((name: string) => Deno.env.get(name));
         pickupQuote = await quotePickupRoute(driver, { lat: order.pickup_lat, lng: order.pickup_lng },
           roadRouteOptions(redis, Deno.env.get('OSRM_BASE_URL')));
       } catch {

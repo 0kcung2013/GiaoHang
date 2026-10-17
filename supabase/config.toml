@@ -8,6 +8,9 @@ verify_jwt = false
 [functions.ingest-driver-location]
 verify_jwt = true
 
+[functions.driver-location-presence]
+verify_jwt = true
+
 [functions.find-nearest-drivers-redis]
 verify_jwt = true
 

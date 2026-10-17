@@ -48,7 +48,7 @@ function fixture(rawPoints = [point()]) {
   const run = (archive) => flushGpsHistory({
     redis, archive, now: () => now, createToken: () => "lock-token",
   });
-  return { state, run };
+  return { state, run, redis };
 }
 
 test("a chunk is acknowledged only after R2 confirms storage", async () => {
@@ -139,8 +139,49 @@ test("a public or forged request cannot flush the GPS queue", async () => {
   const handler = createGpsArchiveHandler({
     getEnv: () => "server-secret",
     fetcher: async () => assert.fail("must not access Redis"),
+    maintainLocations: async () => assert.fail("must not access GPS cleanup"),
   });
   for (const headers of [{}, { "x-gps-ingest-secret": "wrong-secret" }]) {
     assert.equal((await handler(new Request("https://edge.test", { method: "POST", headers }))).status, 401);
   }
+});
+
+function scheduledHandler({ maintainLocations, redis }) {
+  return createGpsArchiveHandler({
+    getEnv: (name) => ({ UPSTASH_REDIS_REST_URL: "https://redis.test",
+      UPSTASH_REDIS_REST_TOKEN: "redis-test", R2_GATEWAY_URL: "https://r2.test",
+      R2_GPS_INGEST_SECRET: "gps-test" })[name],
+    fetcher: async (url, init) => {
+      if (url === "https://redis.test") return Response.json({ result: await redis(JSON.parse(init.body)) });
+      return Response.json({ objects: [{}] });
+    },
+    now: () => now, log: { info() {}, error() {} }, maintainLocations,
+  });
+}
+
+test("authorized cron cleans locations even when the GPS history queue is empty", async () => {
+  const { redis } = fixture([]);
+  let cleanupCalls = 0;
+  const handler = scheduledHandler({ redis, maintainLocations: async () => {
+    cleanupCalls++; return { deleted: 2 };
+  } });
+  const response = await handler(new Request("https://edge.test", {
+    method: "POST", headers: { "x-gps-ingest-secret": "gps-test" },
+  }));
+  const result = await response.json();
+  assert.equal(cleanupCalls, 1);
+  assert.equal(result.queue_empty, true);
+  assert.equal(result.location_cleanup.deleted, 2);
+});
+
+test("a cleanup failure does not interrupt R2 archiving and is reported for the next cron", async () => {
+  const { redis, state } = fixture();
+  const handler = scheduledHandler({ redis, maintainLocations: async () => { throw new Error("DB down"); } });
+  const response = await handler(new Request("https://edge.test", {
+    method: "POST", headers: { "x-gps-ingest-secret": "gps-test" },
+  }));
+  const result = await response.json();
+  assert.equal(result.archived, 1);
+  assert.equal(result.location_cleanup.retry_next_run, true);
+  assert.deepEqual(state.processing, []);
 });

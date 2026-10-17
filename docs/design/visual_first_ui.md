@@ -92,7 +92,10 @@ trang marketing có nhiều đoạn mô tả.
 
 ### Login
 
-- Nền `bgLight`, khoảng trắng có chủ đích; form email/mật khẩu là luồng chính hiện có.
+- Customer dùng nền `bgLight`; đăng nhập/đăng ký Driver dùng nền trắng `bgCard`,
+  chữ navy, ô nhập `bgLight` và nút cam theo theme chính của app.
+  Form email/mật khẩu là luồng chính; nhãn luôn hiển thị, có hiện/ẩn mật khẩu.
+  Driver dùng logo nhỏ và bố cục form đơn giản, không có banner minh họa.
 - Google button là phương thức bổ sung, màu trắng với `border` và `shadow.subtle`.
 - Giữ validation, trạng thái loading/lỗi và khả năng nhập bằng bàn phím.
 
@@ -101,6 +104,9 @@ trang marketing có nhiều đoạn mô tả.
 - Giữ lựa chọn Customer/Driver, các trường và quy tắc validation hiện có.
 - Với Driver, hành động tiếp tục mở wizard; với Customer, hành động đăng ký hoàn tất luồng hiện có.
 - Đảm bảo form dùng được trên màn hình ngắn khi bàn phím mở, có autofill, focus và thông báo lỗi rõ ràng.
+- Driver App có wizard riêng 5 bước: Tài khoản / Cá nhân / Phương tiện / Giấy tờ / Xác nhận.
+  Giữ quy tắc prefill và validation; thanh tiến độ mảnh, lỗi cạnh mục cần sửa,
+  ảnh giấy tờ dùng hàng gọn có thumbnail và đổi ảnh. Nút tiếp tục nằm dưới vùng nội dung cuộn.
 
 ### Driver Home
 
@@ -109,6 +115,22 @@ trang marketing có nhiều đoạn mô tả.
   giải thích bằng icon, màu và nhãn ngắn.
 - Đơn chờ nhận dùng `bgDarkCard` và dấu nhấn `accent`.
 - Bản đồ chiếm ưu tiên khi đang giao; controls đặt overlay và không che route.
+
+### Driver Incoming Offer
+
+- Lời mời nhận đơn phủ toàn màn hình trên mọi tab, drawer và màn hình phụ đang mở.
+  Dùng nền `bgCard`, chữ navy và CTA cam theo hướng giao diện đã duyệt.
+- Thứ tự đọc: Đơn mới + mã đơn → thu nhập dự kiến → COD/khoản giữ ví →
+  khoảng cách hai chặng → điểm lấy và điểm giao. Lấy số tiền từ snapshot tài chính;
+  chỉ hiện thời gian dự kiến khi đơn đã có dữ liệu. Giữ thông tin hàng hóa sau bước nhận đơn.
+- Nội dung cuộn được; nút nhận kèm đồng hồ và nút Bỏ qua cố định trong SafeArea.
+  Màn hình ngắn, chữ 160% và landscape vẫn phải chạm được cả hai thao tác.
+- Bỏ qua dùng luồng chuyển đơn và xác nhận hạn mức từ chối hiện có. Nút back
+  không tự đóng hoặc ngầm từ chối lời mời. Thời hạn lấy từ giờ server, không khởi động lại.
+- Một lời mời chỉ có một màn hình và một lượt âm báo/rung; cập nhật snapshot
+  không tạo lớp mới. Hết hạn hoặc bị rút thì đóng cả sheet của lời mời và trở lại
+  màn hình trước đó. Nhận thành công mở đơn được backend xác nhận.
+- Khi app ở nền/khóa màn hình, tiếp tục dùng cơ chế thông báo hiện có của hệ điều hành.
 
 ### Order Tracking
 

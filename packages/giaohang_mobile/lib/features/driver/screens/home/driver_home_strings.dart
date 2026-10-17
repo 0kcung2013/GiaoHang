@@ -1,0 +1,87 @@
+class DriverHomeStrings {
+  DriverHomeStrings._();
+
+  static const activityLabel = 'Trạng thái hoạt động';
+  static const activityOnline = 'Nhận đơn mới';
+  static const activityOffline = 'Không nhận đơn mới';
+  static const activityToggleLabel = 'Bật hoặc tắt nhận đơn mới';
+  static const activityUpdating = 'Đang cập nhật trạng thái hoạt động';
+  static const offlineConfirmTitle = 'Ngừng nhận đơn mới?';
+  static const offlineConfirmMessage =
+      'Bạn sẽ ngừng nhận đơn mới. Có thể bật lại trong menu bất cứ lúc nào.';
+  static const offlineActiveOrderConfirmMessage =
+      'Bạn sẽ ngừng nhận đơn mới. Đơn hiện tại vẫn tiếp tục giao và cập nhật vị trí.';
+  static const offlineConfirmAction = 'Ngừng nhận đơn';
+  static const offlineKeepAction = 'Tiếp tục nhận đơn';
+  static const coldStartLoading = 'Đang chuẩn bị phiên làm việc';
+  static const coldStartLoadingSemantic =
+      'Đang tải trạng thái hoạt động gần nhất của tài xế';
+  static const coldStartErrorTitle = 'Chưa tải được trạng thái hoạt động';
+  static const coldStartErrorMessage =
+      'Kiểm tra kết nối rồi thử lại. Trạng thái hiện tại không bị thay đổi.';
+  static const retryAction = 'Thử lại';
+  static const onlineWalletTitle = 'Đã bật nhận đơn';
+  static const walletBalanceLabel = 'Số dư khả dụng';
+  static const walletOfferHint =
+      'Bạn chỉ nhận được đơn có khoản ứng phù hợp với số dư.';
+  static const walletEmptyWarning =
+      'Ví chưa có số dư. Hãy nạp thêm để nhận đơn COD.';
+  static const walletUnavailable =
+      'Đã bật nhận đơn nhưng chưa tải được số dư ví.';
+  static const walletOnlineBadge = 'ĐANG TRỰC TUYẾN';
+  static const walletContinueAction = 'Bắt đầu nhận đơn';
+  static const walletTopUpAction = 'Nạp thêm';
+  static const walletTopUpNowAction = 'Nạp ví ngay';
+  static const walletLaterAction = 'Để sau';
+  static const walletCloseAction = 'Đóng thông báo số dư';
+
+  static const bannerTitle = 'Chủ động từng chuyến';
+  static const bannerOnlineSubtitle = 'Đang tìm đơn phù hợp gần bạn.';
+  static const bannerOfflineSubtitle = 'Mở menu để bật nhận đơn.';
+  static const bannerSemanticLabel =
+      'Minh họa tài xế kiểm tra lộ trình bên xe máy có thùng và kiện hàng.';
+
+  static const offerCountdownLabel = 'Thời gian nhận đơn';
+  static const offerAutoTransferHint =
+      'Hết giờ tính 1 lượt từ chối và chuyển tài xế khác.';
+  static const offerExpiredLabel = 'Đang chuyển tài xế khác…';
+  static const offerExpiredAction = 'Đã hết thời gian nhận';
+  static const acceptanceChecking = 'Đang kiểm tra…';
+
+  static const incomingOfferBadge = 'ĐƠN ƯU TIÊN';
+  static const incomingOfferTitle = 'Đơn mới';
+  static const incomingOfferSubtitle =
+      'Kiểm tra lộ trình và phản hồi trước khi hết giờ.';
+  static const incomingOfferAccept = 'Nhận đơn';
+  static const incomingOfferSkip = 'Bỏ qua';
+  static const incomingOfferRoute = '/driver/incoming-offer';
+  static const incomingOfferEarning = 'Thu nhập dự kiến';
+  static const incomingOfferCod = 'COD cần thu';
+  static const incomingOfferNoCod = 'Không thu COD';
+  static const incomingOfferWalletHold = 'Khoản giữ ví';
+  static const incomingOfferTimeHint = 'Thời gian dự kiến';
+  static const incomingOfferTransfer = 'Chuyển đơn';
+  static const pickupDistanceLabel = 'Đến điểm lấy';
+  static const deliveryDistanceLabel = 'Lấy → giao';
+  static const totalDistanceLabel = 'Tổng 2 chặng';
+  static const routeDistanceLoading = 'Đang tính quãng đường…';
+  static const routeDistanceUnavailable = 'Chưa xác định đủ hai chặng';
+  static const routeDistanceSource = 'Khoảng cách theo tuyến đường';
+  static const routeDistanceRetry = 'Thử lại quãng đường';
+  static const incomingOfferAcceptSuccess = 'Đã nhận đơn hàng.';
+  static const incomingOfferTransferSuccess = 'Đã chuyển đơn cho tài xế khác.';
+  static const incomingOfferActionError =
+      'Không thể xử lý đơn lúc này. Vui lòng thử lại.';
+
+  static String incomingOfferSemantic(String orderCode) =>
+      'Có đơn hàng mới $orderCode cần phản hồi';
+
+  static String distanceSummarySemantic({
+    required String pickupText,
+    required String totalText,
+  }) => 'Cách điểm lấy $pickupText, tổng quãng đường hai chặng $totalText';
+
+  static String offerCountdownSemantic(int seconds) =>
+      'Còn $seconds giây để nhận đơn. '
+      'Hết giờ tính một lượt từ chối và chuyển tài xế khác.';
+}

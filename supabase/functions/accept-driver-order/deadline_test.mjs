@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { quoteRoute, validPoint } from './deadline.mjs';
-import { predictMultiplier, routeMultiplier } from '../_shared/delivery_eta_traffic.mjs';
+import { supportsPoint, routeMultiplier } from '../_shared/delivery_eta_traffic.mjs';
 
 test('uses route duration and rejects invalid coordinates', async () => {
   let requested;
@@ -40,7 +40,7 @@ const responseFor = route => async () => ({
 });
 const trafficFor = (predict = routeMultiplier) => ({
   at: forecastAt,
-  supportsPoint: point => predictMultiplier(point, forecastAt) !== null,
+  supportsPoint: point => supportsPoint(point),
   predict,
 });
 
@@ -161,22 +161,11 @@ test('adjusted travel time still respects the existing RPC duration limit', asyn
   assert.deepEqual(quote, { seconds: 86400, source: 'osrm' });
 });
 
-test('legacy quote uses the same simulated time signal on HCM routes', async () => {
-  const fixtures = JSON.parse(readFileSync(new URL(
-    '../../../apps/delivery_app/test/fixtures/traffic_demo_osrm_routes.json', import.meta.url)));
-  const quotes = {};
-  for (const key of ['congested', 'clear']) {
-    const fixture = fixtures[key];
-    const route = {
-      distance: fixture.distance, duration: fixture.duration,
-      geometry: { type: 'LineString', coordinates: fixture.points },
-    };
-    const endpoints = [fixture.points[0], fixture.points.at(-1)];
-    quotes[key] = await quoteRoute(endpoints, responseFor(route), trafficFor());
-    assert.equal(quotes[key].source, 'osrm');
-    assert.ok(quotes[key].seconds > Math.ceil(fixture.duration));
-  }
-  assert.ok(Math.abs(quotes.congested.seconds / fixtures.congested.duration - quotes.clear.seconds / fixtures.clear.duration) < 0.01);
-  assert.ok(quotes.congested.seconds / fixtures.congested.duration > 1.5);
-  assert.ok(quotes.clear.seconds / fixtures.clear.duration < 1.8);
+test('legacy quote uses route speed at two times on identical geometry',async()=>{
+  const r=JSON.parse(readFileSync(new URL('../../../packages/giaohang_mobile/test/fixtures/utraffic_routes.json',import.meta.url),'utf8')).cmt8_pham_van_dong;
+  const endpoints=[r.geometry.coordinates[0],r.geometry.coordinates.at(-1)];
+  const quote=at=>quoteRoute(endpoints,responseFor(r),{supportsPoint,predict:routeMultiplier,at});
+  const peak=await quote('2020-12-16T18:00:00+07:00'),off=await quote('2020-12-16T12:00:00+07:00');
+  assert.equal(peak.source,'osrm'); assert.equal(off.source,'osrm');
+  assert.ok(peak.seconds>off.seconds);
 });

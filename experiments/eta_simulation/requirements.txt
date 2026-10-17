@@ -1,0 +1,3 @@
+# Reuse experiments/utraffic_speed/.venv; extra dependency for Vietnam OSM PBF.
+osmium==4.3.1
+requests==2.34.2

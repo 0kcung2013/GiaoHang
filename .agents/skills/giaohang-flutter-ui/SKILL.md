@@ -1,11 +1,11 @@
 ---
 name: giaohang-flutter-ui
-description: Project-specific Flutter UI/UX workflow for GiaoHang. Use whenever auditing, designing, prototyping, reviewing, or changing presentation in apps/delivery_app or apps/operations_web, including screens, shared widgets, responsive layout, accessibility, visual assets, motion, and design tokens. Do not use for backend-only, database-only, or business-logic-only work.
+description: Project-specific Flutter UI/UX workflow for GiaoHang. Use whenever auditing, designing, prototyping, reviewing, or changing presentation in apps/customer_app, apps/driver_app, packages/giaohang_mobile, or apps/operations_web, including screens, shared widgets, responsive layout, accessibility, visual assets, motion, and design tokens. Do not use for backend-only, database-only, or business-logic-only work.
 ---
 
 # GiaoHang Flutter UI
 
-Use this workflow for every UI task in either Flutter app. This skill controls the
+Use this workflow for every UI task in any Flutter app. This skill controls the
 process; it does not replace the repository's design source of truth.
 
 ## Read the local sources first

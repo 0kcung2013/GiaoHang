@@ -3,15 +3,10 @@
 // Secrets: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN, SUPABASE_SERVICE_ROLE_KEY
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import {
-  enqueueHistoryOnce,
-  type GpsHistoryPayload,
-} from "./history_queue.ts";
-
-const GEO_KEY = "drivers:geo";
-const PG_TOUCH_PREFIX = "gps:pg_touch:";
-const LOC_PREFIX = "driver:loc:";
-const PG_TOUCH_TTL_SEC = 8;
+import { enqueueHistoryOnce, type GpsHistoryPayload } from "./history_queue.ts";
+import { syncLatestDriverLocation } from "./latest_location_sync.ts";
+import { writeLatestDriverLocation } from "../_shared/driver_location_retention.mjs";
+import { ACTIVE_DRIVER_ORDER_STATUSES } from "../_shared/driver_location_state.ts";
 
 type Body = {
   driver_profile_id?: string;
@@ -22,6 +17,7 @@ type Body = {
   heading?: number;
   speed?: number;
   client_ts?: string;
+  force_pg_sync?: boolean;
 };
 
 async function redis(command: unknown[]) {
@@ -42,7 +38,9 @@ async function redis(command: unknown[]) {
     const t = await res.text();
     throw new Error(`Redis ${res.status}: ${t}`);
   }
-  return await res.json();
+  const data = await res.json();
+  if (data.error) throw new Error(`Redis: ${data.error}`);
+  return data;
 }
 
 Deno.serve(async (req) => {
@@ -119,14 +117,21 @@ Deno.serve(async (req) => {
     }
 
     const now = new Date().toISOString();
-    const member = userId; // GEO member = user_id (khớp nearest filter)
-
-    // Hot: GEO + latest JSON
-    await redis(["GEOADD", GEO_KEY, lng, lat, member]);
-    await redis([
-      "SET",
-      `${LOC_PREFIX}${userId}`,
-      JSON.stringify({
+    // Atomic GEO + latest write; an old retry cannot resurrect expired OFF GPS.
+    const latestWritten = await writeLatestDriverLocation({
+      redis,
+      userId,
+      isAvailable: driver.is_available === true,
+      hasActiveOrder: async () => {
+        const { data, error } = await admin.from("orders").select("id")
+          .eq("driver_id", userId).in("status", ACTIVE_DRIVER_ORDER_STATUSES)
+          .limit(1);
+        if (error) {
+          throw new Error("Cannot verify active delivery before GPS update");
+        }
+        return (data?.length ?? 0) > 0;
+      },
+      location: {
         user_id: userId,
         profile_id: profileId,
         lat,
@@ -135,45 +140,49 @@ Deno.serve(async (req) => {
         speed: body.speed ?? null,
         is_available: driver.is_available === true,
         updated_at: now,
-      }),
-    ]);
+      },
+    });
 
     // Queue history (cold path), idempotent across tabs/callers.
-    const historyPoint: GpsHistoryPayload | null = orderId ? {
-      driver_id: profileId,
-      user_id: userId,
-      order_id: orderId,
-      lat,
-      lng,
-      heading: body.heading ?? null,
-      speed: body.speed ?? null,
-      created_at: body.client_ts || now,
-    } : null;
+    const historyPoint: GpsHistoryPayload | null = orderId
+      ? {
+        driver_id: profileId,
+        user_id: userId,
+        order_id: orderId,
+        lat,
+        lng,
+        heading: body.heading ?? null,
+        speed: body.speed ?? null,
+        created_at: body.client_ts || now,
+      }
+      : null;
     const historyEnqueued = historyPoint
       ? await enqueueHistoryOnce(redis, historyPoint)
       : false;
 
-    // Throttle UPDATE drivers → Realtime khách vẫn nhận được, ít ghi hơn
-    const touchKey = `${PG_TOUCH_PREFIX}${profileId}`;
-    const touched = await redis(["SET", touchKey, "1", "NX", "EX", PG_TOUCH_TTL_SEC]);
-    let pgUpdated = false;
-    // Upstash returns "OK" when set; null when NX fails
-    if (touched?.result === "OK" || touched === "OK") {
-      const { error: uErr } = await admin
-        .from("drivers")
-        .update({
-          current_lat: lat,
-          current_lng: lng,
-          location_updated_at: now,
-          updated_at: now,
-        })
-        .eq("id", profileId);
-      pgUpdated = !uErr;
-    }
+    // PG 10s trên mọi producer; mốc nhận đơn/đến điểm được đồng bộ ngay.
+    const pgUpdated = await syncLatestDriverLocation(
+      redis,
+      profileId,
+      async () => {
+        const { error: uErr } = await admin
+          .from("drivers")
+          .update({
+            current_lat: lat,
+            current_lng: lng,
+            location_updated_at: now,
+            updated_at: now,
+          })
+          .eq("id", profileId);
+        return !uErr;
+      },
+      { force: body.force_pg_sync === true },
+    );
 
     return json({
       ok: true,
       redis: true,
+      latest_written: latestWritten,
       history_enqueued: historyEnqueued,
       pg_updated: pgUpdated,
       profile_id: profileId,

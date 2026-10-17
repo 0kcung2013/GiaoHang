@@ -1,0 +1,37 @@
+import 'package:latlong2/latlong.dart';
+
+import 'driver_position_source.dart';
+
+export 'driver_position_source.dart';
+
+class DriverArrivalPolicy {
+  const DriverArrivalPolicy._();
+
+  static const double arrivalRadiusMeters = 100;
+
+  static bool isWithinArrivalRadius({
+    required LatLng current,
+    required LatLng target,
+  }) =>
+      const Distance(roundResult: false)(current, target) <=
+      arrivalRadiusMeters;
+
+  static LatLng? resolveArrival({
+    required String status,
+    required LatLng current,
+    required LatLng target,
+    required DriverPositionSource source,
+  }) {
+    final isActiveLeg =
+        status == 'assigned' ||
+        status == 'picking_up' ||
+        status == 'delivering';
+    if (!isActiveLeg || !source.canConfirmArrival) return null;
+
+    if (!isWithinArrivalRadius(current: current, target: target)) return null;
+
+    // Bán kính 100 m chỉ mở khóa xác nhận. Giữ tọa độ GPS/mô phỏng thật để
+    // marker tiếp tục đi tới đích thay vì nhảy thẳng tới tọa độ của đơn.
+    return current;
+  }
+}

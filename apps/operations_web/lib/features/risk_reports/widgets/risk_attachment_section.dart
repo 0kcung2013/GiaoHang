@@ -4,6 +4,7 @@ import 'package:giaohang_domain/giaohang_domain.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/risk_report_strings.dart';
+import '../dialogs/risk_photo_viewer.dart';
 import '../data/risk_report_repository.dart';
 import '../services/risk_location_address_service.dart';
 
@@ -40,8 +41,33 @@ class RiskAttachmentSection extends StatelessWidget {
             runSpacing: AppSpacing.md,
             children: items!
                 .map(
-                  (item) =>
-                      _AttachmentCard(item, addressResolver: addressResolver),
+                  (item) => _AttachmentCard(
+                    item,
+                    addressResolver: addressResolver,
+                    onOpen: item.signedUrl == null
+                        ? null
+                        : () {
+                            final photos = items!
+                                .where(
+                                  (entry) =>
+                                      entry.attachment.evidenceType ==
+                                          RiskEvidenceType.photo &&
+                                      entry.signedUrl != null,
+                                )
+                                .toList();
+                            final index = photos.indexOf(item);
+                            if (index < 0) return;
+                            showDialog<void>(
+                              context: context,
+                              builder: (_) => RiskPhotoViewer(
+                                urls: photos
+                                    .map((entry) => entry.signedUrl!)
+                                    .toList(),
+                                initialIndex: index,
+                              ),
+                            );
+                          },
+                  ),
                 )
                 .toList(),
           ),
@@ -51,7 +77,9 @@ class RiskAttachmentSection extends StatelessWidget {
 }
 
 class _AttachmentCard extends StatelessWidget {
-  const _AttachmentCard(this.item, {this.addressResolver});
+  const _AttachmentCard(this.item, {this.addressResolver, this.onOpen});
+
+  final VoidCallback? onOpen;
 
   final RiskReportAttachmentView item;
   final RiskLocationAddressResolver? addressResolver;
@@ -73,26 +101,29 @@ class _AttachmentCard extends StatelessWidget {
         borderRadius: AppRadius.md,
         border: Border.all(color: AppColors.border),
       ),
-      child: AspectRatio(
-        aspectRatio: 4 / 3,
-        child: item.signedUrl == null
-            ? const Center(
-                child: Icon(
-                  Icons.broken_image_outlined,
-                  color: AppColors.textMuted,
-                ),
-              )
-            : Image.network(
-                item.signedUrl!,
-                fit: BoxFit.cover,
-                semanticLabel: 'Ảnh bằng chứng báo cáo sự cố',
-                errorBuilder: (_, _, _) => const Center(
+      child: InkWell(
+        onTap: onOpen,
+        child: AspectRatio(
+          aspectRatio: 4 / 3,
+          child: item.signedUrl == null
+              ? const Center(
                   child: Icon(
                     Icons.broken_image_outlined,
                     color: AppColors.textMuted,
                   ),
+                )
+              : Image.network(
+                  item.signedUrl!,
+                  fit: BoxFit.cover,
+                  semanticLabel: 'Ảnh bằng chứng báo cáo sự cố',
+                  errorBuilder: (_, _, _) => const Center(
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
                 ),
-              ),
+        ),
       ),
     );
   }

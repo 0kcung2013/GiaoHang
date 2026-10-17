@@ -1,5 +1,9 @@
 # Demo ETA, vận tốc và màu tuyến
 
+> Tài liệu này giữ lịch sử bản SmartTraffic ngày 11/10/2026. Bản hiện tại đã
+> chuyển sang UTraffic, khung giờ 18h/12h và tuyến Linh Đông. Hướng dẫn đang dùng
+> nằm tại [SHORT_DEMO.md](../experiments/utraffic_speed/SHORT_DEMO.md).
+
 Đã áp dụng SQL và triển khai theo chấp thuận của người dùng ngày 2026-10-11.
 Không thêm bảng. `orders.traffic_demo_key` giữ lựa chọn của khách;
 `orders.delivery_eta` hiện có giữ hai tuyến OSRM và profile vận tốc đã tính.
@@ -16,11 +20,8 @@ Hai lựa chọn dùng cùng điểm lấy `(10.784900, 106.668400)` và điểm
 thời điểm nhận đơn, ETA giao thực tế, hạn giao và giám sát vẫn dùng giờ server.
 Lựa chọn được lưu cùng đơn, không phụ thuộc trạng thái màn hình tạo đơn của khách.
 
-Lệnh đối chiếu giờ bằng dữ liệu đã chuẩn bị:
-
-```powershell
-python experiments/smarttraffic_eta/audit_demo_hours.py
-```
+Script đối chiếu giờ SmartTraffic cũ đã được loại bỏ khi dọn experiment không
+còn sử dụng. Lịch sử kết quả được giữ tại đường dẫn artifact bên dưới.
 
 Báo cáo nằm ở `output/smarttraffic_eta/full_model/traffic_demo_hours.json`.
 Trung bình được tính có trọng số theo số bản ghi Motorbike hợp lệ, trên toàn bộ

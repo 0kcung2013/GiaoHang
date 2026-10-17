@@ -1,0 +1,59 @@
+import 'package:giaohang_mobile/core/models/order_model.dart';
+import 'package:giaohang_mobile/features/driver/screens/navigation/widgets/driver_risk_action.dart';
+import 'package:giaohang_mobile/features/risk_reports/widgets/risk_report_entry_action.dart';
+import 'package:giaohang_mobile/features/risk_reports/utils/risk_report_strings.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:giaohang_design/giaohang_design.dart';
+
+void main() {
+  testWidgets('hides driver risk reporting after delivery succeeded', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: DriverRiskAction(order: _order('delivered'))),
+      ),
+    );
+
+    expect(find.text(RiskReportStrings.driverIncidentTitle), findsNothing);
+  });
+
+  testWidgets('keeps driver risk reporting while delivery is active', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: DriverRiskAction(order: _order('delivering'))),
+      ),
+    );
+
+    expect(find.text(RiskReportStrings.driverIncidentTitle), findsOneWidget);
+  });
+
+  testWidgets('dark map action uses an opaque high-contrast surface', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: RiskReportEntryAction(dark: true, onPressed: () {}),
+        ),
+      ),
+    );
+
+    final surface = tester.widget<Container>(
+      find.byKey(const ValueKey('risk-report-entry-surface')),
+    );
+    final decoration = surface.decoration! as BoxDecoration;
+    expect(decoration.color, AppColors.bgDarkCard);
+    expect(decoration.boxShadow, AppShadow.elevated);
+  });
+}
+
+OrderModel _order(String status) => OrderModel.fromJson({
+  'id': 'order-1',
+  'customer_id': 'customer-1',
+  'driver_id': 'driver-1',
+  'status': status,
+});

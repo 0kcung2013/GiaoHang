@@ -1,10 +1,14 @@
 # Đề xuất tích hợp SmartTraffic vào ETA demo
 
-Ngày 2026-10-11. Kết quả đã chạy và artifact:
-[`experiments/smarttraffic_eta/BENCHMARK.md`](../experiments/smarttraffic_eta/BENCHMARK.md).
+> Đây là bản phê duyệt lịch sử ngày 11/10/2026. Model đã được thay bằng
+> [UTraffic](utraffic_speed_integration_proposal.md) ngày 12/10/2026; mã và báo
+> cáo experiment SmartTraffic cũ đã được dọn. Giữ tài liệu này để lưu dấu
+> phạm vi đã phê duyệt, không dùng làm hướng dẫn cho model hiện tại.
+
+Ngày 2026-10-11. Kết quả lịch sử và artifact nằm tại `output/smarttraffic_eta/`.
 
 Người dùng đã chấp thuận: **Cho phép tích hợp và triển khai**. Đã triển khai
-ngày 2026-10-11; [biên bản kiểm chứng](../experiments/smarttraffic_eta/RUNTIME.md).
+ngày 2026-10-11. Báo cáo triển khai model hiện tại: [UTraffic RUNTIME.md](../experiments/utraffic_speed/RUNTIME.md).
 
 ## Phạm vi đã được duyệt riêng
 

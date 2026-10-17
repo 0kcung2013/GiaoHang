@@ -1,0 +1,254 @@
+import 'dart:io';
+
+import 'package:giaohang_mobile/core/location/driver_location_producer_policy.dart';
+import 'package:giaohang_mobile/core/providers/driver_nav_session_provider.dart';
+import 'package:giaohang_mobile/features/driver/screens/navigation/models/driver_arrival_policy.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  group('driver arrival regression', () {
+    test('a point outside 100 meters must not round into the geofence', () {
+      const target = LatLng(10, 106);
+      final outside = const Distance(
+        roundResult: false,
+      ).offset(target, 100.2, 0);
+      expect(
+        DriverArrivalPolicy.resolveArrival(
+          status: 'assigned',
+          current: outside,
+          target: target,
+          source: DriverPositionSource.simulation,
+        ),
+        isNull,
+      );
+    });
+    test('assigned orders unlock pickup arrival only within 100 meters', () {
+      const target = LatLng(10.0, 106.0);
+      const near = LatLng(10.0004, 106.0);
+      for (final source in [
+        DriverPositionSource.simulation,
+        DriverPositionSource.deviceGps,
+      ]) {
+        expect(
+          DriverArrivalPolicy.resolveArrival(
+            status: 'assigned',
+            current: near,
+            target: target,
+            source: source,
+          ),
+          near,
+        );
+        expect(
+          DriverArrivalPolicy.resolveArrival(
+            status: 'assigned',
+            current: const LatLng(10.002, 106.0),
+            target: target,
+            source: source,
+          ),
+          isNull,
+        );
+      }
+      expect(
+        DriverArrivalPolicy.resolveArrival(
+          status: 'assigned',
+          current: target,
+          target: target,
+          source: DriverPositionSource.targetFallback,
+        ),
+        isNull,
+      );
+    });
+
+    test('a target fallback can never prove that the driver arrived', () {
+      final arrival = DriverArrivalPolicy.resolveArrival(
+        status: 'picking_up',
+        current: const LatLng(10.0, 106.0),
+        target: const LatLng(10.0, 106.0),
+        source: DriverPositionSource.targetFallback,
+      );
+
+      expect(arrival, isNull);
+    });
+
+    test(
+      'simulation keeps its first in-radius position when arrival unlocks',
+      () {
+        final target = const LatLng(10.0, 106.0);
+        final current = const LatLng(10.0001, 106.0001);
+        final arrival = DriverArrivalPolicy.resolveArrival(
+          status: 'picking_up',
+          current: current,
+          target: target,
+          source: DriverPositionSource.simulation,
+        );
+
+        expect(arrival, current);
+      },
+    );
+
+    test('device GPS keeps moving inside the arrival radius', () {
+      const target = LatLng(10.0, 106.0);
+      const firstFix = LatLng(10.0008, 106.0);
+      const nextFix = LatLng(10.0004, 106.0);
+
+      expect(
+        DriverArrivalPolicy.resolveArrival(
+          status: 'delivering',
+          current: firstFix,
+          target: target,
+          source: DriverPositionSource.deviceGps,
+        ),
+        firstFix,
+      );
+      expect(
+        DriverArrivalPolicy.resolveArrival(
+          status: 'delivering',
+          current: nextFix,
+          target: target,
+          source: DriverPositionSource.deviceGps,
+        ),
+        nextFix,
+      );
+    });
+
+    test('simulation and restored sessions use map coordinates as-is', () {
+      expect(
+        DriverPositionSource.simulation.ingestCoordinateSpace,
+        LocationIngestCoordinateSpace.mapCoordinates,
+      );
+      expect(
+        DriverPositionSource.restoredSession.ingestCoordinateSpace,
+        LocationIngestCoordinateSpace.mapCoordinates,
+      );
+      expect(
+        DriverPositionSource.deviceGps.ingestCoordinateSpace,
+        LocationIngestCoordinateSpace.rawGps,
+      );
+    });
+
+    test('active navigation sessions survive an app rerun', () {
+      final now = DateTime.utc(2026, 7, 30, 10);
+      final session = DriverNavSession(
+        orderId: 'order-1',
+        status: 'picking_up',
+        lat: 10,
+        lng: 106,
+        arrivedAtTarget: true,
+        pickupConfirmed: true,
+        updatedAt: now.subtract(const Duration(minutes: 5)),
+      );
+
+      final restored = DriverNavSession.fromJson(session.toJson());
+
+      expect(
+        restored.canRestoreFor(
+          activeOrderId: 'order-1',
+          activeStatus: 'picking_up',
+        ),
+        isTrue,
+      );
+      expect(restored.arrivedAtTarget, isTrue);
+      expect(restored.pickupConfirmed, isTrue);
+      expect(restored.updatedAt, now.subtract(const Duration(minutes: 5)));
+    });
+
+    test('switching GPS mode discards a position from the previous mode', () {
+      final session = DriverNavSession(
+        orderId: 'order-1',
+        status: 'picking_up',
+        lat: 10.8,
+        lng: 106.7,
+        locationMode: DriverLocationMode.deviceGps,
+      );
+      final restored = DriverNavSession.fromJson(session.toJson());
+
+      expect(
+        restored.canRestoreFor(
+          activeOrderId: 'order-1',
+          activeStatus: 'picking_up',
+          activeLocationMode: DriverLocationMode.demoCurrentPosition,
+        ),
+        isFalse,
+      );
+      expect(
+        restored.canRestoreFor(
+          activeOrderId: 'order-1',
+          activeStatus: 'picking_up',
+          activeLocationMode: DriverLocationMode.deviceGps,
+        ),
+        isTrue,
+      );
+    });
+
+    test('an arrived session is hydrated from persistent storage', () async {
+      SharedPreferences.setMockInitialValues({});
+      final firstRun = DriverNavSessionsNotifier();
+      final arrived = DriverNavSession(
+        orderId: 'order-1',
+        status: 'delivering',
+        lat: 10.75,
+        lng: 106.67,
+        arrivedAtTarget: true,
+        simRouteIndex: 42,
+        updatedAt: DateTime.utc(2026, 9, 17, 10),
+      );
+      await firstRun.upsert(arrived);
+      firstRun.dispose();
+
+      final nextRun = DriverNavSessionsNotifier();
+      await nextRun.hydrate();
+      final restored = nextRun.state['order-1'];
+
+      expect(restored, isNotNull);
+      expect(restored!.arrivedAtTarget, isTrue);
+      expect(restored.simRouteIndex, 42);
+      expect(restored.lat, 10.75);
+      expect(restored.lng, 106.67);
+      nextRun.dispose();
+    });
+
+    test('navigation no longer opens the automatic arrival sheet', () {
+      final source = File(
+        'lib/features/driver/screens/navigation/driver_navigation_screen.dart',
+      ).readAsStringSync();
+
+      expect(source, isNot(contains('showArrivalBottomSheet')));
+      expect(source, isNot(contains('_driverPos ??= LatLng(order.pickupLat')));
+    });
+
+    test('hydrates the saved session before starting GPS or simulation', () {
+      final source = File(
+        'lib/features/driver/screens/navigation/driver_navigation_screen.dart',
+      ).readAsStringSync();
+      final hydrateIndex = source.indexOf('await _navSessionsNotifier.ready;');
+      final movementIndex = source.indexOf('await _startMovement();');
+
+      expect(hydrateIndex, greaterThanOrEqualTo(0));
+      expect(movementIndex, greaterThan(hydrateIndex));
+    });
+
+    test('republishes the restored position before movement starts', () {
+      final source = File(
+        'lib/features/driver/screens/navigation/driver_navigation_screen.dart',
+      ).readAsStringSync();
+      final restoredSyncIndex = source.indexOf(
+        'source: DriverPositionSource.restoredSession',
+      );
+      final movementIndex = source.indexOf('await _startMovement();');
+
+      expect(restoredSyncIndex, greaterThanOrEqualTo(0));
+      expect(restoredSyncIndex, lessThan(movementIndex));
+      expect(source, contains('forceSync: true'));
+    });
+
+    test('restores the confirmed pickup step before delivery starts', () {
+      final source = File(
+        'lib/features/driver/screens/navigation/driver_navigation_screen.dart',
+      ).readAsStringSync();
+
+      expect(source, contains('_pickupConfirmed = saved.pickupConfirmed;'));
+    });
+  });
+}

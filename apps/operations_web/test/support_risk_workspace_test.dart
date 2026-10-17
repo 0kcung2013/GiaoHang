@@ -6,6 +6,26 @@ import 'package:operations_web/features/risk_reports/widgets/risk_case_conversat
 import 'package:operations_web/features/risk_reports/widgets/risk_report_detail_body.dart';
 
 void main() {
+  for (final size in [const Size(882, 849), const Size(1280, 850)]) {
+    testWidgets('support sees journey action beside report evidence at $size', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(size);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: _body(
+              orderStatus: 'delivering',
+              category: RiskCategory.contactIssue,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Xem hành trình GPS').hitTestable(), findsOneWidget);
+    });
+  }
   testWidgets(
     'demo call survives tabs and responsive layout without deciding the order',
     (tester) async {

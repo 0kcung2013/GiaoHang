@@ -57,6 +57,15 @@ class R2MediaClient {
 
   bool get isConfigured => _gatewayBaseUrl.isNotEmpty;
 
+  /// Đọc một trang GPS đã lưu; Worker kiểm tra quyền CSKH/Admin và quyền đơn.
+  Future<Map<String, dynamic>> readGpsHistory(
+    String orderId, {
+    String? cursor,
+  }) => _postJson('/v1/gps/history', {
+    'orderId': orderId,
+    if (cursor != null) 'cursor': cursor,
+  });
+
   Future<String> uploadBytes({
     required R2MediaPurpose purpose,
     required Uint8List bytes,

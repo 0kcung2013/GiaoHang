@@ -1,12 +1,14 @@
 name: giaohang_workspace
-description: Workspace cho Delivery App và Operations Web.
+description: Workspace cho Customer App, Driver App và Operations Web.
 publish_to: none
 
 environment:
   sdk: ^3.9.0
 
 workspace:
-  - apps/delivery_app
+  - apps/customer_app
+  - apps/driver_app
+  - packages/giaohang_mobile
   - apps/operations_web
   - packages/giaohang_config
   - packages/giaohang_design

@@ -3,6 +3,8 @@ import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart' show ReturnApprovalDraft;
 
 import '../data/risk_report_repository.dart';
+import '../dialogs/risk_journey_dialog.dart';
+import '../constants/risk_journey_strings.dart';
 import '../constants/risk_report_strings.dart';
 import '../models/risk_message_evidence.dart';
 import '../models/risk_report.dart';
@@ -397,6 +399,22 @@ class _EvidenceOverview extends StatelessWidget {
             RiskReportStrings.submittedContent,
             style: AppTextStyles.labelMedium,
           ),
+          if (!report.isSystemIncident && report.orderId.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            OutlinedButton.icon(
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (_) => RiskJourneyDialog(report: report),
+              ),
+              icon: const Icon(Icons.route_rounded),
+              label: const Text(RiskJourneyStrings.open),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.info,
+                minimumSize: const Size(48, 48),
+                shape: const RoundedRectangleBorder(borderRadius: AppRadius.md),
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.sm),
           Text(
             report.description,

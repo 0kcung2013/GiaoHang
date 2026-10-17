@@ -1,5 +1,6 @@
 -- All fixture data, audit rows and wallet writes are rolled back.
 BEGIN;
+SELECT set_config('giaohang.road_dispatch_requested','yes',true);
 DO $test$
 DECLARE
   customer uuid := gen_random_uuid();
@@ -67,6 +68,14 @@ BEGIN
     OR deadline > clock_timestamp()+interval '30 minutes 1 second' THEN
     RAISE EXCEPTION 'Cooldown must last exactly thirty minutes';
   END IF;
+  -- Dispatch is asynchronous now; commit a trusted road quote for the fixture.
+  IF (SELECT offered_driver_id FROM public.orders WHERE id=order_a) IS NOT NULL THEN
+    RAISE EXCEPTION 'Cancellation must enqueue road dispatch, not offer by direct distance';
+  END IF;
+  PERFORM public.commit_road_driver_offer(order_a, jsonb_build_array(jsonb_build_object(
+    'user_id',driver_b,'origin_lat',80,'origin_lng',160,
+    'pickup_lat',80,'pickup_lng',160,'distance_meters',100,
+    'duration_seconds',20,'quoted_at',clock_timestamp())));
   SELECT * INTO current_order FROM public.orders WHERE id=order_a;
   IF current_order.status <> 'pending' OR current_order.driver_id IS NOT NULL
     OR current_order.pickup_arrived_at IS NOT NULL OR current_order.payment_status <> 'paid'
