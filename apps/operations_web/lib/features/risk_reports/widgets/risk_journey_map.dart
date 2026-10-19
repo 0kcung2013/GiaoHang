@@ -7,13 +7,22 @@ import '../models/risk_journey.dart';
 import '../constants/risk_journey_strings.dart';
 
 class RiskJourneyMap extends StatefulWidget {
-  const RiskJourneyMap({
-    required this.report,
+  RiskJourneyMap({
+    required RiskReport report,
+    required this.journey,
+    this.tileProvider,
+    super.key,
+  }) : order = report.order,
+       eventTime = report.createdAt;
+  const RiskJourneyMap.forOrder({
+    required this.order,
+    required this.eventTime,
     required this.journey,
     this.tileProvider,
     super.key,
   });
-  final RiskReport report;
+  final RiskOrderSummary order;
+  final DateTime eventTime;
   final RiskJourney journey;
   final TileProvider? tileProvider;
   @override
@@ -22,7 +31,7 @@ class RiskJourneyMap extends StatefulWidget {
 
 class _RiskJourneyMapState extends State<RiskJourneyMap> {
   final controller = MapController();
-  late int selected = widget.journey.closestIndex(widget.report.createdAt);
+  late int selected = widget.journey.closestIndex(widget.eventTime);
   @override
   void dispose() {
     controller.dispose();
@@ -31,7 +40,7 @@ class _RiskJourneyMapState extends State<RiskJourneyMap> {
 
   @override
   Widget build(BuildContext context) {
-    final order = widget.report.order;
+    final order = widget.order;
     final points = widget.journey.points;
     final pickup = order.pickupLat == null || order.pickupLng == null
         ? null

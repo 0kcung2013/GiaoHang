@@ -7,6 +7,7 @@ import '../../../../../core/providers/customer_providers.dart';
 import '../../../../notifications/models/notification_inbox_item.dart';
 import '../../../../notifications/widgets/notification_bell_button.dart';
 import '../dashboard_strings.dart';
+import '../../../../help_center/widgets/help_center_button.dart';
 
 class DashboardHeader extends ConsumerWidget {
   const DashboardHeader({super.key, required this.user});
@@ -25,6 +26,8 @@ class DashboardHeader extends ConsumerWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
+        const HelpCenterButton(),
+        const SizedBox(width: AppSpacing.sm),
         Container(
           width: 48,
           height: 48,

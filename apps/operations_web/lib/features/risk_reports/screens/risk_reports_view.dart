@@ -73,11 +73,6 @@ class _RiskReportsViewState extends State<RiskReportsView> {
           (report.assignedToName ?? '').toLowerCase().contains(normalizedQuery);
     }).toList();
     filtered.sort((left, right) {
-      final leftOverdue = left.responseOverdue || left.triageOverdue;
-      final rightOverdue = right.responseOverdue || right.triageOverdue;
-      if (leftOverdue != rightOverdue) {
-        return leftOverdue ? -1 : 1;
-      }
       return right.updatedAt.compareTo(left.updatedAt);
     });
     return filtered;
@@ -88,8 +83,6 @@ class _RiskReportsViewState extends State<RiskReportsView> {
         RiskQueueScope.active => !report.status.isClosed,
         RiskQueueScope.newReports =>
           report.status == RiskStatus.open && report.assignedTo == null,
-        RiskQueueScope.overdue =>
-          report.responseOverdue || report.triageOverdue,
         RiskQueueScope.mine =>
           !report.status.isClosed && report.assignedTo == _currentUserId,
         RiskQueueScope.waitingAdmin =>

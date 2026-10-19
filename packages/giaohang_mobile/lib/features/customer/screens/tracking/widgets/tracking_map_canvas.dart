@@ -33,14 +33,15 @@ class TrackingMapCanvas extends StatelessWidget {
     required this.trafficSegments,
     required this.pickupPoint,
     required this.deliveryPoint,
-    required this.driverPosition,
+    required LatLng? driverPosition,
+    this.driverPositionListenable,
     required this.driverBearing,
     required this.completed,
     required this.isFullscreen,
     required this.phaseLegend,
     required this.onOpenFullscreen,
     required this.onCloseFullscreen,
-  });
+  }) : _driverPosition = driverPosition;
 
   final MapController mapController;
   final LatLng initialCenter;
@@ -48,7 +49,10 @@ class TrackingMapCanvas extends StatelessWidget {
   final List<DeliveryTrafficSegment> trafficSegments;
   final LatLng pickupPoint;
   final LatLng deliveryPoint;
-  final LatLng? driverPosition;
+  final LatLng? _driverPosition;
+  final ValueListenable<LatLng?>? driverPositionListenable;
+  LatLng? get driverPosition =>
+      driverPositionListenable?.value ?? _driverPosition;
   final double? driverBearing;
   final bool completed;
   final bool isFullscreen;
@@ -85,17 +89,13 @@ class TrackingMapCanvas extends StatelessWidget {
                 segments: trafficSegments,
                 strokeWidth: 5,
               ),
-            MarkerLayer(
-              markers: [
-                DeliveryMapMarkers.pickup(pickupPoint),
-                DeliveryMapMarkers.dropoff(deliveryPoint),
-                if (driverPosition != null)
-                  DeliveryMapMarkers.driver(
-                    driverPosition!,
-                    bearingDegrees: driverBearing,
-                  ),
-              ],
-            ),
+            if (driverPositionListenable == null)
+              _markers()
+            else
+              ValueListenableBuilder<LatLng?>(
+                valueListenable: driverPositionListenable!,
+                builder: (_, _, _) => _markers(),
+              ),
           ],
         ),
         if (trafficSegments.isNotEmpty)
@@ -144,6 +144,25 @@ class TrackingMapCanvas extends StatelessWidget {
               onTap: onCloseFullscreen,
             ),
           ),
+      ],
+    );
+  }
+
+  Widget _markers() {
+    final position = driverPosition;
+    final route = fullRoute;
+    final bearing = position == null || route == null
+        ? driverBearing
+        : TrackingLocationMotion.projectOntoRoute(
+            position,
+            route,
+          )?.bearingDegrees;
+    return MarkerLayer(
+      markers: [
+        DeliveryMapMarkers.pickup(pickupPoint),
+        DeliveryMapMarkers.dropoff(deliveryPoint),
+        if (position != null)
+          DeliveryMapMarkers.driver(position, bearingDegrees: bearing),
       ],
     );
   }

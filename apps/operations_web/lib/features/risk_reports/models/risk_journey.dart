@@ -17,6 +17,10 @@ class RiskJourneyPoint {
 }
 
 class RiskJourney {
+  // A plausible average speed does not establish the route between sparse
+  // samples. Leave long unobserved connections blank instead of drawing a
+  // shortcut across streets. This is display quality, not a driver violation.
+  static const _maxConnectedDistanceMeters = 200.0;
   RiskJourney(Iterable<RiskJourneyPoint> source, {this.unavailableChunks = 0}) {
     final unique = <String, RiskJourneyPoint>{};
     for (final point in source) {
@@ -39,7 +43,7 @@ class RiskJourney {
     return closest;
   }
 
-  /// Không nối qua khoảng thiếu mẫu >60 giây, đổi tài xế hoặc bước nhảy GPS.
+  /// Không nối qua mẫu cách nhau >200m, thiếu GPS >60s, đổi tài xế hoặc nhảy GPS.
   late final List<List<LatLng>> segments = _buildSegments();
 
   List<List<LatLng>> _buildSegments() {
@@ -49,18 +53,20 @@ class RiskJourney {
       final seconds = previous == null
           ? 0
           : point.time.difference(previous.time).inMilliseconds / 1000;
+      final distance = previous == null
+          ? 0.0
+          : const Distance().as(
+              LengthUnit.Meter,
+              previous.position,
+              point.position,
+            );
       final split =
           previous == null ||
           point.driverId != previous.driverId ||
           seconds > 60 ||
           seconds <= 0 ||
-          const Distance().as(
-                    LengthUnit.Meter,
-                    previous.position,
-                    point.position,
-                  ) /
-                  seconds >
-              150 / 3.6;
+          distance > _maxConnectedDistanceMeters ||
+          distance / seconds > 150 / 3.6;
       if (split) result.add([]);
       result.last.add(point.position);
       previous = point;

@@ -9,11 +9,13 @@ class DriverMonitoringPanel extends ConsumerWidget {
     required this.orderId,
     required this.holdingGoods,
     required this.onRecover,
+    this.pickupArrivedAt,
     super.key,
   });
   final String orderId;
   final bool holdingGoods;
   final Future<void> Function() onRecover;
+  final DateTime? pickupArrivedAt;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -23,6 +25,7 @@ class DriverMonitoringPanel extends ConsumerWidget {
       state: snapshot?.state,
       serverNow: snapshot?.serverNow,
       holdingGoods: holdingGoods,
+      pickupArrivedAt: pickupArrivedAt,
       error: value.hasError,
       onRecover: onRecover,
     );
@@ -36,6 +39,7 @@ class DriverMonitoringStatusCard extends StatefulWidget {
     required this.serverNow,
     required this.holdingGoods,
     required this.onRecover,
+    this.pickupArrivedAt,
     this.error = false,
     super.key,
   });
@@ -44,6 +48,7 @@ class DriverMonitoringStatusCard extends StatefulWidget {
   final bool holdingGoods;
   final bool error;
   final Future<void> Function() onRecover;
+  final DateTime? pickupArrivedAt;
   @override
   State<DriverMonitoringStatusCard> createState() =>
       _DriverMonitoringStatusCardState();
@@ -77,9 +82,14 @@ class _DriverMonitoringStatusCardState
     final elapsed = state != null && now != null
         ? state.elapsedAt(now)
         : Duration.zero;
-    final waiting = !widget.holdingGoods && state?.atPickupAt != null;
+    final arrived = widget.pickupArrivedAt;
+    final confirmedArrival =
+        arrived != null && state != null && !arrived.isBefore(state.acceptedAt);
+    final waiting =
+        !widget.holdingGoods && (state?.atPickupAt != null || confirmedArrival);
     final warning =
         !widget.holdingGoods &&
+        !waiting &&
         state != null &&
         !state.hasStarted &&
         elapsed >= const Duration(minutes: 8);

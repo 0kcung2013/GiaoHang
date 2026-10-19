@@ -4,6 +4,34 @@ import 'package:latlong2/latlong.dart';
 
 void main() {
   group('TrackingLocationMotion', () {
+    test('animation follows incoming cadence and bounds a reconnect gap', () {
+      expect(
+        TrackingLocationMotion.animationDuration(null),
+        const Duration(seconds: 5),
+      );
+      expect(
+        TrackingLocationMotion.animationDuration(
+          const Duration(milliseconds: 250),
+        ),
+        const Duration(milliseconds: 250),
+      );
+      expect(
+        TrackingLocationMotion.animationDuration(const Duration(seconds: 1)),
+        const Duration(seconds: 1),
+      );
+      expect(
+        TrackingLocationMotion.animationDuration(const Duration(seconds: 5)),
+        const Duration(seconds: 5),
+      );
+      expect(
+        TrackingLocationMotion.animationDuration(const Duration(seconds: 10)),
+        const Duration(seconds: 10),
+      );
+      expect(
+        TrackingLocationMotion.animationDuration(const Duration(minutes: 1)),
+        const Duration(seconds: 10),
+      );
+    });
     test('keeps polling dormant while realtime is fresh', () {
       final now = DateTime(2026, 8, 7, 15, 0, 0);
 

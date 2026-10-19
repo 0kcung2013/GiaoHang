@@ -46,11 +46,6 @@ class RiskReportCard extends StatelessWidget {
         icon: RiskReportUi.categoryIcon(report.category),
         onTap: onTap,
         alerts: [
-          if (report.responseOverdue || report.triageOverdue)
-            Text(
-              'Quá hạn xử lý',
-              style: AppTextStyles.labelSmall.copyWith(color: AppColors.error),
-            ),
           if (!report.status.isClosed &&
               (report.status == RiskStatus.waitingAdmin ||
                   report.severity == RiskSeverity.critical))
@@ -308,15 +303,6 @@ class _ReporterSummary extends StatelessWidget {
       RiskReportUi.formatDateTime(report.updatedAt),
       style: AppTextStyles.labelSmall.copyWith(color: AppColors.textMuted),
     );
-    final overdue = report.responseOverdue || report.triageOverdue
-        ? RiskBadge(
-            label: report.responseOverdue
-                ? 'Quá hạn phản hồi'
-                : 'Quá hạn phân loại',
-            color: AppColors.error,
-            icon: Icons.timer_off_outlined,
-          )
-        : null;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -331,20 +317,12 @@ class _ReporterSummary extends StatelessWidget {
                   time,
                 ],
               ),
-              if (overdue != null) ...[
-                const SizedBox(height: AppSpacing.sm),
-                overdue,
-              ],
             ],
           );
         }
         return Row(
           children: [
             Expanded(child: identity),
-            if (overdue != null) ...[
-              const SizedBox(width: AppSpacing.sm),
-              overdue,
-            ],
             const SizedBox(width: AppSpacing.sm),
             time,
           ],

@@ -37,7 +37,7 @@ export async function requireRestRow(path, request, env) {
   return rows[0];
 }
 
-async function restRows(path, request, env) {
+export async function restRows(path, request, env) {
   const authorization = request.headers.get("authorization");
   const response = await fetch(
     `${requiredEnv(env, "SUPABASE_URL")}/rest/v1/${path}`,

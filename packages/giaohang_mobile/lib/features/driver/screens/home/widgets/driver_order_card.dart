@@ -432,6 +432,7 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
                           order.driverId != null) ...[
                         DriverMonitoringPanel(
                           orderId: order.id,
+                          pickupArrivedAt: order.pickupArrivedAt,
                           holdingGoods:
                               order.actualPickedUpAt != null ||
                               order.status == 'delivering',

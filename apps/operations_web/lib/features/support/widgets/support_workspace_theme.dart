@@ -4,7 +4,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 ThemeData supportWorkspaceTheme(BuildContext context) {
   final base = Theme.of(context);
   final scheme = base.colorScheme.copyWith(
-    primary: AppColors.accent,
+    primary: AppColors.primary,
     onPrimary: AppColors.textOnAccent,
     secondary: AppColors.primary,
     surface: AppColors.bgCard,
@@ -13,6 +13,11 @@ ThemeData supportWorkspaceTheme(BuildContext context) {
   );
   return base.copyWith(
     colorScheme: scheme,
+    textTheme: base.textTheme.apply(
+      fontFamily: AppTextStyles.bodyMedium.fontFamily,
+      bodyColor: AppColors.textPrimary,
+      displayColor: AppColors.primary,
+    ),
     scaffoldBackgroundColor: AppColors.bgLight,
     canvasColor: AppColors.bgCard,
     dividerColor: AppColors.border,
@@ -23,7 +28,13 @@ ThemeData supportWorkspaceTheme(BuildContext context) {
       cursorColor: AppColors.accent,
       selectionColor: AppColors.accentLight,
     ),
-    inputDecorationTheme: const InputDecorationTheme(
+    inputDecorationTheme: InputDecorationTheme(
+      labelStyle: AppTextStyles.bodySmall.copyWith(
+        color: AppColors.textSecondary,
+      ),
+      hintStyle: AppTextStyles.bodyMedium.copyWith(
+        color: AppColors.textSecondary,
+      ),
       filled: true,
       fillColor: AppColors.bgCard,
       contentPadding: EdgeInsets.symmetric(
@@ -40,7 +51,7 @@ ThemeData supportWorkspaceTheme(BuildContext context) {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: AppRadius.md,
-        borderSide: BorderSide(color: AppColors.accent, width: 1.5),
+        borderSide: BorderSide(color: AppColors.borderFocus, width: 1.5),
       ),
     ),
     dialogTheme: const DialogThemeData(
@@ -66,16 +77,16 @@ ThemeData supportWorkspaceTheme(BuildContext context) {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.accent,
+        foregroundColor: AppColors.primary,
         minimumSize: const Size(48, 48),
-        side: const BorderSide(color: AppColors.accent),
+        side: const BorderSide(color: AppColors.border),
         shape: const RoundedRectangleBorder(borderRadius: AppRadius.md),
         textStyle: AppTextStyles.labelMedium,
       ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: AppColors.accent,
+        foregroundColor: AppColors.primary,
         minimumSize: const Size(48, 48),
         textStyle: AppTextStyles.labelMedium,
       ),

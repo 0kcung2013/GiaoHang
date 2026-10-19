@@ -11,7 +11,9 @@ import 'features/auth/unauthorized_screen.dart';
 import 'features/risk_reports/screens/support_risk_reports_screen.dart';
 import 'features/support/screens/support_home_screen.dart';
 import 'features/support/screens/support_case_screen.dart';
+import 'features/support/notifications/support_request_alerts_host.dart';
 import 'features/support_orders/screens/support_orders_screen.dart';
+import 'features/support_monitoring/screens/support_monitoring_screen.dart';
 
 class _OperationsAuthNotifier extends ChangeNotifier {
   _OperationsAuthNotifier() {
@@ -74,21 +76,6 @@ GoRouter createOperationsRouter() {
       return null;
     },
     routes: [
-      GoRoute(
-        path: '/support-ticket/:id',
-        builder: (_, state) => SupportCaseScreen(
-          key: ValueKey(state.pathParameters['id']),
-          id: state.pathParameters['id']!,
-        ),
-      ),
-      GoRoute(
-        path: '/support-case/:id',
-        builder: (_, state) => SupportCaseScreen(
-          key: ValueKey(state.pathParameters['id']),
-          id: state.pathParameters['id']!,
-          risk: true,
-        ),
-      ),
       GoRoute(path: '/', builder: (_, _) => const SizedBox.shrink()),
       GoRoute(path: '/login', builder: (_, _) => const OperationsLoginScreen()),
       GoRoute(
@@ -96,17 +83,45 @@ GoRouter createOperationsRouter() {
         builder: (_, _) => const UnauthorizedScreen(),
       ),
       GoRoute(path: '/admin-home', builder: (_, _) => const AdminShellScreen()),
-      GoRoute(
-        path: '/support-home',
-        builder: (_, _) => const SupportHomeScreen(),
-      ),
-      GoRoute(
-        path: '/support-orders',
-        builder: (_, _) => const SupportOrdersScreen(),
-      ),
-      GoRoute(
-        path: '/support-risk',
-        builder: (_, _) => const SupportRiskReportsScreen(),
+      ShellRoute(
+        builder: (_, _, child) => SupportRequestAlertsHost(child: child),
+        routes: [
+          GoRoute(
+            path: '/support-ticket/:id',
+            builder: (_, state) => SupportCaseScreen(
+              key: ValueKey(state.pathParameters['id']),
+              id: state.pathParameters['id']!,
+            ),
+          ),
+          GoRoute(
+            path: '/support-case/:id',
+            builder: (_, state) => SupportCaseScreen(
+              key: ValueKey(state.pathParameters['id']),
+              id: state.pathParameters['id']!,
+              risk: true,
+            ),
+          ),
+          GoRoute(
+            path: '/support-home',
+            builder: (_, _) => const SupportHomeScreen(),
+          ),
+          GoRoute(
+            path: '/support-monitoring',
+            builder: (_, _) => const SupportMonitoringScreen(),
+          ),
+          GoRoute(
+            path: '/support-monitoring/cases',
+            builder: (_, _) => const SupportHomeScreen(monitoring: true),
+          ),
+          GoRoute(
+            path: '/support-orders',
+            builder: (_, _) => const SupportOrdersScreen(),
+          ),
+          GoRoute(
+            path: '/support-risk',
+            builder: (_, _) => const SupportRiskReportsScreen(),
+          ),
+        ],
       ),
     ],
   );

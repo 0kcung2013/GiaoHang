@@ -54,7 +54,7 @@ trang marketing có nhiều đoạn mô tả.
 
 ### Customer Home
 
-- Header không có lời chào: chỉ giữ thông báo và avatar/tài khoản.
+- Header không có lời chào: giữ Hỗ trợ, thông báo và avatar/tài khoản.
 - Hero gồm hình giao hàng, một tiêu đề ngắn và một điểm vào luồng tạo đơn.
 - Ưu tiên thẻ “điểm lấy → điểm giao” hơn đoạn mô tả dịch vụ.
 - Tối đa 3 quick actions bằng icon; không cần heading nếu nhãn đã rõ.

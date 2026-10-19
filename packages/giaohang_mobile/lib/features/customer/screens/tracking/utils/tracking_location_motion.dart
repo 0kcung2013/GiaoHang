@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart';
+import '../../../../../core/location/tracking_location_freshness.dart';
 
 class TrackingRouteProjection {
   const TrackingRouteProjection({
@@ -21,7 +22,13 @@ class TrackingRouteProjection {
 class TrackingLocationMotion {
   const TrackingLocationMotion._();
 
-  static const realtimeFreshFor = Duration(seconds: 6);
+  static const realtimeFreshFor = TrackingLocationFreshness.broadcastFreshFor;
+
+  /// Nội suy theo nhịp gói nhận được: demo 250ms, GPS 1–5s, PG dự phòng 10s.
+  /// Không đoán vị trí vượt quá mẫu GPS cuối cùng khi kết nối bị ngắt.
+  static Duration animationDuration(Duration? sampleInterval) => Duration(
+    milliseconds: (sampleInterval?.inMilliseconds ?? 5000).clamp(150, 10000),
+  );
 
   static bool shouldPollFallback({
     required DateTime? lastRealtimeAt,

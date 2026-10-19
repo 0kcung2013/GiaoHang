@@ -54,7 +54,12 @@ Future<void> prepareUtrafficCaptureFonts() async {
           });
         }
         if (bytes.containsKey(key)) return bytes[key];
-        final file = File(key);
+        const mobilePrefix = 'packages/giaohang_mobile/';
+        final file = File(
+          key.startsWith(mobilePrefix)
+              ? key.substring(mobilePrefix.length)
+              : key,
+        );
         return file.existsSync()
             ? ByteData.sublistView(await file.readAsBytes())
             : null;

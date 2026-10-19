@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../support_orders/utils/support_order_ui.dart';
 import '../models/support_completion_context.dart';
 import '../constants/support_ticket_strings.dart';
+import '../constants/support_monitoring_strings.dart';
 
 class SupportNextSteps extends StatelessWidget {
   const SupportNextSteps({
@@ -86,7 +87,10 @@ class SupportNextSteps extends StatelessWidget {
                 style: AppTextStyles.labelMedium,
               ),
               children: [
-                for (final step in issue.verification)
+                for (final step
+                    in ticket.isMonitoring
+                        ? SupportMonitoringStrings.verification
+                        : issue.verification)
                   Padding(
                     padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                     child: Align(
@@ -97,7 +101,9 @@ class SupportNextSteps extends StatelessWidget {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    issue.completionHint,
+                    ticket.isMonitoring
+                        ? SupportMonitoringStrings.completionHint
+                        : issue.completionHint,
                     style: AppTextStyles.bodySmall,
                   ),
                 ),

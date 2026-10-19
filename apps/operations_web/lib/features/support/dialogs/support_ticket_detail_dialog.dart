@@ -15,6 +15,9 @@ import '../utils/support_ticket_ui.dart';
 import '../widgets/support_live_conversation.dart';
 import '../widgets/support_ticket_chat_sidebar.dart';
 import '../widgets/support_ticket_detail_content.dart';
+import '../widgets/support_monitoring_overview.dart';
+import '../widgets/support_monitoring_journey_button.dart';
+import '../constants/support_monitoring_strings.dart';
 import 'support_ticket_operation_dialogs.dart';
 
 class SupportTicketDetailDialog extends StatefulWidget {
@@ -51,6 +54,7 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
   int _revision = 0;
   int _messageRevision = 0;
   bool _showContext = false;
+  bool _manualMonitoringHandling = false;
   final _conversationKey = GlobalKey();
   final _contextScrollController = ScrollController();
   SupportCompletionContext? _completion;
@@ -65,6 +69,11 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
           : null);
 
   bool get _assignedToMe => _ticket.assignedTo == widget.currentUserId;
+
+  bool get _automaticMonitoring =>
+      _ticket.isAutomaticMonitoringNotice &&
+      !_manualMonitoringHandling &&
+      !(_messages?.any((message) => !message.isSystem) ?? false);
 
   @override
   void initState() {
@@ -318,6 +327,7 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
   @override
   Widget build(BuildContext context) {
     final ticket = _ticket;
+    final automatic = _automaticMonitoring;
     final screen = MediaQuery.sizeOf(context);
     final content = ConstrainedBox(
       constraints: BoxConstraints(
@@ -341,26 +351,38 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
               const LinearProgressIndicator(color: AppColors.accent),
             if (_error != null) _ErrorBanner(message: _error!),
             if (_messageError != null) _ErrorBanner(message: _messageError!),
+            if (ticket.isMonitoring && !automatic)
+              SupportMonitoringOverview(
+                ticket: ticket,
+                automatic: false,
+                messages: _messages,
+              ),
           ],
           showContext: _showContext,
           onContextChanged: (value) => setState(() => _showContext = value),
-          chat: SupportLiveConversation(
-            key: _conversationKey,
-            replyTemplate: SupportIssue.fromSubject(
-              ticket.subject,
-            ).replyTemplate(forDriver: ticket.isDriverRequester),
-            messages: _messages,
-            currentUserId: widget.currentUserId,
-            canReply: _assignedToMe && !ticket.status.isClosed,
-            recipientLabel:
-                '${SupportTicketUi.requesterRoleLabel(ticket.requesterRole)} — ${ticket.requesterName ?? SupportTicketUi.shortId(ticket.requesterId)}',
-            lockedMessage: ticket.status.isClosed
-                ? 'Hồ sơ đã kết thúc. Mở lại để tiếp tục trao đổi.'
-                : 'Nhận xử lý hồ sơ để bắt đầu phản hồi',
-            onSend: _sendMessage,
-          ),
+          chat: automatic
+              ? SupportAutomaticMonitoringLog(
+                  ticket: ticket,
+                  messages: _messages,
+                )
+              : SupportLiveConversation(
+                  key: _conversationKey,
+                  replyTemplate: SupportIssue.fromSubject(
+                    ticket.subject,
+                  ).replyTemplate(forDriver: ticket.isDriverRequester),
+                  messages: _messages,
+                  currentUserId: widget.currentUserId,
+                  canReply: _assignedToMe && !ticket.status.isClosed,
+                  recipientLabel:
+                      '${SupportTicketUi.requesterRoleLabel(ticket.requesterRole)} — ${ticket.requesterName ?? SupportTicketUi.shortId(ticket.requesterId)}',
+                  lockedMessage: ticket.status.isClosed
+                      ? 'Hồ sơ đã kết thúc. Mở lại để tiếp tục trao đổi.'
+                      : 'Nhận xử lý hồ sơ để bắt đầu phản hồi',
+                  onSend: _sendMessage,
+                ),
           contextPanel: SupportTicketChatSidebar(
             ticket: ticket,
+            automaticMonitoring: automatic,
             scrollController: _contextScrollController,
             completion: _completion,
             completionLoading: _checkingCompletion,
@@ -371,26 +393,81 @@ class _SupportTicketDetailDialogState extends State<SupportTicketDetailDialog> {
             showOrderContext:
                 widget.repository is SupabaseSupportTicketRepository,
           ),
-          actions: SupportTicketActions(
-            ticket: ticket,
-            assignedToMe: _assignedToMe,
-            isAdmin: widget.isAdmin,
-            busy: _busy || _checkingCompletion,
-            completionBlocked:
-                _completionError != null ||
-                (_completion?.blockers.isNotEmpty ?? false),
-            onShowContext: () {
-              FocusScope.of(context).unfocus();
-              setState(() => _showContext = true);
-              if (_contextScrollController.hasClients) {
-                _contextScrollController.jumpTo(0);
-              }
-            },
-            onAccept: _accept,
-            onTakeOver: _takeOver,
-            onTransition: _transition,
-            onConvert: _convertToRisk,
-          ),
+          actions: automatic
+              ? Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.sm,
+                    children: [
+                      TextButton(
+                        key: const Key('start-monitoring-intervention'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.textSecondary,
+                          minimumSize: const Size(48, 52),
+                          textStyle: AppTextStyles.labelMedium,
+                        ),
+                        onPressed: () =>
+                            setState(() => _manualMonitoringHandling = true),
+                        child: const Text(
+                          SupportMonitoringStrings.startHandling,
+                        ),
+                      ),
+                      if (ticket.orderId != null)
+                        SupportMonitoringJourneyButton(ticket: ticket),
+                      if (ticket.orderId != null)
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.accent,
+                            foregroundColor: AppColors.textOnAccent,
+                            minimumSize: const Size(48, 52),
+                            textStyle: AppTextStyles.labelLarge,
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: AppRadius.md,
+                            ),
+                          ),
+                          onPressed: () {
+                            setState(() => _showContext = true);
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (mounted &&
+                                  _contextScrollController.hasClients) {
+                                _contextScrollController.animateTo(
+                                  _contextScrollController
+                                      .position
+                                      .maxScrollExtent,
+                                  duration: AppDuration.normal,
+                                  curve: AppCurve.standard,
+                                );
+                              }
+                            });
+                          },
+                          icon: const Icon(Icons.inventory_2_outlined),
+                          label: const Text(SupportMonitoringStrings.openOrder),
+                        ),
+                    ],
+                  ),
+                )
+              : SupportTicketActions(
+                  ticket: ticket,
+                  assignedToMe: _assignedToMe,
+                  isAdmin: widget.isAdmin,
+                  busy: _busy || _checkingCompletion,
+                  completionBlocked:
+                      _completionError != null ||
+                      (_completion?.blockers.isNotEmpty ?? false),
+                  onShowContext: () {
+                    FocusScope.of(context).unfocus();
+                    setState(() => _showContext = true);
+                    if (_contextScrollController.hasClients) {
+                      _contextScrollController.jumpTo(0);
+                    }
+                  },
+                  onAccept: _accept,
+                  onTakeOver: _takeOver,
+                  onTransition: _transition,
+                  onConvert: _convertToRisk,
+                ),
         ),
       ),
     );

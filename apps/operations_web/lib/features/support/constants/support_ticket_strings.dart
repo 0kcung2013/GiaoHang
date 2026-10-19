@@ -4,7 +4,13 @@ abstract final class SupportTicketStrings {
   static const ordersQueue = 'Tra cứu đơn';
   static const ticketQueue = 'Chat hỗ trợ';
   static const ticketsTitle = 'Chat hỗ trợ';
+  static const monitoring = 'Giám sát';
   static const clearSearch = 'Xóa tìm kiếm';
+  static const refreshQueue = 'Tải lại danh sách';
+  static const refreshingQueue = 'Đang cập nhật danh sách';
+  static const staleQueue =
+      'Chưa cập nhật được. Danh sách bên dưới là dữ liệu đã tải trước đó.';
+  static String resultCount(int count) => '$count hồ sơ phù hợp';
   static const pending = 'Cần xử lý';
   static const mine = 'Tôi phụ trách';
   static const finished = 'Đã xong';

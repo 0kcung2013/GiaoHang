@@ -4,6 +4,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 
 import '../models/support_ticket.dart';
 import '../utils/support_ticket_ui.dart';
+import '../constants/support_monitoring_strings.dart';
 
 class SupportTicketDetailHeader extends StatelessWidget {
   const SupportTicketDetailHeader({
@@ -37,8 +38,10 @@ class SupportTicketDetailHeader extends StatelessWidget {
             color: AppColors.accentLight,
             borderRadius: AppRadius.md,
           ),
-          child: const Icon(
-            Icons.support_agent_rounded,
+          child: Icon(
+            ticket.isAutomaticMonitoringNotice
+                ? Icons.history_rounded
+                : Icons.support_agent_rounded,
             size: 22,
             color: AppColors.accent,
           ),
@@ -49,7 +52,9 @@ class SupportTicketDetailHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                ticket.subject,
+                ticket.isAutomaticMonitoringNotice
+                    ? SupportMonitoringStrings.reclaimed
+                    : ticket.subject,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: AppTextStyles.headingMedium.copyWith(
@@ -77,7 +82,9 @@ class SupportTicketDetailHeader extends StatelessWidget {
             if (Navigator.of(context).canPop()) {
               Navigator.pop(context);
             } else {
-              context.go('/support-home');
+              context.go(
+                ticket.isMonitoring ? '/support-monitoring' : '/support-home',
+              );
             }
           },
           color: AppColors.textSecondary,

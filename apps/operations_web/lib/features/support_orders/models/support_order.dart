@@ -100,12 +100,20 @@ class SupportOrderStatusLog {
   final String? title;
   final String? description;
 
+  String? get displayTitle => title == null ? null : repairUtf8Mojibake(title!);
+  String? get displayDescription =>
+      description == null ? null : repairUtf8Mojibake(description!);
+
   factory SupportOrderStatusLog.fromJson(Map<String, dynamic> json) {
     return SupportOrderStatusLog(
       status: json['status']?.toString() ?? '',
       createdAt: SupportOrder._date(json['created_at']),
-      title: json['title']?.toString(),
-      description: json['description']?.toString(),
+      title: json['title'] == null
+          ? null
+          : repairUtf8Mojibake(json['title'].toString()),
+      description: json['description'] == null
+          ? null
+          : repairUtf8Mojibake(json['description'].toString()),
     );
   }
 }

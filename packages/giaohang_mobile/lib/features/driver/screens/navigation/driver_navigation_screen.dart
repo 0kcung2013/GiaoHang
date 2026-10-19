@@ -1106,6 +1106,7 @@ class _DriverNavigationScreenState
           ? null
           : DriverMonitoringPanel(
               orderId: order.id,
+              pickupArrivedAt: order.pickupArrivedAt,
               holdingGoods:
                   _pickupConfirmed ||
                   order.actualPickedUpAt != null ||
@@ -1164,6 +1165,7 @@ class _DriverNavigationScreenState
     );
     return DriverMonitoringGuard(
       orderId: order.id,
+      pickupArrivedAt: order.pickupArrivedAt,
       enabled: _authenticatedUser != null,
       onReleased: _handleMonitoringRelease,
       child: view,

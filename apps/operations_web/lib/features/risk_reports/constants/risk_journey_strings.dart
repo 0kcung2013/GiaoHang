@@ -11,7 +11,7 @@ abstract final class RiskJourneyStrings {
   static const empty =
       'Chưa có GPS được lưu trong 14 ngày gần nhất.\nDữ liệu đang ghi có thể cần chờ đồng bộ.';
   static const legend =
-      'Đường xanh: GPS đã lưu. Ngắt đoạn khi thiếu mẫu trên 60 giây, đổi tài xế hoặc tọa độ nhảy bất thường.';
+      'Đường xanh nối các mẫu GPS gần nhau. Để trống khi thiếu mẫu, đổi tài xế hoặc vị trí gián đoạn.';
   static const pickup = 'Điểm lấy hàng';
   static const delivery = 'Điểm giao hàng';
   static const selected = 'Vị trí GPS được chọn';

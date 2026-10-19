@@ -15,15 +15,6 @@ class RiskAdminOverview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = reports.where((report) => !report.status.isClosed).toList();
-    final activeCount = metrics?.active ?? active.length;
-    final overdue =
-        metrics?.slaOverdue ??
-        active
-            .where((report) => report.responseOverdue || report.triageOverdue)
-            .length;
-    final slaPercent = activeCount == 0
-        ? 100
-        : (((activeCount - overdue) / activeCount) * 100).round();
     final critical =
         metrics?.criticalActive ??
         active
@@ -86,7 +77,6 @@ class RiskAdminOverview extends StatelessWidget {
                 children: [
                   _OperationalHealthPanel(
                     width: panelWidth,
-                    slaPercent: slaPercent,
                     critical: critical,
                     awaiting: awaiting,
                     closedPercent: closedPercent,
@@ -108,25 +98,18 @@ class RiskAdminOverview extends StatelessWidget {
 class _OperationalHealthPanel extends StatelessWidget {
   const _OperationalHealthPanel({
     required this.width,
-    required this.slaPercent,
     required this.critical,
     required this.awaiting,
     required this.closedPercent,
   });
 
   final double width;
-  final int slaPercent;
   final int critical;
   final int awaiting;
   final int closedPercent;
 
   @override
   Widget build(BuildContext context) {
-    final slaColor = slaPercent >= 90
-        ? AppColors.success
-        : slaPercent >= 75
-        ? AppColors.warning
-        : AppColors.error;
     return Container(
       width: width,
       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -138,25 +121,6 @@ class _OperationalHealthPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  RiskReportStrings.triageSla,
-                  style: AppTextStyles.labelMedium.copyWith(
-                    color: AppColors.textOnDark,
-                  ),
-                ),
-              ),
-              Text(
-                '$slaPercent%',
-                style: AppTextStyles.headingMedium.copyWith(color: slaColor),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          _ProgressBar(value: slaPercent / 100, color: slaColor),
-          const SizedBox(height: AppSpacing.lg),
           _AdminMetricRow(
             icon: Icons.gpp_maybe_outlined,
             label: RiskReportStrings.activeCritical,

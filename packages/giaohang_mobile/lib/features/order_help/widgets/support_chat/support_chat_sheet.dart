@@ -8,6 +8,7 @@ import 'package:giaohang_storage/giaohang_storage.dart';
 import '../../controllers/support_chat_attachment_draft.dart';
 import '../../data/customer_support_ticket_repository.dart';
 import '../../utils/order_help_ui.dart';
+import '../../order_help_strings.dart';
 import 'support_chat_composer.dart';
 import 'support_chat_header.dart';
 import 'support_chat_messages.dart';
@@ -17,7 +18,7 @@ Future<SupportTicket?> showParticipantSupportChatSheet(
   BuildContext context, {
   required String requesterId,
   required String requesterRole,
-  required String orderId,
+  String? orderId,
   required String subject,
   required SupportTicketPriority priority,
   required ParticipantSupportTicketRepository repository,
@@ -47,25 +48,27 @@ class SupportChatSheet extends StatefulWidget {
   const SupportChatSheet({
     required this.requesterId,
     required this.requesterRole,
-    required this.orderId,
+    this.orderId,
     required this.subject,
     required this.priority,
     required this.repository,
     this.orderCode,
     this.initialTicket,
     this.attachmentDraft,
+    this.embedded = false,
     super.key,
   });
 
   final String requesterId;
   final String requesterRole;
-  final String orderId;
+  final String? orderId;
   final String? orderCode;
   final String subject;
   final SupportTicketPriority priority;
   final ParticipantSupportTicketRepository repository;
   final SupportTicket? initialTicket;
   final SupportChatAttachmentDraft? attachmentDraft;
+  final bool embedded;
 
   @override
   State<SupportChatSheet> createState() => _SupportChatSheetState();
@@ -103,7 +106,7 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
     super.initState();
     _attachments =
         widget.attachmentDraft ??
-        SupportChatAttachmentDraft(contextId: widget.orderId);
+        SupportChatAttachmentDraft(contextId: widget.orderId ?? '');
     _ticket = widget.initialTicket;
     _messages = _ticket == null ? const [] : null;
     if (_ticket != null) {
@@ -213,14 +216,14 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
     final ticketId = _ticket?.id;
     if (ticketId == null) return;
     if (repository is! ParticipantSupportDetailRepository &&
-        widget.orderId.isEmpty) {
+        (widget.orderId?.isEmpty ?? true)) {
       return;
     }
     final stream = repository is ParticipantSupportDetailRepository
         ? (repository as ParticipantSupportDetailRepository).watchTicket(
             ticketId,
           )
-        : repository.watchForOrder(widget.orderId);
+        : repository.watchForOrder(widget.orderId!);
     unawaited(_ticketSubscription?.cancel());
     _ticketSubscription = stream.listen(
       (tickets) {
@@ -281,6 +284,7 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
     }
     if (widget.requesterRole != 'driver' &&
         _ticket == null &&
+        widget.orderId != null &&
         body.length < 10) {
       setState(() {
         _error = 'Hãy mô tả vấn đề rõ hơn bằng ít nhất 10 ký tự.';
@@ -436,9 +440,10 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
   }
 
   String get _orderLabel {
+    if (widget.orderId == null) return OrderHelpStrings.generalChat;
     final code = widget.orderCode?.trim();
     if (code != null && code.isNotEmpty) return 'Đơn $code';
-    final id = widget.orderId;
+    final id = widget.orderId!;
     final shortId = id.length <= 8 ? id : id.substring(0, 8);
     return 'Đơn #${shortId.toUpperCase()}';
   }
@@ -457,11 +462,13 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
     return Padding(
       padding: EdgeInsets.only(bottom: keyboard),
       child: FractionallySizedBox(
-        heightFactor: 0.94,
+        heightFactor: widget.embedded ? 1 : 0.94,
         child: Material(
           key: const Key('support-chat-sheet'),
           color: AppColors.bgLight,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: widget.embedded
+              ? BorderRadius.zero
+              : const BorderRadius.vertical(top: Radius.circular(24)),
           clipBehavior: Clip.antiAlias,
           child: LayoutBuilder(
             builder: (context, constraints) => Column(
@@ -486,7 +493,9 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
                     requesterId: widget.requesterId,
                     scrollController: _scrollController,
                     pendingBody: _pendingBody,
-                    guidance: ticket == null && widget.requesterRole != 'driver'
+                    guidance: ticket == null && widget.orderId == null
+                        ? OrderHelpStrings.generalChatHint
+                        : ticket == null && widget.requesterRole != 'driver'
                         ? SupportIssue.fromSubject(
                             widget.subject,
                           ).participantHint
@@ -502,7 +511,7 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
                     child: SupportChatComposer(
                       controller: _composerController,
                       sending: _sending || _selectingImages,
-                      started: ticket != null,
+                      started: ticket != null || widget.orderId == null,
                       closed: !_reopening && (ticket?.status.isClosed ?? false),
                       onReopen:
                           widget.repository
@@ -512,7 +521,7 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
                       error: _error,
                       unrestricted: widget.requesterRole == 'driver',
                       onSend: _send,
-                      onAttach: _pickImages,
+                      onAttach: widget.orderId == null ? null : _pickImages,
                       attachmentPreview: _attachments.images.isEmpty
                           ? null
                           : SupportChatAttachmentPreview(

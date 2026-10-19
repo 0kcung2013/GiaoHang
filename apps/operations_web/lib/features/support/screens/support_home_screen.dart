@@ -7,11 +7,14 @@ import 'package:giaohang_design/giaohang_design.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../constants/support_ticket_strings.dart';
+import '../constants/support_monitoring_strings.dart';
 import '../data/support_ticket_repository.dart';
 import '../dialogs/create_support_ticket_dialog.dart';
 import '../dialogs/support_ticket_detail_dialog.dart';
 import '../models/support_ticket.dart';
 import '../models/support_queue_scope.dart';
+import '../models/support_chat_category.dart';
+import '../widgets/support_chat_categories.dart';
 import '../widgets/support_ticket_card.dart';
 import '../widgets/support_queue_controls.dart';
 import '../widgets/support_ticket_header.dart';
@@ -23,12 +26,14 @@ class SupportHomeScreen extends StatefulWidget {
     this.repository,
     this.currentUserId,
     this.isAdmin,
+    this.monitoring = false,
     super.key,
   });
 
   final SupportTicketRepository? repository;
   final String? currentUserId;
   final bool? isAdmin;
+  final bool monitoring;
 
   @override
   State<SupportHomeScreen> createState() => _SupportHomeScreenState();
@@ -42,13 +47,22 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
   List<SupportTicket> _tickets = const [];
   String _query = '';
   SupportQueueScope _scope = SupportQueueScope.active;
+  SupportChatCategory _category = SupportChatCategory.general;
   bool _loading = true;
+  bool _refreshing = false;
+  bool _hasLoaded = false;
+  int _loadVersion = 0;
   String? _error;
   bool _isAdmin = false;
 
+  Iterable<SupportTicket> get _sectionTickets => _tickets.where(
+    (ticket) =>
+        widget.monitoring ? ticket.isMonitoring : _category.includes(ticket),
+  );
+
   List<SupportTicket> get _filteredTickets {
     final query = _query.trim().toLowerCase();
-    final tickets = _tickets.where((ticket) {
+    final tickets = _sectionTickets.where((ticket) {
       if (!_scope.includes(ticket, _currentUserId)) return false;
       if (query.isEmpty) return true;
       return ticket.subject.toLowerCase().contains(query) ||
@@ -59,14 +73,12 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
           (ticket.orderId?.toLowerCase().contains(query) ?? false);
     }).toList();
     tickets.sort((left, right) {
-      if (_scope == SupportQueueScope.finished) {
+      if (_scope == SupportQueueScope.finished ||
+          _scope == SupportQueueScope.automatic) {
         return right.updatedAt.compareTo(left.updatedAt);
       }
       final priority = right.priority.index.compareTo(left.priority.index);
       if (priority != 0) return priority;
-      if (left.responseOverdue != right.responseOverdue) {
-        return left.responseOverdue ? -1 : 1;
-      }
       return left.updatedAt.compareTo(right.updatedAt);
     });
     return tickets;
@@ -107,7 +119,7 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
     if (repository is! SupportTicketChangesRepository) return;
     final changes = repository as SupportTicketChangesRepository;
     _ticketChangesSubscription = changes.watchTicketChanges().listen(
-      (_) => _loadTickets(showLoading: false),
+      (_) => _loadTickets(),
     );
   }
 
@@ -118,25 +130,33 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
     super.dispose();
   }
 
-  Future<void> _loadTickets({bool showLoading = true}) async {
-    if (showLoading) {
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
-    }
+  Future<void> _loadTickets() async {
+    final version = ++_loadVersion;
+    setState(() {
+      _loading = !_hasLoaded;
+      _refreshing = _hasLoaded;
+      _error = null;
+    });
     try {
       final tickets = await _repository.fetchTickets();
-      if (mounted) {
+      if (mounted && version == _loadVersion) {
         setState(() {
           _tickets = tickets;
+          _hasLoaded = true;
           _error = null;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _error = SupportTicketStrings.loadingError);
+      if (mounted && version == _loadVersion) {
+        setState(() => _error = SupportTicketStrings.loadingError);
+      }
     } finally {
-      if (showLoading && mounted) setState(() => _loading = false);
+      if (mounted && version == _loadVersion) {
+        setState(() {
+          _loading = false;
+          _refreshing = false;
+        });
+      }
     }
   }
 
@@ -145,6 +165,16 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
     if (draft == null || !mounted) return;
     try {
       await _repository.createTicket(draft, _currentUserId);
+      if (mounted && !widget.monitoring) {
+        setState(() {
+          _category = draft.orderId?.trim().isNotEmpty == true
+              ? SupportChatCategory.order
+              : SupportChatCategory.general;
+          _scope = SupportQueueScope.active;
+          _query = '';
+          _searchController.clear();
+        });
+      }
       await _loadTickets();
       if (mounted) _showMessage('Đã ghi nhận yêu cầu hỗ trợ.');
     } catch (_) {
@@ -155,7 +185,7 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
   Future<void> _openTicket(SupportTicket ticket) async {
     if (widget.repository == null) {
       await context.push('/support-ticket/${ticket.id}');
-      if (mounted) await _loadTickets(showLoading: false);
+      if (mounted) await _loadTickets();
       return;
     }
     await showDialog<bool>(
@@ -167,7 +197,7 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
         repository: _repository,
       ),
     );
-    if (mounted) await _loadTickets(showLoading: false);
+    if (mounted) await _loadTickets();
   }
 
   void _showMessage(String message, {bool error = false}) {
@@ -184,7 +214,9 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return SupportWorkspaceScaffold(
-      activeSection: SupportWorkspaceSection.tickets,
+      activeSection: widget.monitoring
+          ? SupportWorkspaceSection.monitoring
+          : SupportWorkspaceSection.tickets,
       body: LayoutBuilder(
         builder: (context, constraints) {
           final horizontalPadding = math.max(
@@ -195,6 +227,7 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
           return RefreshIndicator(
             onRefresh: _loadTickets,
             child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
               key: const Key('support-ticket-scroll-view'),
               slivers: [
                 SliverPadding(
@@ -205,7 +238,38 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
                     0,
                   ),
                   sliver: SliverToBoxAdapter(
-                    child: SupportTicketHeader(onCreate: _createTicket),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SupportTicketHeader(
+                          title: widget.monitoring
+                              ? SupportMonitoringStrings.casesTitle
+                              : SupportTicketStrings.ticketsTitle,
+                          onCreate: widget.monitoring ? null : _createTicket,
+                          onRefresh: _loadTickets,
+                          refreshing: _loading || _refreshing,
+                        ),
+                        if (!widget.monitoring) ...[
+                          const SizedBox(height: AppSpacing.xl),
+                          SupportChatCategories(
+                            value: _category,
+                            onChanged: (value) =>
+                                setState(() => _category = value),
+                          ),
+                        ],
+                        if (widget.monitoring) ...[
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            _scope == SupportQueueScope.automatic
+                                ? SupportMonitoringStrings.logHint
+                                : SupportMonitoringStrings.queueHint,
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
                 SliverPadding(
@@ -225,17 +289,24 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
                       value: _scope,
                       onChanged: (value) => setState(() => _scope = value),
                       choices: [
-                        for (final scope in const [
+                        for (final scope in [
                           SupportQueueScope.active,
                           SupportQueueScope.mine,
+                          if (!widget.monitoring) SupportQueueScope.unassigned,
+                          if (!widget.monitoring) SupportQueueScope.needsReply,
                           SupportQueueScope.finished,
+                          if (widget.monitoring) SupportQueueScope.automatic,
                         ])
                           SupportQueueChoice(
                             value: scope,
-                            label: scope == SupportQueueScope.finished
+                            label:
+                                widget.monitoring &&
+                                    scope == SupportQueueScope.active
+                                ? SupportMonitoringStrings.intervention
+                                : scope == SupportQueueScope.finished
                                 ? SupportTicketStrings.finished
                                 : scope.label,
-                            count: _tickets
+                            count: _sectionTickets
                                 .where(
                                   (ticket) =>
                                       scope.includes(ticket, _currentUserId),
@@ -247,6 +318,48 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
                     ),
                   ),
                 ),
+                if (_hasLoaded)
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      0,
+                      horizontalPadding,
+                      AppSpacing.lg,
+                    ),
+                    sliver: SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (_refreshing)
+                            const LinearProgressIndicator(
+                              color: AppColors.accent,
+                              semanticsLabel:
+                                  SupportTicketStrings.refreshingQueue,
+                            ),
+                          if (_error != null)
+                            Wrap(
+                              spacing: AppSpacing.sm,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(
+                                  SupportTicketStrings.staleQueue,
+                                  style: AppTextStyles.bodyMedium,
+                                ),
+                                TextButton(
+                                  onPressed: _loadTickets,
+                                  child: const Text(SupportTicketStrings.retry),
+                                ),
+                              ],
+                            ),
+                          if (_query.trim().isNotEmpty)
+                            Text(
+                              SupportTicketStrings.resultCount(filtered.length),
+                              style: AppTextStyles.bodySmall,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
                 if (_loading)
                   SliverPadding(
                     padding: EdgeInsets.fromLTRB(
@@ -259,7 +372,7 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
                       child: SupportTicketLoading(),
                     ),
                   )
-                else if (_error != null)
+                else if (_error != null && !_hasLoaded)
                   SliverFillRemaining(
                     hasScrollBody: false,
                     child: SupportTicketEmpty(
@@ -274,9 +387,15 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
                     child: SupportTicketEmpty(
                       title: _query.trim().isNotEmpty
                           ? SupportTicketStrings.noResults
+                          : widget.monitoring &&
+                                _scope == SupportQueueScope.active
+                          ? SupportMonitoringStrings.empty
                           : SupportTicketStrings.queueEmpty,
                       subtitle: _query.trim().isNotEmpty
                           ? SupportTicketStrings.noResultsHint
+                          : widget.monitoring &&
+                                _scope == SupportQueueScope.active
+                          ? SupportMonitoringStrings.emptyHint
                           : SupportTicketStrings.queueEmptyHint,
                     ),
                   )

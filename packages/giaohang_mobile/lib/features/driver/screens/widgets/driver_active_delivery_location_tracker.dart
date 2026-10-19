@@ -37,6 +37,7 @@ class _DriverActiveDeliveryLocationTrackerState
   final _demoMovementTracker = DriverDemoMovementTracker();
   String? _requestedDemoKey;
   String? _monitoredOrderId;
+  DateTime? _pickupArrivedAt;
 
   @override
   void dispose() {
@@ -48,7 +49,10 @@ class _DriverActiveDeliveryLocationTrackerState
   Widget build(BuildContext context) {
     final orders = ref.watch(driverOrdersProvider(widget.userId)).valueOrNull;
     final active = orders?.where(isActiveDriverOrder).firstOrNull;
-    if (active != null) _monitoredOrderId = active.id;
+    if (active != null) {
+      _monitoredOrderId = active.id;
+      _pickupArrivedAt = active.pickupArrivedAt;
+    }
     final driver = ref.watch(driverByUserIdProvider(widget.userId)).valueOrNull;
     final child = Column(
       mainAxisSize: MainAxisSize.min,
@@ -68,6 +72,7 @@ class _DriverActiveDeliveryLocationTrackerState
         ? child
         : DriverMonitoringGuard(
             orderId: monitored,
+            pickupArrivedAt: _pickupArrivedAt,
             enabled:
                 ref.watch(activeDriverNavigationOrderProvider) != monitored,
             onReleased: (ticketId) => handleDriverMonitoringRelease(
@@ -79,7 +84,10 @@ class _DriverActiveDeliveryLocationTrackerState
             ),
             onInactive: () {
               if (mounted && _monitoredOrderId == monitored) {
-                setState(() => _monitoredOrderId = null);
+                setState(() {
+                  _monitoredOrderId = null;
+                  _pickupArrivedAt = null;
+                });
                 ref.invalidate(driverOrdersProvider(widget.userId));
               }
             },

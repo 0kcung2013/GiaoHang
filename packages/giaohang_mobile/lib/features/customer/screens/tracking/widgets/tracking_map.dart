@@ -25,7 +25,10 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
   TrackingRouteRequestGate _routeRequests = TrackingRouteRequestGate();
   bool _routeHasDriverOrigin = false;
   LatLng? _stableDriverPos;
-  LatLng? _displayedDriverPos;
+  final _displayedDriverPosition = ValueNotifier<LatLng?>(null);
+  LatLng? get _displayedDriverPos => _displayedDriverPosition.value;
+  set _displayedDriverPos(LatLng? position) =>
+      _displayedDriverPosition.value = position;
   LatLng? _motionStart;
   LatLng? _motionTarget;
   TrackingRouteProjection? _motionStartProjection;
@@ -51,7 +54,7 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
     super.initState();
     _driverMotionController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1100),
+      duration: TrackingLocationMotion.animationDuration(null),
     )..addListener(_onDriverMotionTick);
     _loadRoute();
     _syncLocationPolling();
@@ -63,6 +66,7 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
     _driverMotionController
       ..removeListener(_onDriverMotionTick)
       ..dispose();
+    _displayedDriverPosition.dispose();
     super.dispose();
   }
 
@@ -85,6 +89,9 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
       _routeHasDriverOrigin = false;
       _visibleTrafficSegments = const [];
       if (!_phase.tracksLiveDriver) {
+        _driverMotionController.stop();
+        _motionStart = null;
+        _motionTarget = null;
         _stableDriverPos = null;
         _displayedDriverPos = null;
       }
@@ -319,6 +326,20 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
   }
 
   void _animateDriverPosition(LatLng target) {
+    final driverId = widget.order.driverId;
+    final interval = driverId == null
+        ? null
+        : ref
+              .read(
+                trackingLocationFreshnessProvider((
+                  driverId: driverId,
+                  orderId: widget.order.id,
+                )),
+              )
+              .sampleInterval;
+    _driverMotionController.duration = TrackingLocationMotion.animationDuration(
+      interval,
+    );
     if (!_routeHasDriverOrigin && _fullRoute != null) {
       // Tuyến tạm L → G không còn đúng khi đã biết vị trí tài xế.
       _driverMotionController.stop();
@@ -367,23 +388,19 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
     final from = _motionStart;
     final to = _motionTarget;
     if (!mounted || from == null || to == null) return;
-    final progress = Curves.easeOutCubic.transform(
-      _driverMotionController.value,
-    );
-    setState(() {
-      final route = _fullRoute;
-      final startProjection = _motionStartProjection;
-      final targetProjection = _motionTargetProjection;
-      _displayedDriverPos =
-          route != null && startProjection != null && targetProjection != null
-          ? TrackingLocationMotion.interpolateAlongRoute(
-              route: route,
-              from: startProjection,
-              to: targetProjection,
-              progress: progress,
-            )
-          : TrackingLocationMotion.interpolate(from, to, progress);
-    });
+    final progress = _driverMotionController.value;
+    final route = _fullRoute;
+    final startProjection = _motionStartProjection;
+    final targetProjection = _motionTargetProjection;
+    _displayedDriverPos =
+        route != null && startProjection != null && targetProjection != null
+        ? TrackingLocationMotion.interpolateAlongRoute(
+            route: route,
+            from: startProjection,
+            to: targetProjection,
+            progress: progress,
+          )
+        : TrackingLocationMotion.interpolate(from, to, progress);
   }
 
   @override
@@ -491,6 +508,9 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
       pickupPoint: pickupPoint,
       deliveryPoint: deliveryPoint,
       driverPosition: driverPos,
+      driverPositionListenable: phase.tracksLiveDriver
+          ? _displayedDriverPosition
+          : null,
       driverBearing: driverBearing,
       completed: phase == TrackingMapPhase.completed,
       isFullscreen: widget.isFullscreen,

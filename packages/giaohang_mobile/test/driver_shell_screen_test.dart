@@ -28,6 +28,7 @@ void main() {
     await tester.pump();
 
     final gpsAction = find.byTooltip('Kiểm tra vị trí');
+    expect(find.byTooltip('Hỗ trợ'), findsOneWidget);
     expect(gpsAction, findsOneWidget);
     expect(
       find.ancestor(of: gpsAction, matching: find.byType(AppBar)),

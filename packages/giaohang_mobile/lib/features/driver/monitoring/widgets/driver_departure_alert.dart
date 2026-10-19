@@ -15,12 +15,14 @@ class DriverDepartureAlert extends ConsumerStatefulWidget {
     required this.orderId,
     required this.enabled,
     required this.child,
+    this.pickupArrivedAt,
     super.key,
   });
 
   final String orderId;
   final bool enabled;
   final Widget child;
+  final DateTime? pickupArrivedAt;
 
   @override
   ConsumerState<DriverDepartureAlert> createState() =>
@@ -45,12 +47,18 @@ class _DriverDepartureAlertState extends ConsumerState<DriverDepartureAlert> {
         : null;
     final snapshot = value?.valueOrNull;
     final state = snapshot?.state;
+    // Arrival is confirmed by its own RPC before the independent GPS monitor
+    // necessarily catches up. Only use confirmation for this assignment.
+    final arrived = widget.pickupArrivedAt;
+    final pickupConfirmed =
+        arrived != null && state != null && !arrived.isBefore(state.acceptedAt);
     final eligible =
         value?.hasError == false &&
         snapshot != null &&
         !snapshot.released &&
         const {'assigned', 'picking_up'}.contains(snapshot.status) &&
         state != null &&
+        !pickupConfirmed &&
         !state.hasStarted &&
         !state.isReclaimed &&
         state.incidentAt == null;

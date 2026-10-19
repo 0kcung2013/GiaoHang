@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,7 +17,6 @@ import '../../../../core/providers/customer_providers.dart';
 import '../../../../core/providers/location_providers.dart';
 import '../../../../core/services/osrm_service.dart';
 import '../../../../core/utils/delivery_traffic_route_analyzer.dart';
-import '../../../../core/utils/text_encoding_utils.dart';
 import '../../../delivery_eta/widgets/order_eta_panel.dart';
 import '../../../delivery_eta/order_eta_strings.dart';
 import '../../../../core/widgets/delivery_map_markers.dart';

@@ -57,6 +57,10 @@ class R2MediaClient {
 
   bool get isConfigured => _gatewayBaseUrl.isNotEmpty;
 
+  /// Danh sách file GPS còn lưu, được lọc theo quyền truy cập đơn của CSKH.
+  Future<Map<String, dynamic>> listGpsArchives({String? cursor}) =>
+      _postJson('/v1/gps/archives', {if (cursor != null) 'cursor': cursor});
+
   /// Đọc một trang GPS đã lưu; Worker kiểm tra quyền CSKH/Admin và quyền đơn.
   Future<Map<String, dynamic>> readGpsHistory(
     String orderId, {

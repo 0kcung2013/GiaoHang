@@ -15,7 +15,8 @@ void main() {
   });
 
   test('stopping broadcasts does not make the departure GPS fresh again', () {
-    final freshness = TrackingLocationFreshness();
+    var receivedAt = arrivedAt;
+    final freshness = TrackingLocationFreshness(clock: () => receivedAt);
     freshness.acceptPersisted(sampledAt: startAt);
     freshness.acceptBroadcast(sampledAt: arrivedAt);
 
@@ -27,12 +28,43 @@ void main() {
     );
     expect(freshness.acceptPersisted(sampledAt: startAt), isFalse);
     expect(freshness.acceptPersisted(sampledAt: null), isFalse);
+    receivedAt = receivedAt.add(const Duration(seconds: 7));
     expect(
       freshness.acceptPersisted(
         sampledAt: arrivedAt.add(const Duration(seconds: 10)),
       ),
       isTrue,
     );
+  });
+
+  test('active broadcast wins over a delayed database write timestamp', () {
+    var now = arrivedAt;
+    final freshness = TrackingLocationFreshness(clock: () => now);
+    freshness.acceptBroadcast(sampledAt: arrivedAt);
+    now = now.add(const Duration(seconds: 1));
+    expect(freshness.acceptPersisted(sampledAt: now), isFalse);
+    expect(freshness.latestSampleAt, arrivedAt);
+    now = now.add(const Duration(seconds: 6));
+    expect(freshness.acceptPersisted(sampledAt: now), isTrue);
+  });
+
+  test('duplicates do not replay movement or change the accepted cadence', () {
+    final freshness = TrackingLocationFreshness();
+    freshness.acceptBroadcast(sampledAt: arrivedAt);
+    freshness.acceptBroadcast(
+      sampledAt: arrivedAt.add(const Duration(milliseconds: 250)),
+    );
+    final revision = freshness.revision;
+    expect(freshness.sampleInterval, const Duration(milliseconds: 250));
+    expect(freshness.acceptBroadcast(sampledAt: arrivedAt), isFalse);
+    expect(
+      freshness.acceptBroadcast(
+        sampledAt: arrivedAt.add(const Duration(milliseconds: 250)),
+      ),
+      isFalse,
+    );
+    expect(freshness.revision, revision);
+    expect(freshness.sampleInterval, const Duration(milliseconds: 250));
   });
 
   test(

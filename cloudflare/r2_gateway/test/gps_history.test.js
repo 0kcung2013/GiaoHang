@@ -66,3 +66,27 @@ test('missing chunk is explicitly reported', async t => {
   assert.equal(result.unavailableChunks, 1);
   assert.deepEqual(result.points, []);
 });
+
+test('reads independent R2 chunks concurrently with a bounded fan-out', async t => {
+  const s = setup(t);
+  const read = s.env.GPS_BUCKET.get;
+  let active = 0;
+  let peak = 0;
+  s.env.GPS_BUCKET.list = async () => ({
+    objects: Array.from({ length: 9 }, (_, index) => ({ key: `orders/order-1/gps/${index}` })),
+    truncated: false,
+  });
+  s.env.GPS_BUCKET.get = async key => {
+    active++;
+    peak = Math.max(peak, active);
+    await new Promise(resolve => setTimeout(resolve, 5));
+    try { return await read(key); } finally { active--; }
+  };
+  const response = await worker.fetch(s.request(), s.env);
+  assert.equal(response.status, 200);
+  const result = await response.json();
+  assert.equal(result.points.length, 18);
+  assert.ok(peak > 1, 'Independent chunk downloads must overlap');
+  assert.ok(peak <= 4, 'R2 concurrency must stay bounded');
+  assert.equal(active, 0);
+});

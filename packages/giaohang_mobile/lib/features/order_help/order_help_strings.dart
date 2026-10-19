@@ -1,4 +1,7 @@
 abstract final class OrderHelpStrings {
+  static const generalChat = 'Hỗ trợ chung';
+  static const generalChatHint =
+      'Bạn cần hỗ trợ điều gì? Hãy gửi tin nhắn cho CSKH.';
   static const entryLabel = 'Trợ giúp về đơn hàng';
   static const entryHint = 'Theo dõi yêu cầu hoặc báo vấn đề mới.';
   static const chooseTitle = 'Bạn cần hỗ trợ gì?';

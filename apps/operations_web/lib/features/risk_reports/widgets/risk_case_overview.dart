@@ -42,12 +42,6 @@ class RiskCaseOverview extends StatelessWidget {
             label: RiskReportStrings.updatedAt,
             value: RiskReportUi.formatDateTime(report.updatedAt),
           ),
-          if (report.responseDueAt != null)
-            _Fact(
-              label: RiskReportStrings.responseDeadline,
-              value: RiskReportUi.formatDateTime(report.responseDueAt!),
-              overdue: report.responseOverdue,
-            ),
         ],
       ),
     );
@@ -55,10 +49,9 @@ class RiskCaseOverview extends StatelessWidget {
 }
 
 class _Fact extends StatelessWidget {
-  const _Fact({required this.label, required this.value, this.overdue = false});
+  const _Fact({required this.label, required this.value});
   final String label;
   final String value;
-  final bool overdue;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -73,15 +66,8 @@ class _Fact extends StatelessWidget {
       const SizedBox(height: AppSpacing.xs),
       Text(
         value,
-        style: AppTextStyles.labelMedium.copyWith(
-          color: overdue ? AppColors.error : AppColors.textPrimary,
-        ),
+        style: AppTextStyles.labelMedium.copyWith(color: AppColors.textPrimary),
       ),
-      if (overdue)
-        Text(
-          'Quá hạn phản hồi',
-          style: AppTextStyles.labelSmall.copyWith(color: AppColors.error),
-        ),
     ],
   );
 }

@@ -5,8 +5,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../constants/support_ticket_strings.dart';
 import 'support_workspace_theme.dart';
+import '../notifications/support_request_bell.dart';
 
-enum SupportWorkspaceSection { risks, orders, tickets }
+enum SupportWorkspaceSection { risks, orders, tickets, monitoring }
 
 class SupportWorkspaceScaffold extends StatelessWidget {
   const SupportWorkspaceScaffold({
@@ -38,6 +39,7 @@ class SupportWorkspaceScaffold extends StatelessWidget {
                     bottom: BorderSide(color: AppColors.border),
                   ),
                   actions: [
+                    const SupportRequestBell(),
                     IconButton(
                       tooltip: SupportTicketStrings.signOut,
                       onPressed: () => _signOut(context),
@@ -70,6 +72,7 @@ class SupportWorkspaceScaffold extends StatelessWidget {
                           for (final section in const [
                             SupportWorkspaceSection.risks,
                             SupportWorkspaceSection.tickets,
+                            SupportWorkspaceSection.monitoring,
                             SupportWorkspaceSection.orders,
                           ])
                             Expanded(
@@ -109,7 +112,12 @@ class _DesktopNavigation extends StatelessWidget {
           children: [
             const Padding(
               padding: EdgeInsets.only(bottom: AppSpacing.xl2),
-              child: _WorkspaceBrand(),
+              child: Row(
+                children: [
+                  Expanded(child: _WorkspaceBrand()),
+                  SupportRequestBell(),
+                ],
+              ),
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -118,6 +126,7 @@ class _DesktopNavigation extends StatelessWidget {
                     for (final section in const [
                       SupportWorkspaceSection.risks,
                       SupportWorkspaceSection.tickets,
+                      SupportWorkspaceSection.monitoring,
                       SupportWorkspaceSection.orders,
                     ]) ...[
                       _WorkspaceDestination(
@@ -183,21 +192,24 @@ class _WorkspaceDestination extends StatelessWidget {
     SupportWorkspaceSection.risks => SupportTicketStrings.riskQueue,
     SupportWorkspaceSection.orders => SupportTicketStrings.ordersQueue,
     SupportWorkspaceSection.tickets => SupportTicketStrings.ticketQueue,
+    SupportWorkspaceSection.monitoring => SupportTicketStrings.monitoring,
   };
   IconData get icon => switch (section) {
     SupportWorkspaceSection.risks => Icons.shield_outlined,
     SupportWorkspaceSection.orders => Icons.inventory_2_outlined,
     SupportWorkspaceSection.tickets => Icons.forum_outlined,
+    SupportWorkspaceSection.monitoring => Icons.radar_rounded,
   };
   String get route => switch (section) {
     SupportWorkspaceSection.risks => '/support-risk',
     SupportWorkspaceSection.orders => '/support-orders',
     SupportWorkspaceSection.tickets => '/support-home',
+    SupportWorkspaceSection.monitoring => '/support-monitoring',
   };
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppColors.accent : AppColors.textSecondary;
+    final color = selected ? AppColors.textOnDark : AppColors.textSecondary;
     final symbol = Icon(icon, size: 22, color: color);
     final text = Text(
       label,
@@ -209,12 +221,12 @@ class _WorkspaceDestination extends StatelessWidget {
       selected: selected,
       label: label,
       child: Material(
-        color: selected ? AppColors.accentLight : Colors.transparent,
+        color: selected ? AppColors.primary : Colors.transparent,
         borderRadius: AppRadius.md,
         child: InkWell(
           onTap: () => context.go(route),
-          hoverColor: AppColors.bgLight,
-          focusColor: AppColors.accentLight,
+          hoverColor: AppColors.info.withValues(alpha: .08),
+          focusColor: AppColors.info.withValues(alpha: .15),
           borderRadius: AppRadius.md,
           child: Container(
             constraints: const BoxConstraints(minHeight: 52),

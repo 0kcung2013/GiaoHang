@@ -5,21 +5,45 @@ import '../constants/support_ticket_strings.dart';
 import 'support_queue_controls.dart';
 
 class SupportTicketHeader extends StatelessWidget {
-  const SupportTicketHeader({required this.onCreate, super.key});
-  final VoidCallback onCreate;
+  const SupportTicketHeader({
+    this.onCreate,
+    this.title = SupportTicketStrings.ticketsTitle,
+    this.onRefresh,
+    this.refreshing = false,
+    super.key,
+  });
+  final VoidCallback? onCreate;
+  final String title;
+  final VoidCallback? onRefresh;
+  final bool refreshing;
 
   @override
   Widget build(BuildContext context) => SupportQueueHeading(
-    title: SupportTicketStrings.ticketsTitle,
-    action: OutlinedButton.icon(
-      key: const Key('create-support-ticket-button'),
-      onPressed: onCreate,
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size(48, 48),
-        textStyle: AppTextStyles.labelMedium,
-      ),
-      icon: const Icon(Icons.add_rounded, size: 20),
-      label: const Text(SupportTicketStrings.createTicket),
+    title: title,
+    action: Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        IconButton(
+          tooltip: refreshing
+              ? SupportTicketStrings.refreshingQueue
+              : SupportTicketStrings.refreshQueue,
+          onPressed: refreshing ? null : onRefresh,
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+        if (onCreate != null)
+          OutlinedButton.icon(
+            key: const Key('create-support-ticket-button'),
+            onPressed: onCreate,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(48, 48),
+              textStyle: AppTextStyles.labelMedium,
+            ),
+            icon: const Icon(Icons.add_rounded, size: 20),
+            label: const Text(SupportTicketStrings.createTicket),
+          ),
+      ],
     ),
   );
 }

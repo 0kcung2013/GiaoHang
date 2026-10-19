@@ -19,6 +19,7 @@ class SupportCaseScreen extends StatefulWidget {
 }
 
 class _SupportCaseScreenState extends State<SupportCaseScreen> {
+  bool _monitoring = false;
   late Future<Widget> _content = _load();
 
   @override
@@ -49,9 +50,11 @@ class _SupportCaseScreenState extends State<SupportCaseScreen> {
       );
     }
     final repository = SupabaseSupportTicketRepository(client);
+    final ticket = await repository.fetchTicket(widget.id);
+    if (mounted) setState(() => _monitoring = ticket.isMonitoring);
     return SupportTicketDetailDialog(
       key: ValueKey('ticket-${widget.id}'),
-      ticket: await repository.fetchTicket(widget.id),
+      ticket: ticket,
       currentUserId: actor,
       isAdmin: user['role'] == 'admin',
       repository: repository,
@@ -63,6 +66,8 @@ class _SupportCaseScreenState extends State<SupportCaseScreen> {
   Widget build(BuildContext context) => SupportWorkspaceScaffold(
     activeSection: widget.risk
         ? SupportWorkspaceSection.risks
+        : _monitoring
+        ? SupportWorkspaceSection.monitoring
         : SupportWorkspaceSection.tickets,
     body: FutureBuilder<Widget>(
       future: _content,

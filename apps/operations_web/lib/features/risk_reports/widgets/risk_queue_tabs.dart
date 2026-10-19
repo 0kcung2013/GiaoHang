@@ -127,7 +127,6 @@ class _QueueTab extends StatelessWidget {
 String _label(RiskQueueScope scope) => switch (scope) {
   RiskQueueScope.active => 'Cần xử lý',
   RiskQueueScope.newReports => 'Mới',
-  RiskQueueScope.overdue => 'Quá SLA',
   RiskQueueScope.mine => 'Của tôi',
   RiskQueueScope.waitingAdmin => 'Cần Admin',
   RiskQueueScope.closed => 'Đã đóng',
@@ -137,7 +136,6 @@ String _label(RiskQueueScope scope) => switch (scope) {
 IconData _icon(RiskQueueScope scope) => switch (scope) {
   RiskQueueScope.active => Icons.inbox_outlined,
   RiskQueueScope.newReports => Icons.fiber_new_rounded,
-  RiskQueueScope.overdue => Icons.timer_off_outlined,
   RiskQueueScope.mine => Icons.person_rounded,
   RiskQueueScope.waitingAdmin => Icons.admin_panel_settings_outlined,
   RiskQueueScope.closed => Icons.task_alt_rounded,

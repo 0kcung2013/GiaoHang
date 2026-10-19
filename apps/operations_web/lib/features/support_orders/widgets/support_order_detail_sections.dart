@@ -154,8 +154,8 @@ class _TimelineItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  log.title?.trim().isNotEmpty == true
-                      ? log.title!
+                  log.displayTitle?.trim().isNotEmpty == true
+                      ? log.displayTitle!
                       : SupportOrderUi.statusLabel(log.status),
                   style: AppTextStyles.labelMedium.copyWith(
                     color: AppColors.textPrimary,
@@ -167,9 +167,9 @@ class _TimelineItem extends StatelessWidget {
                     color: AppColors.textMuted,
                   ),
                 ),
-                if (log.description?.trim().isNotEmpty == true)
+                if (log.displayDescription?.trim().isNotEmpty == true)
                   Text(
-                    log.description!,
+                    log.displayDescription!,
                     style: AppTextStyles.bodySmall.copyWith(
                       color: AppColors.textSecondary,
                     ),

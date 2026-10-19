@@ -53,13 +53,36 @@ Chi tiết và các trường log nằm trong
 `POST /v1/gps/history` nhận `{ "orderId": "...", "cursor": "..." }`.
 Tái sử dụng JWT Supabase, chỉ cho CSKH/Admin và kiểm tra quyền đọc đơn bằng
 JWT của người gọi trước khi truy cập R2. Không dùng service-role để bỏ qua RLS.
-Mỗi trang đọc tối đa 20 chunk, trả `points`, `nextCursor`, `unavailableChunks`;
+Mỗi trang đọc tối đa 20 chunk theo nhóm tối đa 4 lượt đọc đồng thời, trả
+`points`, `nextCursor`, `unavailableChunks`;
 client đọc hết các trang, sắp xếp và loại mẫu trùng. Chỉ trả mẫu trong 14 ngày
 gần nhất, không cache phản hồi, không thay đổi pipeline ghi hay lifecycle.
 Mẫu mới có thể chưa xuất hiện cho đến khi cron flush hoàn tất. Không suy diễn
 tuyến đi từ OSRM/AI khi thiếu dữ liệu. UI ngắt polyline khi thiếu mẫu >60 giây,
-đổi tài xế hoặc bước nhảy tương đương trên 150 km/h; đây là quy tắc hiển thị,
+hai mẫu cách nhau >200m, đổi tài xế hoặc bước nhảy tương đương trên 150 km/h;
+đây là quy tắc hiển thị,
 không phải kết luận vi phạm.
+
+`POST /v1/gps/archives` nhận `{ "cursor": "..." }` (cursor tùy chọn).
+Chỉ CSKH/Admin được liệt kê các đơn thực sự có file GPS trong R2. Mỗi trang
+quét tối đa 500 object, bỏ file ngoài khoảng ngày lưu 14 ngày và kiểm tra RLS
+của các đơn bằng JWT người gọi trước khi trả `archives` và `nextCursor`.
+Các trang có thể chứa cùng một đơn; client ghép `firstDay`, `lastDay`, `chunks`
+rồi lấy thông tin đơn theo danh sách ID. Ngày ở đây là ngày UTC trong object
+key, không phải ngày tạo đơn. Có file không bảo đảm còn mẫu hợp lệ ở thời điểm
+mở: `/v1/gps/history` vẫn lọc từng mẫu theo giờ và thời hạn lưu chính xác.
+API này chỉ đọc danh sách object; không thêm bảng, không đổi lịch ghi, bucket,
+lifecycle hoặc nội dung chunk GPS.
+
+Màn hình Giám sát giữ tạm tối đa 8 hành trình vừa mở trong bộ nhớ của phiên
+màn hình. Đổi kích thước cửa sổ giữ bản đồ, tài xế đã chọn và mốc phát lại;
+nút tải lại của hành trình loại dữ liệu tạm để đọc mới. Cache không ghi ra
+ổ đĩa, không dùng chung giữa các phiên người dùng.
+
+Khi mở đơn, bản đồ chọn GPS mới nhất đã lưu và lấy khung nhìn theo đoạn GPS
+liên tục cuối cùng cùng điểm lấy/giao. Mẫu cũ bị gián đoạn vẫn giữ trong lịch sử;
+“Xem toàn hành trình” lấy khung nhìn của tất cả mẫu. Nhãn thời điểm phân biệt
+GPS đã lưu mới nhất với mốc đang xem lại; đây không phải vị trí trực tiếp.
 
 ## Kiểm tra nhanh
 

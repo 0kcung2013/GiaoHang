@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../core/services/auth_service.dart';
 import 'driver_drawer_availability.dart';
+import '../../../help_center/help_center_strings.dart';
 
 class DriverDrawer extends StatelessWidget {
   const DriverDrawer({
@@ -121,6 +123,14 @@ class DriverDrawer extends StatelessWidget {
                     label: 'Tài khoản',
                     active: currentIndex == 3,
                     onTap: () => _navigate(context, 3),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.support_agent_rounded,
+                    label: HelpCenterStrings.title,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      context.push('/help');
+                    },
                   ),
                 ],
               ),

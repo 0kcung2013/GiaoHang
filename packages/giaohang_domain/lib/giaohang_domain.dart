@@ -14,3 +14,4 @@ export 'src/vietnam_time.dart';
 export 'src/case_message_content.dart';
 export 'src/cargo_weight.dart';
 export 'src/driver_monitoring.dart';
+export 'src/text_encoding_utils.dart';

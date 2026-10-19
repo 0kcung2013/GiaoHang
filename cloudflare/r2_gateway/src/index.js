@@ -1,5 +1,6 @@
 import { storeGpsChunk } from "./gps.js";
 import { readGpsHistory } from "./gps_history.js";
+import { listGpsArchives } from "./gps_archives.js";
 import { runGpsHistoryFlush } from "./gps_scheduler.js";
 import { appendHeaders, corsHeaders, json } from "./http.js";
 import {
@@ -57,6 +58,8 @@ async function route(request, env, url) {
       return storeGpsChunk(request, env);
     case "POST /v1/gps/history":
       return readGpsHistory(request, env);
+    case "POST /v1/gps/archives":
+      return listGpsArchives(request, env);
     case "POST /v1/internal/promote-avatar":
       return promoteAvatar(request, env);
     case "POST /v1/internal/delete":

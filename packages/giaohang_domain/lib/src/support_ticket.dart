@@ -60,6 +60,7 @@ class SupportTicket {
     this.lastMessageBody,
     this.lastMessageRole,
     this.trackingCode,
+    this.hasHumanConversation = false,
   }) : assert(requesterId != null || customerId != null),
        requesterId = requesterId ?? customerId ?? '',
        requesterName = requesterName ?? customerName;
@@ -88,13 +89,45 @@ class SupportTicket {
   final String? lastMessageRole;
   final String? trackingCode;
 
+  /// Read-only conversation summary, derived from existing case_messages.
+  /// This is not a support_tickets column.
+  final bool hasHumanConversation;
+
   bool get needsReply =>
       !status.isClosed &&
+      !isAutomaticMonitoringNotice &&
       (lastMessageRole == 'customer' ||
           lastMessageRole == 'driver' ||
           lastMessageRole == 'system');
 
   bool get isDriverRequester => requesterRole == 'driver';
+
+  /// Monitoring commands use this stable subject prefix. Do not classify by
+  /// lastMessageRole: it changes when the requester or support replies.
+  bool get isMonitoring => subject.trimLeft().startsWith('Giám sát:');
+
+  /// Only the known, unattended pre-pickup reclamation notices belong in the
+  /// automatic log. Unknown events and any human work stay in the staff queue.
+  bool get isAutomaticMonitoringNotice {
+    final automatedSubject = const {
+      'Giám sát: thu hồi phân công',
+      'Giám sát: tìm tài xế thay thế',
+    }.contains(subject.trim());
+    final latestBody = lastMessageBody ?? message;
+    return automatedSubject &&
+        latestBody.contains(
+          'Chưa nhận hàng. Hệ thống thu hồi phân công và tìm tài xế thay thế.',
+        ) &&
+        !latestBody.contains('CSKH cần liên hệ xác minh') &&
+        !hasHumanConversation &&
+        (lastMessageRole == null || lastMessageRole == 'system') &&
+        assignedTo == null &&
+        firstResponseAt == null &&
+        riskReportId == null;
+  }
+
+  bool get needsSupportAttention =>
+      !status.isClosed && !isAutomaticMonitoringNotice;
 
   @Deprecated('Use requesterId')
   String get customerId => requesterId;
@@ -158,6 +191,10 @@ class SupportTicket {
       trackingCode:
           order['tracking_code']?.toString() ??
           json['tracking_code']?.toString(),
+      hasHumanConversation:
+          json['has_human_conversation'] == true ||
+          (json['human_messages'] is List &&
+              (json['human_messages'] as List).isNotEmpty),
     );
   }
 
@@ -185,6 +222,7 @@ class SupportTicket {
     'last_message_body': lastMessageBody,
     'last_message_role': lastMessageRole,
     'tracking_code': trackingCode,
+    'has_human_conversation': hasHumanConversation,
   };
 }
 

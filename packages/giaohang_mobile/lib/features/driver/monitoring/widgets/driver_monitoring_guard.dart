@@ -11,11 +11,13 @@ class DriverMonitoringGuard extends ConsumerWidget {
     required this.onReleased,
     required this.child,
     this.enabled = true,
+    this.pickupArrivedAt,
     this.onInactive,
     super.key,
   });
   final String orderId;
   final bool enabled;
+  final DateTime? pickupArrivedAt;
   final Future<void> Function(String? ticketId) onReleased;
   final Widget child;
   final VoidCallback? onInactive;
@@ -61,6 +63,7 @@ class DriverMonitoringGuard extends ConsumerWidget {
     return DriverDepartureAlert(
       orderId: orderId,
       enabled: enabled,
+      pickupArrivedAt: pickupArrivedAt,
       child: child,
     );
   }

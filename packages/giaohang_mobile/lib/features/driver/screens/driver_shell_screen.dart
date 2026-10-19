@@ -27,6 +27,7 @@ import 'widgets/driver_active_delivery_location_tracker.dart';
 import 'widgets/driver_cold_start_gate.dart';
 import 'widgets/driver_gps_debug_dialog.dart';
 import '../cancellation/driver_cancellation_providers.dart';
+import '../../help_center/widgets/help_center_button.dart';
 
 class DriverShellScreen extends ConsumerStatefulWidget {
   const DriverShellScreen({super.key, this.initialTab = 0});
@@ -139,11 +140,15 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
-                Text(
-                  _titles[_currentIndex],
-                  style: AppTextStyles.headingMedium.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w800,
+                Flexible(
+                  child: Text(
+                    _titles[_currentIndex],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.headingMedium.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ],
@@ -154,6 +159,7 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
             scrolledUnderElevation: 0,
             iconTheme: const IconThemeData(color: AppColors.accent),
             actions: [
+              const HelpCenterButton(),
               if (kDebugMode)
                 IconButton(
                   tooltip: 'Kiểm tra vị trí',

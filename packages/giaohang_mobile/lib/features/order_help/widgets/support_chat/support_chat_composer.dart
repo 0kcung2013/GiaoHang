@@ -135,6 +135,9 @@ class SupportChatComposer extends StatelessWidget {
                 Expanded(
                   child: TextField(
                     key: const Key('support-chat-composer'),
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
                     controller: controller,
                     enabled: !sending,
                     minLines: 1,
@@ -143,6 +146,9 @@ class SupportChatComposer extends StatelessWidget {
                     textCapitalization: TextCapitalization.sentences,
                     keyboardType: TextInputType.multiline,
                     decoration: InputDecoration(
+                      hintStyle: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
                       hintMaxLines: 1,
                       hintText: started || unrestricted
                           ? 'Nhập tin nhắn...'

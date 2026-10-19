@@ -17,6 +17,7 @@ import '../features/customer/screens/home/home_screen.dart';
 import '../features/driver/screens/driver_shell_screen.dart';
 import '../features/auth/screens/operations_required_screen.dart';
 import '../features/auth/screens/unsupported_role_screen.dart';
+import '../features/help_center/screens/help_center_screen.dart';
 
 class _AuthStateNotifier extends ChangeNotifier {
   StreamSubscription? _subscription;
@@ -106,6 +107,10 @@ GoRouter createRouter({
       );
     },
     routes: [
+      GoRoute(
+        path: '/help',
+        builder: (_, _) => HelpCenterScreen(role: role),
+      ),
       GoRoute(path: '/', builder: (_, _) => const SizedBox.shrink()),
       GoRoute(
         path: '/login',

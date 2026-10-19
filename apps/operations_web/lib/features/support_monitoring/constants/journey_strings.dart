@@ -1,0 +1,44 @@
+abstract final class JourneyStrings {
+  static const title = 'Giám sát hành trình';
+  static const subtitle = 'Tra cứu GPS đã lưu trong 14 ngày';
+  static const search = 'Tìm mã đơn hoặc địa chỉ';
+  static const cases = 'Hồ sơ giám sát';
+  static const refresh = 'Tải lại hành trình';
+  static const choose = 'Chọn đơn để xem hành trình';
+  static const chooseHint = 'Bản đồ và diễn biến sẽ xuất hiện tại đây.';
+  static const empty = 'Chưa có hành trình được lưu';
+  static const emptyHint = 'GPS mới sẽ xuất hiện sau khi được đồng bộ.';
+  static const noResults = 'Không tìm thấy hành trình phù hợp';
+  static const noResultsHint = 'Thử đổi mã đơn, địa chỉ hoặc khoảng ngày.';
+  static const loadError = 'Chưa tải được danh sách hành trình';
+  static const mapError = 'Chưa tải được GPS của đơn này';
+  static const retry = 'Thử lại';
+  static const archive = 'Có file GPS';
+  static const retained = 'GPS chỉ lưu tối đa 14 ngày';
+  static const noPoints = 'Không có mẫu GPS còn hiệu lực';
+  static const noPointsHint = 'File có thể đã hết hạn hoặc đang chờ đồng bộ.';
+  static const allDrivers = 'Tất cả tài xế';
+  static const driver = 'Tài xế trong hành trình';
+  static const events = 'Diễn biến đơn hàng';
+  static const eventsError = 'Chưa tải được diễn biến đơn hàng';
+  static const eventsEmpty = 'Chưa có diễn biến được ghi nhận';
+  static const back = 'Danh sách hành trình';
+  static const last14 = '14 ngày';
+  static const last7 = '7 ngày';
+  static const dates = 'Chọn ngày';
+  static const clear = 'Xóa bộ lọc';
+  static const pickup = 'Lấy hàng';
+  static const delivery = 'Giao hàng';
+  static const unknownDriver = 'Không rõ tài xế';
+  static const play = 'Phát lại';
+  static const pause = 'Tạm dừng';
+  static const fit = 'Xem toàn hành trình';
+  static const latestGps = 'GPS đã lưu mới nhất';
+  static const selectedGps = 'GPS đang xem lại';
+  static const showLatest = 'Về GPS mới nhất';
+  static String sampleCount(int n) => '$n mẫu GPS';
+  static String driverCount(int n) => '$n tài xế';
+  static String results(int n) => '$n hành trình';
+  static String driverId(String id) =>
+      'Tài xế · ${id.length > 8 ? id.substring(0, 8) : id}';
+}

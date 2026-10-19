@@ -5,9 +5,11 @@ import 'package:giaohang_design/giaohang_design.dart';
 import '../models/support_ticket.dart';
 import '../utils/support_ticket_ui.dart';
 import 'support_order_context.dart';
+import 'support_monitoring_journey_button.dart';
 import 'support_next_steps.dart';
 import '../models/support_completion_context.dart';
 import '../constants/support_ticket_strings.dart';
+import '../constants/support_monitoring_strings.dart';
 
 class SupportTicketChatSidebar extends StatelessWidget {
   const SupportTicketChatSidebar({
@@ -18,6 +20,7 @@ class SupportTicketChatSidebar extends StatelessWidget {
     this.completionError,
     this.onCheckCompletion,
     this.scrollController,
+    this.automaticMonitoring,
     super.key,
   });
 
@@ -28,10 +31,12 @@ class SupportTicketChatSidebar extends StatelessWidget {
   final String? completionError;
   final VoidCallback? onCheckCompletion;
   final ScrollController? scrollController;
+  final bool? automaticMonitoring;
 
   @override
   Widget build(BuildContext context) {
     final statusColor = SupportTicketUi.statusColor(ticket.status);
+    final automatic = automaticMonitoring ?? ticket.isAutomaticMonitoringNotice;
     return ColoredBox(
       color: AppColors.bgCard,
       child: ListView(
@@ -43,25 +48,27 @@ class SupportTicketChatSidebar extends StatelessWidget {
             runSpacing: AppSpacing.sm,
             children: [
               _Badge(
-                icon: SupportTicketUi.statusIcon(ticket.status),
-                label: SupportTicketUi.statusLabel(ticket.status),
-                color: statusColor,
+                icon: automatic
+                    ? Icons.history_rounded
+                    : SupportTicketUi.statusIcon(ticket.status),
+                label: automatic
+                    ? SupportMonitoringStrings.automaticStatus
+                    : SupportTicketUi.statusLabel(ticket.status),
+                color: automatic ? AppColors.info : statusColor,
               ),
-              if (ticket.priority == SupportTicketPriority.high)
+              if (!automatic && ticket.priority == SupportTicketPriority.high)
                 _Badge(
                   icon: Icons.flag_outlined,
                   label: SupportTicketUi.priorityLabel(ticket.priority),
                   color: SupportTicketUi.priorityColor(ticket.priority),
                 ),
-              if (ticket.responseOverdue)
-                const _Badge(
-                  icon: Icons.timer_off_outlined,
-                  label: 'Quá hạn',
-                  color: AppColors.error,
-                ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
+          if (ticket.isMonitoring && ticket.orderId != null && !automatic) ...[
+            SupportMonitoringJourneyButton(ticket: ticket),
+            const SizedBox(height: AppSpacing.lg),
+          ],
           _PersonBlock(ticket: ticket),
           if (ticket.requesterPhone?.trim().isNotEmpty == true) ...[
             const SizedBox(height: AppSpacing.md),
@@ -80,13 +87,14 @@ class SupportTicketChatSidebar extends StatelessWidget {
             ),
           ],
           const SizedBox(height: AppSpacing.lg),
-          SupportNextSteps(
-            ticket: ticket,
-            completion: completion,
-            loading: completionLoading,
-            error: completionError,
-            onRetry: onCheckCompletion,
-          ),
+          if (!automatic)
+            SupportNextSteps(
+              ticket: ticket,
+              completion: completion,
+              loading: completionLoading,
+              error: completionError,
+              onRetry: onCheckCompletion,
+            ),
           const SizedBox(height: AppSpacing.lg),
           if (ticket.riskReportId != null)
             OutlinedButton.icon(
@@ -109,7 +117,9 @@ class SupportTicketChatSidebar extends StatelessWidget {
           _InfoRow(
             icon: Icons.support_agent_rounded,
             label: 'Người phụ trách',
-            value: ticket.assignedTo == null
+            value: automatic
+                ? SupportMonitoringStrings.handledBySystem
+                : ticket.assignedTo == null
                 ? 'Chưa tiếp nhận'
                 : ticket.assignedToName ??
                       SupportTicketUi.shortId(ticket.assignedTo!),
@@ -145,6 +155,7 @@ class SupportTicketChatSidebar extends StatelessWidget {
           ],
           if (showOrderContext && ticket.orderId != null)
             ExpansionTile(
+              initiallyExpanded: automatic,
               tilePadding: EdgeInsets.zero,
               shape: const Border(),
               collapsedShape: const Border(),

@@ -6,6 +6,12 @@ Phạm vi: nhắc xuất phát phút 5, cảnh báo phút 8, thu hồi phút 10;
 
 Chỉ thu hồi khi đơn còn `assigned`/`picking_up`, chưa có `actual_picked_up_at`, chưa có bằng chứng nhận hàng, chưa có yêu cầu bàn giao/trả hàng. Sau nhận hàng, mất GPS tạo hồ sơ CSKH và giữ nguyên tài xế. Đến điểm lấy hoặc đã xác nhận xuất phát thì kết thúc bộ đếm chưa xuất phát; dừng đèn đỏ không khởi động lại bộ đếm đó.
 
+Popup xuất phát và thẻ giám sát đọc cả `pickup_arrived_at` đã được server xác
+nhận trên đơn, bên cạnh trạng thái GPS. Khi mốc đến nơi thuộc phân công hiện
+tại, popup đang mở tự đóng và không hiện lại trong lúc RPC giám sát cập nhật
+chậm. Không dùng mốc đến nơi trước lúc nhận phân công mới. Cảnh báo mất GPS
+và xử lý thu hồi từ server vẫn hoạt động độc lập.
+
 ## Vị trí và thời gian
 
 GPS hợp lệ có độ chính xác ≤50m, được đo trong 90 giây gần nhất và không lặp/thứ tự ngược. Server ghi thời điểm nhận. Xuất phát cần dịch chuyển tối thiểu 100m sau khi trừ sai số và được xác nhận bởi hai mẫu cách nhau ít nhất 10 giây. Tại điểm lấy: khoảng cách cộng sai số ≤100m. Loại bước nhảy vượt 35m/s cộng biên sai số 100m.

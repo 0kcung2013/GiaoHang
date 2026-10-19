@@ -31,13 +31,13 @@ void main() {
 
     expect(find.text('Rủi ro hệ thống'), findsOneWidget);
     expect(find.text('Tổng quan kiểm soát'), findsOneWidget);
-    expect(find.text('SLA phân loại'), findsOneWidget);
+    expect(find.text('SLA phân loại'), findsNothing);
     expect(find.text('Địa chỉ nhận bất thường'), findsOneWidget);
     expect(find.text('GH-00001'), findsOneWidget);
     expect(find.text('Nghiêm trọng'), findsWidgets);
     expect(find.text('Khách hàng'), findsOneWidget);
     expect(find.text('Nguyễn An'), findsOneWidget);
-    expect(find.text('Quá hạn phân loại'), findsOneWidget);
+    expect(find.text('Quá hạn phân loại'), findsNothing);
     expect(find.byKey(const Key('risk-search-field')), findsOneWidget);
   });
 
@@ -186,35 +186,36 @@ void main() {
     expect(selected, RiskStatus.resolved);
   });
 
-  testWidgets('prioritizes overdue triage reports in the queue', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    final repository = _FakeRiskReportRepository([
-      _normalSortReport,
-      _overdueSortReport,
-    ]);
+  testWidgets(
+    'orders reports by update time regardless of response deadlines',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repository = _FakeRiskReportRepository([
+        _normalSortReport,
+        _overdueSortReport,
+      ]);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: RiskReportsView(
-            isAdmin: false,
-            repository: repository,
-            currentUserId: 'staff-2',
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RiskReportsView(
+              isAdmin: false,
+              repository: repository,
+              currentUserId: 'staff-2',
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    final overdueY = tester.getTopLeft(find.text('Overdue report')).dy;
-    final normalY = tester.getTopLeft(find.text('Normal report')).dy;
-    expect(overdueY, lessThan(normalY));
-  });
+      final overdueY = tester.getTopLeft(find.text('Overdue report')).dy;
+      final normalY = tester.getTopLeft(find.text('Normal report')).dy;
+      expect(normalY, lessThan(overdueY));
+    },
+  );
 
   testWidgets('search filters the visible reports', (tester) async {
     final repository = _FakeRiskReportRepository([_sampleReport]);

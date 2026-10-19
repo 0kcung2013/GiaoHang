@@ -70,12 +70,22 @@ class SupabaseSupportTicketRepository
       'assignee:users!support_tickets_assigned_to_fkey(full_name), '
       'order_context:orders!support_tickets_order_id_fkey(tracking_code)';
 
+  static const conversationSelection =
+      '$selection, '
+      'last_message:case_messages(body,sender_role_snapshot,visibility,created_at), '
+      'human_messages:case_messages(id)';
+
   @override
   Future<SupportTicket> fetchTicket(String ticketId) async {
     final row = await _client
         .from('support_tickets')
-        .select(selection)
+        .select(conversationSelection)
         .eq('id', ticketId)
+        .eq('last_message.visibility', 'public')
+        .neq('human_messages.sender_role_snapshot', 'system')
+        .order('created_at', referencedTable: 'last_message', ascending: false)
+        .limit(1, referencedTable: 'last_message')
+        .limit(1, referencedTable: 'human_messages')
         .single();
     return SupportTicket.fromJson(
       (await SupportTicketContactsLoader(_client).enrich([row])).single,
@@ -94,10 +104,9 @@ class SupabaseSupportTicketRepository
     final rows = await readCasePages((afterId) async {
       var query = _client
           .from('support_tickets')
-          .select(
-            '$selection, last_message:case_messages(body,sender_role_snapshot,visibility,created_at)',
-          )
-          .eq('last_message.visibility', 'public');
+          .select(conversationSelection)
+          .eq('last_message.visibility', 'public')
+          .neq('human_messages.sender_role_snapshot', 'system');
       if (afterId != null) query = query.gt('id', afterId);
       return await query
           .order('id', ascending: true)
@@ -107,6 +116,7 @@ class SupabaseSupportTicketRepository
             ascending: false,
           )
           .limit(1, referencedTable: 'last_message')
+          .limit(1, referencedTable: 'human_messages')
           .limit(200);
     });
     return (await SupportTicketContactsLoader(_client).enrich(

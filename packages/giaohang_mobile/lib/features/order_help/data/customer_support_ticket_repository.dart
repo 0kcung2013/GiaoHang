@@ -13,6 +13,11 @@ abstract interface class ParticipantSupportConversationRepository {
   Future<void> postMessage(String ticketId, String body);
 }
 
+abstract interface class ParticipantGeneralSupportTicketRepository
+    implements ParticipantSupportTicketRepository {
+  Future<List<SupportTicket>> fetchGeneralTickets();
+}
+
 abstract interface class ParticipantSupportReopenRepository {
   Future<SupportTicket> reopen(String ticketId, String reason);
 }
@@ -24,6 +29,7 @@ abstract interface class ParticipantSupportDetailRepository {
 class SupabaseParticipantSupportTicketRepository
     implements
         ParticipantSupportTicketRepository,
+        ParticipantGeneralSupportTicketRepository,
         ParticipantSupportDetailRepository,
         ParticipantSupportReopenRepository,
         ParticipantSupportConversationRepository {
@@ -102,6 +108,25 @@ class SupabaseParticipantSupportTicketRepository
         .from('support_tickets')
         .select(_selection)
         .eq('order_id', orderId)
+        .order('updated_at', ascending: false);
+    return List<Map<String, dynamic>>.from(
+      rows,
+    ).map(SupportTicket.fromJson).toList();
+  }
+
+  @override
+  Future<List<SupportTicket>> fetchGeneralTickets() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) {
+      throw const CustomerSupportTicketException(
+        'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+      );
+    }
+    final rows = await _client
+        .from('support_tickets')
+        .select(_selection)
+        .eq('requester_id', userId)
+        .isFilter('order_id', null)
         .order('updated_at', ascending: false);
     return List<Map<String, dynamic>>.from(
       rows,
