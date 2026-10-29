@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/utils/delivery_pricing_policy.dart';
+import '../../../../../core/utils/platform_fee_strings.dart';
 import '../utils/create_order_formatters.dart';
 import '../utils/delivery_eta_strings.dart';
 import '../utils/order_form_data.dart';
@@ -32,7 +33,7 @@ class DeliveryQuoteCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _QuoteHeader(total: fee.total),
+          _QuoteHeader(total: fee.total + data.customerPlatformFeeAmount),
           const SizedBox(height: AppSpacing.lg),
           const _EtaPanel(),
           const SizedBox(height: AppSpacing.lg),
@@ -47,7 +48,7 @@ class DeliveryQuoteCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
-          _FeeBreakdown(fee: fee),
+          _FeeBreakdown(fee: fee, platformFee: data.customerPlatformFeeAmount),
           const SizedBox(height: AppSpacing.lg),
           Container(
             width: double.infinity,
@@ -67,7 +68,7 @@ class DeliveryQuoteCard extends StatelessWidget {
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
-                    'Giá được chốt theo lộ trình, làm tròn 1.000đ và không có phụ phí ẩn.',
+                    PlatformFeeText.quoteHint,
                     style: AppTextStyles.bodySmall.copyWith(
                       color: AppColors.textSecondary,
                       height: 1.45,
@@ -219,9 +220,10 @@ class _EtaPanel extends StatelessWidget {
 }
 
 class _FeeBreakdown extends StatelessWidget {
-  const _FeeBreakdown({required this.fee});
+  const _FeeBreakdown({required this.fee, required this.platformFee});
 
   final DeliveryFeeBreakdown fee;
+  final int platformFee;
 
   @override
   Widget build(BuildContext context) {
@@ -236,7 +238,7 @@ class _FeeBreakdown extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           _FeeLine(
             label:
-                '${_formatKm(fee.standardBillableKm)} km tiếp theo × ${formatDeliveryFee(DeliveryPricingPolicy.standardPerKm)}',
+                '${_formatKm(fee.standardBillableKm)} km tiếp theo × ${formatDeliveryFee(fee.standardPerKm)}',
             value: fee.standardDistanceFee,
           ),
         ],
@@ -244,14 +246,20 @@ class _FeeBreakdown extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           _FeeLine(
             label:
-                '${_formatKm(fee.longBillableKm)} km đường dài × ${formatDeliveryFee(DeliveryPricingPolicy.longDistancePerKm)}',
+                '${_formatKm(fee.longBillableKm)} km đường dài × ${formatDeliveryFee(fee.longDistancePerKm)}',
             value: fee.longDistanceFee,
           ),
         ],
+        const SizedBox(height: AppSpacing.sm),
+        _FeeLine(label: PlatformFeeText.fee, value: platformFee.toDouble()),
         const SizedBox(height: AppSpacing.md),
         Container(height: 1, color: AppColors.border),
         const SizedBox(height: AppSpacing.md),
-        _FeeLine(label: 'Tổng cộng', value: fee.total, emphasized: true),
+        _FeeLine(
+          label: 'Tổng cộng',
+          value: fee.total + platformFee,
+          emphasized: true,
+        ),
       ],
     );
   }

@@ -16,7 +16,7 @@ export async function rankDriversByRoadDistance(candidates, pickup, options = {}
     const table = await loadTable([...origins, target], origins.map((_, i) => i), [origins.length], options);
     batch.forEach((candidate, i) => {
       const quote = cell(table, i, 0, origins[i], target);
-      if (quote && quote.distance_meters <= AUTOMATIC_ROAD_LIMIT) ranked.push({ ...candidate, ...quote });
+      if (quote && quote.distance_meters <= (options.automaticRoadLimit ?? AUTOMATIC_ROAD_LIMIT)) ranked.push({ ...candidate, ...quote });
     });
   }
   return ranked.sort((a, b) => a.distance_meters - b.distance_meters ||
@@ -32,7 +32,8 @@ export async function quoteFreePickOrders(driver, orders, options = {}) {
     const table = await loadTable([origin, ...targets], [0], targets.map((_, i) => i + 1), options);
     batch.forEach((order, i) => {
       const quote = cell(table, 0, i, origin, targets[i]);
-      if (quote && quote.distance_meters > AUTOMATIC_ROAD_LIMIT && quote.distance_meters <= FREE_PICK_ROAD_LIMIT) {
+      const policy = order.business_policy?.values;
+      if (quote && quote.distance_meters > (policy?.auto_radius_m ?? AUTOMATIC_ROAD_LIMIT) && quote.distance_meters <= (policy?.free_pick_radius_m ?? FREE_PICK_ROAD_LIMIT)) {
         result.push({ ...order, pickup_road_distance_meters: quote.distance_meters,
           pickup_road_duration_seconds: quote.duration_seconds, pickup_road_quoted_at: quote.quoted_at,
           pickup_road_origin_lat: origin.lat, pickup_road_origin_lng: origin.lng });

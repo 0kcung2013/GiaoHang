@@ -3,6 +3,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
 import '../../../../../core/widgets/stored_media_image.dart';
+import 'admin_driver_table.dart';
 
 class AdminDriverRegistryPanel extends StatelessWidget {
   const AdminDriverRegistryPanel({
@@ -65,15 +66,23 @@ class AdminDriverRegistryPanel extends StatelessWidget {
         ),
       );
     }
-    return ListView.separated(
-      padding: const EdgeInsets.all(AppSpacing.screenH),
-      itemCount: drivers.length,
-      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
-      itemBuilder: (context, index) {
-        final driver = drivers[index];
-        return _DriverRegistryCard(
-          driver: driver,
-          onTap: () => onOpenDriver(driver),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 850 &&
+            MediaQuery.textScalerOf(context).scale(1) <= 1.3) {
+          return AdminDriverTable(drivers: drivers, onOpen: onOpenDriver);
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.all(AppSpacing.screenH),
+          itemCount: drivers.length,
+          separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
+          itemBuilder: (context, index) {
+            final driver = drivers[index];
+            return _DriverRegistryCard(
+              driver: driver,
+              onTap: () => onOpenDriver(driver),
+            );
+          },
         );
       },
     );

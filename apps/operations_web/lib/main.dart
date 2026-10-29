@@ -12,7 +12,12 @@ Future<void> main() async {
     url: SupabaseConstants.supabaseUrl,
     anonKey: SupabaseConstants.supabaseAnonKey,
   );
-  runApp(const OperationsApp());
+  runApp(
+    BusinessSettingsLifecycle(
+      client: Supabase.instance.client,
+      child: const OperationsApp(),
+    ),
+  );
 }
 
 typedef OperationsRouterFactory = GoRouter Function();

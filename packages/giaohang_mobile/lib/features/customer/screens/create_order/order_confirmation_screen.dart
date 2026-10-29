@@ -10,6 +10,8 @@ import '../../../../core/models/order_finance.dart';
 import '../../../../core/providers/address_providers.dart';
 import '../../../../core/providers/customer_providers.dart';
 import '../../../../core/providers/customer_wallet_providers.dart';
+import '../../../../core/providers/business_settings_providers.dart';
+import '../../../../core/services/customer_order_command_service.dart';
 import 'services/order_confirmation_completion_service.dart';
 import 'utils/order_form_data.dart';
 import 'utils/order_form_validators.dart';
@@ -22,6 +24,8 @@ import 'controllers/order_confirmation_wallet_controller.dart';
 import 'widgets/order_confirmation_wallet_card.dart';
 import 'utils/order_form_submission.dart';
 import 'utils/order_payment_strings.dart';
+import 'utils/order_settings_review.dart';
+import 'widgets/order_settings_changed_notice.dart';
 
 class OrderConfirmationScreen extends ConsumerStatefulWidget {
   const OrderConfirmationScreen({super.key, required this.formData});
@@ -39,6 +43,20 @@ class _OrderConfirmationScreenState
   late final OrderConfirmationPaymentController _payment;
   late final OrderConfirmationWalletController _wallet;
   late bool _useVnpay;
+  int _latestSettingsRevision = 0;
+  bool _settingsRejected = false;
+
+  bool get _needsSettingsReview => requiresOrderSettingsReview(
+    quotedRevision: widget.formData.settingsRevision,
+    latestRevision: _latestSettingsRevision,
+    paymentProtected: _payment.protectsSettings || _wallet.hasAttempt,
+    rejectedByServer:
+        _settingsRejected ||
+        _payment.needsSettingsReview ||
+        _wallet.needsSettingsReview,
+  );
+
+  void _reviewSettings() => context.pop(OrderConfirmationResult.reviewSettings);
 
   @override
   void initState() {
@@ -82,6 +100,10 @@ class _OrderConfirmationScreenState
 
   @override
   Widget build(BuildContext context) {
+    final revision =
+        ref.watch(businessSettingsProvider).valueOrNull?.revision ?? 0;
+    if (revision > _latestSettingsRevision) _latestSettingsRevision = revision;
+    final needsReview = _needsSettingsReview;
     final prepaid = widget.formData.deliveryFeePayer == DeliveryFeePayer.sender;
     final busy = _isSubmitting || _payment.isBusy || _wallet.isBusy;
     final walletPayment = prepaid && !_useVnpay;
@@ -91,7 +113,7 @@ class _OrderConfirmationScreenState
     final canPayWallet =
         _wallet.hasAttempt ||
         (walletSummary?.asData?.value.availableBalance ?? -1) >=
-            widget.formData.deliveryFee.round();
+            widget.formData.finance.customerServiceCharge;
     final session = _payment.session;
     final canEdit =
         !busy && !_payment.hasActiveSession && _wallet.canSwitchPayment;
@@ -103,18 +125,26 @@ class _OrderConfirmationScreenState
           canEdit: canEdit,
           onEdit: () => context.pop(),
         ),
-        bottomNavigationBar: OrderConfirmationSubmitBar(
-          isSubmitting: busy,
-          onSubmit: _submitOrder,
-          isEnabled: !walletPayment || canPayWallet,
-          idleLabel: !prepaid
-              ? OrderPaymentText.confirmOrder
-              : walletPayment
-              ? OrderPaymentText.walletSubmit
-              : _payment.hasActiveSession
-              ? OrderPaymentText.reopenPayment
-              : OrderPaymentText.payAndCreate,
-          submittingLabel: 'Đang tạo đơn...',
+        bottomNavigationBar: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (needsReview) const OrderSettingsChangedNotice(),
+            OrderConfirmationSubmitBar(
+              isSubmitting: busy,
+              onSubmit: needsReview ? _reviewSettings : _submitOrder,
+              isEnabled: needsReview || !walletPayment || canPayWallet,
+              idleLabel: needsReview
+                  ? OrderSettingsChangedNotice.action
+                  : !prepaid
+                  ? OrderPaymentText.confirmOrder
+                  : walletPayment
+                  ? OrderPaymentText.walletSubmit
+                  : _payment.hasActiveSession
+                  ? OrderPaymentText.reopenPayment
+                  : OrderPaymentText.payAndCreate,
+              submittingLabel: 'Đang tạo đơn...',
+            ),
+          ],
         ),
         body: SafeArea(
           child: Column(
@@ -132,7 +162,8 @@ class _OrderConfirmationScreenState
                   data: widget.formData,
                   paymentDetails: prepaid
                       ? OrderConfirmationWalletCard(
-                          deliveryFee: widget.formData.deliveryFee.round(),
+                          deliveryFee:
+                              widget.formData.finance.customerServiceCharge,
                           useVnpay: _useVnpay,
                           error: _wallet.error,
                           canSwitch:
@@ -154,6 +185,10 @@ class _OrderConfirmationScreenState
 
   Future<void> _submitOrder() async {
     if (_isSubmitting || _payment.isBusy || _wallet.isBusy) return;
+    if (_needsSettingsReview) {
+      _reviewSettings();
+      return;
+    }
     final data = widget.formData;
     final error = validateOrderDetails(
       recipientName: data.recipientName,
@@ -174,7 +209,7 @@ class _OrderConfirmationScreenState
     }
 
     final existing = _payment.orderSnapshot ?? _wallet.orderSnapshot;
-    if (existing != null) {
+    if (existing != null && (_payment.protectsSettings || _wallet.hasAttempt)) {
       await _submitPrepaidOrder(existing);
       return;
     }
@@ -183,6 +218,14 @@ class _OrderConfirmationScreenState
 
     try {
       final data = widget.formData;
+      // Check again before any new payment/order: reconnect messages can race
+      // with submit. Issued sessions and uncertain wallet attempts bypass this.
+      final current = await ref.read(businessSettingsServiceProvider).load();
+      if (!mounted) return;
+      if (current.revision > _latestSettingsRevision) {
+        _latestSettingsRevision = current.revision;
+      }
+      if (_needsSettingsReview) return;
       String? itemImageUrl;
       final cargoImage = data.cargoImage;
       if (cargoImage != null) {
@@ -223,6 +266,10 @@ class _OrderConfirmationScreenState
       );
     } catch (error) {
       if (mounted) {
+        if (error is CustomerOrderCommandException &&
+            error.needsSettingsReview) {
+          _settingsRejected = true;
+        }
         _showSnackBar('Không thể tạo đơn hàng: $error', isError: true);
       }
     } finally {
@@ -277,7 +324,7 @@ class _OrderConfirmationScreenState
         'trackingCode': trackingCode.isNotEmpty
             ? trackingCode
             : full.trackingCode,
-        'deliveryFee': widget.formData.deliveryFee,
+        'deliveryFee': full.customerServiceCharge.toDouble(),
         'distanceKm': widget.formData.distanceKm,
       },
     );

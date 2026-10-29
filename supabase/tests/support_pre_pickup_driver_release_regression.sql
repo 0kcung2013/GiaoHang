@@ -2,6 +2,7 @@
 BEGIN;
 DO $test$
 DECLARE
+  v_pickup_code text;
   customer uuid := gen_random_uuid();
   driver_a uuid := gen_random_uuid();
   driver_b uuid := gen_random_uuid();
@@ -67,13 +68,17 @@ BEGIN
         instruction='Other pending custody' WHERE order_id=v_order_id
           AND risk_report_id <> report_id;
     ELSIF scenario = 'picked_up' THEN
-      UPDATE public.orders SET actual_picked_up_at=clock_timestamp() WHERE id=v_order_id;
+      UPDATE public.orders SET actual_picked_up_at=clock_timestamp(),
+        pickup_handoff=jsonb_build_object('driver_id',driver_a,'customer_id',customer,
+          'confirmed_at',clock_timestamp(),'method','fixture') WHERE id=v_order_id;
     ELSIF scenario = 'pickup_wins' THEN
       INSERT INTO public.order_delivery_proofs(order_id,driver_id,stage,storage_path,captured_lat,captured_lng)
         VALUES(v_order_id,driver_a,'pickup','synthetic-test-proof',80,160);
+      PERFORM set_config('request.jwt.claim.sub',customer::text,true);
+      v_pickup_code := public.get_customer_pickup_code(v_order_id)->>'code';
       PERFORM set_config('request.jwt.claim.sub',driver_a::text,true);
       SET LOCAL ROLE authenticated;
-      PERFORM public.confirm_driver_pickup(v_order_id);
+      PERFORM public.confirm_driver_pickup_code(v_order_id,v_pickup_code);
       RESET ROLE;
     END IF;
 

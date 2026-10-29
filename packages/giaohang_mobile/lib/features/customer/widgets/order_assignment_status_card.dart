@@ -127,7 +127,7 @@ class _OrderAssignmentStatusCardState
       });
       _startTicker();
       _invalidateOrderData();
-      _showMessage('Đã bắt đầu tìm lại tài xế trong 15 phút.');
+      _showMessage('Đã bắt đầu lượt tìm tài xế mới. Theo dõi thời gian còn lại trên đơn.');
     } catch (error) {
       if (mounted) {
         _showMessage(
@@ -436,7 +436,7 @@ class _AssignmentTimedOutView extends StatelessWidget {
           Text(
             walletRefunded
                 ? 'Phí giao đã hoàn vào ví. Tìm lại sẽ trừ phí giao lần nữa.'
-                : 'Chưa có tài xế nhận đơn trong vòng 15 phút. Bạn có thể bắt đầu tìm lại hoặc hủy đơn.',
+                : 'Đã hết thời gian tìm tài xế. Bạn có thể bắt đầu tìm lại hoặc hủy đơn.',
             textAlign: TextAlign.center,
             style: AppTextStyles.bodySmall.copyWith(
               color: AppColors.textSecondary,

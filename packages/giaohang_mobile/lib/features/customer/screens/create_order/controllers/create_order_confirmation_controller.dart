@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:giaohang_domain/giaohang_domain.dart' show BusinessSettings;
 
 import '../../../../../core/models/order_finance.dart';
 import '../../../../../core/utils/delivery_fee_calculator.dart';
@@ -64,6 +65,12 @@ class CreateOrderConfirmationController {
       throw CreateOrderPreparationException(error.message);
     }
 
+    final customerRate =
+        quote.settings?.customerPlatformFeeBps(sender.customerType) ?? 0;
+    final customerFee = BusinessSettings.calculatePlatformFee(
+      quote.deliveryFee.round(),
+      customerRate,
+    );
     return OrderFormData(
       pickupAddress: pickupAddress,
       pickupFormattedAddress: pickupFormattedAddress,
@@ -94,13 +101,16 @@ class CreateOrderConfirmationController {
       goodsValue: goodsValue,
       codCollectionAmount: codCollectionAmount,
       deliveryFee: quote.deliveryFee,
-      totalPrice: codCollectionAmount + quote.deliveryFee,
+      totalPrice: codCollectionAmount + quote.deliveryFee + customerFee,
       distanceMeters: quote.distanceMeters,
       durationSeconds: quote.durationSeconds,
       distanceSource: quote.source,
       feeBreakdown: quote.feeBreakdown,
       deliveryEta: quote.eta,
       trafficDemoKey: trafficDemoKey,
+      settingsRevision: quote.settings?.revision,
+      customerPlatformFeeRateBps: customerRate,
+      driverPlatformFeeRateBps: quote.settings?.driverPlatformFeeBps ?? 0,
     );
   }
 }

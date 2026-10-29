@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/order_model.dart';
 import '../models/order_submission_payload.dart';
+import '../utils/business_settings_feedback.dart';
 
 typedef CustomerOrderRpcInvoker =
     Future<dynamic> Function(String functionName, Map<String, dynamic> params);
@@ -40,7 +41,9 @@ class CustomerOrderCommandService {
       rethrow;
     } catch (error) {
       throw CustomerOrderCommandException(
-        'Create-order command failed: $error',
+        BusinessSettingsFeedback.forError(error) ??
+            'Create-order command failed: $error',
+        needsSettingsReview: BusinessSettingsFeedback.forError(error) != null,
       );
     }
   }
@@ -146,9 +149,13 @@ class CancelledCustomerOrder {
 }
 
 class CustomerOrderCommandException implements Exception {
-  const CustomerOrderCommandException(this.message);
+  const CustomerOrderCommandException(
+    this.message, {
+    this.needsSettingsReview = false,
+  });
 
   final String message;
+  final bool needsSettingsReview;
 
   @override
   String toString() => message;

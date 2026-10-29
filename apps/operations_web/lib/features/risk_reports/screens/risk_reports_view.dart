@@ -13,11 +13,8 @@ import '../dialogs/risk_report_detail_dialog.dart';
 import '../models/risk_report.dart';
 import '../models/risk_queue_scope.dart';
 import '../widgets/risk_report_card.dart';
-import '../widgets/risk_admin_overview.dart';
-import '../widgets/risk_report_filters.dart';
 import '../widgets/risk_report_header.dart';
 import '../widgets/risk_report_states.dart';
-import '../widgets/risk_queue_tabs.dart';
 import '../../support/constants/support_ticket_strings.dart';
 import '../../support/widgets/support_queue_controls.dart';
 
@@ -26,12 +23,14 @@ class RiskReportsView extends StatefulWidget {
     required this.isAdmin,
     this.repository,
     this.currentUserId,
+    this.initialScope,
     super.key,
   });
 
   final bool isAdmin;
   final RiskReportRepository? repository;
   final String? currentUserId;
+  final RiskQueueScope? initialScope;
 
   @override
   State<RiskReportsView> createState() => _RiskReportsViewState();
@@ -43,9 +42,6 @@ class _RiskReportsViewState extends State<RiskReportsView> {
   late final String _currentUserId;
   StreamSubscription<void>? _reportChangesSubscription;
   List<RiskReport> _reports = const [];
-  RiskDashboardMetrics? _dashboardMetrics;
-  RiskSeverity? _severity;
-  RiskStatus? _status;
   RiskQueueScope _scope = RiskQueueScope.newReports;
   String _query = '';
   bool _loading = true;
@@ -55,15 +51,6 @@ class _RiskReportsViewState extends State<RiskReportsView> {
     final normalizedQuery = _query.trim().toLowerCase();
     final filtered = _reports.where((report) {
       if (!_matchesScope(report, _scope)) return false;
-      if (_severity != null && report.severity != _severity) return false;
-      if (_status == RiskStatus.open && report.status != _status) return false;
-      if (_status == RiskStatus.investigating &&
-          (report.status == RiskStatus.open || report.status.isClosed)) {
-        return false;
-      }
-      if (_status == RiskStatus.resolved && !report.status.isClosed) {
-        return false;
-      }
       if (normalizedQuery.isEmpty) return true;
       return report.title.toLowerCase().contains(normalizedQuery) ||
           report.description.toLowerCase().contains(normalizedQuery) ||
@@ -85,10 +72,7 @@ class _RiskReportsViewState extends State<RiskReportsView> {
           report.status == RiskStatus.open && report.assignedTo == null,
         RiskQueueScope.mine =>
           !report.status.isClosed && report.assignedTo == _currentUserId,
-        RiskQueueScope.waitingAdmin =>
-          !report.status.isClosed &&
-              (report.status == RiskStatus.waitingAdmin ||
-                  report.severity == RiskSeverity.critical),
+        RiskQueueScope.waitingAdmin => !report.status.isClosed,
         RiskQueueScope.closed => report.status.isClosed,
         RiskQueueScope.all => true,
       };
@@ -100,7 +84,7 @@ class _RiskReportsViewState extends State<RiskReportsView> {
   @override
   void initState() {
     super.initState();
-    _scope = widget.isAdmin ? RiskQueueScope.newReports : RiskQueueScope.active;
+    _scope = widget.initialScope ?? RiskQueueScope.active;
     if (widget.repository != null && widget.currentUserId != null) {
       _repository = widget.repository!;
       _currentUserId = widget.currentUserId!;
@@ -139,16 +123,9 @@ class _RiskReportsViewState extends State<RiskReportsView> {
     }
     try {
       final reports = await _repository.fetchReports();
-      RiskDashboardMetrics? dashboardMetrics;
-      final repository = _repository;
-      if (widget.isAdmin && repository is RiskDashboardRepository) {
-        final dashboard = repository as RiskDashboardRepository;
-        dashboardMetrics = await dashboard.fetchDashboardMetrics();
-      }
       if (mounted) {
         setState(() {
           _reports = reports;
-          _dashboardMetrics = dashboardMetrics;
           _error = null;
         });
       }
@@ -172,7 +149,7 @@ class _RiskReportsViewState extends State<RiskReportsView> {
     try {
       await _repository.createReport(draft);
       await _loadReports();
-      if (mounted) _showMessage('Đã ghi nhận báo cáo rủi ro.');
+      if (mounted) _showMessage('Đã ghi nhận sự cố.');
     } on RiskReportRepositoryException catch (error) {
       if (mounted) _showMessage(error.message, error: true);
     } catch (_) {
@@ -232,25 +209,10 @@ class _RiskReportsViewState extends State<RiskReportsView> {
                   child: RiskReportHeader(
                     reports: _reports,
                     onCreate: _createReport,
-                    showMetrics: widget.isAdmin,
+                    showMetrics: false,
                   ),
                 ),
               ),
-              if (widget.isAdmin)
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    horizontalPadding,
-                    16,
-                    horizontalPadding,
-                    0,
-                  ),
-                  sliver: SliverToBoxAdapter(
-                    child: RiskAdminOverview(
-                      reports: _reports,
-                      metrics: _dashboardMetrics,
-                    ),
-                  ),
-                ),
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(
                   horizontalPadding,
@@ -259,62 +221,30 @@ class _RiskReportsViewState extends State<RiskReportsView> {
                   12,
                 ),
                 sliver: SliverToBoxAdapter(
-                  child: widget.isAdmin
-                      ? RiskReportFilters(
-                          searchController: _searchController,
-                          selectedSeverity: _severity,
-                          selectedStatus: _status,
-                          onSearchChanged: (value) =>
-                              setState(() => _query = value),
-                          onSeverityChanged: (value) =>
-                              setState(() => _severity = value),
-                          onStatusChanged: (value) =>
-                              setState(() => _status = value),
-                          showSeverity: widget.isAdmin,
-                          showStatus: widget.isAdmin,
-                        )
-                      : SupportQueueControls<RiskQueueScope>(
-                          searchController: _searchController,
-                          searchKey: const Key('risk-search-field'),
-                          searchHint: SupportTicketStrings.searchHint,
-                          onSearchChanged: (value) =>
-                              setState(() => _query = value),
-                          value: _scope,
-                          onChanged: (value) => setState(() => _scope = value),
-                          choices: [
-                            for (final scope in RiskQueueScope.supportScopes)
-                              SupportQueueChoice(
-                                value: scope,
-                                label: switch (scope) {
-                                  RiskQueueScope.mine =>
-                                    SupportTicketStrings.mine,
-                                  RiskQueueScope.closed =>
-                                    SupportTicketStrings.finished,
-                                  _ => SupportTicketStrings.pending,
-                                },
-                                count: _countForScope(scope),
-                                key: ValueKey('risk-queue-${scope.name}'),
-                              ),
-                          ],
+                  child: SupportQueueControls<RiskQueueScope>(
+                    searchController: _searchController,
+                    searchKey: const Key('risk-search-field'),
+                    searchHint: SupportTicketStrings.searchHint,
+                    onSearchChanged: (value) => setState(() => _query = value),
+                    value: _scope,
+                    onChanged: (value) => setState(() => _scope = value),
+                    choices: [
+                      for (final scope in RiskQueueScope.supportScopes)
+                        SupportQueueChoice(
+                          value: scope,
+                          label: switch (scope) {
+                            RiskQueueScope.mine => SupportTicketStrings.mine,
+                            RiskQueueScope.closed =>
+                              SupportTicketStrings.finished,
+                            _ => SupportTicketStrings.pending,
+                          },
+                          count: _countForScope(scope),
+                          key: ValueKey('risk-queue-${scope.name}'),
                         ),
+                    ],
+                  ),
                 ),
               ),
-              if (widget.isAdmin)
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    horizontalPadding,
-                    0,
-                    horizontalPadding,
-                    16,
-                  ),
-                  sliver: SliverToBoxAdapter(
-                    child: RiskQueueTabs(
-                      value: _scope,
-                      countFor: _countForScope,
-                      onChanged: (value) => setState(() => _scope = value),
-                    ),
-                  ),
-                ),
               if (_loading)
                 SliverPadding(
                   padding: EdgeInsets.fromLTRB(
@@ -364,7 +294,6 @@ class _RiskReportsViewState extends State<RiskReportsView> {
                     itemBuilder: (context, index) => RiskReportCard(
                       report: filtered[index],
                       currentUserId: _currentUserId,
-                      showSeverity: widget.isAdmin,
                       onTap: () => _openReport(filtered[index]),
                     ),
                   ),

@@ -4,6 +4,7 @@ import '../models/delivery_eta_route_profile.dart';
 import 'delivery_eta_calculator.dart';
 import 'delivery_pricing_policy.dart';
 import 'geo_utils.dart';
+import 'package:giaohang_domain/giaohang_domain.dart' show BusinessSettings;
 
 /// Ước tính phí giao hàng theo khoảng cách (haversine / OSRM).
 class DeliveryFeeEstimate {
@@ -16,6 +17,7 @@ class DeliveryFeeEstimate {
     required this.feeBreakdown,
     required this.eta,
     this.durationSeconds,
+    this.settings,
   });
 
   final double distanceMeters;
@@ -26,6 +28,7 @@ class DeliveryFeeEstimate {
   /// 'osrm' | 'haversine'
   final String source;
   final double? durationSeconds;
+  final BusinessSettings? settings;
   final DeliveryFeeBreakdown feeBreakdown;
   final DeliveryEtaEstimate eta;
 
@@ -54,6 +57,7 @@ class DeliveryFeeCalculator {
     required String serviceType,
     OsrmService? osrm,
     DateTime? quotedAt,
+    BusinessSettings? settings,
   }) async {
     OsrmRouteResult? route;
 
@@ -76,6 +80,7 @@ class DeliveryFeeCalculator {
       deliveryLng: deliveryLng,
       serviceType: serviceType,
       quotedAt: quotedAt,
+      settings: settings,
     );
   }
 
@@ -88,6 +93,7 @@ class DeliveryFeeCalculator {
     required double deliveryLng,
     required String serviceType,
     DateTime? quotedAt,
+    BusinessSettings? settings,
   }) async {
     final at = quotedAt ?? DateTime.now();
     final forecast = route == null
@@ -103,6 +109,7 @@ class DeliveryFeeCalculator {
       deliveryLng: deliveryLng,
       serviceType: serviceType,
       quotedAt: at,
+      settings: settings,
     );
   }
 
@@ -114,6 +121,7 @@ class DeliveryFeeCalculator {
     required double deliveryLng,
     required String serviceType,
     DateTime? quotedAt,
+    BusinessSettings? settings,
   }) {
     final hasRoadRoute = route != null && route.distanceMeters > 0;
     final meters = hasRoadRoute
@@ -128,6 +136,7 @@ class DeliveryFeeCalculator {
     final source = hasRoadRoute ? 'osrm' : 'haversine';
     final feeBreakdown = DeliveryPricingPolicy.calculate(
       distanceMeters: meters,
+      settings: settings,
     );
     final eta = DeliveryEtaCalculator.calculate(
       distanceMeters: meters,
@@ -150,6 +159,7 @@ class DeliveryFeeCalculator {
       durationSeconds: duration,
       feeBreakdown: feeBreakdown,
       eta: eta,
+      settings: settings,
     );
   }
 }

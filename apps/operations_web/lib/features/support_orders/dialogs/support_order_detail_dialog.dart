@@ -7,6 +7,7 @@ import '../utils/support_order_ui.dart';
 import '../widgets/support_order_detail_sections.dart';
 import '../widgets/support_order_information.dart';
 import '../widgets/support_order_information_components.dart';
+import '../widgets/support_order_proofs.dart';
 
 Future<void> showSupportOrderDetailDialog(
   BuildContext context, {
@@ -102,6 +103,11 @@ class SupportOrderDetailDialog extends StatelessWidget {
                     SupportOrderInformation(
                       order: order.information,
                       showIdentity: false,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    SupportOrderProofs(
+                      orderId: order.id,
+                      repository: repository,
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     SupportOrderInfoSection(

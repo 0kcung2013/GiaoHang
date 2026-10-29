@@ -26,7 +26,9 @@ class SupportRequestInbox extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      SupportRequestAlertStrings.title,
+                      controller.adminDecisionsOnly
+                          ? SupportRequestAlertStrings.adminTitle
+                          : SupportRequestAlertStrings.title,
                       style: AppTextStyles.headingMedium,
                     ),
                   ),
@@ -82,6 +84,8 @@ class SupportRequestInbox extends StatelessWidget {
                         child: Text(
                           controller.loading
                               ? SupportRequestAlertStrings.loading
+                              : controller.adminDecisionsOnly
+                              ? SupportRequestAlertStrings.adminEmpty
                               : SupportRequestAlertStrings.empty,
                           style: AppTextStyles.bodyMedium,
                           textAlign: TextAlign.center,

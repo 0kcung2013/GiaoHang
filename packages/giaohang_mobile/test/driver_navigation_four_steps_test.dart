@@ -12,6 +12,7 @@ import 'package:giaohang_mobile/core/providers/driver_wallet_providers.dart';
 import 'package:giaohang_mobile/core/providers/location_providers.dart';
 import 'package:giaohang_mobile/core/services/customer_order_service.dart';
 import 'package:giaohang_mobile/core/services/delivery_proof_service.dart';
+import 'package:giaohang_mobile/features/order_handoff/data/pickup_handoff_service.dart';
 import 'package:giaohang_mobile/core/services/delivery_proof_watermark_service.dart';
 import 'package:giaohang_mobile/core/services/realtime_service.dart';
 import 'package:giaohang_mobile/features/driver/cancellation/data/driver_cancellation_repository.dart';
@@ -85,6 +86,9 @@ void main() {
                 overrides: [
                   customerOrderServiceProvider.overrideWithValue(orders),
                   deliveryProofServiceProvider.overrideWithValue(proof),
+                  pickupHandoffServiceProvider.overrideWithValue(
+                    _Handoff(orders),
+                  ),
                   driverNavSessionsProvider.overrideWith((ref) => sessions),
                   driverLocationModeProvider.overrideWith(
                     (ref) => DriverLocationMode.demoHcm,
@@ -219,31 +223,41 @@ void main() {
               expect(find.text('Đã lấy hàng'), findsOneWidget);
               view().onPrimaryAction!();
               await tester.pumpAndSettle();
-              Navigator.of(tester.element(find.byType(BottomSheet))).pop(
-                DriverDeliveryConfirmationResult(
-                  proof: DeliveryProofCapture(
-                    image: XFile.fromData(
-                      Uint8List.fromList([1]),
-                      name: 'proof.png',
-                      mimeType: 'image/png',
-                    ),
-                    capturedAt: now,
-                    location: DeliveryProofLocation(
-                      latitude: view().driverLatitude!,
-                      longitude: view().driverLongitude!,
-                    ),
-                    address: 'Điểm lấy',
+              final pickupConfirmation = DriverDeliveryConfirmationResult(
+                pickupCode: '0012',
+                proof: DeliveryProofCapture(
+                  image: XFile.fromData(
+                    Uint8List.fromList([1]),
+                    name: 'proof.png',
+                    mimeType: 'image/png',
                   ),
+                  capturedAt: now,
+                  location: DeliveryProofLocation(
+                    latitude: view().driverLatitude!,
+                    longitude: view().driverLongitude!,
+                  ),
+                  address: 'Điểm lấy',
                 ),
               );
-              await tester.pumpAndSettle();
+              final submitPickup = tester
+                  .widget<DriverDeliveryConfirmationSheet>(
+                    find.byType(DriverDeliveryConfirmationSheet),
+                  )
+                  .onConfirm!;
               if (failFirstTransition) {
+                await expectLater(
+                  submitPickup(pickupConfirmation),
+                  throwsStateError,
+                );
                 expect(view().order.status, 'picking_up');
-                expect(view().pickupConfirmed, isTrue);
+                expect(view().pickupConfirmed, isFalse);
                 expect(view().simulationRunning, isFalse);
-                view().onPrimaryAction!();
-                await tester.pumpAndSettle();
               }
+              await submitPickup(pickupConfirmation);
+              Navigator.of(
+                tester.element(find.byType(BottomSheet)),
+              ).pop(pickupConfirmation);
+              await tester.pumpAndSettle();
               expect(view().order.status, 'delivering');
               expect(proof.submissions, 1);
               expect(view().simulationRunning, isFalse);
@@ -356,6 +370,26 @@ class _Orders implements CustomerOrderService {
       'delivering' => 'delivered',
       _ => throw StateError('Invalid status'),
     };
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Handoff implements PickupHandoffService {
+  _Handoff(this.orders);
+  final _Orders orders;
+  @override
+  Future<void> confirmPickup({
+    required String orderId,
+    required String code,
+  }) async {
+    expect(code, '0012');
+    await orders.updateDriverOrderStatus(
+      orderId: orderId,
+      driverId: 'driver',
+      currentStatus: 'picking_up',
+    );
   }
 
   @override

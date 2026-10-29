@@ -76,7 +76,9 @@ class DriverWalletTransaction {
   int get signedAmount {
     if (availableDelta != 0) return availableDelta;
     return switch (type) {
-      'cod_hold' || 'platform_fee_capture' => -amount,
+      'cod_hold' ||
+      'platform_fee_capture' ||
+      'customer_platform_fee_capture' => -amount,
       'cod_advance_capture' => 0,
       _ => amount,
     };
@@ -104,7 +106,8 @@ class DriverWalletTransaction {
       'cod_hold' => 'Ứng tiền hàng',
       'cod_release' => 'Hoàn tiền ứng COD',
       'cod_advance_capture' => 'Ứng tiền khi nhận hàng',
-      'platform_fee_capture' => 'Phí nền tảng (chính sách cũ)',
+      'platform_fee_capture' => 'Phí sàn tài xế',
+      'customer_platform_fee_capture' => 'Nộp phí sàn đã thu từ khách',
       'prepaid_earning' => 'Thu nhập trả trước',
       'cod_settlement' => 'Thu nhập COD',
       'return_delivery_earning' => 'Cước giao của đơn hoàn',

@@ -1,0 +1,57 @@
+abstract final class TransactionStrings {
+  static const title = 'Giao dịch';
+  static const topups = 'Nạp tiền';
+  static const payments = 'Thanh toán đơn';
+  static const refunds = 'Hoàn tiền';
+  static const search = 'Mã giao dịch, mã đơn, tên hoặc số điện thoại';
+  static const status = 'Trạng thái';
+  static const allStatuses = 'Mọi trạng thái';
+  static const refresh = 'Tải lại';
+  static const more = 'Xem thêm';
+  static const empty = 'Không có giao dịch phù hợp';
+  static const emptyHint = 'Thử đổi từ khóa, trạng thái hoặc khoảng ngày.';
+  static const error =
+      'Không thể tải giao dịch. Kiểm tra kết nối và quyền truy cập.';
+  static const unavailable = 'Chưa có API tra cứu giao dịch trên hệ thống.';
+  static const detail = 'Chi tiết giao dịch';
+  static const close = 'Đóng';
+  static const user = 'Người giao dịch';
+  static const reference = 'Mã giao dịch';
+  static const providerRef = 'Mã tham chiếu VNPAY';
+  static const providerNo = 'Mã giao dịch VNPAY';
+  static const responseCode = 'Mã phản hồi VNPAY';
+  static const created = 'Thời gian tạo';
+  static const completed = 'Thời gian ghi nhận';
+  static const expires = 'Hạn thanh toán';
+  static const availableDelta = 'Thay đổi ví khả dụng';
+  static const heldDelta = 'Thay đổi khoản giữ ví';
+  static const paymentState = 'Tình trạng phí trong ví';
+  static const missing = 'Chưa có';
+  static const openOrder = 'Xem đơn hàng';
+  static const orderError = 'Không thể tải đơn liên quan.';
+  static const request = 'Ghi nhận yêu cầu hỗ trợ';
+  static const requests = 'Yêu cầu hỗ trợ liên quan';
+  static const noRequests = 'Chưa có yêu cầu liên quan';
+  static const requestError = 'Không thể tải yêu cầu hỗ trợ.';
+  static const createError = 'Không thể tạo yêu cầu hỗ trợ.';
+  static const createdRequest = 'Đã ghi nhận yêu cầu hỗ trợ';
+  static const expiredPending = 'Đã quá hạn chờ xác nhận';
+  static const pendingHint =
+      'Trạng thái hiện tại vẫn đang chờ kết quả từ hệ thống thanh toán.';
+  static const allDates = 'Mọi thời gian';
+  static const today = 'Hôm nay';
+  static const sevenDays = '7 ngày qua';
+  static const thirtyDays = '30 ngày qua';
+  static const customDates = 'Chọn khoảng ngày';
+  static const datesLabel = 'Ngày tạo giao dịch';
+  static const loaded = 'giao dịch đã tải';
+  static const source = 'Nguồn giao dịch';
+  static const reason = 'Lý do';
+  static const clearSearch = 'Xóa tìm kiếm';
+  static const subject = 'Chủ đề';
+  static const issue = 'Nội dung cần hỗ trợ';
+  static const enterSubject = 'Nhập chủ đề cần hỗ trợ.';
+  static const enterIssue = 'Nhập nội dung cần hỗ trợ.';
+  static const saveRequest = 'Lưu yêu cầu';
+  static String requestSubject(String reference) => 'Kiểm tra $reference';
+}

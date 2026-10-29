@@ -1,9 +1,13 @@
 abstract final class SupportTicketStrings {
   static const workspace = 'Trung tâm CSKH';
+  static const accounts = 'Người dùng';
   static const riskQueue = 'Sự cố';
   static const ordersQueue = 'Tra cứu đơn';
+  static const transactions = 'Giao dịch';
   static const ticketQueue = 'Chat hỗ trợ';
   static const ticketsTitle = 'Chat hỗ trợ';
+  static const waitingAdminTitle = 'Yêu cầu chờ Admin';
+  static const allSupportRequests = 'Xem toàn bộ CSKH';
   static const monitoring = 'Giám sát';
   static const clearSearch = 'Xóa tìm kiếm';
   static const refreshQueue = 'Tải lại danh sách';
@@ -39,4 +43,22 @@ abstract final class SupportTicketStrings {
   static const retry = 'Thử lại';
   static const cancel = 'Hủy';
   static const save = 'Lưu yêu cầu';
+  static const queueSubject = 'Yêu cầu / Người gửi';
+  static const queueStatus = 'Trạng thái';
+  static const queueAssignee = 'Người phụ trách';
+  static const queueUpdated = 'Cập nhật';
+  static const unassigned = 'Chưa tiếp nhận';
+  static const assigned = 'Đã có người phụ trách';
+  static const highPriority = 'Ưu tiên cao';
+  static const needsReply = 'Cần phản hồi';
+  static const requester = 'Người yêu cầu';
+  static const internalNote = 'Ghi chú nội bộ';
+  static const internalHint = 'Nội dung chỉ CSKH và Admin nhìn thấy';
+  static const replyHint = 'Nhập tin nhắn cho người dùng...';
+  static const saveInternalNote = 'Lưu ghi chú nội bộ';
+  static const sendReply = 'Gửi phản hồi';
+  static const useReplyTemplate = 'Dùng mẫu trả lời · sửa trước khi gửi';
+  static const refreshCase = 'Tải lại hồ sơ';
+  static const closeCase = 'Đóng';
+  static String replyTo(String recipient) => 'Gửi $recipient';
 }

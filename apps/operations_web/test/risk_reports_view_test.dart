@@ -29,15 +29,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Rủi ro hệ thống'), findsOneWidget);
-    expect(find.text('Tổng quan kiểm soát'), findsOneWidget);
-    expect(find.text('SLA phân loại'), findsNothing);
+    expect(find.text('Sự cố'), findsOneWidget);
+    expect(find.text('Tổng quan kiểm soát'), findsNothing);
     expect(find.text('Địa chỉ nhận bất thường'), findsOneWidget);
-    expect(find.text('GH-00001'), findsOneWidget);
-    expect(find.text('Nghiêm trọng'), findsWidgets);
-    expect(find.text('Khách hàng'), findsOneWidget);
-    expect(find.text('Nguyễn An'), findsOneWidget);
-    expect(find.text('Quá hạn phân loại'), findsNothing);
+    expect(find.textContaining('GH-00001'), findsOneWidget);
+    expect(find.text('Nghiêm trọng'), findsNothing);
+    expect(find.textContaining('Nguyễn An'), findsOneWidget);
+    expect(find.text('Cần Admin'), findsNothing);
     expect(find.byKey(const Key('risk-search-field')), findsOneWidget);
   });
 
@@ -102,7 +100,7 @@ void main() {
     expect(find.byKey(const Key('risk-queue-active')), findsOneWidget);
     expect(find.byKey(const Key('risk-queue-closed')), findsOneWidget);
     expect(find.byKey(const Key('risk-queue-all')), findsNothing);
-    expect(find.text('Cần Admin'), findsOneWidget);
+    expect(find.text('Cần Admin'), findsNothing);
     expect(find.text('Chưa có người phụ trách'), findsNothing);
   });
 

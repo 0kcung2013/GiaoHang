@@ -373,7 +373,6 @@ Widget _body({
   return RiskReportDetailBody(
     report: report,
     currentUserId: 'staff',
-    criticalRestricted: false,
     intervention: RiskIntervention(
       riskReportId: 'risk',
       orderId: 'order',

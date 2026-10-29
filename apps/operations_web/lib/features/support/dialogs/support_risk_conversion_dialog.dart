@@ -58,7 +58,6 @@ class _SupportRiskConversionDialogState
   late final TextEditingController _description;
   final _component = TextEditingController();
   RiskCategory _category = RiskCategory.other;
-  RiskSeverity _severity = RiskSeverity.medium;
 
   @override
   void initState() {
@@ -81,7 +80,7 @@ class _SupportRiskConversionDialogState
       context,
       SupportRiskConversionDraft(
         category: _category,
-        severity: _severity,
+        severity: RiskSeverity.medium,
         title: _title.text.trim(),
         description: _description.text.trim(),
         component: widget.needsComponent ? _component.text.trim() : null,
@@ -128,55 +127,19 @@ class _SupportRiskConversionDialogState
         ),
       );
 
-  Widget _classification() => LayoutBuilder(
-    builder: (context, constraints) {
-      final category = DropdownButtonFormField<RiskCategory>(
-        initialValue: _category,
-        isExpanded: true,
-        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-        decoration: _decoration(SupportRiskConversionStrings.category),
-        items: SupportRiskConversionStrings.categories.entries
-            .map(
-              (entry) =>
-                  DropdownMenuItem(value: entry.key, child: Text(entry.value)),
-            )
-            .toList(),
-        onChanged: (value) =>
-            setState(() => _category = value ?? RiskCategory.other),
-      );
-      final severity = DropdownButtonFormField<RiskSeverity>(
-        initialValue: _severity,
-        isExpanded: true,
-        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-        decoration: _decoration(SupportRiskConversionStrings.severity),
-        items: SupportRiskConversionStrings.severities.entries
-            .map(
-              (entry) =>
-                  DropdownMenuItem(value: entry.key, child: Text(entry.value)),
-            )
-            .toList(),
-        onChanged: (value) =>
-            setState(() => _severity = value ?? RiskSeverity.medium),
-      );
-      final stack =
-          constraints.maxWidth < 400 ||
-          MediaQuery.textScalerOf(context).scale(14) > 18;
-      return stack
-          ? Column(
-              children: [
-                category,
-                const SizedBox(height: AppSpacing.lg),
-                severity,
-              ],
-            )
-          : Row(
-              children: [
-                Expanded(child: category),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(child: severity),
-              ],
-            );
-    },
+  Widget _classification() => DropdownButtonFormField<RiskCategory>(
+    initialValue: _category,
+    isExpanded: true,
+    style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+    decoration: _decoration(SupportRiskConversionStrings.category),
+    items: SupportRiskConversionStrings.categories.entries
+        .map(
+          (entry) =>
+              DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+        )
+        .toList(),
+    onChanged: (value) =>
+        setState(() => _category = value ?? RiskCategory.other),
   );
 
   @override

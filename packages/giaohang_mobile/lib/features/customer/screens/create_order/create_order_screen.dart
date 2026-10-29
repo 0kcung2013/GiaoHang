@@ -10,6 +10,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart' show parseCargoWeightKg;
 import '../../../../core/models/recent_address_model.dart';
 import '../../../../core/providers/location_providers.dart';
+import '../../../../core/providers/business_settings_providers.dart';
 import '../../../../core/utils/delivery_fee_calculator.dart';
 import '../../../../core/services/osrm_service.dart';
 import '../../../../core/utils/order_cargo_utils.dart';
@@ -25,13 +26,15 @@ import 'utils/order_form_validators.dart';
 import 'utils/validate_order_form.dart';
 import 'widgets/create_order_app_bar.dart';
 import 'widgets/create_order_body.dart';
-import 'widgets/create_order_payment_body.dart';
+import 'widgets/customer_order_payment_step.dart';
 import 'widgets/fee_loading_dialog.dart';
 import 'widgets/map_picker_sheet.dart';
 import 'widgets/order_location_step.dart';
 import 'widgets/order_quote_step.dart';
 import 'widgets/submit_order_button.dart';
 import 'widgets/traffic_demo_route_selector.dart';
+import 'widgets/order_settings_changed_notice.dart';
+import 'utils/order_settings_review.dart';
 
 class CreateOrderScreen extends ConsumerStatefulWidget {
   const CreateOrderScreen({
@@ -290,7 +293,13 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
 
       if (!mounted) return;
       Navigator.of(context).pop();
-      context.push('/customer/create-order/confirm', extra: formData);
+      final result = await context.push<OrderConfirmationResult>(
+        '/customer/create-order/confirm',
+        extra: formData,
+      );
+      if (mounted && result == OrderConfirmationResult.reviewSettings) {
+        await _goToQuote();
+      }
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop();
@@ -336,6 +345,14 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
     );
     final isLocationStep = _step == 0;
     final quote = _quote;
+    final latestRevision =
+        ref.watch(businessSettingsProvider).valueOrNull?.revision ?? 0;
+    final needsReview =
+        quote != null &&
+        requiresOrderSettingsReview(
+          quotedRevision: quote.settings?.revision,
+          latestRevision: latestRevision,
+        );
     return Scaffold(
       backgroundColor: AppColors.bgLight,
       appBar: isLocationStep
@@ -351,21 +368,33 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
             ),
       bottomNavigationBar: isLocationStep
           ? null
-          : SubmitOrderButton(
-              label: switch (_step) {
-                1 => 'Nhập thông tin đơn',
-                2 => 'Thanh toán',
-                _ => 'Kiểm tra đơn hàng',
-              },
-              subtitle: switch (_step) {
-                1 => 'Thêm người nhận và kiện hàng',
-                _ => '',
-              },
-              onPressed: switch (_step) {
-                1 => _goToInformation,
-                2 => _goToPayment,
-                _ => _goToConfirmation,
-              },
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (needsReview) const OrderSettingsChangedNotice(),
+                SubmitOrderButton(
+                  label: needsReview
+                      ? OrderSettingsChangedNotice.action
+                      : switch (_step) {
+                          1 => 'Nhập thông tin đơn',
+                          2 => 'Thanh toán',
+                          _ => 'Kiểm tra đơn hàng',
+                        },
+                  subtitle: needsReview
+                      ? ''
+                      : switch (_step) {
+                          1 => 'Thêm người nhận và kiện hàng',
+                          _ => '',
+                        },
+                  onPressed: needsReview
+                      ? _goToQuote
+                      : switch (_step) {
+                          1 => _goToInformation,
+                          2 => _goToPayment,
+                          _ => _goToConfirmation,
+                        },
+                ),
+              ],
             ),
       body: isLocationStep
           ? OrderLocationStep(
@@ -390,10 +419,11 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
             )
           : SafeArea(
               child: switch (_step) {
-                3 => CreateOrderPaymentBody(
+                3 => CustomerOrderPaymentStep(
                   formKey: _paymentFormKey,
                   controller: _financeController,
                   deliveryFee: quote!.deliveryFee,
+                  settings: quote.settings,
                 ),
                 1 => OrderQuoteStep(
                   quote: quote!,

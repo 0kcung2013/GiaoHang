@@ -65,20 +65,18 @@ final reviewServiceProvider = Provider<ReviewService>((ref) {
 });
 
 /// Review khách → tài xế theo orderId (null = chưa đánh giá).
-final orderReviewProvider = FutureProvider.family<ReviewModel?, String>((
-  ref,
-  orderId,
-) async {
-  final service = ref.watch(reviewServiceProvider);
-  return service.getReviewByOrderId(
-    orderId,
-    direction: ReviewDirection.customerToDriver,
-  );
-});
+final orderReviewProvider = FutureProvider.autoDispose
+    .family<ReviewModel?, String>((ref, orderId) async {
+      final service = ref.watch(reviewServiceProvider);
+      return service.getReviewByOrderId(
+        orderId,
+        direction: ReviewDirection.customerToDriver,
+      );
+    });
 
 /// Review tài xế → khách theo orderId.
-final driverCustomerReviewProvider =
-    FutureProvider.family<ReviewModel?, String>((ref, orderId) async {
+final driverCustomerReviewProvider = FutureProvider.autoDispose
+    .family<ReviewModel?, String>((ref, orderId) async {
       final service = ref.watch(reviewServiceProvider);
       return service.getReviewByOrderId(
         orderId,

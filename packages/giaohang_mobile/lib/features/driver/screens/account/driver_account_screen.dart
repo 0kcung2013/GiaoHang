@@ -6,6 +6,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/widgets/platform_fee_card.dart';
 import '../home/widgets/driver_home_layout.dart';
 import 'dialogs/driver_profile_change_request_sheet.dart';
 import 'models/driver_account_view_data.dart';
@@ -144,6 +145,8 @@ class _DriverAccountScreenState extends ConsumerState<DriverAccountScreen> {
                         DriverVerificationCard(data: data),
                       ],
                       const SizedBox(height: AppSpacing.xl2),
+                      const PlatformFeeCard(driver: true),
+                      const SizedBox(height: AppSpacing.lg),
                       DriverAccountLogoutButton(
                         isSigningOut: _isSigningOut,
                         onTap: _isSigningOut ? null : _confirmAndSignOut,

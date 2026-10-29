@@ -3,6 +3,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 
 import '../../../core/widgets/stored_media_image.dart';
 import '../models/risk_report.dart';
+import '../../account_controls/widgets/account_context_link.dart';
 
 class RiskReporterProfileCard extends StatelessWidget {
   const RiskReporterProfileCard({required this.report, super.key});
@@ -78,6 +79,12 @@ class RiskReporterProfileCard extends StatelessWidget {
               semanticLabel: 'Email người gửi',
             ),
           ],
+          if (report.reporterRole == RiskReporterRole.customer ||
+              report.reporterRole == RiskReporterRole.driver)
+            AccountContextLink(
+              userId: report.reportedBy,
+              riskReportId: report.id,
+            ),
         ],
       ),
     );

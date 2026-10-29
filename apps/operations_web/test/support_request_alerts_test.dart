@@ -12,6 +12,102 @@ import 'package:operations_web/features/support/notifications/support_request_be
 
 void main() {
   test(
+    'Admin alerts only escalated work, including a case still assigned to Support',
+    () async {
+      final repository = _AlertsRepository();
+      final admin = SupportRequestAlertsController(
+        repository,
+        adminDecisionsOnly: true,
+      );
+      final support = SupportRequestAlertsController(repository);
+      addTearDown(() async {
+        admin.dispose();
+        support.dispose();
+        await repository.close();
+      });
+      repository.emit([_ticket('ordinary')]);
+      await Future<void>.delayed(Duration.zero);
+      expect(admin.unreadCount, 0);
+      expect(support.unreadCount, 1);
+      repository.emit([_ticket('ordinary'), _escalated('decision')]);
+      await Future<void>.delayed(Duration.zero);
+      expect(admin.unreadCount, 1);
+      expect(admin.latest?.id, 'decision');
+      expect(support.unreadCount, 1);
+      expect(support.latest, isNull);
+      admin.markRead('decision');
+      repository.emit([_ticket('ordinary')]);
+      await Future<void>.delayed(Duration.zero);
+      expect(admin.unreadCount, 0);
+      repository.emit([_escalated('decision')]);
+      await Future<void>.delayed(Duration.zero);
+      expect(admin.unreadCount, 1);
+      expect(admin.latest?.id, 'decision');
+    },
+  );
+
+  testWidgets(
+    'Admin escalation toast ignores normal requests and opens the Admin case',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repository = _AlertsRepository();
+      final router = GoRouter(
+        initialLocation: '/admin-home',
+        routes: [
+          ShellRoute(
+            builder: (_, _, child) => SupportRequestAlertsHost(
+              repository: repository,
+              adminDecisionsOnly: true,
+              child: child,
+            ),
+            routes: [
+              GoRoute(
+                path: '/admin-home',
+                builder: (_, _) => const Scaffold(body: SupportRequestBell()),
+              ),
+              GoRoute(
+                path: '/admin-ticket/:id',
+                builder: (_, state) =>
+                    Scaffold(body: Text('Admin ${state.pathParameters['id']}')),
+              ),
+            ],
+          ),
+        ],
+      );
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox());
+        router.dispose();
+        await repository.close();
+      });
+      await tester.pumpWidget(
+        MaterialApp.router(
+          routerConfig: router,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(1.6)),
+            child: child!,
+          ),
+        ),
+      );
+      repository.emit([_ticket('normal')]);
+      await tester.pumpAndSettle();
+      expect(find.text('Có yêu cầu hỗ trợ mới'), findsNothing);
+      repository.emit([_ticket('normal'), _escalated('decision')]);
+      await tester.pumpAndSettle();
+      expect(find.text('Có hồ sơ cần Admin quyết định'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Xem hồ sơ'));
+      await tester.pumpAndSettle();
+      expect(find.text('Admin decision'), findsOneWidget);
+      expect(repository.watches, 1);
+    },
+  );
+
+  test(
     'automatic reclamation stays silent; a subsequent real request surfaces',
     () async {
       final repository = _AlertsRepository();
@@ -273,6 +369,12 @@ void main() {
     expect(find.byTooltip('Yêu cầu mới'), findsOneWidget);
   });
 }
+
+SupportTicket _escalated(String id) => SupportTicket.fromJson({
+  ..._ticket(id).toJson(),
+  'status': 'waiting_admin',
+  'assigned_to': 'support-1',
+});
 
 SupportTicket _ticket(String id, {bool monitoring = false}) => SupportTicket(
   id: id,

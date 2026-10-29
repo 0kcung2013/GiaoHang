@@ -25,10 +25,12 @@ class SupportRequestAlertsHost extends StatefulWidget {
   const SupportRequestAlertsHost({
     required this.child,
     this.repository,
+    this.adminDecisionsOnly = false,
     super.key,
   });
   final Widget child;
   final SupportRequestAlertsRepository? repository;
+  final bool adminDecisionsOnly;
 
   @override
   State<SupportRequestAlertsHost> createState() =>
@@ -39,6 +41,7 @@ class _SupportRequestAlertsHostState extends State<SupportRequestAlertsHost> {
   late final _controller = SupportRequestAlertsController(
     widget.repository ??
         SupabaseSupportRequestAlertsRepository(Supabase.instance.client),
+    adminDecisionsOnly: widget.adminDecisionsOnly,
   );
 
   @override
@@ -72,10 +75,13 @@ class _SupportRequestAlertsHostState extends State<SupportRequestAlertsHost> {
                         constraints: const BoxConstraints(maxWidth: 420),
                         child: SupportRequestToast(
                           ticket: latest,
+                          adminDecisionsOnly: widget.adminDecisionsOnly,
                           onDismiss: _controller.dismissToast,
                           onOpen: () {
                             _controller.markRead(latest.id);
-                            context.push('/support-ticket/${latest.id}');
+                            context.push(
+                              '${widget.adminDecisionsOnly ? '/admin-ticket' : '/support-ticket'}/${latest.id}',
+                            );
                           },
                         ),
                       ),

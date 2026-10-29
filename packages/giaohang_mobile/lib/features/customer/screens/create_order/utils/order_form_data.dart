@@ -1,4 +1,5 @@
 import 'package:image_picker/image_picker.dart';
+import 'package:giaohang_domain/giaohang_domain.dart' show BusinessSettings;
 
 import '../../../../../core/utils/delivery_eta_calculator.dart';
 import '../../../../../core/utils/delivery_pricing_policy.dart';
@@ -39,6 +40,17 @@ class OrderFormData {
   final DeliveryFeeBreakdown feeBreakdown;
   final DeliveryEtaEstimate deliveryEta;
   final String? trafficDemoKey;
+  final int? settingsRevision;
+  final int customerPlatformFeeRateBps;
+  final int driverPlatformFeeRateBps;
+  int get customerPlatformFeeAmount => BusinessSettings.calculatePlatformFee(
+    deliveryFee.round(),
+    customerPlatformFeeRateBps,
+  );
+  int get driverPlatformFeeAmount => BusinessSettings.calculatePlatformFee(
+    deliveryFee.round(),
+    driverPlatformFeeRateBps,
+  );
 
   const OrderFormData({
     required this.pickupAddress,
@@ -75,6 +87,9 @@ class OrderFormData {
     required this.feeBreakdown,
     required this.deliveryEta,
     this.trafficDemoKey,
+    this.settingsRevision,
+    this.customerPlatformFeeRateBps = 0,
+    this.driverPlatformFeeRateBps = 0,
   });
 
   double get distanceKm => distanceMeters / 1000;
@@ -84,6 +99,8 @@ class OrderFormData {
     goodsValue: goodsValue,
     codCollectionAmount: codCollectionAmount,
     deliveryFee: deliveryFee.round(),
+    customerPlatformFeeAmount: customerPlatformFeeAmount,
+    driverPlatformFeeAmount: driverPlatformFeeAmount,
   );
 
   OrderPaymentMode get paymentMode => finance.paymentMode;

@@ -31,6 +31,10 @@ OrderModel buildOrderFromForm({
       : data.itemDescription.trim(),
   itemImageUrl: itemImageUrl,
   itemWeightKg: data.itemWeightKg,
+  quotedDistanceMeters: data.settingsRevision != null
+      ? data.distanceMeters
+      : null,
+  settingsRevision: data.settingsRevision,
   deliveryFee: data.deliveryFee,
   serviceType: 'standard',
   paymentMethod: data.paymentMethod,
@@ -41,8 +45,10 @@ OrderModel buildOrderFromForm({
       : OrderPaymentStatus.notRequired,
   goodsValue: data.goodsValue,
   codCollectionAmount: data.codCollectionAmount,
-  platformFeeRateBps: 0,
-  platformFeeAmount: 0,
+  platformFeeRateBps: data.driverPlatformFeeRateBps,
+  platformFeeAmount: data.driverPlatformFeeAmount,
+  customerPlatformFeeRateBps: data.customerPlatformFeeRateBps,
+  customerPlatformFeeAmount: data.customerPlatformFeeAmount,
   driverNetEarning: data.finance.driverNetEarning,
   driverAdvanceAmount: data.finance.driverAdvanceAmount,
   receiverCollectionAmount: data.finance.receiverCollectionAmount,

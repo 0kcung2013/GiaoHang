@@ -20,6 +20,7 @@ class SaveAddressSection extends StatelessWidget {
     required this.onCustomLabelChanged,
     this.customLabelError,
     this.saveError,
+    this.saveRequired = false,
   });
 
   final bool enabled;
@@ -30,6 +31,7 @@ class SaveAddressSection extends StatelessWidget {
   final ValueChanged<String> onCustomLabelChanged;
   final String? customLabelError;
   final String? saveError;
+  final bool saveRequired;
 
   @override
   Widget build(BuildContext context) {
@@ -75,15 +77,16 @@ class SaveAddressSection extends StatelessWidget {
                   ),
                 ),
               ),
-              Switch(
-                key: saveAddressSwitchKey,
-                value: enabled,
-                onChanged: onEnabledChanged,
-                activeThumbColor: AppColors.textOnAccent,
-                activeTrackColor: AppColors.accent,
-                inactiveThumbColor: AppColors.bgCard,
-                inactiveTrackColor: AppColors.border,
-              ),
+              if (!saveRequired)
+                Switch(
+                  key: saveAddressSwitchKey,
+                  value: enabled,
+                  onChanged: onEnabledChanged,
+                  activeThumbColor: AppColors.textOnAccent,
+                  activeTrackColor: AppColors.accent,
+                  inactiveThumbColor: AppColors.bgCard,
+                  inactiveTrackColor: AppColors.border,
+                ),
             ],
           ),
           if (enabled) ...[

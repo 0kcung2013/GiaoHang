@@ -15,12 +15,12 @@ class SupportTicketLoading extends StatelessWidget {
         children: List.generate(
           3,
           (index) => Container(
-            height: 148,
-            margin: const EdgeInsets.only(bottom: AppSpacing.md),
+            height: 112,
+            margin: const EdgeInsets.only(bottom: AppSpacing.sm),
             padding: const EdgeInsets.all(AppSpacing.lg),
             decoration: BoxDecoration(
               color: AppColors.bgCard,
-              borderRadius: AppRadius.lg,
+              borderRadius: AppRadius.md,
               border: Border.all(color: AppColors.border),
             ),
             child: Column(
@@ -32,7 +32,7 @@ class SupportTicketLoading extends StatelessWidget {
                 const SizedBox(height: AppSpacing.sm),
                 const _Skeleton(width: 190, height: 12),
                 const Spacer(),
-                const _Skeleton(width: 140, height: 32),
+                const _Skeleton(width: 140, height: 16),
               ],
             ),
           ),

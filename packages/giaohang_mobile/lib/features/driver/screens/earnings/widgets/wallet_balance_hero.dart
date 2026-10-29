@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/driver_wallet.dart';
 import '../../../../../core/utils/money_formatter.dart';
+import '../../../../../core/utils/platform_fee_strings.dart';
 
 class WalletBalanceHero extends StatelessWidget {
   const WalletBalanceHero({
@@ -98,6 +99,13 @@ class WalletBalanceHero extends StatelessWidget {
               ),
             ),
           ),
+          if (summary.availableBalance < 0) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              PlatformFeeText.debt,
+              style: AppTextStyles.bodySmall.copyWith(color: AppColors.warning),
+            ),
+          ],
           const SizedBox(height: AppSpacing.xl2),
           Row(
             children: [

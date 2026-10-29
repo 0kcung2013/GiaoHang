@@ -84,7 +84,7 @@ void main() {
       await tester.enterText(find.byType(TextFormField), '2500000');
       expect(key.currentState!.validate(), isFalse);
       await tester.pump();
-      expect(find.text('Tối đa 2.000.000đ.'), findsOneWidget);
+      expect(find.text('Giá trị tối đa 2.000.000đ.'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }

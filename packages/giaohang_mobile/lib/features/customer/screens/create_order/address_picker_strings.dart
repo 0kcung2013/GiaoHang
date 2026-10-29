@@ -41,6 +41,7 @@ class AddressPickerStrings {
   static const setDefault = 'Đặt làm mặc định';
   static const delete = 'Xóa';
   static const saveAddress = 'Lưu địa chỉ';
+  static const addressBookTitle = 'Địa chỉ đã lưu';
   static const clearHistory = 'Xóa lịch sử';
   static const confirmDeleteTitle = 'Xóa địa chỉ đã lưu?';
   static const confirmDeleteMessage =

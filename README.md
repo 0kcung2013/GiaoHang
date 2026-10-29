@@ -68,6 +68,9 @@ flutter pub get
 
 Workspace chỉ có một `pubspec.lock` ở root.
 
+Phân loại khách hàng và phí sàn thực thu cho Customer/Driver, cấu hình Admin,
+setup backend/callback/secrets và đối soát: [Tài liệu bàn giao phí sàn](docs/handoff/platform_fee_collection.md).
+
 ## Customer App và Driver App
 
 ```bash
@@ -85,6 +88,12 @@ Source chính:
 - `packages/giaohang_mobile/lib/core/router.dart`
 
 Mỗi app chỉ cho phép tài khoản đúng vai trò. Không có lựa chọn chuyển vai trò trên trang đăng nhập/đăng ký.
+
+Chạy thử trên trình duyệt bằng `flutter run -d chrome` tại thư mục app tương ứng.
+Customer và Driver tự hiển thị bên trong mẫu điện thoại iPhone 13 có thân máy,
+tai thỏ và vùng an toàn. Màn hình app luôn là 390×844dp; cả chiếc điện thoại
+thu phóng để vừa cửa sổ trình duyệt, kể cả cửa sổ hẹp. Dialog và bottom sheet
+cũng nằm trong màn hình điện thoại. Android/iOS dùng kích thước thiết bị thực tế.
 
 Kiểm thử nghiệp vụ dùng chung: `cd packages/giaohang_mobile` rồi `flutter test`.
 Chi tiết cấu hình, callback và chạy hai app: [Tách app mobile](docs/mobile_apps.md).

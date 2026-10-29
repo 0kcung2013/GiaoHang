@@ -224,9 +224,7 @@ class _SupportReturnApprovalDialogState
     if (_quote == null || _quoting || _error != null) return;
     final quote = _quote!;
     final order = widget.report.order;
-    final returnFee = OrderReturnPricingPolicy.calculateReturnFee(
-      order.deliveryFee,
-    );
+    final returnFee = order.returnFee;
     Navigator.pop(
       context,
       ReturnApprovalDraft(

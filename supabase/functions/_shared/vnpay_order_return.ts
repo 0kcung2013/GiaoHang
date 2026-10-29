@@ -55,7 +55,7 @@ export async function handleVnpayOrderReturn(
   const valid = signatureValid && terminalValid && amountValid;
   let paymentStatus = payment?.status ?? "failed";
   const canComplete = valid && callbackSuccessful &&
-    paymentStatus === "pending" && dependencies.completePayment != null;
+    ["pending", "expired", "failed"].includes(paymentStatus) && dependencies.completePayment != null;
   if (canComplete) {
     const completion = await dependencies.completePayment!({
       txnRef,
@@ -114,6 +114,8 @@ function resultResponse({
     session_id: sessionId,
     message: status === "paid"
       ? "Thanh toán thành công. Đơn hàng đã được tạo."
+      : status === "refunded"
+      ? "Khoản thanh toán đã được hoàn vào ví khách hàng."
       : status === "pending"
       ? "Thanh toán đang được xác nhận. Vui lòng quay lại ứng dụng."
       : "Giao dịch không thành công.",
@@ -123,13 +125,18 @@ function resultResponse({
 function browserResult(status: string): Response {
   const paid = status === "paid";
   const pending = status === "pending";
+  const refunded = status === "refunded";
   const title = paid
     ? "Thanh toán thành công"
+    : refunded
+    ? "Đã hoàn tiền vào ví"
     : pending
     ? "Đang xác nhận thanh toán"
     : "Thanh toán không thành công";
   const message = paid
     ? "Đơn hàng đã được tạo. Bạn có thể quay lại ứng dụng."
+    : refunded
+    ? "Khoản thanh toán đã được hoàn vào ví khách hàng. Bạn có thể tạo lại đơn."
     : pending
     ? "Hệ thống đang xác nhận giao dịch. Vui lòng quay lại ứng dụng để kiểm tra."
     : "Giao dịch chưa hoàn tất. Vui lòng quay lại ứng dụng và thử lại.";

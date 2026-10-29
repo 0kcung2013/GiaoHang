@@ -9,6 +9,7 @@ import 'package:giaohang_mobile/features/customer/screens/create_order/utils/del
 import 'package:giaohang_mobile/features/customer/screens/create_order/widgets/delivery_quote_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:giaohang_domain/giaohang_domain.dart' show BusinessSettings;
 
 void main() {
   group('DeliveryPricingPolicy', () {
@@ -30,14 +31,43 @@ void main() {
       expect(quote.total, 53000);
     });
 
-    test('long-distance tier starts after ten kilometers', () {
-      final quote = DeliveryPricingPolicy.calculate(distanceMeters: 12000);
+    test(
+      'one distance rate applies to all kilometers after the included distance',
+      () {
+        final quote = DeliveryPricingPolicy.calculate(distanceMeters: 12000);
 
-      expect(quote.standardBillableKm, 8);
-      expect(quote.longBillableKm, 2);
-      expect(quote.standardDistanceFee, 40000);
-      expect(quote.longDistanceFee, 8000);
-      expect(quote.total, 66000);
+        expect(quote.standardBillableKm, 10);
+        expect(quote.longBillableKm, 0);
+        expect(quote.standardDistanceFee, 50000);
+        expect(quote.longDistanceFee, 0);
+        expect(quote.total, 68000);
+      },
+    );
+
+    test('historical settings retain the original tiered price', () {
+      final legacy = BusinessSettings.fromJson({
+        'revision': 0,
+        'values': BusinessSettings.legacyDefaults,
+      });
+      expect(
+        DeliveryPricingPolicy.calculate(
+          distanceMeters: 12000,
+          settings: legacy,
+        ).total,
+        66000,
+      );
+      expect(
+        DeliveryPricingPolicy.calculate(
+          distanceMeters: 20000,
+          settings: legacy,
+        ).total,
+        98000,
+      );
+      expect(
+        DeliveryPricingPolicy.calculate(distanceMeters: 20000).total,
+        108000,
+      );
+      expect(legacy.asSingleRate().usesLegacyPricing, isFalse);
     });
 
     test('rounds the final quote up to one thousand dong', () {

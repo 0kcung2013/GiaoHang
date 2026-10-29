@@ -55,12 +55,17 @@ class _SupportTicketWorkspaceState extends State<SupportTicketWorkspace> {
       final short = constraints.maxHeight < 560 * scale;
       final pane = LayoutBuilder(
         builder: (context, constraints) {
-          if (constraints.maxWidth >= 720) {
+          if (constraints.maxWidth >= 800 * scale) {
             return Row(
               children: [
                 Expanded(child: widget.chat),
                 const VerticalDivider(width: 1, color: AppColors.border),
-                SizedBox(width: 292, child: widget.contextPanel),
+                SizedBox(
+                  width:
+                      (constraints.maxWidth * .30).clamp(292.0, 360.0) *
+                      scale.clamp(1.0, 1.2),
+                  child: widget.contextPanel,
+                ),
               ],
             );
           }

@@ -4,6 +4,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/utils/money_formatter.dart';
+import '../../../../../core/utils/platform_fee_strings.dart';
 import '../../home/utils/driver_home_formatters.dart';
 import '../../home/utils/driver_order_distance.dart';
 
@@ -92,13 +93,20 @@ class FreePickOrderPanel extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          formatVnd(order.driverNetEarning),
+                          formatVnd(order.netDriverIncome),
                           style: AppTextStyles.headingSmall.copyWith(
                             color: AppColors.success,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      '${PlatformFeeText.fee}: ${formatVnd(order.platformFeeAmount)}',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Wrap(

@@ -33,12 +33,15 @@ class SupportTicketHeader extends StatelessWidget {
           icon: const Icon(Icons.refresh_rounded),
         ),
         if (onCreate != null)
-          OutlinedButton.icon(
+          FilledButton.icon(
             key: const Key('create-support-ticket-button'),
             onPressed: onCreate,
-            style: OutlinedButton.styleFrom(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              foregroundColor: AppColors.textOnAccent,
               minimumSize: const Size(48, 48),
               textStyle: AppTextStyles.labelMedium,
+              shape: const RoundedRectangleBorder(borderRadius: AppRadius.md),
             ),
             icon: const Icon(Icons.add_rounded, size: 20),
             label: const Text(SupportTicketStrings.createTicket),

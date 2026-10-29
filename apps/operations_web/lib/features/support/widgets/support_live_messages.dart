@@ -145,7 +145,7 @@ class _MessageBubble extends StatelessWidget {
                 vertical: AppSpacing.sm,
               ),
               decoration: BoxDecoration(
-                color: mine ? AppColors.accent : AppColors.bgCard,
+                color: mine ? AppColors.primary : AppColors.bgCard,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(14),
                   topRight: const Radius.circular(14),

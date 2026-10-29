@@ -11,16 +11,19 @@ class FreePickRadiusControls extends StatelessWidget {
     required this.radiusMeters,
     required this.onIncrease,
     required this.onDecrease,
+    this.minimumRadiusMeters = freePickDefaultRadiusMeters,
+    this.maximumRadiusMeters = freePickMaximumRadiusMeters,
   });
 
   final double radiusMeters;
+  final double minimumRadiusMeters, maximumRadiusMeters;
   final VoidCallback onIncrease;
   final VoidCallback onDecrease;
 
   @override
   Widget build(BuildContext context) {
-    final canIncrease = radiusMeters < freePickMaximumRadiusMeters;
-    final canDecrease = radiusMeters > freePickDefaultRadiusMeters;
+    final canIncrease = radiusMeters < maximumRadiusMeters;
+    final canDecrease = radiusMeters > minimumRadiusMeters;
 
     return Semantics(
       container: true,

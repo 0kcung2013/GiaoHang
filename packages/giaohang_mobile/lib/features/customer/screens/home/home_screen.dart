@@ -12,11 +12,13 @@ class CustomerHomeScreen extends StatefulWidget {
     super.key,
     this.initialTab = 0,
     this.initialTrackingCode,
+    this.initialOrderHistory = false,
     this.pages,
   });
 
   final int initialTab;
   final String? initialTrackingCode;
+  final bool initialOrderHistory;
   final List<Widget>? pages;
 
   @override
@@ -46,7 +48,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         widget.pages ??
         [
           const DashboardScreen(),
-          const OrderScreen(),
+          OrderScreen(initialHistory: widget.initialOrderHistory),
           TrackingScreen(initialTrackingCode: widget.initialTrackingCode),
           const AccountScreen(),
         ];

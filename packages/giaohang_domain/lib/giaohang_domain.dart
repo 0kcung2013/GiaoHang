@@ -1,5 +1,7 @@
 library;
 
+export 'src/business_settings.dart';
+
 export 'src/driver_model.dart';
 export 'src/driver_profile_change_request.dart';
 export 'src/delivery_pricing_policy.dart';

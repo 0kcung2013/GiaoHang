@@ -6,6 +6,7 @@ import '../../../core/models/order_model.dart';
 import '../../../core/models/review_model.dart';
 import '../../../core/providers/customer_providers.dart';
 import 'submit_review_sheet.dart';
+import '../review_strings.dart';
 
 /// Khối đánh giá trên chi tiết đơn / tracking khi status = delivered.
 class OrderReviewSection extends ConsumerWidget {
@@ -33,11 +34,21 @@ class OrderReviewSection extends ConsumerWidget {
         ),
       ),
       error: (_, _) => _ReviewCardShell(
-        child: Text(
-          'Không tải được trạng thái đánh giá',
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.textSecondary,
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Không tải được trạng thái đánh giá',
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => ref.invalidate(orderReviewProvider(order.id)),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text(ReviewStrings.retry),
+            ),
+          ],
         ),
       ),
       data: (review) {
@@ -84,10 +95,12 @@ class _ReviewCardShell extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
-              Text(
-                'Đánh giá tài xế',
-                style: AppTextStyles.headingSmall.copyWith(
-                  color: AppColors.textPrimary,
+              Expanded(
+                child: Text(
+                  'Đánh giá tài xế',
+                  style: AppTextStyles.headingSmall.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ),
             ],

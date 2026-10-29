@@ -8,6 +8,18 @@ import {
 } from '../_shared/vnpay.ts';
 import {handleVnpayWalletReturn} from '../_shared/vnpay_wallet_return.ts';
 import {handleVnpayOrderReturn} from '../_shared/vnpay_order_return.ts';
+import {resolveVnpayPaymentUrl} from '../_shared/vnpay_gateway.mjs';
+
+test('VNPAY gateway requires an explicit matching production configuration', () => {
+  assert.match(resolveVnpayPaymentUrl(), /^https:\/\/sandbox\.vnpayment\.vn\//);
+  assert.throws(() => resolveVnpayPaymentUrl('production'), /VNPAY_PAYMENT_URL_REQUIRED/);
+  assert.throws(() => resolveVnpayPaymentUrl('production', 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'), /ENVIRONMENT_MISMATCH/);
+  assert.equal(resolveVnpayPaymentUrl('production', 'https://pay.vnpay.vn/vpcpay.html'), 'https://pay.vnpay.vn/vpcpay.html');
+  for (const url of ['http://pay.vnpay.vn/pay', 'https://pay.vnpay.vn.attacker.invalid/pay', 'https://pay.vnpay.vn/pay?x=1']) {
+    assert.throws(() => resolveVnpayPaymentUrl('production', url), /URL_INVALID/);
+  }
+  assert.throws(() => resolveVnpayPaymentUrl('sandbox', 'https://pay.vnpay.vn/vpcpay.html'), /ENVIRONMENT_MISMATCH/);
+});
 
 test('canonical query sorts keys and applies VNPAY form encoding', () => {
   assert.equal(
@@ -131,6 +143,26 @@ test('signed successful order Return completes the pending Sandbox payment', asy
     responseCode: '00',
   }]);
 });
+
+for (const priorStatus of ['expired', 'failed']) {
+  test(`verified ${priorStatus} order receipt is passed to the refund settlement`, async () => {
+    const params = {vnp_TmnCode: 'DEMO1234', vnp_TxnRef: 'O-late',
+      vnp_Amount: '1890000', vnp_ResponseCode: '00', vnp_TransactionStatus: '00'};
+    const signature = await signVnpayParams(params, 'sandbox-secret');
+    const url = new URL('https://merchant.test/vnpay-order-return');
+    for (const [key, value] of Object.entries({...params, vnp_SecureHash: signature})) url.searchParams.set(key, value);
+    let calls = 0;
+    const result = await handleVnpayOrderReturn(new Request(url), {
+      hashSecret: 'sandbox-secret', tmnCode: 'DEMO1234',
+      findPayment: async () => ({sessionId: 'late', amount: 18900, status: priorStatus}),
+      completePayment: async () => { calls++; return {status: 'refunded'}; },
+    });
+    assert.equal(calls, 1);
+    const body = await result.json();
+    assert.equal(body.status, 'refunded');
+    assert.match(body.message, /hoàn vào ví/);
+  });
+}
 
 test('order Return rejects a forged callback without completing payment', async () => {
   let completionCount = 0;

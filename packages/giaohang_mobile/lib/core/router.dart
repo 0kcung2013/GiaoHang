@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'mobile_app_role.dart';
+import 'models/user_model.dart';
+import '../features/customer/screens/account/customer_classification_screen.dart';
 import 'mobile_route_policy.dart';
 
 import 'package:flutter/widgets.dart';
@@ -85,13 +87,28 @@ GoRouter createRouter({
       final location = state.matchedLocation;
       String? accountRole;
       String? approval;
+      var customerClassified = true;
       if (user != null) {
         final result = await supabase
             .from('users')
-            .select('role')
+            .select('role,customer_type,business_name,business_address')
             .eq('id', user.id)
             .maybeSingle();
         accountRole = result?['role'] as String?;
+        if (role == MobileAppRole.customer && accountRole == 'customer') {
+          customerClassified =
+              result != null &&
+              UserModel.fromJson(result).hasCustomerClassification;
+          // Existing customers can still access active orders and support.
+          if (location == '/customer-home' &&
+              const [
+                'orders',
+                'tracking',
+                'account',
+              ].contains(state.uri.queryParameters['tab'])) {
+            customerClassified = true;
+          }
+        }
         if (role == MobileAppRole.driver &&
             role.accepts(accountRole) &&
             location != '/register') {
@@ -104,9 +121,16 @@ GoRouter createRouter({
         signedIn: loggedIn,
         accountRole: accountRole,
         driverApproval: approval,
+        customerClassified: customerClassified,
       );
     },
     routes: [
+      if (role == MobileAppRole.customer)
+        GoRoute(
+          path: '/customer-classification',
+          builder: (_, _) =>
+              const CustomerClassificationScreen(onboarding: true),
+        ),
       GoRoute(
         path: '/help',
         builder: (_, _) => HelpCenterScreen(role: role),
@@ -144,6 +168,8 @@ GoRouter createRouter({
             return CustomerHomeScreen(
               initialTab: initialTab,
               initialTrackingCode: code,
+              initialOrderHistory:
+                  state.uri.queryParameters['view'] == 'history',
             );
           },
         ),

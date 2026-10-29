@@ -2,7 +2,7 @@ import 'order_finance.dart';
 import 'order_route_distance.dart';
 import 'traffic_demo_clock.dart';
 import 'package:giaohang_domain/giaohang_domain.dart'
-    show parseCargoWeightKg, DriverMonitoring;
+    show parseCargoWeightKg, DriverMonitoring, BusinessSettings;
 
 class OrderModel {
   const OrderModel({
@@ -47,6 +47,8 @@ class OrderModel {
     this.codCollectionAmount = 0,
     this.platformFeeRateBps = 0,
     this.platformFeeAmount = 0,
+    this.customerPlatformFeeRateBps = 0,
+    this.customerPlatformFeeAmount = 0,
     this.driverNetEarning = 0,
     this.driverAdvanceAmount = 0,
     this.receiverCollectionAmount = 0,
@@ -62,9 +64,17 @@ class OrderModel {
     this.driverMonitoring,
     this.trafficDemoKey,
     this.deliveryEtaData,
+    this.quotedDistanceMeters,
+    this.settingsRevision,
+    this.businessPolicy,
   });
 
   final String id;
+
+  /// Transient quote fields; sent only to order creation RPCs.
+  final double? quotedDistanceMeters;
+  final int? settingsRevision;
+  final BusinessSettings? businessPolicy;
   final String customerId;
   final String? driverId;
   final String status;
@@ -105,6 +115,13 @@ class OrderModel {
   final int codCollectionAmount;
   final int platformFeeRateBps;
   final int platformFeeAmount;
+  final int customerPlatformFeeRateBps;
+  final int customerPlatformFeeAmount;
+  int get customerServiceCharge =>
+      deliveryFee.round() + customerPlatformFeeAmount;
+  int get netDriverIncome => driverNetEarning > 0 || platformFeeRateBps > 0
+      ? driverNetEarning
+      : deliveryFee.round();
   final int driverNetEarning;
   final int driverAdvanceAmount;
   final int receiverCollectionAmount;
@@ -141,6 +158,11 @@ class OrderModel {
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     return OrderModel(
+      businessPolicy: json['business_policy'] is Map
+          ? BusinessSettings.fromJson(
+              Map<String, dynamic>.from(json['business_policy'] as Map),
+            )
+          : null,
       id: json['id']?.toString() ?? '',
       customerId: json['customer_id']?.toString() ?? '',
       driverId: json['driver_id']?.toString(),
@@ -184,6 +206,10 @@ class OrderModel {
       codCollectionAmount: _parseInt(json['cod_collection_amount']) ?? 0,
       platformFeeRateBps: _parseInt(json['platform_fee_rate_bps']) ?? 0,
       platformFeeAmount: _parseInt(json['platform_fee_amount']) ?? 0,
+      customerPlatformFeeRateBps:
+          _parseInt(json['customer_platform_fee_rate_bps']) ?? 0,
+      customerPlatformFeeAmount:
+          _parseInt(json['customer_platform_fee_amount']) ?? 0,
       driverNetEarning: _parseInt(json['driver_net_earning']) ?? 0,
       driverAdvanceAmount: _parseInt(json['driver_advance_amount']) ?? 0,
       receiverCollectionAmount:
@@ -279,6 +305,8 @@ class OrderModel {
       'cod_collection_amount': codCollectionAmount,
       'platform_fee_rate_bps': platformFeeRateBps,
       'platform_fee_amount': platformFeeAmount,
+      'customer_platform_fee_rate_bps': customerPlatformFeeRateBps,
+      'customer_platform_fee_amount': customerPlatformFeeAmount,
       'driver_net_earning': driverNetEarning,
       'driver_advance_amount': driverAdvanceAmount,
       'receiver_collection_amount': receiverCollectionAmount,
@@ -308,6 +336,8 @@ class OrderModel {
   }
 
   OrderModel copyWith({
+    double? quotedDistanceMeters,
+    int? settingsRevision,
     String? id,
     String? customerId,
     String? driverId,
@@ -349,6 +379,8 @@ class OrderModel {
     int? codCollectionAmount,
     int? platformFeeRateBps,
     int? platformFeeAmount,
+    int? customerPlatformFeeRateBps,
+    int? customerPlatformFeeAmount,
     int? driverNetEarning,
     int? driverAdvanceAmount,
     int? receiverCollectionAmount,
@@ -365,6 +397,9 @@ class OrderModel {
     Map<String, dynamic>? deliveryEtaData,
   }) {
     return OrderModel(
+      quotedDistanceMeters: quotedDistanceMeters ?? this.quotedDistanceMeters,
+      businessPolicy: businessPolicy,
+      settingsRevision: settingsRevision ?? this.settingsRevision,
       id: id ?? this.id,
       customerId: customerId ?? this.customerId,
       driverId: driverId ?? this.driverId,
@@ -413,6 +448,10 @@ class OrderModel {
       codCollectionAmount: codCollectionAmount ?? this.codCollectionAmount,
       platformFeeRateBps: platformFeeRateBps ?? this.platformFeeRateBps,
       platformFeeAmount: platformFeeAmount ?? this.platformFeeAmount,
+      customerPlatformFeeRateBps:
+          customerPlatformFeeRateBps ?? this.customerPlatformFeeRateBps,
+      customerPlatformFeeAmount:
+          customerPlatformFeeAmount ?? this.customerPlatformFeeAmount,
       driverNetEarning: driverNetEarning ?? this.driverNetEarning,
       driverAdvanceAmount: driverAdvanceAmount ?? this.driverAdvanceAmount,
       receiverCollectionAmount:

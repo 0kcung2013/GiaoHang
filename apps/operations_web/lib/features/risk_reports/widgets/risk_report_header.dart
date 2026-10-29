@@ -21,12 +21,6 @@ class RiskReportHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = reports.where((item) => !item.status.isClosed).length;
-    final critical = reports
-        .where(
-          (item) =>
-              !item.status.isClosed && item.severity == RiskSeverity.critical,
-        )
-        .length;
     final unassigned = reports
         .where((item) => !item.status.isClosed && item.assignedTo == null)
         .length;
@@ -104,7 +98,7 @@ class RiskReportHeader extends StatelessWidget {
           const SizedBox(height: AppSpacing.xl2),
           LayoutBuilder(
             builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 900 ? 4 : 2;
+              final columns = constraints.maxWidth >= 900 ? 3 : 1;
               final width =
                   (constraints.maxWidth - (columns - 1) * AppSpacing.md) /
                   columns;
@@ -118,13 +112,6 @@ class RiskReportHeader extends StatelessWidget {
                     value: active,
                     icon: Icons.radar_rounded,
                     color: AppColors.info,
-                  ),
-                  _MetricCard(
-                    width: width,
-                    label: 'Nghiêm trọng',
-                    value: critical,
-                    icon: Icons.gpp_maybe_outlined,
-                    color: AppColors.error,
                   ),
                   _MetricCard(
                     width: width,

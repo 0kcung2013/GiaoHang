@@ -4,14 +4,14 @@ import 'package:operations_web/features/risk_reports/models/risk_report_policy.d
 
 void main() {
   group('RiskReportPolicy', () {
-    test('support cannot close a critical report', () {
+    test('support can close legacy reports at every severity', () {
       final transitions = RiskReportPolicy.allowedTransitions(
         status: RiskStatus.investigating,
         severity: RiskSeverity.critical,
         isAdmin: false,
       );
 
-      expect(transitions, isEmpty);
+      expect(transitions, [RiskStatus.resolved]);
     });
 
     test('admin has one finish action for a critical report', () {

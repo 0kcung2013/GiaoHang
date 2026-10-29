@@ -57,6 +57,6 @@ void main() {
       ),
     );
 
-    expect(find.text('Nhấn + để tìm đơn trên 2 km đường đi'), findsOneWidget);
+    expect(find.text('Nhấn + để mở rộng phạm vi tìm đơn'), findsOneWidget);
   });
 }

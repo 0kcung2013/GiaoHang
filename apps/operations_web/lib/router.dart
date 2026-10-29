@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'features/admin/screens/admin_shell_screen.dart';
+import 'features/admin/models/admin_section.dart';
+import 'features/account_controls/screens/account_controls_screen.dart';
 import 'features/auth/operations_login_screen.dart';
 import 'features/auth/unauthorized_screen.dart';
 import 'features/risk_reports/screens/support_risk_reports_screen.dart';
@@ -13,6 +15,7 @@ import 'features/support/screens/support_home_screen.dart';
 import 'features/support/screens/support_case_screen.dart';
 import 'features/support/notifications/support_request_alerts_host.dart';
 import 'features/support_orders/screens/support_orders_screen.dart';
+import 'features/support_transactions/screens/support_transactions_screen.dart';
 import 'features/support_monitoring/screens/support_monitoring_screen.dart';
 
 class _OperationsAuthNotifier extends ChangeNotifier {
@@ -73,6 +76,29 @@ GoRouter createOperationsRouter() {
           role != 'admin') {
         return '/unauthorized';
       }
+      if (role == 'admin' && location.startsWith('/support')) {
+        if (location.startsWith('/support-ticket/')) {
+          return '/admin-ticket/${state.pathParameters['id'] ?? location.split('/').last}';
+        }
+        if (location.startsWith('/support-case/')) {
+          return '/admin-case/${state.pathParameters['id'] ?? location.split('/').last}';
+        }
+        final section = switch (location) {
+          '/support-accounts' => AdminSection.accounts,
+          '/support-orders' => AdminSection.orders,
+          '/support-transactions' => AdminSection.transactions,
+          '/support-monitoring' => AdminSection.journeys,
+          '/support-monitoring/cases' => AdminSection.monitoring,
+          _ => AdminSection.overview,
+        };
+        return Uri(
+          path: '/admin-home',
+          queryParameters: {
+            ...state.uri.queryParameters,
+            'section': section.slug,
+          },
+        ).toString();
+      }
       return null;
     },
     routes: [
@@ -82,7 +108,42 @@ GoRouter createOperationsRouter() {
         path: '/unauthorized',
         builder: (_, _) => const UnauthorizedScreen(),
       ),
-      GoRoute(path: '/admin-home', builder: (_, _) => const AdminShellScreen()),
+      ShellRoute(
+        builder: (_, _, child) => child,
+        routes: [
+          GoRoute(
+            path: '/admin-home',
+            builder: (_, state) => AdminShellScreen(
+              section: AdminSection.parse(state.uri.queryParameters['section']),
+              query: state.uri.queryParameters['q'] ?? '',
+              view: state.uri.queryParameters['view'] ?? '',
+              riskReportId: state.uri.queryParameters['risk'],
+              ticketId: state.uri.queryParameters['ticket'],
+            ),
+          ),
+          GoRoute(
+            path: '/admin-ticket/:id',
+            builder: (_, state) => AdminShellScreen(
+              section: AdminSection.accounts,
+              detail: SupportCaseScreen(
+                key: ValueKey(state.pathParameters['id']),
+                id: state.pathParameters['id']!,
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/admin-case/:id',
+            builder: (_, state) => AdminShellScreen(
+              section: AdminSection.accounts,
+              detail: SupportCaseScreen(
+                key: ValueKey(state.pathParameters['id']),
+                id: state.pathParameters['id']!,
+                risk: true,
+              ),
+            ),
+          ),
+        ],
+      ),
       ShellRoute(
         builder: (_, _, child) => SupportRequestAlertsHost(child: child),
         routes: [
@@ -116,6 +177,18 @@ GoRouter createOperationsRouter() {
           GoRoute(
             path: '/support-orders',
             builder: (_, _) => const SupportOrdersScreen(),
+          ),
+          GoRoute(
+            path: '/support-transactions',
+            builder: (_, _) => const SupportTransactionsScreen(),
+          ),
+          GoRoute(
+            path: '/support-accounts',
+            builder: (_, state) => AccountControlsScreen(
+              initialSearch: state.uri.queryParameters['q'] ?? '',
+              riskReportId: state.uri.queryParameters['risk'],
+              ticketId: state.uri.queryParameters['ticket'],
+            ),
           ),
           GoRoute(
             path: '/support-risk',

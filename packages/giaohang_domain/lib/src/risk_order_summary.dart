@@ -1,5 +1,6 @@
 import 'cargo_weight.dart';
 import 'driver_monitoring.dart';
+import 'business_settings.dart';
 
 class RiskOrderSummary {
   const RiskOrderSummary({
@@ -45,6 +46,7 @@ class RiskOrderSummary {
     this.cancelledAt,
     this.deliveryEta,
     this.driverMonitoring,
+    this.businessPolicy,
   });
 
   final String trackingCode;
@@ -89,6 +91,9 @@ class RiskOrderSummary {
   final DateTime? cancelledAt;
   final Map<String, dynamic>? deliveryEta;
   final DriverMonitoring? driverMonitoring;
+  final BusinessSettings? businessPolicy;
+  int get returnFee =>
+      (businessPolicy ?? BusinessSettings()).returnFee(deliveryFee).round();
 
   DateTime? get predictedDeliveryAt =>
       driverId != null && deliveryEta?['driver_id'] == driverId
@@ -107,6 +112,11 @@ class RiskOrderSummary {
 
   factory RiskOrderSummary.fromJson(Map<String, dynamic> json) {
     return RiskOrderSummary(
+      businessPolicy: json['business_policy'] is Map
+          ? BusinessSettings.fromJson(
+              Map<String, dynamic>.from(json['business_policy'] as Map),
+            )
+          : null,
       customer: RiskContact.fromNestedJson(json['customer']),
       driver: RiskContact.fromNestedJson(json['driver']),
       recipientName: json['recipient_name']?.toString(),

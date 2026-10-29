@@ -33,7 +33,7 @@ void main() {
       await tester.pump();
 
       expect(find.byType(CircleLayer), findsNothing);
-      expect(find.text('Tự động ≤ 2 km đường đi'), findsOneWidget);
+      expect(find.text('Phạm vi tìm đơn ≤ 2 km'), findsOneWidget);
       expect(find.byTooltip('Về vị trí hiện tại'), findsOneWidget);
       expect(
         find.byKey(const Key('free-pick-radius-decrease')),

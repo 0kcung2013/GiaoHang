@@ -106,17 +106,14 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Hệ thống').last);
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(DropdownButtonFormField<RiskSeverity>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Cao').last);
-      await tester.pumpAndSettle();
+      expect(find.byType(DropdownButtonFormField<RiskSeverity>), findsNothing);
       await tester.tap(find.byKey(_submitKey));
       await tester.pumpAndSettle();
       expect(result?.title, 'Lỗi đăng nhập');
       expect(result?.description, 'Không thể đăng nhập vào ứng dụng.');
       expect(result?.component, 'Đăng nhập');
       expect(result?.category, RiskCategory.system);
-      expect(result?.severity, RiskSeverity.high);
+      expect(result?.severity, RiskSeverity.medium);
     },
   );
 
@@ -181,11 +178,11 @@ void main() {
       tester.view.resetViewInsets();
       await tester.pumpAndSettle();
       await tester.ensureVisible(
-        find.byType(DropdownButtonFormField<RiskSeverity>),
+        find.byType(DropdownButtonFormField<RiskCategory>),
       );
       await tester.pumpAndSettle();
       expect(
-        find.byType(DropdownButtonFormField<RiskSeverity>).hitTestable(),
+        find.byType(DropdownButtonFormField<RiskCategory>).hitTestable(),
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);

@@ -213,20 +213,7 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
     final order = widget.order;
     if (order.status != 'delivered') return;
 
-    final existing = await ref.read(
-      driverCustomerReviewProvider(order.id).future,
-    );
-    if (!mounted) return;
-
-    if (existing != null) {
-      _showSnackBar('Bạn đã đánh giá khách ${existing.rating}/5 cho đơn này.');
-      return;
-    }
-
     await showDriverRateCustomerSheet(context: context, order: order);
-    if (mounted) {
-      ref.invalidate(driverCustomerReviewProvider(order.id));
-    }
   }
 
   void _onCardTap() {

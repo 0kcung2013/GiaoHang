@@ -48,21 +48,28 @@ class OrderFinance {
     required this.goodsValue,
     required this.codCollectionAmount,
     required this.deliveryFee,
-  }) : driverNetEarning = deliveryFee,
+    this.customerPlatformFeeAmount = 0,
+    this.driverPlatformFeeAmount = 0,
+  }) : driverNetEarning = deliveryFee - driverPlatformFeeAmount,
        driverAdvanceAmount = codCollectionAmount > 0
            ? codCollectionAmount
            : (deliveryFeePayer == DeliveryFeePayer.sender ? goodsValue : 0),
        receiverCollectionAmount =
            codCollectionAmount +
-           (deliveryFeePayer == DeliveryFeePayer.recipient ? deliveryFee : 0),
+           (deliveryFeePayer == DeliveryFeePayer.recipient
+               ? deliveryFee + customerPlatformFeeAmount
+               : 0),
        senderVnpayAmount = deliveryFeePayer == DeliveryFeePayer.sender
-           ? deliveryFee
+           ? deliveryFee + customerPlatformFeeAmount
            : 0;
 
   final DeliveryFeePayer deliveryFeePayer;
   final int goodsValue;
   final int codCollectionAmount;
   final int deliveryFee;
+  final int customerPlatformFeeAmount;
+  final int driverPlatformFeeAmount;
+  int get customerServiceCharge => deliveryFee + customerPlatformFeeAmount;
   final int driverNetEarning;
   final int driverAdvanceAmount;
   final int receiverCollectionAmount;
@@ -73,7 +80,8 @@ class OrderFinance {
       ? OrderPaymentMode.prepaid
       : OrderPaymentMode.cod;
 
-  int get totalPrice => deliveryFee + codCollectionAmount;
+  int get totalPrice =>
+      deliveryFee + codCollectionAmount + customerPlatformFeeAmount;
 
   int get requiredWalletBalance => driverAdvanceAmount;
 }

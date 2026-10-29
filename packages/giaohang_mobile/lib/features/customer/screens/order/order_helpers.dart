@@ -39,7 +39,7 @@ List<TimelineStep> fallbackTimelineSteps(OrderModel order) {
       ),
       TimelineStep(
         title: statusView.label,
-        description: 'Chưa có tài xế nhận đơn trong vòng 15 phút.',
+        description: 'Chưa có tài xế nhận đơn trong thời gian tìm kiếm.',
         time: formatOrderDateTime(order.assignmentDeadline),
         status: effectiveStatus,
       ),

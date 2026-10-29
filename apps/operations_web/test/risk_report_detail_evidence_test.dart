@@ -80,7 +80,6 @@ void main() {
           body: RiskReportDetailBody(
             report: _reportWithProfile,
             currentUserId: 'staff-1',
-            criticalRestricted: false,
             intervention: null,
             notes: const [],
             attachments: const [],

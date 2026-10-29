@@ -10,18 +10,21 @@ class SupportReturnQuoteCard extends StatelessWidget {
     required this.quote,
     required this.payer,
     required this.deliveryFee,
+    this.configuredReturnFee,
     super.key,
   });
 
   final ReturnRouteQuote quote;
   final ReturnFeePayer payer;
   final int deliveryFee;
+  final int? configuredReturnFee;
 
   @override
   Widget build(BuildContext context) {
-    final returnFee = OrderReturnPricingPolicy.calculateReturnFee(deliveryFee);
-    final totalDriverEarning =
-        OrderReturnPricingPolicy.calculateTotalDriverEarning(deliveryFee);
+    final returnFee =
+        configuredReturnFee ??
+        OrderReturnPricingPolicy.calculateReturnFee(deliveryFee);
+    final totalDriverEarning = deliveryFee + returnFee;
     final customerCharge = payer == ReturnFeePayer.customer ? returnFee : 0;
     return Container(
       decoration: BoxDecoration(

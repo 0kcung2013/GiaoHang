@@ -1,5 +1,9 @@
 # Supabase local/project config (một phần dùng cho deploy functions)
 
+[functions.business-contact]
+# Chỉ trả ba trường thông tin liên hệ công khai, dùng được trước đăng nhập.
+verify_jwt = false
+
 [functions.flush-gps-history]
 # Tắt JWT verify ở gateway — cron-job.org hay bị 401 dù đã gửi header.
 # Auth tự kiểm tra trong code (apikey / Bearer / x-cron-secret).

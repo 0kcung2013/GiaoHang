@@ -59,7 +59,13 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await action();
     } on AuthException catch (error) {
-      if (mounted) setState(() => _errorMessage = error.message);
+      if (mounted) {
+        setState(
+          () => _errorMessage = error.code == 'user_banned'
+              ? AuthStrings.accountDisabled
+              : error.message,
+        );
+      }
     } catch (_) {
       if (mounted) setState(() => _errorMessage = AuthStrings.loginFailed);
     } finally {

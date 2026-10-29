@@ -1,8 +1,8 @@
--- Regression for the proposed automatic requeue RPCs. Synthetic data rolls back.
--- Expected to fail on the current backend; apply the approved draft locally first.
+-- Requeue and code-confirmed custody regression. Synthetic data rolls back.
 BEGIN;
 DO $test$
 DECLARE
+  v_pickup_code text;
   customer uuid := gen_random_uuid();
   driver_a uuid := gen_random_uuid();
   driver_b uuid := gen_random_uuid();
@@ -95,13 +95,17 @@ BEGIN
         instruction='Other pending custody' WHERE order_id=v_order_id
           AND risk_report_id <> report_id;
     ELSIF scenario = 'picked_up' THEN
-      UPDATE public.orders SET actual_picked_up_at=clock_timestamp() WHERE id=v_order_id;
+      UPDATE public.orders SET actual_picked_up_at=clock_timestamp(),
+        pickup_handoff=jsonb_build_object('driver_id',driver_a,'customer_id',customer,
+          'confirmed_at',clock_timestamp(),'method','fixture') WHERE id=v_order_id;
     ELSIF scenario = 'pickup_wins' THEN
       INSERT INTO public.order_delivery_proofs(order_id,driver_id,stage,storage_path,captured_lat,captured_lng)
         VALUES(v_order_id,driver_a,'pickup','synthetic-test-proof',80,160);
+      PERFORM set_config('request.jwt.claim.sub',customer::text,true);
+      v_pickup_code := public.get_customer_pickup_code(v_order_id)->>'code';
       PERFORM set_config('request.jwt.claim.sub',driver_a::text,true);
       SET LOCAL ROLE authenticated;
-      PERFORM public.confirm_driver_pickup(v_order_id);
+      PERFORM public.confirm_driver_pickup_code(v_order_id,v_pickup_code);
       RESET ROLE;
     END IF;
 
@@ -157,9 +161,13 @@ BEGIN
       IF scenario='no_eligible_driver' THEN
         ASSERT current_order.offered_driver_id IS NULL, 'Ineligible driver received an offer';
       ELSE
-        ASSERT current_order.offered_driver_id=driver_b
-          AND current_order.offer_expires_at > clock_timestamp(),
-          'Requeue did not dispatch a fresh offer';
+        -- Road dispatch is asynchronous; emulate its eventual eligible offer.
+        RESET ROLE;
+        PERFORM set_config('request.jwt.claim.sub','',true);
+        UPDATE public.orders SET offered_driver_id=driver_b,
+          offer_expires_at=clock_timestamp()+interval '1 minute' WHERE id=v_order_id;
+        PERFORM set_config('request.jwt.claim.sub',staff::text,true);
+        SET LOCAL ROLE authenticated;
       END IF;
       IF scenario='legacy_closed_hold' THEN
         ASSERT (SELECT status='resolved' FROM public.risk_reports WHERE id=report_id),
@@ -189,8 +197,11 @@ BEGIN
           RESET ROLE;
           INSERT INTO public.order_delivery_proofs(order_id,driver_id,stage,storage_path,captured_lat,captured_lng)
             VALUES(v_order_id,driver_b,'pickup','synthetic-new-driver-proof',80,160);
+          PERFORM set_config('request.jwt.claim.sub',customer::text,true);
+          v_pickup_code := public.get_customer_pickup_code(v_order_id)->>'code';
+          PERFORM set_config('request.jwt.claim.sub',driver_b::text,true);
           SET LOCAL ROLE authenticated;
-          PERFORM public.confirm_driver_pickup(v_order_id);
+          PERFORM public.confirm_driver_pickup_code(v_order_id,v_pickup_code);
           ASSERT (SELECT available_balance=380000 AND held_balance=120000
             FROM public.get_driver_wallet_summary()), 'New driver deposit was not held correctly';
         END IF;

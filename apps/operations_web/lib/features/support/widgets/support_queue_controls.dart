@@ -44,6 +44,7 @@ class SupportQueueControls<T> extends StatelessWidget {
     required this.choices,
     required this.value,
     required this.onChanged,
+    this.framed = false,
     super.key,
   });
 
@@ -54,80 +55,149 @@ class SupportQueueControls<T> extends StatelessWidget {
   final List<SupportQueueChoice<T>> choices;
   final T value;
   final ValueChanged<T> onChanged;
+  final bool framed;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      TextField(
-        key: searchKey,
-        controller: searchController,
-        onChanged: onSearchChanged,
-        style: AppTextStyles.bodyMedium,
-        decoration: InputDecoration(
-          labelText: searchHint,
-          prefixIcon: const Icon(Icons.search_rounded),
-          suffixIcon: searchController.text.isEmpty
-              ? null
-              : IconButton(
-                  tooltip: SupportTicketStrings.clearSearch,
-                  onPressed: () {
-                    searchController.clear();
-                    onSearchChanged('');
-                  },
-                  icon: const Icon(Icons.close_rounded),
-                ),
-          filled: true,
-          fillColor: AppColors.bgCard,
-          contentPadding: const EdgeInsets.all(AppSpacing.lg),
-          border: const OutlineInputBorder(
-            borderRadius: AppRadius.md,
-            borderSide: BorderSide(color: AppColors.border),
-          ),
-          enabledBorder: const OutlineInputBorder(
-            borderRadius: AppRadius.md,
-            borderSide: BorderSide(color: AppColors.border),
-          ),
-          focusedBorder: const OutlineInputBorder(
-            borderRadius: AppRadius.md,
-            borderSide: BorderSide(color: AppColors.accent, width: 1.5),
+  Widget build(BuildContext context) => Container(
+    padding: framed ? const EdgeInsets.all(AppSpacing.lg) : EdgeInsets.zero,
+    decoration: framed
+        ? BoxDecoration(
+            color: AppColors.bgCard,
+            borderRadius: AppRadius.lg,
+            border: Border.all(color: AppColors.border),
+          )
+        : null,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          key: searchKey,
+          controller: searchController,
+          onChanged: onSearchChanged,
+          style: AppTextStyles.bodyMedium,
+          decoration: InputDecoration(
+            labelText: searchHint,
+            prefixIcon: const Icon(Icons.search_rounded),
+            suffixIcon: searchController.text.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: SupportTicketStrings.clearSearch,
+                    onPressed: () {
+                      searchController.clear();
+                      onSearchChanged('');
+                    },
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+            filled: true,
+            fillColor: framed ? AppColors.bgLight : AppColors.bgCard,
+            contentPadding: const EdgeInsets.all(AppSpacing.lg),
+            border: const OutlineInputBorder(
+              borderRadius: AppRadius.md,
+              borderSide: BorderSide(color: AppColors.border),
+            ),
+            enabledBorder: const OutlineInputBorder(
+              borderRadius: AppRadius.md,
+              borderSide: BorderSide(color: AppColors.border),
+            ),
+            focusedBorder: const OutlineInputBorder(
+              borderRadius: AppRadius.md,
+              borderSide: BorderSide(color: AppColors.accent, width: 1.5),
+            ),
           ),
         ),
-      ),
-      const SizedBox(height: AppSpacing.lg),
-      Wrap(
-        spacing: AppSpacing.sm,
-        runSpacing: AppSpacing.sm,
-        children: [
-          for (final choice in choices)
-            Semantics(
-              selected: choice.value == value,
-              button: true,
-              child: TextButton(
-                key: choice.key,
-                onPressed: () => onChanged(choice.value),
-                style: TextButton.styleFrom(
-                  minimumSize: const Size(48, 48),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.lg,
-                    vertical: AppSpacing.md,
+        const SizedBox(height: AppSpacing.md),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final children = [
+              for (final choice in choices)
+                Semantics(
+                  selected: choice.value == value,
+                  button: true,
+                  child: TextButton(
+                    key: choice.key,
+                    onPressed: () => onChanged(choice.value),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                        vertical: AppSpacing.md,
+                      ),
+                      foregroundColor: choice.value == value
+                          ? AppColors.primary
+                          : AppColors.textSecondary,
+                      backgroundColor: choice.value == value
+                          ? AppColors.bgLight
+                          : AppColors.bgCard,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: AppRadius.sm,
+                      ),
+                      textStyle: AppTextStyles.labelMedium,
+                    ),
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(text: choice.label),
+                          TextSpan(
+                            text: ' · ${choice.count}',
+                            style: AppTextStyles.labelSmall.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  foregroundColor: choice.value == value
-                      ? AppColors.accent
-                      : AppColors.textSecondary,
-                  backgroundColor: choice.value == value
-                      ? AppColors.accentLight
-                      : AppColors.bgCard,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: AppRadius.md,
-                  ),
-                  textStyle: AppTextStyles.labelMedium,
                 ),
-                child: Text('${choice.label} · ${choice.count}'),
-              ),
-            ),
+            ];
+            if (constraints.maxWidth < 600) {
+              return _QueueChoiceStrip(children: children);
+            }
+            return Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: children,
+            );
+          },
+        ),
+      ],
+    ),
+  );
+}
+
+/// Các nhóm xử lý cuộn ngang để chừa chỗ cho hồ sơ trên màn hình hẹp.
+class _QueueChoiceStrip extends StatefulWidget {
+  const _QueueChoiceStrip({required this.children});
+  final List<Widget> children;
+
+  @override
+  State<_QueueChoiceStrip> createState() => _QueueChoiceStripState();
+}
+
+class _QueueChoiceStripState extends State<_QueueChoiceStrip> {
+  final _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scrollbar(
+    controller: _controller,
+    thumbVisibility: true,
+    child: SingleChildScrollView(
+      controller: _controller,
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Row(
+        children: [
+          for (var i = 0; i < widget.children.length; i++) ...[
+            if (i > 0) const SizedBox(width: AppSpacing.sm),
+            widget.children[i],
+          ],
         ],
       ),
-    ],
+    ),
   );
 }

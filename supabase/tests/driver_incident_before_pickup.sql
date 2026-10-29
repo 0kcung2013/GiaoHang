@@ -6,6 +6,7 @@ SELECT set_config('request.jwt.claims','{}',true);
 
 DO $$
 DECLARE
+  pickup_code text;
   c uuid; d uuid; s uuid; o uuid:=gen_random_uuid(); r uuid:=gen_random_uuid();
   later uuid:=gen_random_uuid(); result record; before_count bigint;
   released public.risk_report_interventions%ROWTYPE;
@@ -22,6 +23,8 @@ BEGIN
   VALUES(o,c,'confirmed','Incident pickup',10.78,106.68,'Incident delivery',10.80,106.71,
     'TEST-INCIDENT-'||o);
   UPDATE public.orders SET driver_id=d,status='picking_up' WHERE id=o;
+  PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',c,'role','authenticated')::text,true);
+  pickup_code := public.get_customer_pickup_code(o)->>'code';
   PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',d,'role','authenticated')::text,true);
 
   BEGIN
@@ -48,7 +51,7 @@ BEGIN
   EXCEPTION WHEN unique_violation THEN NULL; END;
 
   BEGIN
-    PERFORM public.confirm_driver_pickup(o);
+    PERFORM public.confirm_driver_pickup_code(o,pickup_code);
     RAISE EXCEPTION 'Confirmed pickup while cancellation is pending';
   EXCEPTION WHEN check_violation THEN
     IF SQLERRM<>'PICKUP_INCIDENT_PENDING' THEN RAISE; END IF;
@@ -72,15 +75,18 @@ BEGIN
   PERFORM public.transition_risk_report(r,'resolved','Đã xác minh, tài xế đồng ý tiếp tục.');
   PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',d,'role','authenticated')::text,true);
   BEGIN
-    PERFORM public.confirm_driver_pickup(o);
+    PERFORM public.confirm_driver_pickup_code(o,pickup_code);
     RAISE EXCEPTION 'Fixture without proof unexpectedly confirmed';
   EXCEPTION WHEN check_violation THEN
     IF SQLERRM<>'PICKUP_PROOF_LOCATION_REQUIRED' THEN RAISE; END IF;
   END;
 
-  -- System fixture establishes real custody; status alone still says picking_up.
+  -- Isolated fixture represents a pre-existing handoff.
+  BEGIN
   PERFORM set_config('request.jwt.claims','{}',true);
-  UPDATE public.orders SET actual_picked_up_at=clock_timestamp() WHERE id=o;
+  UPDATE public.orders SET actual_picked_up_at=clock_timestamp(),
+    pickup_handoff=jsonb_build_object('driver_id',d,'customer_id',c,
+      'confirmed_at',clock_timestamp(),'method','fixture') WHERE id=o;
   PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',d,'role','authenticated')::text,true);
   SELECT count(*) INTO before_count FROM public.risk_reports WHERE order_id=o;
   BEGIN
@@ -110,9 +116,11 @@ BEGIN
   END;
   PERFORM public.transition_risk_report(later,'resolved','Kết thúc tình huống kiểm thử sau nhận hàng.');
 
-  -- Reset only this synthetic order to exercise the approved pre-pickup flow.
+    RAISE EXCEPTION 'rollback custody fixture' USING ERRCODE='PZ001';
+  EXCEPTION WHEN SQLSTATE 'PZ001' THEN NULL; END;
+
+  -- The earlier custody fixture rolled back; exercise the pre-pickup flow.
   PERFORM set_config('request.jwt.claims','{}',true);
-  UPDATE public.orders SET actual_picked_up_at=NULL WHERE id=o;
   SELECT * INTO snapshot FROM public.orders WHERE id=o;
   r:=gen_random_uuid();
   PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',d,'role','authenticated')::text,true);
@@ -143,7 +151,7 @@ BEGIN
   THEN RAISE EXCEPTION 'Repeated cancellation duplicated its audit'; END IF;
   PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',d,'role','authenticated')::text,true);
   BEGIN
-    PERFORM public.confirm_driver_pickup(o);
+    PERFORM public.confirm_driver_pickup_code(o,pickup_code);
     RAISE EXCEPTION 'Released driver could still confirm pickup';
   EXCEPTION WHEN raise_exception THEN
     IF SQLERRM<>'DRIVER_NOT_ASSIGNED' THEN RAISE; END IF;

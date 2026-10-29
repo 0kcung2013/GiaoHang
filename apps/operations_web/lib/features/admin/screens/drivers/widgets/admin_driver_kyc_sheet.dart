@@ -6,6 +6,7 @@ import 'package:giaohang_domain/giaohang_domain.dart';
 import '../profile_changes/data/admin_driver_media_resolver.dart';
 import '../profile_changes/widgets/admin_driver_media_preview.dart';
 import '../../../../../core/widgets/stored_media_image.dart';
+import '../../../constants/admin_strings.dart';
 
 /// Bottom sheet admin xem KYC + duyệt / từ chối kèm lý do.
 Future<void> showAdminDriverKycSheet({
@@ -17,6 +18,9 @@ Future<void> showAdminDriverKycSheet({
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    enableDrag: false,
+    isDismissible: false,
+    constraints: const BoxConstraints(maxWidth: 760),
     useSafeArea: true,
     backgroundColor: AppColors.bgCard,
     shape: const RoundedRectangleBorder(
@@ -56,6 +60,7 @@ class _AdminDriverKycSheetState extends State<_AdminDriverKycSheet> {
   }
 
   Future<void> _approve() async {
+    if (_busy) return;
     setState(() => _busy = true);
     try {
       await Supabase.instance.client.rpc(
@@ -63,11 +68,10 @@ class _AdminDriverKycSheetState extends State<_AdminDriverKycSheet> {
         params: {'p_driver_id': widget.driver.id},
       );
       if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
       Navigator.of(context).pop();
       widget.onChanged();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Đã duyệt tài xế')));
+      messenger.showSnackBar(const SnackBar(content: Text('Đã duyệt tài xế')));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -79,6 +83,7 @@ class _AdminDriverKycSheetState extends State<_AdminDriverKycSheet> {
   }
 
   Future<void> _reject() async {
+    if (_busy) return;
     final reason = _reasonCtrl.text.trim();
     if (reason.isEmpty) {
       ScaffoldMessenger.of(
@@ -93,11 +98,10 @@ class _AdminDriverKycSheetState extends State<_AdminDriverKycSheet> {
         params: {'p_driver_id': widget.driver.id, 'p_reason': reason},
       );
       if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
       Navigator.of(context).pop();
       widget.onChanged();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Đã từ chối hồ sơ')));
+      messenger.showSnackBar(const SnackBar(content: Text('Đã từ chối hồ sơ')));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -114,188 +118,202 @@ class _AdminDriverKycSheetState extends State<_AdminDriverKycSheet> {
     final isPending = d.approvalStatus == 'pending';
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.xl,
-        AppSpacing.lg,
-        AppSpacing.xl,
-        AppSpacing.xl + bottom,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: AppRadius.full,
+    return PopScope(
+      canPop: !_busy,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          AppSpacing.xl,
+          AppSpacing.lg,
+          AppSpacing.xl,
+          AppSpacing.xl + bottom,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Align(
+                alignment: Alignment.centerRight,
+                child: IconButton(
+                  tooltip: AdminStrings.closeProfile,
+                  onPressed: _busy ? null : () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
                 ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Row(
-              children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  clipBehavior: Clip.antiAlias,
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                  ),
-                  child: StoredMediaImage(
-                    storedValue: d.avatarUrl,
-                    fallback: const Icon(
-                      Icons.person,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        d.fullName ?? 'Chưa có tên',
-                        style: AppTextStyles.headingSmall,
-                      ),
-                      Text(
-                        d.email ?? '',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                      Text(
-                        d.phone ?? '',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Text('Phương tiện', style: AppTextStyles.labelMedium),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              [
-                d.vehicleType,
-                d.vehicleBrandModel,
-                d.vehicleColor,
-                d.licensePlate,
-              ].where((e) => e != null && e.trim().isNotEmpty).join(' · '),
-              style: AppTextStyles.bodyMedium,
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Text('Giấy tờ KYC', style: AppTextStyles.labelMedium),
-            const SizedBox(height: AppSpacing.sm),
-            _InfoLine(label: 'CCCD', value: d.idCardNumber),
-            _InfoLine(label: 'GPLX', value: d.driverLicenseNumber),
-            if (d.rejectionReason != null &&
-                d.rejectionReason!.trim().isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.md),
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.08),
-                  borderRadius: AppRadius.md,
-                ),
-                child: Text(
-                  'Lý do từ chối: ${d.rejectionReason}',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.error,
+                    color: AppColors.border,
+                    borderRadius: AppRadius.full,
                   ),
                 ),
               ),
-            ],
-            const SizedBox(height: AppSpacing.md),
-            Wrap(
-              spacing: AppSpacing.sm,
-              runSpacing: AppSpacing.sm,
-              children: [
-                AdminDriverMediaPreview(
-                  label: 'CCCD trước',
-                  storedValue: d.idCardFrontUrl,
-                  resolver: widget.mediaResolver,
-                  width: 112,
-                  height: 96,
-                ),
-                AdminDriverMediaPreview(
-                  label: 'CCCD sau',
-                  storedValue: d.idCardBackUrl,
-                  resolver: widget.mediaResolver,
-                  width: 112,
-                  height: 96,
-                ),
-                AdminDriverMediaPreview(
-                  label: 'GPLX',
-                  storedValue: d.driverLicenseUrl,
-                  resolver: widget.mediaResolver,
-                  width: 112,
-                  height: 96,
-                ),
-                AdminDriverMediaPreview(
-                  label: 'Ảnh xe',
-                  storedValue: d.vehiclePhotoUrl,
-                  resolver: widget.mediaResolver,
-                  width: 112,
-                  height: 96,
-                ),
-              ],
-            ),
-            if (isPending) ...[
-              const SizedBox(height: AppSpacing.xl),
-              TextField(
-                controller: _reasonCtrl,
-                maxLines: 2,
-                decoration: InputDecoration(
-                  labelText: 'Lý do từ chối (bắt buộc nếu từ chối)',
-                  border: OutlineInputBorder(borderRadius: AppRadius.md),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.lg),
               Row(
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _busy ? null : _reject,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.error,
-                        minimumSize: const Size.fromHeight(48),
+                  Container(
+                    width: 56,
+                    height: 56,
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                    ),
+                    child: StoredMediaImage(
+                      storedValue: d.avatarUrl,
+                      fallback: const Icon(
+                        Icons.person,
+                        color: AppColors.primary,
                       ),
-                      child: const Text('Từ chối'),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: _busy ? null : _approve,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.success,
-                        foregroundColor: AppColors.textOnAccent,
-                        minimumSize: const Size.fromHeight(48),
-                        elevation: 0,
-                      ),
-                      child: _busy
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Duyệt'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          d.fullName ?? 'Chưa có tên',
+                          style: AppTextStyles.headingSmall,
+                        ),
+                        Text(
+                          d.email ?? '',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          d.phone ?? '',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: AppSpacing.lg),
+              Text('Phương tiện', style: AppTextStyles.labelMedium),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                [
+                  d.vehicleType,
+                  d.vehicleBrandModel,
+                  d.vehicleColor,
+                  d.licensePlate,
+                ].where((e) => e != null && e.trim().isNotEmpty).join(' · '),
+                style: AppTextStyles.bodyMedium,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text('Giấy tờ KYC', style: AppTextStyles.labelMedium),
+              const SizedBox(height: AppSpacing.sm),
+              _InfoLine(label: 'CCCD', value: d.idCardNumber),
+              _InfoLine(label: 'GPLX', value: d.driverLicenseNumber),
+              if (d.rejectionReason != null &&
+                  d.rejectionReason!.trim().isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.md),
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.08),
+                    borderRadius: AppRadius.md,
+                  ),
+                  child: Text(
+                    'Lý do từ chối: ${d.rejectionReason}',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.error,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.md),
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  AdminDriverMediaPreview(
+                    label: 'CCCD trước',
+                    storedValue: d.idCardFrontUrl,
+                    resolver: widget.mediaResolver,
+                    width: 112,
+                    height: 96,
+                  ),
+                  AdminDriverMediaPreview(
+                    label: 'CCCD sau',
+                    storedValue: d.idCardBackUrl,
+                    resolver: widget.mediaResolver,
+                    width: 112,
+                    height: 96,
+                  ),
+                  AdminDriverMediaPreview(
+                    label: 'GPLX',
+                    storedValue: d.driverLicenseUrl,
+                    resolver: widget.mediaResolver,
+                    width: 112,
+                    height: 96,
+                  ),
+                  AdminDriverMediaPreview(
+                    label: 'Ảnh xe',
+                    storedValue: d.vehiclePhotoUrl,
+                    resolver: widget.mediaResolver,
+                    width: 112,
+                    height: 96,
+                  ),
+                ],
+              ),
+              if (isPending) ...[
+                const SizedBox(height: AppSpacing.xl),
+                TextField(
+                  enabled: !_busy,
+                  controller: _reasonCtrl,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    labelText: 'Lý do từ chối (bắt buộc nếu từ chối)',
+                    border: OutlineInputBorder(borderRadius: AppRadius.md),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _busy ? null : _reject,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.error,
+                          minimumSize: const Size.fromHeight(48),
+                        ),
+                        child: const Text('Từ chối'),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _busy ? null : _approve,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.success,
+                          foregroundColor: AppColors.textOnAccent,
+                          minimumSize: const Size.fromHeight(48),
+                          elevation: 0,
+                        ),
+                        child: _busy
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text('Duyệt'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

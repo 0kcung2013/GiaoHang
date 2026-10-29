@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 
 import '../../widgets/auth_strings.dart';
+import '../../widgets/account_support_contact.dart';
 import 'login_experiment_components.dart';
 import 'login_experiment_tokens.dart';
 
@@ -169,6 +170,10 @@ class LoginExperimentFormSurface extends StatelessWidget {
                         ),
                       ),
               ),
+              if (errorMessage == AuthStrings.accountDisabled) ...[
+                const SizedBox(height: AppSpacing.md),
+                const AccountSupportContact(),
+              ],
               Align(
                 alignment: Alignment.centerRight,
                 child: Padding(

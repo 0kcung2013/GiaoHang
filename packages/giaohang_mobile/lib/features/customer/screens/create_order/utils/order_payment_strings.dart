@@ -1,4 +1,7 @@
 abstract final class OrderPaymentText {
+  static const paymentRefunded =
+      'Khoản thanh toán đã hoàn vào ví. Bạn có thể tạo lại đơn.';
+  static const paymentRefundPending = 'Giao dịch đang chờ đối soát hoàn tiền.';
   static const goods = 'Tiền hàng';
   static const collect = 'Thanh toán khi nhận hàng';
   static const noCollection = 'Tiền hàng đã thanh toán';

@@ -9,11 +9,13 @@ class SupportRequestToast extends StatelessWidget {
     required this.ticket,
     required this.onOpen,
     required this.onDismiss,
+    this.adminDecisionsOnly = false,
     super.key,
   });
   final SupportTicket ticket;
   final VoidCallback onOpen;
   final VoidCallback onDismiss;
+  final bool adminDecisionsOnly;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -41,7 +43,9 @@ class SupportRequestToast extends StatelessWidget {
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
-                    SupportRequestAlertStrings.received,
+                    adminDecisionsOnly
+                        ? SupportRequestAlertStrings.adminReceived
+                        : SupportRequestAlertStrings.received,
                     style: AppTextStyles.labelLarge,
                   ),
                 ),
@@ -67,7 +71,11 @@ class SupportRequestToast extends StatelessWidget {
                   textStyle: AppTextStyles.labelMedium,
                   minimumSize: const Size(48, 48),
                 ),
-                child: const Text(SupportRequestAlertStrings.view),
+                child: Text(
+                  adminDecisionsOnly
+                      ? SupportRequestAlertStrings.adminView
+                      : SupportRequestAlertStrings.view,
+                ),
               ),
             ),
           ],

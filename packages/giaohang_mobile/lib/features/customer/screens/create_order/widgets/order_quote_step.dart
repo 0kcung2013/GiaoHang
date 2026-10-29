@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/utils/delivery_fee_calculator.dart';
+import '../../../../../core/utils/platform_fee_strings.dart';
 import '../utils/create_order_formatters.dart';
 import '../utils/delivery_eta_strings.dart';
 import '../utils/traffic_demo_strings.dart';
@@ -60,7 +61,7 @@ class OrderQuoteStep extends StatelessWidget {
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
-                      'Mức phí này sẽ được giữ nguyên khi xác nhận đơn.',
+                      PlatformFeeText.baseQuoteHint,
                       style: AppTextStyles.bodySmall.copyWith(
                         color: AppColors.textSecondary,
                       ),

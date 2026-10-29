@@ -47,6 +47,19 @@ abstract final class AuthStrings {
 
   static const missingLogin = 'Vui lòng nhập email và mật khẩu.';
   static const loginFailed = 'Đăng nhập thất bại. Vui lòng thử lại.';
+  static const accountDisabled =
+      'Tài khoản đang bị vô hiệu hóa. Liên hệ CSKH để được hỗ trợ.';
+  static const supportEmail = 'cskh@gmail.com';
+  static const contactSupport = 'Liên hệ CSKH';
+  static const copySupportEmail = 'Sao chép email CSKH';
+  static const supportEmailCopied = 'Đã sao chép email CSKH.';
+  static const supportCopyFailed =
+      'Không sao chép được. Bạn có thể chọn email để sao chép.';
+  static const supportEmailUnavailable =
+      'Không mở được ứng dụng email. Hãy gửi yêu cầu đến $supportEmail.';
+  static const disabledAccountSubject = 'Hỗ trợ tài khoản bị vô hiệu hóa';
+  static const disabledAccountBody =
+      'Chào CSKH, tôi cần hỗ trợ kiểm tra tài khoản bị vô hiệu hóa.\nEmail đăng nhập của tôi: ';
   static const missingName = 'Vui lòng nhập họ tên.';
   static const missingEmail = 'Vui lòng nhập email.';
   static const invalidEmail = 'Email không hợp lệ.';

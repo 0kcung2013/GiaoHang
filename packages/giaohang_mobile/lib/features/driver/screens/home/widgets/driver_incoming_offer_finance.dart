@@ -3,6 +3,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/utils/money_formatter.dart';
+import '../../../../../core/utils/platform_fee_strings.dart';
 import '../driver_home_strings.dart';
 
 /// COD và khoản giữ ví lấy từ snapshot tài chính, tách khỏi thu nhập.
@@ -38,6 +39,18 @@ class DriverIncomingOfferFinance extends StatelessWidget {
             amount: formatVnd(order.driverAdvanceAmount),
           ),
         ],
+        const SizedBox(height: AppSpacing.md),
+        _FinanceRow(
+          icon: Icons.percent_rounded,
+          label: PlatformFeeText.fee,
+          amount: formatVnd(order.platformFeeAmount),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        _FinanceRow(
+          icon: Icons.account_balance_wallet_outlined,
+          label: PlatformFeeText.netIncome,
+          amount: formatVnd(order.netDriverIncome),
+        ),
       ],
     ),
   );

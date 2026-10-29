@@ -15,7 +15,9 @@ class SupportRequestBell extends StatelessWidget {
     final controller = SupportRequestAlertsScope.maybeOf(context);
     final count = controller?.unreadCount ?? 0;
     return IconButton(
-      tooltip: SupportRequestAlertStrings.title,
+      tooltip: controller?.adminDecisionsOnly == true
+          ? SupportRequestAlertStrings.adminTitle
+          : SupportRequestAlertStrings.title,
       style: IconButton.styleFrom(
         minimumSize: const Size(48, 48),
         foregroundColor: AppColors.primary,
@@ -54,7 +56,9 @@ class SupportRequestBell extends StatelessWidget {
     );
     if (id != null && context.mounted) {
       controller.markRead(id);
-      context.push('/support-ticket/$id');
+      context.push(
+        '${controller.adminDecisionsOnly ? '/admin-ticket' : '/support-ticket'}/$id',
+      );
     }
   }
 }

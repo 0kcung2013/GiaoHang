@@ -282,34 +282,6 @@ class RiskResolutionBlock extends StatelessWidget {
   }
 }
 
-class CriticalRiskNotice extends StatelessWidget {
-  const CriticalRiskNotice({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.07),
-        borderRadius: AppRadius.md,
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.lock_outline_rounded, color: AppColors.error),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              'Báo cáo này cần Admin đưa ra kết luận cuối.',
-              style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _TimelineLoading extends StatelessWidget {
   const _TimelineLoading();
 

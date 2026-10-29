@@ -163,7 +163,6 @@ class NearestDriverService {
         body: {
           'pickup_lat': aroundLat,
           'pickup_lng': aroundLng,
-          'radius_meters': radiusMeters,
           'max_results': _maxCandidates,
         },
       );

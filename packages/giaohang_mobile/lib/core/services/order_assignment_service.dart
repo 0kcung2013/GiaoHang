@@ -245,6 +245,9 @@ class OrderAssignmentService {
   }
 
   static String advanceStatusErrorMessage(String message) {
+    if (message.contains('PICKUP_CODE_REQUIRED')) {
+      return 'Cần xác nhận mã bàn giao từ người tạo đơn trước khi bắt đầu giao.';
+    }
     if (message.contains('INSUFFICIENT_WALLET_BALANCE_AT_PICKUP')) {
       return 'Số dư ví không còn đủ để nhận kiện. Hãy nạp thêm rồi xác nhận lại.';
     }

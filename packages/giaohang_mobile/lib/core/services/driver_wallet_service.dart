@@ -1,6 +1,9 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/driver_wallet.dart';
+import 'business_settings_service.dart';
+import 'package:giaohang_domain/giaohang_domain.dart'
+    show BusinessSettings, formatVnd;
 
 typedef DriverWalletRpcInvoker =
     Future<dynamic> Function(String functionName, Map<String, dynamic> params);
@@ -19,16 +22,20 @@ class DriverWalletService {
     DriverWalletFunctionInvoker? functionInvoker,
     DriverWalletChangeWatcher? changeWatcher,
     DriverOrderWalletLoader? orderTransactionsLoader,
+    Future<BusinessSettings> Function()? settingsLoader,
   }) : _rpcInvoker = rpcInvoker ?? _defaultRpc(client),
        _functionInvoker = functionInvoker ?? _defaultFunction(client),
        _changeWatcher = changeWatcher ?? _defaultChangeWatcher(client),
        _orderTransactionsLoader =
-           orderTransactionsLoader ?? _defaultOrderTransactions(client);
+           orderTransactionsLoader ?? _defaultOrderTransactions(client),
+       _settingsLoader =
+           settingsLoader ?? BusinessSettingsService(client: client).load;
 
   final DriverWalletRpcInvoker _rpcInvoker;
   final DriverWalletFunctionInvoker _functionInvoker;
   final DriverWalletChangeWatcher _changeWatcher;
   final DriverOrderWalletLoader _orderTransactionsLoader;
+  final Future<BusinessSettings> Function() _settingsLoader;
 
   /// Full, RLS-protected ledger for this order/driver, independent of history pages.
   Future<List<DriverWalletTransaction>> getOrderTransactions({
@@ -86,9 +93,10 @@ class DriverWalletService {
   }
 
   Future<Uri> createTopupPaymentUrl(int amount) async {
-    if (amount < 5000 || amount > 10000000) {
-      throw const DriverWalletException(
-        'Số tiền nạp từ 5.000đ đến 10.000.000đ.',
+    final settings = await _settingsLoader();
+    if (amount < settings.topupMin || amount > settings.topupMax) {
+      throw DriverWalletException(
+        'Số tiền nạp từ ${formatVnd(settings.topupMin)} đến ${formatVnd(settings.topupMax)}.',
       );
     }
     final response = await _functionInvoker('vnpay-create-wallet-topup', {

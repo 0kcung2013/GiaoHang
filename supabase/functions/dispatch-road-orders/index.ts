@@ -27,7 +27,8 @@ Deno.serve(async req => {
         if (!candidates?.length) { waiting++; continue; }
         const ranked = await rankDriversByRoadDistance(candidates,
           { lat: order.pickup_lat, lng: order.pickup_lng },
-          roadRouteOptions(redis, Deno.env.get('OSRM_BASE_URL')));
+          {...roadRouteOptions(redis, Deno.env.get('OSRM_BASE_URL')),
+            automaticRoadLimit: order.business_policy?.values?.auto_radius_m ?? 2000});
         await assertOwner();
         const { data: driverId, error: commitError } = await admin.rpc('commit_road_driver_offer',
           { p_order_id: order.id, p_candidates: ranked });

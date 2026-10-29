@@ -35,7 +35,6 @@ class SupportTicketChatSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = SupportTicketUi.statusColor(ticket.status);
     final automatic = automaticMonitoring ?? ticket.isAutomaticMonitoringNotice;
     return ColoredBox(
       color: AppColors.bgCard,
@@ -43,33 +42,29 @@ class SupportTicketChatSidebar extends StatelessWidget {
         controller: scrollController,
         padding: const EdgeInsets.all(AppSpacing.xl),
         children: [
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.sm,
-            children: [
-              _Badge(
-                icon: automatic
-                    ? Icons.history_rounded
-                    : SupportTicketUi.statusIcon(ticket.status),
-                label: automatic
-                    ? SupportMonitoringStrings.automaticStatus
-                    : SupportTicketUi.statusLabel(ticket.status),
-                color: automatic ? AppColors.info : statusColor,
-              ),
-              if (!automatic && ticket.priority == SupportTicketPriority.high)
-                _Badge(
-                  icon: Icons.flag_outlined,
-                  label: SupportTicketUi.priorityLabel(ticket.priority),
-                  color: SupportTicketUi.priorityColor(ticket.priority),
-                ),
-            ],
+          Text(
+            SupportTicketStrings.requester,
+            style: AppTextStyles.labelSmall.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
-          const SizedBox(height: AppSpacing.xl),
+          const SizedBox(height: AppSpacing.md),
           if (ticket.isMonitoring && ticket.orderId != null && !automatic) ...[
             SupportMonitoringJourneyButton(ticket: ticket),
             const SizedBox(height: AppSpacing.lg),
           ],
           _PersonBlock(ticket: ticket),
+          if (!automatic && ticket.priority == SupportTicketPriority.high) ...[
+            const SizedBox(height: AppSpacing.md),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _Badge(
+                icon: Icons.flag_rounded,
+                label: SupportTicketStrings.highPriority,
+                color: AppColors.error,
+              ),
+            ),
+          ],
           if (ticket.requesterPhone?.trim().isNotEmpty == true) ...[
             const SizedBox(height: AppSpacing.md),
             _InfoRow(
@@ -191,12 +186,12 @@ class _PersonBlock extends StatelessWidget {
           width: AppSpacing.xl5,
           height: AppSpacing.xl5,
           decoration: const BoxDecoration(
-            color: AppColors.accentLight,
+            color: AppColors.bgLight,
             shape: BoxShape.circle,
           ),
           child: Icon(
             SupportTicketUi.requesterRoleIcon(ticket.requesterRole),
-            color: AppColors.accent,
+            color: AppColors.primary,
             size: 22,
           ),
         ),
@@ -251,7 +246,7 @@ class _InfoRow extends StatelessWidget {
             Text(
               label,
               style: AppTextStyles.labelSmall.copyWith(
-                color: AppColors.textMuted,
+                color: AppColors.textSecondary,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -290,7 +285,12 @@ class _Badge extends StatelessWidget {
       children: [
         Icon(icon, size: 14, color: color),
         const SizedBox(width: AppSpacing.xs),
-        Text(label, style: AppTextStyles.labelSmall.copyWith(color: color)),
+        Flexible(
+          child: Text(
+            label,
+            style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary),
+          ),
+        ),
       ],
     ),
   );

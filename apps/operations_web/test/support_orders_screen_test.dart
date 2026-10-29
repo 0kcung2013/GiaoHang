@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:operations_web/features/support_orders/data/support_order_repository.dart';
 import 'package:operations_web/features/support_orders/models/support_order.dart';
+import 'package:operations_web/features/support_orders/models/support_order_proof.dart';
 import 'package:operations_web/features/support_orders/screens/support_orders_screen.dart';
 
 void main() {
@@ -64,6 +65,14 @@ void main() {
 }
 
 class _FakeSupportOrderRepository implements SupportOrderRepository {
+  @override
+  Future<List<SupportOrderProof>> fetchDeliveryProofs(String orderId) async =>
+      [];
+
+  @override
+  Future<String> resolveDeliveryProofUrl(String storagePath) async =>
+      storagePath;
+
   static final _orders = [
     SupportOrder(
       id: 'order-1',

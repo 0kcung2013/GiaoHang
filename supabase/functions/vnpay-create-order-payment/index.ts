@@ -6,13 +6,15 @@ import {
   type VnpayParams,
 } from "../_shared/vnpay.ts";
 
-const paymentUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
+import { resolveVnpayPaymentUrl } from "../_shared/vnpay_gateway.mjs";
 
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return cors(new Response(null));
   if (request.method !== "POST") return json({ error: "METHOD_NOT_ALLOWED" }, 405);
 
   try {
+    const paymentUrl = resolveVnpayPaymentUrl(
+      Deno.env.get("VNPAY_ENVIRONMENT") ?? "sandbox", Deno.env.get("VNPAY_PAYMENT_URL"));
     const authorization = request.headers.get("Authorization");
     if (!authorization) return json({ error: "AUTH_REQUIRED" }, 401);
 
@@ -77,6 +79,10 @@ Deno.serve(async (request) => {
       payment_url: buildVnpayPaymentUrl(paymentUrl, params, signature),
     });
   } catch (error) {
+    const code = error && typeof error === 'object' && 'message' in error ? String(error.message) : '';
+    if (code.startsWith('SETTINGS_QUOTE_') || code === 'ORDER_PRICE_INVALID' || code === 'PAID_GOODS_VALUE_REQUIRED') {
+      return json({error: code}, 409);
+    }
     console.error("VNPAY_CREATE_ORDER_PAYMENT_FAILED", safeError(error));
     return json({ error: "ORDER_PAYMENT_CREATE_FAILED" }, 500);
   }

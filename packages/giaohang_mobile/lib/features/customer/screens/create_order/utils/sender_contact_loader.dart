@@ -5,10 +5,15 @@ import '../../../../../core/providers/customer_providers.dart';
 import 'vietnam_phone_input.dart';
 
 class SenderContactData {
-  const SenderContactData({required this.name, required this.phone});
+  const SenderContactData({
+    required this.name,
+    required this.phone,
+    this.customerType = 'individual',
+  });
 
   final String name;
   final String phone;
+  final String customerType;
 }
 
 class SenderContactException implements Exception {
@@ -40,7 +45,11 @@ Future<SenderContactData> loadSenderContact(WidgetRef ref) async {
       );
     }
 
-    return SenderContactData(name: name, phone: phone);
+    return SenderContactData(
+      name: name,
+      phone: phone,
+      customerType: profile?.customerType ?? 'individual',
+    );
   } on SenderContactException {
     rethrow;
   } catch (_) {

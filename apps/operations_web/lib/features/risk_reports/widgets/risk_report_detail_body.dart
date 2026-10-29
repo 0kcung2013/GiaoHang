@@ -28,7 +28,6 @@ class RiskReportDetailBody extends StatelessWidget {
   const RiskReportDetailBody({
     required this.report,
     required this.currentUserId,
-    required this.criticalRestricted,
     required this.intervention,
     required this.notes,
     required this.attachments,
@@ -48,14 +47,12 @@ class RiskReportDetailBody extends StatelessWidget {
     required this.onConfirmCustody,
     required this.onResumeOrder,
     required this.onAddNote,
-    this.showSeverity = false,
     this.showOrderContext = false,
     super.key,
   });
 
   final RiskReport report;
   final String currentUserId;
-  final bool criticalRestricted;
   final RiskIntervention? intervention;
   final List<RiskReportNote> notes;
   final List<RiskReportAttachmentView>? attachments;
@@ -75,7 +72,6 @@ class RiskReportDetailBody extends StatelessWidget {
   final Future<void> Function() onConfirmCustody;
   final Future<void> Function() onResumeOrder;
   final Future<void> Function(String body) onAddNote;
-  final bool showSeverity;
   final bool showOrderContext;
 
   @override
@@ -89,12 +85,6 @@ class RiskReportDetailBody extends StatelessWidget {
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.sm,
             children: [
-              if (showSeverity)
-                RiskBadge(
-                  label: RiskReportUi.severityLabel(report.severity),
-                  color: RiskReportUi.severityColor(report.severity),
-                  icon: RiskReportUi.severityIcon(report.severity),
-                ),
               RiskBadge(
                 label: RiskReportUi.statusLabel(report.status),
                 color: RiskReportUi.statusColor(report.status),
@@ -108,168 +98,122 @@ class RiskReportDetailBody extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
-          if (!showSeverity)
-            SupportRiskWorkspace(
-              summary: Wrap(
-                spacing: AppSpacing.lg,
-                runSpacing: AppSpacing.sm,
-                children: [
+          SupportRiskWorkspace(
+            summary: Wrap(
+              spacing: AppSpacing.lg,
+              runSpacing: AppSpacing.sm,
+              children: [
+                Text(
+                  '${report.reporterName ?? 'Người báo cáo'} · ${switch (report.reporterRole) {
+                    RiskReporterRole.driver => 'Tài xế',
+                    RiskReporterRole.customer => 'Khách hàng',
+                    _ => 'Hệ thống',
+                  }}',
+                  style: AppTextStyles.labelMedium,
+                ),
+                if (!report.isSystemIncident)
                   Text(
-                    '${report.reporterName ?? 'Người báo cáo'} · ${switch (report.reporterRole) {
-                      RiskReporterRole.driver => 'Tài xế',
-                      RiskReporterRole.customer => 'Khách hàng',
-                      _ => 'Hệ thống',
-                    }}',
-                    style: AppTextStyles.labelMedium,
+                    RiskReportUi.orderStatusLabel(report.order.status),
+                    style: AppTextStyles.labelMedium.copyWith(
+                      color: AppColors.info,
+                    ),
                   ),
-                  if (!report.isSystemIncident)
-                    Text(
-                      RiskReportUi.orderStatusLabel(report.order.status),
-                      style: AppTextStyles.labelMedium.copyWith(
-                        color: AppColors.info,
-                      ),
-                    ),
-                ],
-              ),
-              evidence: _EvidenceOverview(
-                report: report,
-                attachments: attachments,
-              ),
-              verification: report.isSystemIncident
-                  ? null
-                  : RiskCallVerificationCard(
-                      key: ValueKey(report.id),
-                      report: report,
-                      enabled:
-                          !report.status.isClosed &&
-                          (report.assignedTo == null ||
-                              report.assignedTo == currentUserId),
-                    ),
-              operation: intervention == null
-                  ? null
-                  : RiskInterventionPanel(
-                      report: report,
-                      intervention: intervention!,
-                      orderStatus: report.order.status,
-                      showInternalNotes: false,
-                      canManage:
-                          !report.status.isClosed &&
-                          (report.assignedTo == null ||
-                              report.assignedTo == currentUserId),
-                      managementBlockedMessage: report.status.isClosed
-                          ? RiskReportStrings.reportClosed
-                          : 'Hồ sơ đang do ${report.assignedToName ?? 'một nhân viên khác'} phụ trách.',
-                      onHoldBeforePickup: onHoldBeforePickup,
-                      onDecision: onDecision,
-                      onApproveReturn: onApproveReturn,
-                      onConfirmCustody: onConfirmCustody,
-                      onResumeOrder: onResumeOrder,
-                      onAddNote: onAddNote,
-                    ),
-              conversation:
-                  report.reporterRole != RiskReporterRole.customer &&
-                      report.reporterRole != RiskReporterRole.driver
-                  ? null
-                  : RiskCaseConversation(
-                      publicRecipient:
-                          report.reporterRole == RiskReporterRole.driver
-                          ? 'tài xế'
-                          : 'khách hàng',
-                      allowInternal: false,
-                      messages: caseMessages
-                          ?.where((message) => !message.isInternal)
-                          .toList(),
-                      currentUserId: currentUserId,
-                      canReply: canReply,
-                      onSend: onSendMessage,
-                    ),
-              orderDetails: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  RiskReporterProfileCard(report: report),
-                  const SizedBox(height: AppSpacing.lg),
-                  if (!report.isSystemIncident && !showOrderContext) ...[
-                    const SizedBox(height: AppSpacing.lg),
-                    SupportOrderInformation(order: report.order),
-                  ],
-                  const SizedBox(height: AppSpacing.lg),
-                  RiskCaseOverview(report: report),
-                  if (showOrderContext)
-                    SupportLinkedTickets(riskReportId: report.id),
-                  if (showOrderContext && !report.isSystemIncident)
-                    SupportOrderContext(orderId: report.orderId),
-                ],
-              ),
-              history: RiskEventTimeline(events: events),
-              hasMessageEvidence: messageEvidence?.isNotEmpty ?? false,
-              messageEvidence: report.isSystemIncident
-                  ? null
-                  : SupportRiskDetailsSection(
-                      title:
-                          'Tin nhắn bằng chứng (${messageEvidence?.length ?? 0})',
-                      initiallyExpanded: messageEvidence?.isNotEmpty ?? false,
-                      icon: Icons.fact_check_outlined,
-                      child: RiskMessageEvidenceSection(
-                        evidence: messageEvidence ?? const [],
-                        availableMessages: availableMessages,
-                        loading: evidenceLoading,
-                        attaching: attachingEvidence,
-                        onAttach: onAttachEvidence,
-                      ),
-                    ),
+              ],
             ),
-          if (showSeverity) ...[
-            _AdditionalCaseDetails(
-              publicRecipient: switch (report.reporterRole) {
-                RiskReporterRole.customer =>
-                  'khách hàng — ${report.reporterName ?? report.reportedBy}',
-                RiskReporterRole.driver =>
-                  'tài xế — ${report.reporterName ?? report.reportedBy}',
-                _ => null,
-              },
-              messages: caseMessages,
-              currentUserId: currentUserId,
-              canReply: canReply,
-              onSendMessage: onSendMessage,
-              events: events,
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            RiskCaseOverview(report: report),
-            if (showOrderContext) SupportLinkedTickets(riskReportId: report.id),
-            if (showOrderContext && !report.isSystemIncident)
-              SupportOrderContext(orderId: report.orderId),
-            const SizedBox(height: AppSpacing.xl),
-            _VerificationOverview(
+            evidence: _EvidenceOverview(
               report: report,
-              currentUserId: currentUserId,
-              intervention: intervention,
-              notes: notes,
               attachments: attachments,
-              onHoldBeforePickup: onHoldBeforePickup,
-              onDecision: onDecision,
-              onApproveReturn: onApproveReturn,
-              onConfirmCustody: onConfirmCustody,
-              onResumeOrder: onResumeOrder,
-              onAddNote: onAddNote,
             ),
-            if (!report.isSystemIncident) ...[
-              const SizedBox(height: AppSpacing.xl2),
-              RiskMessageEvidenceSection(
-                evidence: messageEvidence ?? const [],
-                availableMessages: availableMessages,
-                loading: evidenceLoading,
-                attaching: attachingEvidence,
-                onAttach: onAttachEvidence,
-              ),
-            ],
-          ],
+            verification: report.isSystemIncident
+                ? null
+                : RiskCallVerificationCard(
+                    key: ValueKey(report.id),
+                    report: report,
+                    enabled:
+                        !report.status.isClosed &&
+                        (report.assignedTo == null ||
+                            report.assignedTo == currentUserId),
+                  ),
+            operation: intervention == null
+                ? null
+                : RiskInterventionPanel(
+                    report: report,
+                    intervention: intervention!,
+                    orderStatus: report.order.status,
+                    showInternalNotes: false,
+                    canManage:
+                        !report.status.isClosed &&
+                        (report.assignedTo == null ||
+                            report.assignedTo == currentUserId),
+                    managementBlockedMessage: report.status.isClosed
+                        ? RiskReportStrings.reportClosed
+                        : 'Hồ sơ đang do ${report.assignedToName ?? 'một nhân viên khác'} phụ trách.',
+                    onHoldBeforePickup: onHoldBeforePickup,
+                    onDecision: onDecision,
+                    onApproveReturn: onApproveReturn,
+                    onConfirmCustody: onConfirmCustody,
+                    onResumeOrder: onResumeOrder,
+                    onAddNote: onAddNote,
+                  ),
+            conversation:
+                report.reporterRole != RiskReporterRole.customer &&
+                    report.reporterRole != RiskReporterRole.driver
+                ? null
+                : RiskCaseConversation(
+                    publicRecipient:
+                        report.reporterRole == RiskReporterRole.driver
+                        ? 'tài xế'
+                        : 'khách hàng',
+                    allowInternal: false,
+                    messages: caseMessages
+                        ?.where((message) => !message.isInternal)
+                        .toList(),
+                    currentUserId: currentUserId,
+                    canReply: canReply,
+                    onSend: onSendMessage,
+                  ),
+            orderDetails: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                RiskReporterProfileCard(report: report),
+                if (!report.isSystemIncident) ...[
+                  const SizedBox(height: AppSpacing.lg),
+                  RiskRelatedParties(report: report),
+                ],
+                const SizedBox(height: AppSpacing.lg),
+                if (!report.isSystemIncident && !showOrderContext) ...[
+                  const SizedBox(height: AppSpacing.lg),
+                  SupportOrderInformation(order: report.order),
+                ],
+                const SizedBox(height: AppSpacing.lg),
+                RiskCaseOverview(report: report),
+                if (showOrderContext)
+                  SupportLinkedTickets(riskReportId: report.id),
+                if (showOrderContext && !report.isSystemIncident)
+                  SupportOrderContext(orderId: report.orderId),
+              ],
+            ),
+            history: RiskEventTimeline(events: events),
+            hasMessageEvidence: messageEvidence?.isNotEmpty ?? false,
+            messageEvidence: report.isSystemIncident
+                ? null
+                : SupportRiskDetailsSection(
+                    title:
+                        'Tin nhắn bằng chứng (${messageEvidence?.length ?? 0})',
+                    initiallyExpanded: messageEvidence?.isNotEmpty ?? false,
+                    icon: Icons.fact_check_outlined,
+                    child: RiskMessageEvidenceSection(
+                      evidence: messageEvidence ?? const [],
+                      availableMessages: availableMessages,
+                      loading: evidenceLoading,
+                      attaching: attachingEvidence,
+                      onAttach: onAttachEvidence,
+                    ),
+                  ),
+          ),
           if ((report.resolution ?? '').isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xl),
             RiskResolutionBlock(text: report.resolution!),
-          ],
-          if (criticalRestricted) ...[
-            const SizedBox(height: AppSpacing.xl),
-            const CriticalRiskNotice(),
           ],
           if (error != null) ...[
             const SizedBox(height: AppSpacing.lg),
@@ -281,98 +225,6 @@ class RiskReportDetailBody extends StatelessWidget {
           const SizedBox(height: AppSpacing.xl),
         ],
       ),
-    );
-  }
-}
-
-class _VerificationOverview extends StatelessWidget {
-  const _VerificationOverview({
-    required this.report,
-    required this.currentUserId,
-    required this.intervention,
-    required this.notes,
-    required this.attachments,
-    required this.onHoldBeforePickup,
-    required this.onDecision,
-    required this.onApproveReturn,
-    required this.onConfirmCustody,
-    required this.onResumeOrder,
-    required this.onAddNote,
-  });
-
-  final RiskReport report;
-  final String currentUserId;
-  final RiskIntervention? intervention;
-  final List<RiskReportNote> notes;
-  final List<RiskReportAttachmentView>? attachments;
-  final Future<void> Function() onHoldBeforePickup;
-  final RiskDecisionCallback onDecision;
-  final Future<void> Function(ReturnApprovalDraft draft) onApproveReturn;
-  final Future<void> Function() onConfirmCustody;
-  final Future<void> Function() onResumeOrder;
-  final Future<void> Function(String body) onAddNote;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final evidence = _EvidenceOverview(
-          report: report,
-          attachments: attachments,
-        );
-        final contextPanel = Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            RiskReporterProfileCard(report: report),
-            const SizedBox(height: AppSpacing.lg),
-            RiskOrderRoute(report: report),
-            if (intervention != null) ...[
-              const SizedBox(height: AppSpacing.lg),
-              RiskInterventionPanel(
-                report: report,
-                intervention: intervention!,
-                orderStatus: report.order.status,
-                canManage:
-                    report.assignedTo == null ||
-                    report.assignedTo == currentUserId,
-                canAddNote: report.assignedTo == currentUserId,
-                managementBlockedMessage:
-                    'Hồ sơ đang do ${report.assignedToName ?? 'một nhân viên khác'} phụ trách.',
-                notes: notes,
-                onHoldBeforePickup: onHoldBeforePickup,
-                onDecision: onDecision,
-                onApproveReturn: onApproveReturn,
-                onConfirmCustody: onConfirmCustody,
-                onResumeOrder: onResumeOrder,
-                onAddNote: onAddNote,
-              ),
-            ],
-            if (!report.isSystemIncident) ...[
-              const SizedBox(height: AppSpacing.lg),
-              RiskRelatedParties(report: report),
-            ],
-          ],
-        );
-
-        if (constraints.maxWidth < 760) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              contextPanel,
-              const SizedBox(height: AppSpacing.xl),
-              evidence,
-            ],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(flex: 5, child: evidence),
-            const SizedBox(width: AppSpacing.xl),
-            SizedBox(width: 340, child: contextPanel),
-          ],
-        );
-      },
     );
   }
 }
@@ -426,80 +278,6 @@ class _EvidenceOverview extends StatelessWidget {
             const SizedBox(height: AppSpacing.lg),
             RiskAttachmentSection(items: attachments),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-class _AdditionalCaseDetails extends StatelessWidget {
-  const _AdditionalCaseDetails({
-    required this.publicRecipient,
-    required this.messages,
-    required this.currentUserId,
-    required this.canReply,
-    required this.onSendMessage,
-    required this.events,
-  });
-
-  final List<CaseMessage>? messages;
-  final String? publicRecipient;
-  final String currentUserId;
-  final bool canReply;
-  final RiskMessageSender onSendMessage;
-  final List<RiskReportEvent>? events;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: AppRadius.lg,
-        border: Border.all(color: AppColors.border),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: ExpansionTile(
-        key: const Key('risk-additional-case-details'),
-        initiallyExpanded: true,
-        tilePadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-        childrenPadding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          0,
-          AppSpacing.lg,
-          AppSpacing.lg,
-        ),
-        shape: const Border(),
-        collapsedShape: const Border(),
-        iconColor: AppColors.accent,
-        collapsedIconColor: AppColors.textMuted,
-        title: Text('Trao đổi và lịch sử', style: AppTextStyles.labelMedium),
-        subtitle: Text(
-          '${messages?.length ?? 0} trao đổi · ${events?.length ?? 0} sự kiện',
-          style: AppTextStyles.labelSmall.copyWith(color: AppColors.textMuted),
-        ),
-        children: [
-          RiskCaseConversation(
-            publicRecipient: publicRecipient,
-            messages: messages,
-            currentUserId: currentUserId,
-            canReply: canReply,
-            onSend: onSendMessage,
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          Row(
-            children: [
-              Text('Lịch sử xử lý', style: AppTextStyles.headingSmall),
-              const Spacer(),
-              Text(
-                '${events?.length ?? 0} sự kiện',
-                style: AppTextStyles.labelSmall.copyWith(
-                  color: AppColors.textMuted,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          RiskEventTimeline(events: events),
         ],
       ),
     );

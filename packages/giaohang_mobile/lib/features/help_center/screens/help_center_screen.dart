@@ -5,6 +5,7 @@ import '../../../core/mobile_app_role.dart';
 import '../data/help_topics.dart';
 import '../help_center_strings.dart';
 import '../widgets/help_chat_card.dart';
+import '../widgets/business_contact_card.dart';
 import '../widgets/help_topic_tile.dart';
 import 'support_order_picker_screen.dart';
 import 'general_support_chat_screen.dart';
@@ -158,6 +159,7 @@ class _HelpCenterScreenState extends State<HelpCenterScreen> {
                   const SizedBox(height: AppSpacing.sm),
                   HelpTopicTile(topic: topics[i], onChat: _chat),
                 ],
+                const BusinessContactCard(),
               ],
             ),
           ),

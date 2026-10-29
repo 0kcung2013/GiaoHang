@@ -23,10 +23,30 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
       return;
     }
 
+    DeliveryProofCapture? uploadedProof;
+    var handoffCommitted = false;
     final confirmation = await showDriverDeliveryConfirmationSheet(
       context: context,
       action: workflow.action,
       order: _currentOrder,
+      onConfirm: workflow.action == DriverDeliveryAction.confirmPickup
+          ? (confirmation) async {
+              if (!identical(uploadedProof, confirmation.proof)) {
+                await _submitHandoffProof(
+                  action: workflow.action,
+                  confirmation: confirmation,
+                );
+                uploadedProof = confirmation.proof;
+              }
+              await ref
+                  .read(pickupHandoffServiceProvider)
+                  .confirmPickup(
+                    orderId: widget.order.id,
+                    code: confirmation.pickupCode ?? '',
+                  );
+              handoffCommitted = true;
+            }
+          : null,
       locationProvider: () {
         final position = _driverPos;
         if (position == null) return null;
@@ -40,6 +60,7 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
       await _applyConfirmedAction(
         action: workflow.action,
         confirmation: confirmation,
+        proofAlreadySubmitted: handoffCommitted,
       );
     }
   }
@@ -58,10 +79,21 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
   Future<void> _applyConfirmedAction({
     required DriverDeliveryAction action,
     required DriverDeliveryConfirmationResult confirmation,
+    bool proofAlreadySubmitted = false,
   }) async {
     _updateUi(() => _isUpdatingStatus = true);
     try {
-      await _submitHandoffProof(action: action, confirmation: confirmation);
+      if (!proofAlreadySubmitted) {
+        await _submitHandoffProof(action: action, confirmation: confirmation);
+        if (action == DriverDeliveryAction.confirmPickup) {
+          await ref
+              .read(pickupHandoffServiceProvider)
+              .confirmPickup(
+                orderId: widget.order.id,
+                code: confirmation.pickupCode ?? '',
+              );
+        }
+      }
 
       if (action == DriverDeliveryAction.confirmPickup) {
         if (!mounted) return;
@@ -81,7 +113,11 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
         if (!mounted) return;
       }
 
-      await _advanceOrderStatus();
+      await _advanceOrderStatus(
+        committedStatus: action == DriverDeliveryAction.confirmPickup
+            ? 'delivering'
+            : null,
+      );
     } catch (error) {
       _showStatusError(error);
     } finally {
@@ -137,8 +173,9 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
         );
   }
 
-  Future<void> _advanceOrderStatus() async {
-    final isStartingDelivery = _currentOrder.status == 'picking_up';
+  Future<void> _advanceOrderStatus({String? committedStatus}) async {
+    final isStartingDelivery =
+        committedStatus == 'delivering' || _currentOrder.status == 'picking_up';
     var walletBefore = ref
         .read(driverWalletSummaryProvider)
         .valueOrNull
@@ -152,15 +189,31 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
         // The status RPC remains authoritative and re-checks the balance.
       }
     }
-    final nextStatus = await ref
-        .read(customerOrderServiceProvider)
-        .updateDriverOrderStatus(
-          orderId: _currentOrder.id,
-          driverId: _currentOrder.driverId ?? '',
-          currentStatus: _currentOrder.status,
-        );
+    final nextStatus =
+        committedStatus ??
+        await ref
+            .read(customerOrderServiceProvider)
+            .updateDriverOrderStatus(
+              orderId: _currentOrder.id,
+              driverId: _currentOrder.driverId ?? '',
+              currentStatus: _currentOrder.status,
+            );
 
     final driverId = _currentOrder.driverId ?? '';
+    if (committedStatus != null) {
+      try {
+        await ref
+            .read(notificationServiceProvider)
+            .notifyCustomerOrderStatus(
+              customerId: _currentOrder.customerId,
+              orderId: _currentOrder.id,
+              orderCode: _currentOrder.trackingCode,
+              status: committedStatus,
+            );
+      } catch (_) {
+        // Bàn giao đã được server commit; lỗi thông báo không đảo ngược giữ hàng.
+      }
+    }
     ref.invalidate(availableOrdersProvider(driverId));
     ref.invalidate(driverOrdersProvider(driverId));
     _refreshOrderWallet();
@@ -268,7 +321,9 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          error.toString().contains('PICKUP_INCIDENT_PENDING')
+          error.toString().contains('PICKUP_CODE_REQUIRED')
+              ? PickupHandoffStrings.codeRequired
+              : error.toString().contains('PICKUP_INCIDENT_PENDING')
               ? 'Đang chờ CSKH xử lý yêu cầu hủy. Chưa thể xác nhận nhận hàng.'
               : 'Lỗi cập nhật trạng thái: $error',
         ),

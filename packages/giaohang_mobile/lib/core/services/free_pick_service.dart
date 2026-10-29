@@ -171,7 +171,7 @@ class FreePickService {
       return 'Đơn này đang được đề xuất cho tài xế khác.';
     }
     if (message.contains('FREE_PICK_OUT_OF_RANGE')) {
-      return 'FreePick nhận đơn cách điểm lấy trên 2 km đến 3 km theo đường đi.';
+      return 'Đơn nằm ngoài phạm vi tự chọn theo chính sách áp dụng. Hãy tìm lại đơn.';
     }
     if (message.contains('ROAD_ROUTING_UNAVAILABLE')) {
       return 'Chưa tính được đường đến điểm lấy hàng. Hãy thử lại sau.';

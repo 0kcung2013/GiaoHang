@@ -11,29 +11,27 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
-  test(
-    'pickup succeeds only after the server commits its confirmation',
-    () async {
-      final requests = <String>[];
-      final client = await _client(requests);
-      addTearDown(client.dispose);
+  test('uploading a pickup photo does not confirm custody', () async {
+    final requests = <String>[];
+    final client = await _client(requests);
+    addTearDown(client.dispose);
 
-      final proof = await _submit(client, DeliveryProofStage.pickup, requests);
+    final proof = await _submit(client, DeliveryProofStage.pickup, requests);
 
-      expect(proof.stage, DeliveryProofStage.pickup);
-      expect(requests, ['upload', 'proof', 'confirmation']);
-    },
-  );
+    expect(proof.stage, DeliveryProofStage.pickup);
+    expect(requests, ['upload', 'proof']);
+  });
 
   test(
-    'a saved photo does not report pickup success if confirmation fails',
+    'legacy confirmation cannot create custody without a customer code',
     () async {
       final requests = <String>[];
       final client = await _client(requests, rejectConfirmation: true);
       addTearDown(client.dispose);
 
+      await _submit(client, DeliveryProofStage.pickup, requests);
       await expectLater(
-        _submit(client, DeliveryProofStage.pickup, requests),
+        DeliveryProofService(client: client).confirmPickup(orderId: 'order-1'),
         throwsA(isA<PostgrestException>()),
       );
       expect(requests, ['upload', 'proof', 'confirmation']);
@@ -134,7 +132,7 @@ Future<SupabaseClient> _client(
         expect(jsonDecode(request.body), {'p_order_id': 'order-1'});
         status = rejectConfirmation ? 400 : 200;
         response = rejectConfirmation
-            ? {'code': 'P0001', 'message': 'ORDER_NOT_PICKING_UP'}
+            ? {'code': 'P0001', 'message': 'PICKUP_CODE_REQUIRED'}
             : '2026-09-15T00:00:00Z';
       } else {
         throw StateError('Unexpected request: ${request.method} $path');

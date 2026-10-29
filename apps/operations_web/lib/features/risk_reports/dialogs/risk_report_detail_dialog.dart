@@ -372,8 +372,6 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
     final statusLocked =
         _intervention?.state == RiskInterventionState.returnRequired ||
         _intervention?.state == RiskInterventionState.handoffRequired;
-    final criticalRestricted =
-        report.severity == RiskSeverity.critical && !widget.isAdmin;
     final unassignedOpen =
         report.assignedTo == null && report.status == RiskStatus.open;
     final actsAsOwner = report.assignedTo == widget.currentUserId;
@@ -404,7 +402,6 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
             child: RiskReportDetailBody(
               report: report,
               currentUserId: widget.currentUserId,
-              criticalRestricted: criticalRestricted,
               intervention: _intervention,
               notes: _notes,
               attachments: _attachments,
@@ -451,7 +448,6 @@ class _RiskReportDetailDialogState extends State<RiskReportDetailDialog> {
                 await commands.addInternalNote(report.id, body);
                 await _loadNotes();
               }, closeAfter: false),
-              showSeverity: widget.isAdmin,
               showOrderContext:
                   widget.repository is SupabaseRiskReportRepository,
             ),

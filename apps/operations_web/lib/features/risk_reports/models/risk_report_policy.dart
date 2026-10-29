@@ -20,8 +20,7 @@ class RiskReportPolicy {
       _ => [RiskStatus.resolved],
     };
 
-    if (severity != RiskSeverity.critical || isAdmin) return transitions;
-    return transitions.where((status) => !status.isClosed).toList();
+    return transitions;
   }
 
   static bool requiresResolution(RiskStatus status) => status.isClosed;

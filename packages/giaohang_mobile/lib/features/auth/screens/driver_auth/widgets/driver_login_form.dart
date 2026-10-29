@@ -6,6 +6,7 @@ import 'driver_auth_feedback.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/services/auth_service.dart';
+import '../../widgets/auth_strings.dart';
 
 class DriverLoginForm extends StatefulWidget {
   const DriverLoginForm({super.key});
@@ -55,7 +56,9 @@ class _DriverLoginFormState extends State<DriverLoginForm> {
     } on AuthException catch (e) {
       if (!mounted) return;
       String msg;
-      if (e.message.toLowerCase().contains('invalid')) {
+      if (e.code == 'user_banned') {
+        msg = AuthStrings.accountDisabled;
+      } else if (e.message.toLowerCase().contains('invalid')) {
         msg = DriverAuthStrings.invalidCredentials;
       } else {
         msg = '${DriverAuthStrings.loginFailed}: ${e.message}';

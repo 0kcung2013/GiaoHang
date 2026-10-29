@@ -172,12 +172,16 @@ class _LoginBrand extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
-          Text(
-            AuthStrings.appName,
-            style: AppTextStyles.headingSmall.copyWith(
-              color: LoginExperimentTokens.ink,
-              fontWeight: FontWeight.w900,
-              letterSpacing: -0.2,
+          Flexible(
+            child: Text(
+              AuthStrings.appName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.headingSmall.copyWith(
+                color: LoginExperimentTokens.ink,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.2,
+              ),
             ),
           ),
           const SizedBox(width: 5),

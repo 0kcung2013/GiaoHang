@@ -38,12 +38,19 @@ class OrderConfirmationPaymentController extends ChangeNotifier {
   bool _completed = false;
   bool _disposed = false;
   String? _error;
+  bool needsSettingsReview = false;
 
   CustomerOrderPaymentSession? get session => _session;
   OrderModel? get orderSnapshot => _order;
   String? get error => _error;
   bool get isBusy => _submitting || _completing;
   bool get isChecking => _checking != null;
+  bool get protectsSettings =>
+      _order != null &&
+      (_session == null ||
+          (_session!.status != OrderPaymentStatus.failed &&
+              _session!.status != OrderPaymentStatus.expired &&
+              _session!.status != OrderPaymentStatus.refunded));
   bool get hasActiveSession =>
       _session != null &&
       (!_session!.isTerminal || _session!.status == OrderPaymentStatus.paid);
@@ -61,7 +68,8 @@ class OrderConfirmationPaymentController extends ChangeNotifier {
       if (_disposed || _completed) return;
       if (_session == null ||
           _session!.status == OrderPaymentStatus.failed ||
-          _session!.status == OrderPaymentStatus.expired) {
+          _session!.status == OrderPaymentStatus.expired ||
+          _session!.status == OrderPaymentStatus.refunded) {
         _order = order;
         _session = await service.createPaymentSession(order);
         if (_disposed) return;
@@ -82,6 +90,14 @@ class OrderConfirmationPaymentController extends ChangeNotifier {
         _error = OrderPaymentText.paymentUnavailable;
       }
     } catch (error) {
+      if (error is CustomerOrderPaymentException &&
+          error.needsSettingsReview &&
+          !hasActiveSession) {
+        _order = null;
+        _session = null;
+        _paymentUrl = null;
+        needsSettingsReview = true;
+      }
       _error = error.toString();
     } finally {
       _submitting = false;
@@ -138,10 +154,12 @@ class OrderConfirmationPaymentController extends ChangeNotifier {
     }
   }
 
-  static String _terminalMessage(OrderPaymentStatus status) =>
-      status == OrderPaymentStatus.expired
-      ? OrderPaymentText.paymentExpired
-      : OrderPaymentText.paymentFailed;
+  static String _terminalMessage(OrderPaymentStatus status) => switch (status) {
+    OrderPaymentStatus.expired => OrderPaymentText.paymentExpired,
+    OrderPaymentStatus.refunded => OrderPaymentText.paymentRefunded,
+    OrderPaymentStatus.refundRequired => OrderPaymentText.paymentRefundPending,
+    _ => OrderPaymentText.paymentFailed,
+  };
 
   static Future<bool> _launchPayment(Uri uri) =>
       launchUrl(uri, mode: LaunchMode.externalApplication);

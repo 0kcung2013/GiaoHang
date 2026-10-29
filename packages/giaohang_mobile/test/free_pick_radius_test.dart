@@ -1,8 +1,39 @@
 import 'package:giaohang_mobile/core/models/order_model.dart';
 import 'package:giaohang_mobile/features/driver/screens/free_pick/utils/free_pick_radius.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:giaohang_domain/giaohang_domain.dart' show BusinessSettings;
 
 void main() {
+  test(
+    'configured search controls and per-order bands retain legacy orders',
+    () {
+      expect(increaseFreePickRadius(3000, minimum: 1000, maximum: 6000), 3500);
+      final configured =
+          OrderModel.fromJson({
+            ..._order('new', 5000).toJson(),
+            'business_policy': BusinessSettings(
+              revision: 1,
+              values: {'auto_radius_m': 4000, 'free_pick_radius_m': 6000},
+            ).toJson(),
+          }).copyWith(
+            pickupRoadDistanceMeters: 5000,
+            pickupRoadQuotedAt: DateTime.now(),
+            pickupRoadOriginLat: 0,
+            pickupRoadOriginLng: 0,
+          );
+      final found = ordersSearchableInFreePick(
+        [_order('legacy', 2500), configured],
+        driverLat: 0,
+        driverLng: 0,
+        radiusMeters: 6000,
+      );
+      expect(found.map((o) => o.id), ['legacy', 'new']);
+      expect(
+        configured.copyWith(status: 'pending').businessPolicy!.revision,
+        1,
+      );
+    },
+  );
   test('road limit changes by 500 meters and stays between 2 and 3 km', () {
     expect(increaseFreePickRadius(2000), 2500);
     expect(increaseFreePickRadius(2500), 3000);

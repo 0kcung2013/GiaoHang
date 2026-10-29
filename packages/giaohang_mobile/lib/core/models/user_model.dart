@@ -12,6 +12,10 @@ class UserModel {
     required this.notificationPromotions,
     this.customerRating,
     this.customerRatingCount = 0,
+    this.customerType,
+    this.businessName,
+    this.businessTaxCode,
+    this.businessAddress,
   });
 
   final String id;
@@ -26,6 +30,15 @@ class UserModel {
   final bool notificationPromotions;
   final double? customerRating;
   final int customerRatingCount;
+  final String? customerType;
+  final String? businessName;
+  final String? businessTaxCode;
+  final String? businessAddress;
+  bool get hasCustomerClassification =>
+      customerType == 'individual' ||
+      (customerType == 'business' &&
+          (businessName?.trim().isNotEmpty ?? false) &&
+          (businessAddress?.trim().isNotEmpty ?? false));
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
@@ -45,6 +58,10 @@ class UserModel {
       notificationPromotions: json['notification_promotions'] as bool? ?? false,
       customerRating: _parseDouble(json['customer_rating']),
       customerRatingCount: _parseInt(json['customer_rating_count']) ?? 0,
+      customerType: json['customer_type'] as String?,
+      businessName: json['business_name'] as String?,
+      businessTaxCode: json['business_tax_code'] as String?,
+      businessAddress: json['business_address'] as String?,
     );
   }
 
@@ -62,6 +79,10 @@ class UserModel {
       'notification_promotions': notificationPromotions,
       'customer_rating': customerRating,
       'customer_rating_count': customerRatingCount,
+      'customer_type': customerType,
+      'business_name': businessName,
+      'business_tax_code': businessTaxCode,
+      'business_address': businessAddress,
     };
   }
 

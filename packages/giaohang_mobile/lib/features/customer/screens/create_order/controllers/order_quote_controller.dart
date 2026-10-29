@@ -1,6 +1,7 @@
 import '../../../../../core/utils/delivery_fee_calculator.dart';
 import '../../../../../core/utils/geo_utils.dart';
 import '../../../../../core/services/osrm_service.dart';
+import '../../../../../core/services/business_settings_service.dart';
 
 typedef OrderQuoteEstimator =
     Future<DeliveryFeeEstimate> Function({
@@ -24,7 +25,7 @@ class OrderQuoteController {
     required double deliveryLng,
     OsrmRouteResult? route,
     DateTime? quotedAt,
-  }) {
+  }) async {
     if (pickupLat == 0 || pickupLng == 0) {
       throw const OrderQuoteException(
         'Vui lòng chọn điểm lấy hàng trên bản đồ.',
@@ -48,6 +49,10 @@ class OrderQuoteController {
       );
     }
 
+    // Tests may inject an estimator; production always fetches the current policy.
+    final settings = _estimator == null
+        ? await BusinessSettingsService().load()
+        : null;
     if (route != null) {
       return DeliveryFeeCalculator.fromRoadRoute(
         route: route,
@@ -57,6 +62,7 @@ class OrderQuoteController {
         deliveryLng: deliveryLng,
         serviceType: 'standard',
         quotedAt: quotedAt,
+        settings: settings,
       );
     }
     final estimator = _estimator;
@@ -68,6 +74,7 @@ class OrderQuoteController {
         deliveryLng: deliveryLng,
         serviceType: 'standard',
         quotedAt: quotedAt,
+        settings: settings,
       );
     }
     return estimator(

@@ -7,11 +7,15 @@ import 'support_request_alerts_repository.dart';
 
 /// Read state belongs to the current Operations session, not case assignment.
 class SupportRequestAlertsController extends ChangeNotifier {
-  SupportRequestAlertsController(this.repository) {
+  SupportRequestAlertsController(
+    this.repository, {
+    this.adminDecisionsOnly = false,
+  }) {
     reconnect();
   }
 
   final SupportRequestAlertsRepository repository;
+  final bool adminDecisionsOnly;
   StreamSubscription<List<SupportTicket>>? _subscription;
   final _known = <String>{};
   final _read = <String>{};
@@ -40,14 +44,17 @@ class SupportRequestAlertsController extends ChangeNotifier {
         final pending =
             items
                 .where(
-                  (item) =>
-                      item.status == SupportTicketStatus.open &&
-                      item.assignedTo == null &&
-                      item.needsSupportAttention,
+                  (item) => adminDecisionsOnly
+                      ? item.status == SupportTicketStatus.waitingAdmin
+                      : item.status == SupportTicketStatus.open &&
+                            item.assignedTo == null &&
+                            item.needsSupportAttention,
                 )
                 .toList()
               ..sort(
-                (left, right) => right.createdAt.compareTo(left.createdAt),
+                (left, right) => adminDecisionsOnly
+                    ? right.updatedAt.compareTo(left.updatedAt)
+                    : right.createdAt.compareTo(left.createdAt),
               );
         final added = pending
             .where((item) => !_known.contains(item.id))
@@ -57,7 +64,13 @@ class SupportRequestAlertsController extends ChangeNotifier {
           _toastTimer?.cancel();
           _toastTimer = Timer(const Duration(seconds: 8), dismissToast);
         }
-        _known.addAll(pending.map((item) => item.id));
+        final pendingIds = pending.map((item) => item.id).toSet();
+        if (adminDecisionsOnly) {
+          // Resolved/returned cases may be escalated again as new work.
+          _known.retainAll(pendingIds);
+          _read.retainAll(pendingIds);
+        }
+        _known.addAll(pendingIds);
         _requests = pending;
         if (latest != null && !pending.any((item) => item.id == latest!.id)) {
           latest = null;

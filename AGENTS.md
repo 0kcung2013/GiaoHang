@@ -176,6 +176,16 @@ Quan trọng: không thay đổi Supabase schema, RLS policies, migrations, Edge
 - Chỉ đề xuất tách file khi thay đổi làm xuất hiện thêm trách nhiệm độc lập, làm giảm tính kết dính hoặc khiến việc kiểm thử/bảo trì khó khăn.
 - Trước khi mở rộng một file, kiểm tra trách nhiệm hiện có; nếu cần tách thì chọn ranh giới nghiệp vụ hoặc component có ý nghĩa.
 
+## Handoff / Setup Documentation
+
+- Từ 2026-10-29, thiết kế và triển khai theo hướng có thể bàn giao cho người khác.
+- Với thay đổi tính năng, cập nhật tài liệu đi kèm về nghiệp vụ, cấu hình mặc định,
+  dependencies, migration/deploy, tên biến môi trường hoặc secrets, cách setup,
+  kiểm tra và xử lý sự cố. Không ghi giá trị secret vào tài liệu.
+- Phân biệt rõ phần đã tự động hóa, phần cần vận hành thiết lập, giới hạn thực tế
+  và cách khôi phục an toàn; không mô tả tính năng chưa làm như đã hoàn thành.
+- Phí sàn thực thu: xem `docs/handoff/platform_fee_collection.md`.
+
 ## Verification / Test Scope
 
 - Chỉ chạy test và analyze tập trung cho feature, package hoặc file vừa sửa.

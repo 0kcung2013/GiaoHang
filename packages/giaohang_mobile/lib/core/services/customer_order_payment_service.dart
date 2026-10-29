@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/order_finance.dart';
 import '../models/order_model.dart';
 import '../models/order_submission_payload.dart';
+import '../utils/business_settings_feedback.dart';
 
 typedef CustomerOrderPaymentFunctionInvoker =
     Future<dynamic> Function(String functionName, Map<String, dynamic> body);
@@ -43,6 +44,13 @@ class CustomerOrderPaymentService {
       }
       return created;
     } on PostgrestException catch (error) {
+      final message = BusinessSettingsFeedback.forError(error);
+      if (message != null) {
+        throw CustomerWalletOrderPaymentException(
+          message,
+          needsSettingsReview: true,
+        );
+      }
       if (error.message == 'CUSTOMER_WALLET_INSUFFICIENT_BALANCE') {
         throw const CustomerWalletOrderPaymentException(
           'Ví không đủ tiền trả phí giao. Bạn có thể chọn VNPAY.',
@@ -61,11 +69,19 @@ class CustomerOrderPaymentService {
         'Đơn này không cần thanh toán VNPAY.',
       );
     }
-    final response = await _functionInvoker(
-      'vnpay-create-order-payment',
-      buildOrderSubmissionPayload(order),
-    );
-    return CustomerOrderPaymentSession.fromJson(_singleRow(response));
+    try {
+      final response = await _functionInvoker(
+        'vnpay-create-order-payment',
+        buildOrderSubmissionPayload(order),
+      );
+      return CustomerOrderPaymentSession.fromJson(_singleRow(response));
+    } catch (error) {
+      final message = BusinessSettingsFeedback.forError(error);
+      if (message != null) {
+        throw CustomerOrderPaymentException(message, needsSettingsReview: true);
+      }
+      rethrow;
+    }
   }
 
   Future<CustomerOrderPaymentSession> getPaymentSession(
@@ -181,9 +197,13 @@ class CustomerOrderPaymentSession {
 }
 
 class CustomerOrderPaymentException implements Exception {
-  const CustomerOrderPaymentException(this.message);
+  const CustomerOrderPaymentException(
+    this.message, {
+    this.needsSettingsReview = false,
+  });
 
   final String message;
+  final bool needsSettingsReview;
 
   @override
   String toString() => message;
@@ -193,10 +213,12 @@ class CustomerWalletOrderPaymentException implements Exception {
   const CustomerWalletOrderPaymentException(
     this.message, {
     this.insufficientBalance = false,
+    this.needsSettingsReview = false,
   });
 
   final String message;
   final bool insufficientBalance;
+  final bool needsSettingsReview;
 
   @override
   String toString() => message;

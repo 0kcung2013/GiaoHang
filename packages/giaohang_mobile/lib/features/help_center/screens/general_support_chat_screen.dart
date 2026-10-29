@@ -13,12 +13,16 @@ class GeneralSupportChatScreen extends StatefulWidget {
     required this.role,
     this.repository,
     this.requesterId,
+    this.subject,
+    this.initialBody,
+    this.contextMarker,
     super.key,
   });
 
   final MobileAppRole role;
   final ParticipantGeneralSupportTicketRepository? repository;
   final String? requesterId;
+  final String? subject, initialBody, contextMarker;
 
   @override
   State<GeneralSupportChatScreen> createState() =>
@@ -40,6 +44,9 @@ class _GeneralSupportChatScreenState extends State<GeneralSupportChatScreen> {
               (ticket) =>
                   ticket.requesterId == _requesterId &&
                   ticket.orderId == null &&
+                  (widget.contextMarker == null
+                      ? !ticket.message.contains('[GD:')
+                      : ticket.message.contains(widget.contextMarker!)) &&
                   !ticket.isMonitoring,
             )
             .toList()
@@ -71,7 +78,12 @@ class _GeneralSupportChatScreenState extends State<GeneralSupportChatScreen> {
           return SupportChatSheet(
             requesterId: _requesterId,
             requesterRole: widget.role.name,
-            subject: snapshot.data?.subject ?? HelpCenterStrings.subject,
+            subject:
+                snapshot.data?.subject ??
+                widget.subject ??
+                HelpCenterStrings.subject,
+            initialBody: widget.initialBody,
+            contextMarker: widget.contextMarker,
             priority: snapshot.data?.priority ?? SupportTicketPriority.normal,
             repository: _repository,
             initialTicket: snapshot.data,

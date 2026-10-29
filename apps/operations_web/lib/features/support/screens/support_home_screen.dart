@@ -16,6 +16,7 @@ import '../models/support_queue_scope.dart';
 import '../models/support_chat_category.dart';
 import '../widgets/support_chat_categories.dart';
 import '../widgets/support_ticket_card.dart';
+import '../widgets/support_ticket_columns.dart';
 import '../widgets/support_queue_controls.dart';
 import '../widgets/support_ticket_header.dart';
 import '../widgets/support_ticket_states.dart';
@@ -27,6 +28,8 @@ class SupportHomeScreen extends StatefulWidget {
     this.currentUserId,
     this.isAdmin,
     this.monitoring = false,
+    this.waitingAdminOnly = false,
+    this.onClearWaitingAdminFilter,
     super.key,
   });
 
@@ -34,6 +37,8 @@ class SupportHomeScreen extends StatefulWidget {
   final String? currentUserId;
   final bool? isAdmin;
   final bool monitoring;
+  final bool waitingAdminOnly;
+  final VoidCallback? onClearWaitingAdminFilter;
 
   @override
   State<SupportHomeScreen> createState() => _SupportHomeScreenState();
@@ -56,8 +61,11 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
   bool _isAdmin = false;
 
   Iterable<SupportTicket> get _sectionTickets => _tickets.where(
-    (ticket) =>
-        widget.monitoring ? ticket.isMonitoring : _category.includes(ticket),
+    (ticket) => widget.waitingAdminOnly
+        ? ticket.status == SupportTicketStatus.waitingAdmin
+        : widget.monitoring
+        ? ticket.isMonitoring
+        : _category.includes(ticket),
   );
 
   List<SupportTicket> get _filteredTickets {
@@ -102,6 +110,16 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
     }
     _subscribeToChanges();
     _loadTickets();
+  }
+
+  @override
+  void didUpdateWidget(covariant SupportHomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.waitingAdminOnly != widget.waitingAdminOnly) {
+      _scope = SupportQueueScope.active;
+      _query = '';
+      _searchController.clear();
+    }
   }
 
   Future<void> _loadRole(SupabaseClient client) async {
@@ -221,7 +239,7 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
         builder: (context, constraints) {
           final horizontalPadding = math.max(
             AppSpacing.screenH,
-            (constraints.maxWidth - 1200) / 2,
+            (constraints.maxWidth - 1280) / 2,
           );
           final filtered = _filteredTickets;
           return RefreshIndicator(
@@ -242,14 +260,30 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         SupportTicketHeader(
-                          title: widget.monitoring
+                          title: widget.waitingAdminOnly
+                              ? SupportTicketStrings.waitingAdminTitle
+                              : widget.monitoring
                               ? SupportMonitoringStrings.casesTitle
                               : SupportTicketStrings.ticketsTitle,
-                          onCreate: widget.monitoring ? null : _createTicket,
+                          onCreate: widget.monitoring || widget.waitingAdminOnly
+                              ? null
+                              : _createTicket,
                           onRefresh: _loadTickets,
                           refreshing: _loading || _refreshing,
                         ),
-                        if (!widget.monitoring) ...[
+                        if (widget.waitingAdminOnly &&
+                            widget.onClearWaitingAdminFilter != null)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              onPressed: widget.onClearWaitingAdminFilter,
+                              icon: const Icon(Icons.filter_alt_off_rounded),
+                              label: const Text(
+                                SupportTicketStrings.allSupportRequests,
+                              ),
+                            ),
+                          ),
+                        if (!widget.monitoring && !widget.waitingAdminOnly) ...[
                           const SizedBox(height: AppSpacing.xl),
                           SupportChatCategories(
                             value: _category,
@@ -281,6 +315,7 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
                   ),
                   sliver: SliverToBoxAdapter(
                     child: SupportQueueControls<SupportQueueScope>(
+                      framed: constraints.maxWidth >= 600,
                       searchController: _searchController,
                       searchKey: const Key('support-ticket-search'),
                       searchHint: SupportTicketStrings.searchHint,
@@ -294,7 +329,8 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
                           SupportQueueScope.mine,
                           if (!widget.monitoring) SupportQueueScope.unassigned,
                           if (!widget.monitoring) SupportQueueScope.needsReply,
-                          SupportQueueScope.finished,
+                          if (!widget.waitingAdminOnly)
+                            SupportQueueScope.finished,
                           if (widget.monitoring) SupportQueueScope.automatic,
                         ])
                           SupportQueueChoice(
@@ -399,7 +435,15 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
                           : SupportTicketStrings.queueEmptyHint,
                     ),
                   )
-                else
+                else ...[
+                  SliverPadding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: horizontalPadding,
+                    ),
+                    sliver: const SliverToBoxAdapter(
+                      child: SupportTicketQueueHeading(),
+                    ),
+                  ),
                   SliverPadding(
                     padding: EdgeInsets.fromLTRB(
                       horizontalPadding,
@@ -410,13 +454,14 @@ class _SupportHomeScreenState extends State<SupportHomeScreen> {
                     sliver: SliverList.separated(
                       itemCount: filtered.length,
                       separatorBuilder: (_, _) =>
-                          const SizedBox(height: AppSpacing.md),
+                          const SizedBox(height: AppSpacing.sm),
                       itemBuilder: (_, index) => SupportTicketCard(
                         ticket: filtered[index],
                         onTap: () => _openTicket(filtered[index]),
                       ),
                     ),
                   ),
+                ],
               ],
             ),
           );

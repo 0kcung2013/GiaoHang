@@ -1,5 +1,6 @@
 import '../navigation/driver_accepted_order_screen.dart';
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -8,6 +9,8 @@ import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import 'package:giaohang_domain/giaohang_domain.dart' show BusinessSettings;
+import '../../../../core/providers/business_settings_providers.dart';
 
 import '../../../../core/location/driver_location_producer_policy.dart';
 import '../../../../core/models/order_model.dart';
@@ -50,6 +53,8 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
   bool _isClaiming = false;
   bool _didCenterOnce = false;
   double _radiusMeters = freePickDefaultRadiusMeters;
+  double _minimumRadiusMeters = freePickDefaultRadiusMeters;
+  double _maximumRadiusMeters = freePickMaximumRadiusMeters;
   int _requestSerial = 0;
   String? _error;
 
@@ -61,11 +66,41 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
       if (_isEnabled &&
           !_isLoading &&
           !_isClaiming &&
-          _radiusMeters > freePickDefaultRadiusMeters &&
+          _radiusMeters > _minimumRadiusMeters &&
           viewport != null) {
         unawaited(_loadViewport(viewport));
       }
     });
+  }
+
+  void _applySearchPolicy(BusinessSettings policy) {
+    if (!mounted) return;
+    setState(() {
+      // Include the legacy range while older orders retain their snapshot.
+      _minimumRadiusMeters = math.min(
+        freePickDefaultRadiusMeters,
+        policy.autoRadiusMeters.toDouble(),
+      );
+      _maximumRadiusMeters = math.max(
+        freePickMaximumRadiusMeters,
+        policy.freePickRadiusMeters.toDouble(),
+      );
+      for (final order in _viewportOrders) {
+        _maximumRadiusMeters = math.max(
+          _maximumRadiusMeters,
+          order.businessPolicy?.freePickRadiusMeters.toDouble() ??
+              freePickMaximumRadiusMeters,
+        );
+      }
+      _radiusMeters = _radiusMeters.clamp(
+        _minimumRadiusMeters,
+        _maximumRadiusMeters,
+      );
+    });
+    final viewport = _lastViewport;
+    if (_isEnabled && !_isClaiming && viewport != null) {
+      unawaited(_loadViewport(viewport));
+    }
   }
 
   @override
@@ -78,6 +113,13 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(businessSettingsProvider, (previous, next) {
+      final policy = next.asData?.value;
+      if (policy != null &&
+          policy.revision != previous?.valueOrNull?.revision) {
+        _applySearchPolicy(policy);
+      }
+    });
     ref.listen(driverWalletChangesProvider, (previous, next) {
       reloadFreePickAfterWalletChange(
         previousRevision: previous?.valueOrNull,
@@ -142,6 +184,8 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
               driverPosition: position,
               orders: enabled ? _orders : const [],
               searchRadiusMeters: _radiusMeters,
+              minimumRadiusMeters: _minimumRadiusMeters,
+              maximumRadiusMeters: _maximumRadiusMeters,
               selectedOrderId: _selectedOrder?.id,
               onMapSettled: _onMapSettled,
               onOrderSelected: _selectOrder,
@@ -156,6 +200,7 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
               child: Align(
                 alignment: Alignment.topCenter,
                 child: FreePickStatusOverlay(
+                  minimumRadiusMeters: _minimumRadiusMeters,
                   count: enabled ? _orders.length : 0,
                   isLoading: _isLoading,
                   isEnabled: enabled,
@@ -225,7 +270,7 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
     _searchDebounce?.cancel();
     if (!_isEnabled ||
         _driverPosition == null ||
-        _radiusMeters <= freePickDefaultRadiusMeters) {
+        _radiusMeters <= _minimumRadiusMeters) {
       return;
     }
     _searchDebounce = Timer(
@@ -255,6 +300,12 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
       );
       setState(() {
         _viewportOrders = orders;
+        for (final order in orders) {
+          _maximumRadiusMeters = math.max(
+            _maximumRadiusMeters,
+            (order.businessPolicy?.freePickRadiusMeters ?? 3000).toDouble(),
+          );
+        }
         _orders = freePickOrders;
         final selectedId = _selectedOrder?.id;
         _selectedOrder = freePickOrders.isEmpty
@@ -309,11 +360,23 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
   }
 
   void _increaseRadius() {
-    _setRadius(increaseFreePickRadius(_radiusMeters));
+    _setRadius(
+      increaseFreePickRadius(
+        _radiusMeters,
+        minimum: _minimumRadiusMeters,
+        maximum: _maximumRadiusMeters,
+      ),
+    );
   }
 
   void _decreaseRadius() {
-    _setRadius(decreaseFreePickRadius(_radiusMeters));
+    _setRadius(
+      decreaseFreePickRadius(
+        _radiusMeters,
+        minimum: _minimumRadiusMeters,
+        maximum: _maximumRadiusMeters,
+      ),
+    );
   }
 
   void _setRadius(double nextRadius) {

@@ -1,7 +1,13 @@
 -- Synthetic fixtures only; always execute in a transaction ending in ROLLBACK.
 BEGIN;
+-- Isolate the existing wallet workflow at zero rates; positive collection is
+-- covered by platform_fee_collection_regression.sql.
+UPDATE public.system_settings SET value=value||jsonb_build_object('values',
+  (value->'values')||'{"customer_individual_fee_bps":0,"customer_business_fee_bps":0,"driver_platform_fee_bps":0}'::jsonb)
+WHERE key='business_settings';
 DO $test$
 DECLARE
+  v_pickup_code text;
   v_customer uuid := gen_random_uuid();
   v_driver uuid := gen_random_uuid();
   v_staff uuid := gen_random_uuid();
@@ -36,7 +42,8 @@ BEGIN
   v_payload := jsonb_build_object('pickup_address', 'Synthetic pickup', 'pickup_lat', 80,
     'pickup_lng', 160, 'delivery_address', 'Synthetic delivery', 'delivery_lat', 80.01,
     'delivery_lng', 160.01, 'delivery_fee', 18000, 'goods_value', 50000,
-    'cod_collection_amount', 0, 'delivery_fee_payer', 'sender');
+    'cod_collection_amount', 0, 'delivery_fee_payer', 'sender',
+    'quoted_distance_m',2000,'settings_revision',(private.current_business_settings()->>'revision')::bigint);
   PERFORM set_config('request.jwt.claim.sub', v_customer::text, true);
   SET LOCAL ROLE authenticated;
   SELECT * INTO v_order FROM public.create_customer_order_with_wallet(v_payload, v_request);
@@ -123,8 +130,9 @@ BEGIN
         ASSERT (SELECT count(*) FROM public.customer_wallet_transactions WHERE order_id = v_order.id) = 1,
           'Reassignment released or recharged the fee';
       ELSIF v_scenario = 'legacy_vnpay' THEN
-        SELECT * INTO v_retry FROM private.create_customer_order_from_payload(v_customer,
-          v_payload || '{"paid_goods_deposit_version":1}', 'paid', clock_timestamp());
+        SELECT * INTO v_retry FROM private.create_customer_order_with_policy(v_customer,
+          v_payload || '{"paid_goods_deposit_version":1}', 'paid', clock_timestamp(),
+          private.current_business_settings()-'platform_fee_version');
         ASSERT v_retry.payment_method = 'vnpay', 'Existing VNPAY contract changed';
         SET LOCAL ROLE authenticated;
         PERFORM public.cancel_customer_order(v_retry.id, v_customer);
@@ -137,10 +145,11 @@ BEGIN
         UPDATE public.orders SET driver_id = v_driver, status = 'picking_up' WHERE id = v_order.id;
         INSERT INTO public.order_delivery_proofs(order_id, driver_id, stage, storage_path, captured_lat, captured_lng)
           VALUES(v_order.id, v_driver, 'pickup', 'synthetic-wallet-pickup', 80, 160);
+        PERFORM set_config('request.jwt.claim.sub', v_customer::text, true);
+        v_pickup_code := public.get_customer_pickup_code(v_order.id)->>'code';
         PERFORM set_config('request.jwt.claim.sub', v_driver::text, true);
         SET LOCAL ROLE authenticated;
-        PERFORM public.confirm_driver_pickup(v_order.id);
-        PERFORM public.advance_driver_order_status(v_order.id);
+        PERFORM public.confirm_driver_pickup_code(v_order.id,v_pickup_code);
         RESET ROLE;
         IF v_scenario = 'delivered' THEN
           INSERT INTO public.order_delivery_proofs(order_id, driver_id, stage, storage_path, captured_lat, captured_lng)

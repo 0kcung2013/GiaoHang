@@ -12,10 +12,12 @@ class MapAddressTab extends StatelessWidget {
     super.key,
     required this.controller,
     required this.onLocate,
+    this.saveRequired = false,
   });
 
   final AddressPickerController controller;
   final VoidCallback onLocate;
+  final bool saveRequired;
 
   @override
   Widget build(BuildContext context) {
@@ -136,6 +138,7 @@ class MapAddressTab extends StatelessWidget {
           ),
         ),
         AddressDetailForm(
+          saveRequired: saveRequired,
           resolvedAddress: controller.resolvedAddress,
           isResolving: controller.isResolving,
           resolutionError: controller.resolutionError,

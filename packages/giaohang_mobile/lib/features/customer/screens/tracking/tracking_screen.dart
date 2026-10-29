@@ -23,6 +23,7 @@ import '../../../../core/widgets/delivery_map_markers.dart';
 import '../../../../core/widgets/delivery_traffic_map_layer.dart';
 import '../../../../core/widgets/order_cargo_info_block.dart';
 import '../../../reviews/widgets/order_review_section.dart';
+import '../../../order_handoff/widgets/customer_pickup_code_card.dart';
 import '../../widgets/delivery_proof/customer_delivery_proof_section.dart';
 import '../../widgets/order_assignment_status_card.dart';
 import '../order/order_helpers.dart';
@@ -223,6 +224,13 @@ class _TrackingLookupResult extends ConsumerWidget {
         ],
         if (shouldShowAssignedDriverForOrder(order)) ...[
           AssignedDriverCard(orderId: order.id),
+          const SizedBox(height: AppSpacing.xl2),
+        ],
+        if (CustomerPickupCodeCard.isRelevant(order)) ...[
+          CustomerPickupCodeCard(
+            key: ValueKey('handoff-${order.id}'),
+            order: order,
+          ),
           const SizedBox(height: AppSpacing.xl2),
         ],
         _TrackingTimeline(order: order),

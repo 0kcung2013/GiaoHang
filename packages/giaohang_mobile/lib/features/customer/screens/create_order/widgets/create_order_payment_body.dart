@@ -3,10 +3,12 @@ import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/utils/vnd_input_formatter.dart';
 import '../controllers/order_finance_form_controller.dart';
 import '../../../../../core/utils/money_formatter.dart';
+import '../../../../../core/utils/platform_fee_strings.dart';
 import '../utils/order_payment_strings.dart';
 import 'order_payment_choices.dart';
 import 'order_field_label.dart';
 import 'customer_order_wallet_panel.dart';
+import 'package:giaohang_domain/giaohang_domain.dart' show BusinessSettings;
 
 class CreateOrderPaymentBody extends StatelessWidget {
   const CreateOrderPaymentBody({
@@ -14,10 +16,14 @@ class CreateOrderPaymentBody extends StatelessWidget {
     required this.formKey,
     required this.controller,
     required this.deliveryFee,
+    this.settings,
+    this.customerPlatformFeeAmount = 0,
   });
   final GlobalKey<FormState> formKey;
   final OrderFinanceFormController controller;
   final double deliveryFee;
+  final BusinessSettings? settings;
+  final int customerPlatformFeeAmount;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -62,7 +68,13 @@ class CreateOrderPaymentBody extends StatelessWidget {
                               ? OrderPaymentText.required
                               : OrderPaymentText.goodsValueRequired;
                         }
-                        return amount > 2000000 ? OrderPaymentText.limit : null;
+                        final policy = settings ?? BusinessSettings();
+                        final limit = controller.collectCod
+                            ? policy.maxCod
+                            : policy.maxPaidGoodsValue;
+                        return amount > limit
+                            ? 'Giá trị tối đa ${formatVnd(limit)}.'
+                            : null;
                       },
                       decoration: InputDecoration(
                         label: OrderFieldLabel(
@@ -102,6 +114,13 @@ class CreateOrderPaymentBody extends StatelessWidget {
                 _Surface(
                   children: [
                     _Amount(label: OrderPaymentText.fee, amount: deliveryFee),
+                    if (customerPlatformFeeAmount > 0) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      _Amount(
+                        label: PlatformFeeText.fee,
+                        amount: customerPlatformFeeAmount.toDouble(),
+                      ),
+                    ],
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       controller.collectCod
@@ -114,7 +133,8 @@ class CreateOrderPaymentBody extends StatelessWidget {
                     if (!controller.collectCod) ...[
                       const SizedBox(height: AppSpacing.md),
                       CustomerOrderWalletPanel(
-                        deliveryFee: deliveryFee.round(),
+                        deliveryFee:
+                            deliveryFee.round() + customerPlatformFeeAmount,
                       ),
                     ],
                   ],
@@ -127,10 +147,14 @@ class CreateOrderPaymentBody extends StatelessWidget {
                     children: [
                       _Amount(
                         label: OrderPaymentText.total,
-                        amount: controller
-                            .financeFor(deliveryFee.round())
-                            .receiverCollectionAmount
-                            .toDouble(),
+                        amount:
+                            controller
+                                .financeFor(deliveryFee.round())
+                                .receiverCollectionAmount
+                                .toDouble() +
+                            (controller.collectCod
+                                ? customerPlatformFeeAmount
+                                : 0),
                       ),
                     ],
                   ),

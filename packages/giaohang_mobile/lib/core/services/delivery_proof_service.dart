@@ -67,9 +67,7 @@ class DeliveryProofService {
         .select()
         .single();
     final proof = DeliveryProofModel.fromJson(response);
-    if (stage == DeliveryProofStage.pickup) {
-      await confirmPickup(orderId: orderId);
-    }
+    // Lưu ảnh không xác nhận giữ hàng. Mã từ người tạo đơn được kiểm tra riêng.
     return proof;
   }
 

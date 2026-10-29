@@ -93,6 +93,7 @@ class SupportReturnApprovalContent extends StatelessWidget {
         ),
       ] else if (quote != null)
         SupportReturnQuoteCard(
+          configuredReturnFee: order.returnFee,
           quote: quote!,
           payer: ReturnFeePayer.platform,
           deliveryFee: order.deliveryFee,

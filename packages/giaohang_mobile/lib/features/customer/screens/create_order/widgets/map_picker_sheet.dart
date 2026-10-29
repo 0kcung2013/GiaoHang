@@ -28,17 +28,25 @@ class MapPickerSheet extends ConsumerStatefulWidget {
     required this.initialPosition,
     required this.addressType,
     this.initialSelection,
+    this.saveOnly = false,
+    this.savedAddressToEdit,
   });
 
   final LatLng initialPosition;
   final RecentAddressType addressType;
   final MapPickerResult? initialSelection;
+  final bool saveOnly;
+  final SavedAddressModel? savedAddressToEdit;
 
-  String get title => addressType == RecentAddressType.pickup
+  String get title => saveOnly
+      ? AddressPickerStrings.addressBookTitle
+      : addressType == RecentAddressType.pickup
       ? AddressPickerStrings.pickupTitle
       : AddressPickerStrings.deliveryTitle;
 
-  String get confirmLabel => addressType == RecentAddressType.pickup
+  String get confirmLabel => saveOnly
+      ? AddressPickerStrings.saveAddress
+      : addressType == RecentAddressType.pickup
       ? AddressPickerStrings.confirmPickup
       : AddressPickerStrings.confirmDelivery;
 
@@ -56,10 +64,27 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
   @override
   void initState() {
     super.initState();
+    final editing = widget.savedAddressToEdit;
     _controller = AddressPickerController(
       initialPosition: widget.initialPosition,
-      initialSelection: widget.initialSelection,
+      initialSelection:
+          widget.initialSelection ??
+          (editing == null
+              ? null
+              : MapPickerResult(
+                  position: widget.initialPosition,
+                  formattedAddress: editing.formattedAddress,
+                  addressDetail: editing.addressDetail,
+                  deliveryNote: editing.deliveryNote,
+                )),
     );
+    if (widget.saveOnly) {
+      if (editing != null) {
+        _controller.selectSavedAddress(editing, forEditing: true);
+      } else {
+        _controller.prepareNewSavedAddress();
+      }
+    }
   }
 
   @override
@@ -109,15 +134,16 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.screenH,
+                    if (!widget.saveOnly)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.screenH,
+                        ),
+                        child: AddressPickerTabs(
+                          value: _controller.activeTab,
+                          onChanged: _controller.selectTab,
+                        ),
                       ),
-                      child: AddressPickerTabs(
-                        value: _controller.activeTab,
-                        onChanged: _controller.selectTab,
-                      ),
-                    ),
                     const SizedBox(height: AppSpacing.xs),
                     Expanded(child: _buildActiveTab()),
                     if (_controller.activeTab == AddressPickerTab.map)
@@ -142,7 +168,11 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
   Widget _buildActiveTab() {
     switch (_controller.activeTab) {
       case AddressPickerTab.map:
-        return MapAddressTab(controller: _controller, onLocate: _locateMe);
+        return MapAddressTab(
+          controller: _controller,
+          onLocate: _locateMe,
+          saveRequired: widget.saveOnly,
+        );
       case AddressPickerTab.saved:
         final userId = _userId;
         if (userId == null) {
@@ -181,6 +211,9 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
   }
 
   Future<void> _confirmLocation() async {
+    if (widget.saveOnly && !_controller.saveAddress) {
+      _controller.setSaveAddress(true);
+    }
     if (!_controller.validate()) return;
     final result = _controller.buildResult();
     if (!_controller.saveAddress) {

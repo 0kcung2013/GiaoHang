@@ -8,6 +8,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
+  test(
+    'definitive quote rejection clears the unpaid snapshot for requoting',
+    () async {
+      final controller = _controller((_, _) async {
+        throw const PostgrestException(message: 'SETTINGS_QUOTE_EXPIRED');
+      }, (_) async => fail('Rejected order cannot complete'));
+      addTearDown(controller.dispose);
+      await controller.submit(_order());
+      expect(controller.needsSettingsReview, isTrue);
+      expect(controller.orderSnapshot, isNull);
+      expect(controller.canSwitchPayment, isTrue);
+    },
+  );
+
   test('lost response retries the same request and immutable order', () async {
     final calls = <Map<String, dynamic>>[];
     var finishes = 0;

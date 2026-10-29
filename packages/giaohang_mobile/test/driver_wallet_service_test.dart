@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:giaohang_domain/giaohang_domain.dart' show BusinessSettings;
 
 void main() {
   test(
@@ -108,6 +109,7 @@ void main() {
 
   test('creates a VNPAY payment URL for a valid top-up', () async {
     final service = DriverWalletService(
+      settingsLoader: () async => BusinessSettings(),
       rpcInvoker: (_, _) async => const [],
       functionInvoker: (name, body) async {
         expect(name, 'vnpay-create-wallet-topup');
@@ -124,6 +126,7 @@ void main() {
   test('rejects top-up below VNPAY minimum before network call', () async {
     var called = false;
     final service = DriverWalletService(
+      settingsLoader: () async => BusinessSettings(),
       rpcInvoker: (_, _) async => const [],
       functionInvoker: (_, _) async {
         called = true;

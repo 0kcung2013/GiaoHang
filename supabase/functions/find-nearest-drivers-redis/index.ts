@@ -23,7 +23,10 @@ Deno.serve(async req => {
     if (authError || !user) return json({error:'AUTH_REQUIRED'},401);
     const body = await req.json();
     const lat = body.pickup_lat, lng = body.pickup_lng;
-    const radius = body.radius_meters ?? 2000;
+    const {data:settings,error:settingsError} = await userClient.rpc('get_business_settings');
+    if (settingsError) return json({error:'SETTINGS_UNAVAILABLE'},503);
+    const configuredRadius = settings.values.auto_radius_m;
+    const radius = body.radius_meters ?? configuredRadius;
     if (typeof lat !== 'number' || typeof lng !== 'number' || !Number.isFinite(lat) ||
       !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180 ||
       typeof radius !== 'number' || !Number.isFinite(radius) || radius <= 0) {
@@ -32,15 +35,15 @@ Deno.serve(async req => {
     const admin = createClient(url,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false}});
     // PostgreSQL is authoritative for online status and latest GPS. Route ALL eligible points.
     const {data:candidates,error} = await admin.rpc('road_lookup_candidates',{
-      pickup_lat:lat,pickup_lng:lng,radius_meters:Math.min(radius,2000),max_results:50,
+      pickup_lat:lat,pickup_lng:lng,radius_meters:Math.min(radius,configuredRadius),max_results:50,
     });
     if (error) return json({error:'DRIVER_LOOKUP_FAILED'},503);
     if (!candidates?.length) return json({drivers:[],source:'osrm'});
     const redis = createRoadRedis(name => Deno.env.get(name));
     const ranked = await rankDriversByRoadDistance(candidates,{lat,lng},
-      roadRouteOptions(redis,Deno.env.get('OSRM_BASE_URL')));
+      {...roadRouteOptions(redis,Deno.env.get('OSRM_BASE_URL')),automaticRoadLimit:configuredRadius});
     const limit = Number.isInteger(body.max_results) ? Math.min(Math.max(body.max_results,1),50) : 20;
-    return json({drivers:ranked.filter(d => d.distance_meters <= Math.min(radius,2000)).slice(0,limit),source:'osrm'});
+    return json({drivers:ranked.filter(d => d.distance_meters <= Math.min(radius,configuredRadius)).slice(0,limit),source:'osrm'});
   } catch {
     return json({error:'ROAD_ROUTING_UNAVAILABLE'},503);
   }

@@ -5,6 +5,8 @@ import 'package:giaohang_design/giaohang_design.dart';
 import '../models/support_ticket.dart';
 import '../utils/support_ticket_ui.dart';
 import '../constants/support_monitoring_strings.dart';
+import '../constants/support_ticket_strings.dart';
+import '../../account_controls/widgets/account_context_link.dart';
 
 class SupportTicketDetailHeader extends StatelessWidget {
   const SupportTicketDetailHeader({
@@ -23,19 +25,17 @@ class SupportTicketDetailHeader extends StatelessWidget {
       AppSpacing.lg,
       AppSpacing.lg,
     ),
-    decoration: BoxDecoration(
+    decoration: const BoxDecoration(
       color: AppColors.bgCard,
-      border: Border(
-        bottom: BorderSide(color: AppColors.accent.withValues(alpha: 0.22)),
-      ),
+      border: Border(bottom: BorderSide(color: AppColors.border)),
     ),
     child: Row(
       children: [
         Container(
-          width: 42,
-          height: 42,
+          width: 40,
+          height: 40,
           decoration: const BoxDecoration(
-            color: AppColors.accentLight,
+            color: AppColors.bgLight,
             borderRadius: AppRadius.md,
           ),
           child: Icon(
@@ -43,7 +43,7 @@ class SupportTicketDetailHeader extends StatelessWidget {
                 ? Icons.history_rounded
                 : Icons.support_agent_rounded,
             size: 22,
-            color: AppColors.accent,
+            color: AppColors.primary,
           ),
         ),
         const SizedBox(width: AppSpacing.md),
@@ -61,23 +61,42 @@ class SupportTicketDetailHeader extends StatelessWidget {
                   color: AppColors.textPrimary,
                 ),
               ),
-              Text(
-                '#${SupportTicketUi.shortId(ticket.id)} · ${SupportTicketUi.dateTimeLabel(ticket.createdAt)}',
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+              const SizedBox(height: AppSpacing.xs),
+              Wrap(
+                spacing: AppSpacing.md,
+                runSpacing: AppSpacing.xs,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    '#${SupportTicketUi.shortId(ticket.id)} · ${SupportTicketUi.dateTimeLabel(ticket.createdAt)}',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  Text(
+                    ticket.isAutomaticMonitoringNotice
+                        ? SupportMonitoringStrings.automaticStatus
+                        : SupportTicketUi.statusLabel(ticket.status),
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: AppColors.textPrimary,
+                      backgroundColor: SupportTicketUi.statusColor(
+                        ticket.status,
+                      ).withValues(alpha: .08),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
         if (onRefresh != null)
           IconButton(
-            tooltip: 'Tải lại hồ sơ',
+            tooltip: SupportTicketStrings.refreshCase,
             onPressed: onRefresh,
             icon: const Icon(Icons.refresh_rounded),
           ),
         IconButton(
-          tooltip: 'Đóng',
+          tooltip: SupportTicketStrings.closeCase,
           onPressed: () {
             if (Navigator.of(context).canPop()) {
               Navigator.pop(context);
@@ -118,6 +137,9 @@ class SupportTicketContext extends StatelessWidget {
               ticket.requesterName ??
               SupportTicketUi.shortId(ticket.requesterId),
         ),
+        if (ticket.requesterRole == 'customer' ||
+            ticket.requesterRole == 'driver')
+          AccountContextLink(userId: ticket.requesterId, ticketId: ticket.id),
         _ContextItem(
           icon: Icons.inventory_2_outlined,
           label: 'Đơn hàng',

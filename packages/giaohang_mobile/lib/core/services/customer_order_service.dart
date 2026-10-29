@@ -283,6 +283,8 @@ class CustomerOrderService {
     try {
       final created = await _commandService.createOrder(order);
       return (orderId: created.orderId, trackingCode: created.trackingCode);
+    } on CustomerOrderCommandException {
+      rethrow;
     } catch (error) {
       throw Exception('Failed to create customer order: $error');
     }

@@ -20,32 +20,33 @@ class SupportChatCategories extends StatelessWidget {
       final children = [
         for (final category in SupportChatCategory.values)
           SizedBox(
-            width: stacked
-                ? constraints.maxWidth
-                : (constraints.maxWidth - AppSpacing.sm) / 2,
+            width: stacked ? constraints.maxWidth : null,
             child: Semantics(
               selected: value == category,
               child: OutlinedButton.icon(
                 key: ValueKey('support-chat-${category.name}'),
                 style: OutlinedButton.styleFrom(
                   alignment: Alignment.centerLeft,
-                  minimumSize: const Size(48, 56),
-                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  minimumSize: const Size(48, 48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                    vertical: AppSpacing.md,
+                  ),
                   foregroundColor: value == category
                       ? AppColors.primary
                       : AppColors.textSecondary,
                   backgroundColor: value == category
-                      ? AppColors.accentLight
+                      ? AppColors.bgLight
                       : AppColors.bgCard,
                   side: BorderSide(
                     color: value == category
-                        ? AppColors.accent
+                        ? AppColors.primary
                         : AppColors.border,
                   ),
                   shape: const RoundedRectangleBorder(
                     borderRadius: AppRadius.md,
                   ),
-                  textStyle: AppTextStyles.labelLarge,
+                  textStyle: AppTextStyles.labelMedium,
                 ),
                 onPressed: () => onChanged(category),
                 icon: Icon(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart';
 import '../../../../../core/models/customer_wallet.dart';
+import '../dialogs/customer_wallet_transaction_sheet.dart';
 
 class CustomerWalletTransactionList extends StatelessWidget {
   const CustomerWalletTransactionList({
@@ -114,56 +115,61 @@ class _TransactionTile extends StatelessWidget {
       label:
           '${transaction.label}, ${positive ? 'cộng' : 'trừ'} '
           '${formatVnd(amount)}, $time',
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: AppRadius.md,
+      child: InkWell(
+        onTap: () => showCustomerWalletTransactionSheet(context, transaction),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: AppRadius.md,
+                ),
+                child: Icon(
+                  positive
+                      ? Icons.south_west_rounded
+                      : Icons.north_east_rounded,
+                  color: color,
+                  size: 19,
+                ),
               ),
-              child: Icon(
-                positive ? Icons.south_west_rounded : Icons.north_east_rounded,
-                color: color,
-                size: 19,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    transaction.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.labelMedium.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w700,
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      transaction.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.labelMedium.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    time,
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.textMuted,
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      time,
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textMuted,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Text(
-              '${positive ? '+' : '-'}${formatVnd(amount)}',
-              style: AppTextStyles.labelMedium.copyWith(
-                color: color,
-                fontWeight: FontWeight.w900,
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                '${positive ? '+' : '-'}${formatVnd(amount)}',
+                style: AppTextStyles.labelMedium.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

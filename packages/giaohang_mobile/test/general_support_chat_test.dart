@@ -169,6 +169,57 @@ void main() {
       expect(repository.created, isEmpty);
     },
   );
+
+  testWidgets(
+    'wallet context is retained in the first ticket even after editing the draft',
+    (tester) async {
+      final repository = _Repository();
+      addTearDown(repository.close);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GeneralSupportChatScreen(
+            role: MobileAppRole.customer,
+            repository: repository,
+            requesterId: 'participant',
+            subject: 'Kiểm tra giao dịch',
+            initialBody: 'Thông tin giao dịch',
+            contextMarker: '[GD:customer:tx-1]',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('support-chat-composer')),
+        'Cần kiểm tra lại số tiền',
+      );
+      await tester.tap(find.byKey(const Key('send-support-chat-message')));
+      await tester.pumpAndSettle();
+      expect(
+        repository.created.single.message,
+        '[GD:customer:tx-1]\nCần kiểm tra lại số tiền',
+      );
+      expect(repository.created.single.orderId, isNull);
+    },
+  );
+
+  testWidgets('general account chat does not reuse a financial conversation', (
+    tester,
+  ) async {
+    final repository = _Repository()
+      ..tickets = [
+        _ticket('financial', message: '[GD:customer:tx-1]\nKiểm tra giao dịch'),
+        _ticket('account'),
+      ];
+    addTearDown(repository.close);
+    await _mount(tester, MobileAppRole.customer, repository);
+    expect(
+      tester
+          .widget<SupportChatSheet>(find.byType(SupportChatSheet))
+          .initialTicket
+          ?.id,
+      'account',
+    );
+  });
 }
 
 Future<void> _mount(
@@ -194,12 +245,13 @@ SupportTicket _ticket(
   String? order,
   SupportTicketStatus status = SupportTicketStatus.open,
   DateTime? updated,
+  String message = 'Cần hỗ trợ tài khoản',
 }) => SupportTicket(
   id: id,
   requesterId: requester,
   orderId: order,
   subject: HelpCenterStrings.subject,
-  message: 'Cần hỗ trợ tài khoản',
+  message: message,
   status: status,
   priority: SupportTicketPriority.normal,
   createdAt: DateTime(2026),

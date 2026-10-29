@@ -141,6 +141,15 @@ trang marketing có nhiều đoạn mô tả.
 
 ### Admin Dashboard
 
+- Admin ưu tiên tổng quan hệ thống, phê duyệt tài xế và quản trị tài khoản.
+- CSKH quyết định xử lý sự cố, không phân mức độ hoặc chuyển Admin theo mức độ.
+- Menu chính gồm tổng quan, phê duyệt tài xế và người dùng. Đơn hàng, sự cố,
+  hành trình và giao dịch nằm trong nhóm tra cứu phụ.
+- CSKH có tab Người dùng, được vô hiệu hóa Customer/Driver kèm thời hạn và lý do.
+  Admin xem cùng nhật ký, điều chỉnh thời hạn hoặc gỡ với lý do mới.
+- Vô hiệu hóa tài khoản là quyết định độc lập với khóa nhận đơn tự động. Hiển thị
+  trạng thái, thời hạn, lý do, người xử lý và lịch sử; không thêm nhãn mức độ.
+- Trang tổng quan đặt KYC, hồ sơ thay đổi và tài khoản vô hiệu hóa trước số liệu.
 - Ưu tiên dữ liệu, cho phép mật độ cao hơn UI khách hàng.
 - Grid metric 2 cột trên mobile và responsive trên web.
 - Chart dùng khi trực quan hóa tốt hơn số đơn lẻ; table có trạng thái rõ ràng.

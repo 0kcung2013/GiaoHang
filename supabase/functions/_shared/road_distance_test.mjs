@@ -11,6 +11,28 @@ const matrix = (distances, durations) => async () => Response.json({
   code: "Ok", distances, durations,
 });
 
+test('automatic dispatch uses the order snapshot radius', async () => {
+  const result = await rankDriversByRoadDistance(candidates, pickup, {
+    automaticRoadLimit: 4000,
+    fetcher: matrix([[2800], [4001]], [[500], [600]]),
+  });
+  assert.deepEqual(result.map(x => x.user_id), ['driver-a']);
+});
+
+test('free pick honors separate snapshots for old and new orders', async () => {
+  const orders = [
+    { id: 'legacy', pickup_lat: 10.81, pickup_lng: 106.71 },
+    { id: 'new', pickup_lat: 10.82, pickup_lng: 106.72,
+      business_policy: {values: {auto_radius_m: 4000, free_pick_radius_m: 6000}} },
+    { id: 'automatic-only', pickup_lat: 10.83, pickup_lng: 106.73,
+      business_policy: {values: {auto_radius_m: 4000, free_pick_radius_m: 6000}} },
+  ];
+  const result = await quoteFreePickOrders(pickup, orders, {
+    fetcher: matrix([[2500, 5000, 3500]], [[300, 600, 500]]),
+  });
+  assert.deepEqual(result.map(x => x.id), ['legacy', 'new']);
+});
+
 test("a driver across a barrier loses to a farther GPS point with a shorter road route", async () => {
   const result = await rankDriversByRoadDistance(candidates, pickup, {
     fetcher: matrix([[2800], [900]], [[500], [180]]),

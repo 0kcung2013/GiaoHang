@@ -16,6 +16,7 @@ DECLARE
   v_available bigint;
   v_held bigint;
   v_confirmed_at timestamptz;
+  v_pickup_code text;
   v_expected_available bigint;
 BEGIN
   INSERT INTO public.users(id,email,full_name,role) VALUES
@@ -34,7 +35,8 @@ BEGIN
   v_payload := jsonb_build_object('pickup_address','Synthetic pickup',
     'pickup_lat',80,'pickup_lng',160,'delivery_address','Synthetic delivery',
     'delivery_lat',80.01,'delivery_lng',160.01,'delivery_fee',25000,
-    'delivery_fee_payer','sender','cod_collection_amount',0,'goods_value',120000);
+    'delivery_fee_payer','sender','cod_collection_amount',0,'goods_value',120000,
+    'quoted_distance_m',3400,'settings_revision',(private.current_business_settings()->>'revision')::bigint);
 
   -- New sessions validate goods value before any payment is taken.
   BEGIN
@@ -92,6 +94,12 @@ BEGIN
           CASE WHEN v_scenario='proof_failure' THEN 81 ELSE 80 END,160);
       END IF;
 
+      IF v_scenario NOT IN ('accept','accept_insufficient') THEN
+        PERFORM set_config('request.jwt.claim.sub',v_customer::text,true);
+        v_pickup_code := public.get_customer_pickup_code(v_order_id)->>'code';
+        PERFORM set_config('request.jwt.claim.sub','',true);
+      END IF;
+
       IF v_scenario IN ('accept','accept_insufficient') THEN
         UPDATE public.drivers SET is_available=true WHERE user_id=v_driver;
         UPDATE public.orders SET offered_driver_id=v_driver,
@@ -133,7 +141,7 @@ BEGIN
         PERFORM set_config('request.jwt.claim.sub',v_other_driver::text,true);
         SET LOCAL ROLE authenticated;
         BEGIN
-          PERFORM public.confirm_driver_pickup(v_order_id);
+          PERFORM public.confirm_driver_pickup_code(v_order_id,v_pickup_code);
           RAISE EXCEPTION 'Other driver reserved a deposit';
         EXCEPTION WHEN raise_exception THEN IF SQLERRM <> 'DRIVER_NOT_ASSIGNED' THEN RAISE; END IF; END;
         ASSERT NOT EXISTS (SELECT 1 FROM public.driver_wallet_transactions WHERE order_id=v_order_id),
@@ -155,11 +163,11 @@ BEGIN
           BEGIN
             UPDATE public.orders SET status='delivered' WHERE id=v_order_id;
             RAISE EXCEPTION 'Client bypassed deposit settlement';
-          EXCEPTION WHEN raise_exception THEN IF SQLERRM <> 'GOODS_DEPOSIT_COMMAND_REQUIRED' THEN RAISE; END IF; END;
+          EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT IN ('GOODS_DEPOSIT_COMMAND_REQUIRED','PICKUP_CODE_REQUIRED') THEN RAISE; END IF; END;
         END IF;
         IF v_scenario IN ('insufficient','proof_failure') THEN
           BEGIN
-            PERFORM public.confirm_driver_pickup(v_order_id);
+            PERFORM public.confirm_driver_pickup_code(v_order_id,v_pickup_code);
             RAISE EXCEPTION 'Expected pickup rejection';
           EXCEPTION WHEN OTHERS THEN
             IF SQLERRM <> (CASE WHEN v_scenario='insufficient'
@@ -171,14 +179,15 @@ BEGIN
           ASSERT NOT EXISTS(SELECT 1 FROM public.driver_wallet_transactions WHERE order_id=v_order_id),
             'Rejected pickup still committed a wallet debit';
         ELSE
-          v_confirmed_at := public.confirm_driver_pickup(v_order_id);
-          ASSERT public.confirm_driver_pickup(v_order_id) = v_confirmed_at, 'Pickup retry reset custody';
+          v_confirmed_at := (public.confirm_driver_pickup_code(v_order_id,v_pickup_code)->>'confirmed_at')::timestamptz;
+          ASSERT (public.confirm_driver_pickup_code(v_order_id,v_pickup_code)->>'confirmed_at')::timestamptz = v_confirmed_at, 'Pickup retry reset custody';
           SELECT available_balance,held_balance INTO v_available,v_held FROM public.get_driver_wallet_summary();
-          ASSERT v_available = CASE WHEN v_scenario IN ('legacy_prepaid','cod_sender') THEN 500000 ELSE 380000 END,
+          ASSERT v_available = CASE WHEN v_scenario='legacy_prepaid' THEN 500000 ELSE 380000 END,
             'Incorrect pickup available balance';
           ASSERT v_held = CASE WHEN v_scenario IN ('legacy_prepaid','cod_sender') THEN 0 ELSE 120000 END,
             'Incorrect pickup held balance';
-          PERFORM public.advance_driver_order_status(v_order_id);
+          ASSERT (SELECT status='delivering' FROM public.orders WHERE id=v_order_id),
+            'Code confirmation did not start delivery';
           SELECT available_balance,held_balance INTO v_available,v_held FROM public.get_driver_wallet_summary();
           ASSERT v_available = CASE WHEN v_scenario='legacy_prepaid' THEN 500000 ELSE 380000 END,
             'Start delivery debited paid goods twice';

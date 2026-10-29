@@ -1,7 +1,7 @@
 class RiskReportStrings {
   const RiskReportStrings._();
 
-  static const title = 'Rủi ro hệ thống';
+  static const title = 'Sự cố & vi phạm';
   static const supportTitle = 'Báo cáo người dùng';
   static const supportOperation = 'Xử lý đơn';
   static const cargoCancellationRequest = 'Yêu cầu hủy trước nhận hàng';
@@ -43,8 +43,8 @@ class RiskReportStrings {
   static const conversationTab = 'Trao đổi';
   static const reportClosed = 'Hồ sơ đã kết thúc.';
   static const acceptBeforeReply = 'Nhận xử lý để phản hồi người báo cáo.';
-  static const subtitle = 'Phát hiện, xác minh và xử lý theo mức độ';
-  static const create = 'Báo cáo rủi ro';
+  static const subtitle = 'Tiếp nhận, xác minh và xử lý sự cố';
+  static const create = 'Báo cáo sự cố';
   static const searchHint = 'Tìm mã đơn hoặc tiêu đề';
   static const relatedParties = 'Các bên liên quan';
   static const orderingCustomer = 'Khách đặt đơn';
@@ -64,9 +64,9 @@ class RiskReportStrings {
   static const responseDeadline = 'Hạn phản hồi';
   static const submittedContent = 'Nội dung báo cáo';
   static const all = 'Tất cả';
-  static const noReports = 'Chưa có báo cáo rủi ro';
+  static const noReports = 'Chưa có báo cáo sự cố';
   static const noResults = 'Không có báo cáo phù hợp';
-  static const loadError = 'Không thể tải báo cáo rủi ro.';
+  static const loadError = 'Không thể tải báo cáo sự cố.';
   static const retry = 'Thử lại';
   static const takeOwnership = 'Nhận xử lý';
   static const assignedToYou = 'Bạn đang phụ trách';

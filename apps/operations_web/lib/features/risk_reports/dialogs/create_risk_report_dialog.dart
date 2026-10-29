@@ -19,7 +19,6 @@ class _CreateRiskReportDialogState extends State<CreateRiskReportDialog> {
   final _title = TextEditingController();
   final _description = TextEditingController();
   RiskCategory _category = RiskCategory.deliveryDelay;
-  RiskSeverity _severity = RiskSeverity.medium;
   RiskScope _scope = RiskScope.order;
 
   @override
@@ -39,7 +38,7 @@ class _CreateRiskReportDialogState extends State<CreateRiskReportDialog> {
         scope: _scope,
         component: _scope == RiskScope.system ? _component.text : null,
         category: _category,
-        severity: _severity,
+        severity: RiskSeverity.medium,
         title: _title.text,
         description: _description.text,
       ),
@@ -112,41 +111,13 @@ class _CreateRiskReportDialogState extends State<CreateRiskReportDialog> {
                               : null,
                         ),
                         const SizedBox(height: AppSpacing.lg),
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final category = _SelectField<RiskCategory>(
-                              label: 'Loại rủi ro',
-                              value: _category,
-                              items: RiskCategory.values,
-                              itemLabel: RiskReportUi.categoryLabel,
-                              onChanged: (value) =>
-                                  setState(() => _category = value),
-                            );
-                            final severity = _SelectField<RiskSeverity>(
-                              label: 'Mức độ',
-                              value: _severity,
-                              items: RiskSeverity.values,
-                              itemLabel: RiskReportUi.severityLabel,
-                              onChanged: (value) =>
-                                  setState(() => _severity = value),
-                            );
-                            if (constraints.maxWidth < 480) {
-                              return Column(
-                                children: [
-                                  category,
-                                  const SizedBox(height: AppSpacing.lg),
-                                  severity,
-                                ],
-                              );
-                            }
-                            return Row(
-                              children: [
-                                Expanded(child: category),
-                                const SizedBox(width: AppSpacing.md),
-                                Expanded(child: severity),
-                              ],
-                            );
-                          },
+                        _SelectField<RiskCategory>(
+                          label: 'Loại sự cố',
+                          value: _category,
+                          items: RiskCategory.values,
+                          itemLabel: RiskReportUi.categoryLabel,
+                          onChanged: (value) =>
+                              setState(() => _category = value),
                         ),
                         const SizedBox(height: AppSpacing.lg),
                         _Label(text: 'Tiêu đề'),

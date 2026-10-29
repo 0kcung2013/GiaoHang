@@ -12,6 +12,7 @@ class FreePickStatusOverlay extends StatelessWidget {
     required this.isLoading,
     required this.isEnabled,
     required this.radiusMeters,
+    this.minimumRadiusMeters = freePickDefaultRadiusMeters,
     this.error,
   });
 
@@ -19,6 +20,7 @@ class FreePickStatusOverlay extends StatelessWidget {
   final bool isLoading;
   final bool isEnabled;
   final double radiusMeters;
+  final double minimumRadiusMeters;
   final String? error;
 
   @override
@@ -37,7 +39,7 @@ class FreePickStatusOverlay extends StatelessWidget {
             FreePickStrings.loadingWithinRadius(radiusMeters),
             AppColors.info,
           )
-        : radiusMeters <= freePickDefaultRadiusMeters
+        : radiusMeters <= minimumRadiusMeters
         ? (
             Icons.add_circle_outline_rounded,
             FreePickStrings.expandToFindOrders,

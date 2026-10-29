@@ -21,16 +21,23 @@ export 'order_widgets.dart'
 export 'order_dialogs.dart' show showOrderDetailSheet;
 
 class OrderScreen extends ConsumerStatefulWidget {
-  const OrderScreen({super.key});
+  const OrderScreen({super.key, this.initialHistory = false});
+  final bool initialHistory;
   @override
   ConsumerState<OrderScreen> createState() => _OrderScreenState();
 }
 
 class _OrderScreenState extends ConsumerState<OrderScreen> {
   final _searchController = TextEditingController();
-  bool _history = false;
+  late bool _history = widget.initialHistory;
   String _query = '';
   OrderHistoryFilter _filter = const OrderHistoryFilter();
+
+  @override
+  void didUpdateWidget(covariant OrderScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialHistory && !oldWidget.initialHistory) _history = true;
+  }
 
   @override
   void dispose() {

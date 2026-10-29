@@ -23,6 +23,8 @@ class FreePickMapCanvas extends StatelessWidget {
     required this.onLocate,
     required this.onRadiusIncrease,
     required this.onRadiusDecrease,
+    this.minimumRadiusMeters = freePickDefaultRadiusMeters,
+    this.maximumRadiusMeters = freePickMaximumRadiusMeters,
     this.showBaseMap = true,
   });
 
@@ -34,6 +36,7 @@ class FreePickMapCanvas extends StatelessWidget {
   final LatLng? driverPosition;
   final List<OrderModel> orders;
   final double searchRadiusMeters;
+  final double minimumRadiusMeters, maximumRadiusMeters;
   final String? selectedOrderId;
   final ValueChanged<FreePickViewport> onMapSettled;
   final ValueChanged<OrderModel> onOrderSelected;
@@ -123,6 +126,8 @@ class FreePickMapCanvas extends StatelessWidget {
             left: AppSpacing.md,
             top: AppSpacing.xl5 * 2,
             child: FreePickRadiusControls(
+              minimumRadiusMeters: minimumRadiusMeters,
+              maximumRadiusMeters: maximumRadiusMeters,
               radiusMeters: searchRadiusMeters,
               onIncrease: onRadiusIncrease,
               onDecrease: onRadiusDecrease,
@@ -153,7 +158,7 @@ class FreePickMapCanvas extends StatelessWidget {
                       width: 10,
                       height: 10,
                       decoration: BoxDecoration(
-                        color: searchRadiusMeters > freePickDefaultRadiusMeters
+                        color: searchRadiusMeters > minimumRadiusMeters
                             ? AppColors.accent
                             : AppColors.info,
                         shape: BoxShape.circle,

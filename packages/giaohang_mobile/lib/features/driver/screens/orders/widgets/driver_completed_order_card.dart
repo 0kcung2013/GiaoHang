@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
-import '../../../../../core/providers/customer_providers.dart';
 import '../../../../../core/utils/money_formatter.dart';
 import '../../../../reviews/widgets/driver_rate_customer_sheet.dart';
 import '../../home/utils/driver_home_formatters.dart';
@@ -17,9 +16,7 @@ class DriverCompletedOrderCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final income = order.driverNetEarning > 0
-        ? order.driverNetEarning
-        : order.deliveryFee.round();
+    final income = order.netDriverIncome;
 
     return Semantics(
       button: true,
@@ -187,23 +184,7 @@ class DriverCompletedOrderCard extends ConsumerWidget {
   }
 
   Future<void> _rateCustomer(BuildContext context, WidgetRef ref) async {
-    final existing = await ref.read(
-      driverCustomerReviewProvider(order.id).future,
-    );
-    if (!context.mounted) return;
-    if (existing != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Bạn đã đánh giá khách ${existing.rating}/5 cho đơn này.',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
     await showDriverRateCustomerSheet(context: context, order: order);
-    ref.invalidate(driverCustomerReviewProvider(order.id));
   }
 }
 

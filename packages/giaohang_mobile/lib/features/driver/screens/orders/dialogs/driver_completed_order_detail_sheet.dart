@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/utils/money_formatter.dart';
+import '../../../../../core/utils/platform_fee_strings.dart';
 import '../../../../../core/utils/order_cargo_utils.dart';
 import '../../../../../core/widgets/order_cargo_info_block.dart';
 import '../../home/utils/driver_home_formatters.dart';
@@ -130,6 +131,10 @@ class _DriverCompletedOrderDetailSheet extends StatelessWidget {
                   value: formatVnd(order.deliveryFee),
                 ),
                 _ValueRow(
+                  label: PlatformFeeText.fee,
+                  value: formatVnd(order.platformFeeAmount),
+                ),
+                _ValueRow(
                   label: DriverOrdersStrings.receiverCollectionLabel,
                   value: formatVnd(order.receiverCollectionAmount),
                 ),
@@ -140,11 +145,7 @@ class _DriverCompletedOrderDetailSheet extends StatelessWidget {
                 const Divider(height: AppSpacing.xl, color: AppColors.border),
                 _ValueRow(
                   label: DriverOrdersStrings.driverIncomeLabel,
-                  value: formatVnd(
-                    order.driverNetEarning > 0
-                        ? order.driverNetEarning
-                        : order.deliveryFee,
-                  ),
+                  value: formatVnd(order.netDriverIncome),
                   emphasized: true,
                 ),
               ],

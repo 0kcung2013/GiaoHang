@@ -1,6 +1,10 @@
 abstract final class SupportRequestAlertStrings {
   static const title = 'Yêu cầu mới';
   static const received = 'Có yêu cầu hỗ trợ mới';
+  static const adminTitle = 'CSKH chuyển cấp';
+  static const adminReceived = 'Có hồ sơ cần Admin quyết định';
+  static const adminView = 'Xem hồ sơ';
+  static const adminEmpty = 'Không có hồ sơ CSKH chờ Admin';
   static const view = 'Xem yêu cầu';
   static const dismiss = 'Ẩn thông báo';
   static const close = 'Đóng';

@@ -3,15 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/services/delivery_proof_watermark_service.dart';
+import '../../../../../core/services/order_assignment_service.dart';
+import '../../../../order_handoff/data/pickup_handoff_service.dart';
 import '../../../../../core/utils/money_formatter.dart';
 import '../models/driver_delivery_workflow.dart';
 import 'driver_proof_photo_field.dart';
 import '../../../../risk_reports/utils/risk_report_strings.dart';
+import '../../../../order_handoff/pickup_handoff_strings.dart';
+import '../../../../order_handoff/widgets/pickup_code_field.dart';
 
 class DriverDeliveryConfirmationResult {
-  const DriverDeliveryConfirmationResult({this.proof});
+  const DriverDeliveryConfirmationResult({this.proof, this.pickupCode});
 
   final DeliveryProofCapture? proof;
+  final String? pickupCode;
 }
 
 Future<DriverDeliveryConfirmationResult?> showDriverDeliveryConfirmationSheet({
@@ -22,30 +27,36 @@ Future<DriverDeliveryConfirmationResult?> showDriverDeliveryConfirmationSheet({
   CaptureProofPhoto? capturePhoto,
   DeliveryProofAddressResolver? resolveAddress,
   DeliveryProofWatermarker? watermarkPhoto,
+  Future<void> Function(DriverDeliveryConfirmationResult)? onConfirm,
 }) async {
   return showModalBottomSheet<DriverDeliveryConfirmationResult>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _DriverDeliveryConfirmationSheet(
+    isDismissible: action != DriverDeliveryAction.confirmPickup,
+    enableDrag: action != DriverDeliveryAction.confirmPickup,
+    builder: (_) => DriverDeliveryConfirmationSheet(
       action: action,
       order: order,
       locationProvider: locationProvider,
       capturePhoto: capturePhoto,
       resolveAddress: resolveAddress,
       watermarkPhoto: watermarkPhoto,
+      onConfirm: onConfirm,
     ),
   );
 }
 
-class _DriverDeliveryConfirmationSheet extends StatefulWidget {
-  const _DriverDeliveryConfirmationSheet({
+class DriverDeliveryConfirmationSheet extends StatefulWidget {
+  const DriverDeliveryConfirmationSheet({
+    super.key,
     required this.action,
     required this.order,
     required this.locationProvider,
     this.capturePhoto,
     this.resolveAddress,
     this.watermarkPhoto,
+    this.onConfirm,
   });
 
   final DriverDeliveryAction action;
@@ -54,16 +65,49 @@ class _DriverDeliveryConfirmationSheet extends StatefulWidget {
   final CaptureProofPhoto? capturePhoto;
   final DeliveryProofAddressResolver? resolveAddress;
   final DeliveryProofWatermarker? watermarkPhoto;
+  final Future<void> Function(DriverDeliveryConfirmationResult)? onConfirm;
 
   @override
-  State<_DriverDeliveryConfirmationSheet> createState() =>
+  State<DriverDeliveryConfirmationSheet> createState() =>
       _DriverDeliveryConfirmationSheetState();
 }
 
 class _DriverDeliveryConfirmationSheetState
-    extends State<_DriverDeliveryConfirmationSheet> {
+    extends State<DriverDeliveryConfirmationSheet> {
   final Set<int> _checkedItems = {};
   DeliveryProofCapture? _proof;
+  String _pickupCode = '';
+  bool _submitting = false;
+  String? _error;
+
+  Future<void> _confirm() async {
+    if (_submitting || !_canConfirm) return;
+    final result = DriverDeliveryConfirmationResult(
+      proof: _proof,
+      pickupCode: widget.action == DriverDeliveryAction.confirmPickup
+          ? _pickupCode
+          : null,
+    );
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      await widget.onConfirm?.call(result);
+      if (mounted) Navigator.of(context).pop(result);
+    } catch (error) {
+      if (!mounted) return;
+      setState(
+        () => _error = error is PickupHandoffException
+            ? error.message
+            : OrderAssignmentService.advanceStatusErrorMessage(
+                error.toString(),
+              ),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
 
   bool get _requiresPhoto => widget.action.requiresProofPhoto;
 
@@ -87,145 +131,181 @@ class _DriverDeliveryConfirmationSheetState
   bool get _canConfirm {
     final checklistComplete =
         _checklist.isEmpty || _checkedItems.length == _checklist.length;
-    return checklistComplete && (!_requiresPhoto || _proof != null);
+    return checklistComplete &&
+        (!_requiresPhoto || _proof != null) &&
+        (widget.action != DriverDeliveryAction.confirmPickup ||
+            RegExp(r'^\d{4}$').hasMatch(_pickupCode));
   }
 
   @override
   Widget build(BuildContext context) {
     final config = _config(widget.action);
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: AppShadow.elevated,
-      ),
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.xl,
-        AppSpacing.md,
-        AppSpacing.xl,
-        MediaQuery.of(context).viewPadding.bottom + AppSpacing.xl,
-      ),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Center(child: _SheetHandle()),
-              const SizedBox(height: AppSpacing.xl),
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: config.accent.withValues(alpha: 0.12),
-                  borderRadius: AppRadius.lg,
-                ),
-                child: Icon(config.icon, color: config.accent, size: 28),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                config.title,
-                style: AppTextStyles.headingMedium.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                config.description,
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              if (_requiresPhoto) ...[
+    return PopScope(
+      canPop: !_submitting,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: AppColors.bgCard,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          boxShadow: AppShadow.elevated,
+        ),
+        padding: EdgeInsets.fromLTRB(
+          AppSpacing.xl,
+          AppSpacing.md,
+          AppSpacing.xl,
+          MediaQuery.of(context).viewPadding.bottom +
+              MediaQuery.viewInsetsOf(context).bottom +
+              AppSpacing.xl,
+        ),
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Center(child: _SheetHandle()),
                 const SizedBox(height: AppSpacing.xl),
-                DriverProofPhotoField(
-                  accent: config.accent,
-                  locationProvider: widget.locationProvider,
-                  capturePhoto: widget.capturePhoto,
-                  resolveAddress: widget.resolveAddress,
-                  watermarkPhoto: widget.watermarkPhoto,
-                  onChanged: (proof) => setState(() => _proof = proof),
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: config.accent.withValues(alpha: 0.12),
+                    borderRadius: AppRadius.lg,
+                  ),
+                  child: Icon(config.icon, color: config.accent, size: 28),
                 ),
-              ],
-              if (_checklist.isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.xl),
+                const SizedBox(height: AppSpacing.lg),
                 Text(
-                  'XÁC NHẬN BÀN GIAO',
-                  style: AppTextStyles.labelSmall.copyWith(
-                    color: AppColors.textMuted,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
+                  config.title,
+                  style: AppTextStyles.headingMedium.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                ...List.generate(_checklist.length, (index) {
-                  final checked = _checkedItems.contains(index);
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: _ChecklistTile(
-                      label: _checklist[index],
-                      checked: checked,
-                      onTap: () {
-                        setState(() {
-                          checked
-                              ? _checkedItems.remove(index)
-                              : _checkedItems.add(index);
-                        });
-                      },
-                    ),
-                  );
-                }),
-              ],
-              const SizedBox(height: AppSpacing.xl),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.textSecondary,
-                        side: const BorderSide(color: AppColors.border),
-                        minimumSize: const Size.fromHeight(52),
-                        textStyle: AppTextStyles.labelMedium.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: AppRadius.full,
-                        ),
-                      ),
-                      child: const Text('Quay lại'),
+                Text(
+                  config.description,
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                if (_requiresPhoto) ...[
+                  const SizedBox(height: AppSpacing.xl),
+                  DriverProofPhotoField(
+                    accent: config.accent,
+                    locationProvider: widget.locationProvider,
+                    capturePhoto: widget.capturePhoto,
+                    resolveAddress: widget.resolveAddress,
+                    watermarkPhoto: widget.watermarkPhoto,
+                    onChanged: (proof) => setState(() => _proof = proof),
+                  ),
+                ],
+                if (_checklist.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xl),
+                  Text(
+                    'XÁC NHẬN BÀN GIAO',
+                    style: AppTextStyles.labelSmall.copyWith(
+                      color: AppColors.textMuted,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    flex: 2,
-                    child: FilledButton.icon(
-                      onPressed: _canConfirm
-                          ? () => Navigator.of(context).pop(
-                              DriverDeliveryConfirmationResult(proof: _proof),
-                            )
-                          : null,
-                      icon: Icon(config.icon, size: 19),
-                      label: Text(config.confirmLabel),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: config.accent,
-                        disabledBackgroundColor: AppColors.border,
-                        foregroundColor: AppColors.textOnAccent,
-                        minimumSize: const Size.fromHeight(52),
-                        textStyle: AppTextStyles.labelMedium.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: AppRadius.full,
-                        ),
+                  const SizedBox(height: AppSpacing.sm),
+                  ...List.generate(_checklist.length, (index) {
+                    final checked = _checkedItems.contains(index);
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      child: _ChecklistTile(
+                        label: _checklist[index],
+                        checked: checked,
+                        onTap: () {
+                          setState(() {
+                            checked
+                                ? _checkedItems.remove(index)
+                                : _checkedItems.add(index);
+                          });
+                        },
+                      ),
+                    );
+                  }),
+                ],
+                if (widget.action == DriverDeliveryAction.confirmPickup) ...[
+                  const SizedBox(height: AppSpacing.xl),
+                  PickupCodeField(
+                    onChanged: (value) => setState(() {
+                      _pickupCode = value;
+                      _error = null;
+                    }),
+                  ),
+                ],
+                if (_error != null) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _error!,
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.error,
                       ),
                     ),
                   ),
                 ],
-              ),
-            ],
+                const SizedBox(height: AppSpacing.xl),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _submitting
+                            ? null
+                            : () => Navigator.of(context).pop(),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.textSecondary,
+                          side: const BorderSide(color: AppColors.border),
+                          minimumSize: const Size.fromHeight(52),
+                          textStyle: AppTextStyles.labelMedium.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: AppRadius.full,
+                          ),
+                        ),
+                        child: const Text('Quay lại'),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      flex: 2,
+                      child: FilledButton.icon(
+                        onPressed: _canConfirm && !_submitting
+                            ? _confirm
+                            : null,
+                        icon: Icon(config.icon, size: 19),
+                        label: Text(
+                          _submitting
+                              ? PickupHandoffStrings.confirming
+                              : widget.action ==
+                                    DriverDeliveryAction.confirmPickup
+                              ? PickupHandoffStrings.confirm
+                              : config.confirmLabel,
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: config.accent,
+                          disabledBackgroundColor: AppColors.border,
+                          foregroundColor: AppColors.textOnAccent,
+                          minimumSize: const Size.fromHeight(52),
+                          textStyle: AppTextStyles.labelMedium.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: AppRadius.full,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -8,4 +8,8 @@ environment:
   sdk: ^3.9.0
 
 dependencies:
+  flutter:
+    sdk: flutter
+  giaohang_domain:
+    path: ../giaohang_domain
   supabase_flutter: ^2.0.0

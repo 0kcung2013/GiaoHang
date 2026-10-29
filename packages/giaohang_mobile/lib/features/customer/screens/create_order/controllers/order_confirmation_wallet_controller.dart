@@ -22,6 +22,7 @@ class OrderConfirmationWalletController extends ChangeNotifier {
   bool _completed = false;
   bool _disposed = false;
   bool _insufficient = false;
+  bool needsSettingsReview = false;
   String? _error;
 
   bool get isBusy => _busy;
@@ -46,6 +47,12 @@ class OrderConfirmationWalletController extends ChangeNotifier {
       await onCreated(_created!);
       _completed = true;
     } catch (error) {
+      if (_created == null &&
+          error is CustomerWalletOrderPaymentException &&
+          error.needsSettingsReview) {
+        _snapshot = null;
+        needsSettingsReview = true;
+      }
       _insufficient =
           error is CustomerWalletOrderPaymentException &&
           error.insufficientBalance;

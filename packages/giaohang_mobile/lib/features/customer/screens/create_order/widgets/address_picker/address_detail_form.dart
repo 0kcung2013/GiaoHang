@@ -27,6 +27,7 @@ class AddressDetailForm extends StatelessWidget {
     required this.onCustomLabelChanged,
     this.customLabelError,
     this.saveError,
+    this.saveRequired = false,
   });
 
   final ReverseGeocodeResult? resolvedAddress;
@@ -44,6 +45,7 @@ class AddressDetailForm extends StatelessWidget {
   final ValueChanged<String> onCustomLabelChanged;
   final String? customLabelError;
   final String? saveError;
+  final bool saveRequired;
 
   @override
   Widget build(BuildContext context) {
@@ -142,6 +144,7 @@ class AddressDetailForm extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           SaveAddressSection(
+            saveRequired: saveRequired,
             enabled: saveAddress,
             labelType: labelType,
             customLabelController: customLabelController,

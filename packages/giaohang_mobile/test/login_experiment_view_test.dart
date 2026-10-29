@@ -6,6 +6,33 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 void main() {
+  testWidgets(
+    'disabled account contact remains reachable with large text and keyboard',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 240);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpWidget(
+        const _LoginHarness(
+          textScaler: TextScaler.linear(1.6),
+          errorMessage: AuthStrings.accountDisabled,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text(AuthStrings.contactSupport));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(AuthStrings.contactSupport).hitTestable(),
+        findsOneWidget,
+      );
+      expect(find.text(AuthStrings.supportEmail), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('login experiment fits a small phone with large text', (
     tester,
   ) async {
@@ -171,10 +198,12 @@ class _LoginHarness extends StatelessWidget {
   const _LoginHarness({
     this.textScaler = TextScaler.noScaling,
     this.onGoogleSignIn,
+    this.errorMessage,
   });
 
   final TextScaler textScaler;
   final VoidCallback? onGoogleSignIn;
+  final String? errorMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -185,6 +214,7 @@ class _LoginHarness extends StatelessWidget {
         child: child!,
       ),
       home: LoginExperimentView(
+        errorMessage: errorMessage,
         formKey: formKey,
         emailController: TextEditingController(),
         passwordController: TextEditingController(),

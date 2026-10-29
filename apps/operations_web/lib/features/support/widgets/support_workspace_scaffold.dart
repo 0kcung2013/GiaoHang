@@ -6,8 +6,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../constants/support_ticket_strings.dart';
 import 'support_workspace_theme.dart';
 import '../notifications/support_request_bell.dart';
+import '../../../core/widgets/admin_workspace_scope.dart';
 
-enum SupportWorkspaceSection { risks, orders, tickets, monitoring }
+enum SupportWorkspaceSection {
+  risks,
+  orders,
+  tickets,
+  monitoring,
+  transactions,
+  accounts,
+}
 
 class SupportWorkspaceScaffold extends StatelessWidget {
   const SupportWorkspaceScaffold({
@@ -23,6 +31,7 @@ class SupportWorkspaceScaffold extends StatelessWidget {
     data: supportWorkspaceTheme(context),
     child: LayoutBuilder(
       builder: (context, constraints) {
+        if (AdminWorkspaceScope.contains(context)) return body;
         final desktop = constraints.maxWidth >= 960;
         return Scaffold(
           backgroundColor: AppColors.bgLight,
@@ -67,22 +76,32 @@ class SupportWorkspaceScaffold extends StatelessWidget {
                     ),
                     child: Padding(
                       padding: const EdgeInsets.all(AppSpacing.sm),
-                      child: Row(
-                        children: [
-                          for (final section in const [
-                            SupportWorkspaceSection.risks,
-                            SupportWorkspaceSection.tickets,
-                            SupportWorkspaceSection.monitoring,
-                            SupportWorkspaceSection.orders,
-                          ])
-                            Expanded(
-                              child: _WorkspaceDestination(
-                                section: section,
-                                selected: activeSection == section,
-                                compact: true,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            for (final section in const [
+                              SupportWorkspaceSection.risks,
+                              SupportWorkspaceSection.tickets,
+                              SupportWorkspaceSection.monitoring,
+                              SupportWorkspaceSection.orders,
+                              SupportWorkspaceSection.transactions,
+                              SupportWorkspaceSection.accounts,
+                            ])
+                              SizedBox(
+                                width:
+                                    112 *
+                                    MediaQuery.textScalerOf(
+                                      context,
+                                    ).scale(1).clamp(1, 1.6),
+                                child: _WorkspaceDestination(
+                                  section: section,
+                                  selected: activeSection == section,
+                                  compact: true,
+                                ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -128,6 +147,8 @@ class _DesktopNavigation extends StatelessWidget {
                       SupportWorkspaceSection.tickets,
                       SupportWorkspaceSection.monitoring,
                       SupportWorkspaceSection.orders,
+                      SupportWorkspaceSection.transactions,
+                      SupportWorkspaceSection.accounts,
                     ]) ...[
                       _WorkspaceDestination(
                         section: section,
@@ -193,24 +214,35 @@ class _WorkspaceDestination extends StatelessWidget {
     SupportWorkspaceSection.orders => SupportTicketStrings.ordersQueue,
     SupportWorkspaceSection.tickets => SupportTicketStrings.ticketQueue,
     SupportWorkspaceSection.monitoring => SupportTicketStrings.monitoring,
+    SupportWorkspaceSection.accounts => SupportTicketStrings.accounts,
+    SupportWorkspaceSection.transactions => SupportTicketStrings.transactions,
   };
   IconData get icon => switch (section) {
     SupportWorkspaceSection.risks => Icons.shield_outlined,
     SupportWorkspaceSection.orders => Icons.inventory_2_outlined,
     SupportWorkspaceSection.tickets => Icons.forum_outlined,
     SupportWorkspaceSection.monitoring => Icons.radar_rounded,
+    SupportWorkspaceSection.accounts => Icons.people_alt_outlined,
+    SupportWorkspaceSection.transactions =>
+      Icons.account_balance_wallet_outlined,
   };
   String get route => switch (section) {
     SupportWorkspaceSection.risks => '/support-risk',
     SupportWorkspaceSection.orders => '/support-orders',
     SupportWorkspaceSection.tickets => '/support-home',
     SupportWorkspaceSection.monitoring => '/support-monitoring',
+    SupportWorkspaceSection.accounts => '/support-accounts',
+    SupportWorkspaceSection.transactions => '/support-transactions',
   };
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppColors.textOnDark : AppColors.textSecondary;
-    final symbol = Icon(icon, size: 22, color: color);
+    final color = selected ? AppColors.primary : AppColors.textSecondary;
+    final symbol = Icon(
+      icon,
+      size: 22,
+      color: selected ? AppColors.accent : color,
+    );
     final text = Text(
       label,
       textAlign: compact ? TextAlign.center : TextAlign.start,
@@ -221,12 +253,12 @@ class _WorkspaceDestination extends StatelessWidget {
       selected: selected,
       label: label,
       child: Material(
-        color: selected ? AppColors.primary : Colors.transparent,
+        color: selected ? AppColors.bgLight : Colors.transparent,
         borderRadius: AppRadius.md,
         child: InkWell(
           onTap: () => context.go(route),
-          hoverColor: AppColors.info.withValues(alpha: .08),
-          focusColor: AppColors.info.withValues(alpha: .15),
+          hoverColor: AppColors.bgLight,
+          focusColor: AppColors.accentLight,
           borderRadius: AppRadius.md,
           child: Container(
             constraints: const BoxConstraints(minHeight: 52),

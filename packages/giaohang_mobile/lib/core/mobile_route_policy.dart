@@ -7,6 +7,7 @@ String? mobileRouteRedirect({
   required bool signedIn,
   String? accountRole,
   String? driverApproval,
+  bool customerClassified = true,
 }) {
   final public = location == '/login' || location == '/register';
   if (!signedIn) return public ? null : '/login';
@@ -15,6 +16,17 @@ String? mobileRouteRedirect({
   }
   // Signing up creates the session before the KYC upload completes.
   if (location == '/register') return null;
+  if (app == MobileAppRole.customer &&
+      !customerClassified &&
+      location != '/help' &&
+      location != '/customer-classification') {
+    return '/customer-classification';
+  }
+  if (app == MobileAppRole.customer &&
+      customerClassified &&
+      location == '/customer-classification') {
+    return app.homeRoute;
+  }
   if (app == MobileAppRole.driver && driverApproval != 'approved') {
     return location == '/driver-pending' ? null : '/driver-pending';
   }

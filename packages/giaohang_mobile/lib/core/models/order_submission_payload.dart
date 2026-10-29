@@ -2,6 +2,10 @@ import 'order_model.dart';
 
 Map<String, dynamic> buildOrderSubmissionPayload(OrderModel order) {
   return {
+    if (order.quotedDistanceMeters != null)
+      'quoted_distance_m': order.quotedDistanceMeters,
+    if (order.settingsRevision != null)
+      'settings_revision': order.settingsRevision,
     'pickup_address': order.pickupAddress,
     'pickup_lat': order.pickupLat,
     'pickup_lng': order.pickupLng,
@@ -17,6 +21,7 @@ Map<String, dynamic> buildOrderSubmissionPayload(OrderModel order) {
     'recipient_name': order.recipientName,
     'recipient_phone': order.recipientPhone,
     'delivery_fee': order.deliveryFee,
+    'quoted_customer_fee': order.customerPlatformFeeAmount,
     'service_type': order.serviceType,
     'item_name': order.itemName,
     'item_category': order.itemCategory,

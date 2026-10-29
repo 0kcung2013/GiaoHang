@@ -8,6 +8,66 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
+    'refunded payment unlocks quote review and permits a fresh session',
+    () async {
+      var refunded = false;
+      var creates = 0;
+      final controller = OrderConfirmationPaymentController(
+        service: CustomerOrderPaymentService(
+          functionInvoker: (_, _) async {
+            creates++;
+            return _session();
+          },
+          rpcInvoker: (_, _) async =>
+              _session(status: refunded ? 'refunded' : 'pending'),
+        ),
+        openPayment: (_) async => true,
+        onPaid: (_, _) async =>
+            fail('Refunded payment cannot activate an order'),
+      );
+      addTearDown(controller.dispose);
+      await controller.submit(_order());
+      refunded = true;
+      await controller.refresh();
+      expect(controller.hasActiveSession, isFalse);
+      expect(controller.protectsSettings, isFalse);
+      expect(controller.error, contains('hoàn vào ví'));
+      await controller.submit(_order());
+      expect(creates, 2);
+    },
+  );
+  test(
+    'explicit quote rejection permits requote but an uncertain request retains its snapshot',
+    () async {
+      var explicitRejection = true;
+      final controller = OrderConfirmationPaymentController(
+        service: CustomerOrderPaymentService(
+          functionInvoker: (_, _) async {
+            if (explicitRejection) {
+              throw const CustomerOrderPaymentException(
+                'SETTINGS_QUOTE_EXPIRED',
+              );
+            }
+            throw StateError('network lost after submit');
+          },
+          rpcInvoker: (_, _) async => _session(),
+        ),
+        onPaid: (_, _) async => fail('No paid order'),
+      );
+      addTearDown(controller.dispose);
+      await controller.submit(_order());
+      expect(controller.needsSettingsReview, isTrue);
+      expect(controller.orderSnapshot, isNull);
+      expect(controller.protectsSettings, isFalse);
+      explicitRejection = false;
+      final order = _order();
+      await controller.submit(order);
+      expect(controller.orderSnapshot, same(order));
+      expect(controller.protectsSettings, isTrue);
+    },
+  );
+
+  test(
     'opening payment never marks an order paid; backend confirmation does',
     () async {
       var paid = false;

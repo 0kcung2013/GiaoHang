@@ -3,6 +3,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 
 import '../constants/risk_report_strings.dart';
 import '../models/risk_report.dart';
+import '../../account_controls/widgets/account_context_link.dart';
 
 class RiskRelatedParties extends StatelessWidget {
   const RiskRelatedParties({required this.report, super.key});
@@ -45,6 +46,11 @@ class RiskRelatedParties extends StatelessWidget {
             contact: contactFor(order.customerId, order.customer),
             isReporter: order.customerId == report.reportedBy,
           ),
+          if (order.customerId != null)
+            AccountContextLink(
+              userId: order.customerId!,
+              riskReportId: report.id,
+            ),
           const Divider(height: AppSpacing.xl2, color: AppColors.border),
           _Party(
             label: RiskReportStrings.assignedDriver,
@@ -56,6 +62,11 @@ class RiskRelatedParties extends StatelessWidget {
                 : RiskReportStrings.missingProfile,
             showAccessHint: order.driverId != null,
           ),
+          if (order.driverId != null)
+            AccountContextLink(
+              userId: order.driverId!,
+              riskReportId: report.id,
+            ),
           const Divider(height: AppSpacing.xl2, color: AppColors.border),
           _Party(
             label: RiskReportStrings.recipient,

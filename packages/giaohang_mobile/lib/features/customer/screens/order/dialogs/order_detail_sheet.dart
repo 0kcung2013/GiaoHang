@@ -8,6 +8,7 @@ import '../../../../../core/models/order_model.dart';
 import '../../../../../core/providers/customer_providers.dart';
 import '../../../../order_help/data/customer_support_ticket_repository.dart';
 import '../../../../reviews/widgets/order_review_section.dart';
+import '../../../../order_handoff/widgets/customer_pickup_code_card.dart';
 import '../../../../risk_reports/data/participant_risk_report_query_repository.dart';
 import '../../../widgets/delivery_proof/customer_delivery_proof_section.dart';
 import '../../tracking/widgets/assigned_driver_card.dart';
@@ -85,7 +86,17 @@ class _OrderDetailSheetState extends ConsumerState<OrderDetailSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final order = widget.order;
+    final initialOrder = widget.order;
+    final liveOrder = ref
+        .watch(orderByTrackingCodeProvider(initialOrder.trackingCode))
+        .valueOrNull;
+    final order = liveOrder?.id == initialOrder.id ? liveOrder! : initialOrder;
+    ref.watch(
+      trackedOrderRealtimeProvider((
+        orderId: order.id,
+        trackingCode: order.trackingCode,
+      )),
+    );
     final canCancel =
         _cancellableStatuses.contains(order.status) &&
         order.actualPickedUpAt == null;
@@ -134,6 +145,13 @@ class _OrderDetailSheetState extends ConsumerState<OrderDetailSheet> {
                     order: order,
                     status: OrderStatusView.fromStatus(order.status),
                   ),
+                  if (CustomerPickupCodeCard.isRelevant(order)) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    CustomerPickupCodeCard(
+                      key: ValueKey('handoff-${order.id}'),
+                      order: order,
+                    ),
+                  ],
                   if (order.trackingCode.trim().isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.md),
                     OrderTrackingAction(onPressed: _openTracking),

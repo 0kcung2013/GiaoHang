@@ -1,290 +1,244 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:giaohang_design/giaohang_design.dart';
-import 'package:giaohang_domain/giaohang_domain.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../support_orders/data/support_order_repository.dart';
+import '../../../support_orders/models/support_order.dart';
+import '../../../support_orders/utils/support_order_ui.dart';
+import '../../constants/admin_strings.dart';
+import '../../data/admin_order_repository.dart';
+import '../../dialogs/admin_order_details.dart';
+import '../../widgets/admin_order_table.dart';
+import '../../widgets/admin_surface.dart';
 
 class AdminOrdersScreen extends StatefulWidget {
-  const AdminOrdersScreen({super.key});
-
+  const AdminOrdersScreen({
+    super.key,
+    this.repository,
+    this.proofRepository,
+    this.initialQuery = '',
+  });
+  final AdminOrderRepository? repository;
+  final SupportOrderRepository? proofRepository;
+  final String initialQuery;
   @override
   State<AdminOrdersScreen> createState() => _AdminOrdersScreenState();
 }
 
-class _AdminOrdersScreenState extends State<AdminOrdersScreen>
-    with SingleTickerProviderStateMixin {
-  final _supabase = Supabase.instance.client;
-  late final TabController _tabController;
-  List<Map<String, dynamic>> _orders = [];
-  bool _loading = true;
-
-  static const _tabs = [
-    {'label': 'Tất cả', 'status': null},
-    {'label': 'Chờ', 'status': 'pending'},
-    {'label': 'Đang giao', 'status': 'delivering'},
-    {'label': 'Hoàn thành', 'status': 'delivered'},
+class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
+  late final _repository =
+      widget.repository ??
+      SupabaseAdminOrderRepository(Supabase.instance.client);
+  late final _search = TextEditingController(text: widget.initialQuery);
+  Timer? _debounce;
+  final _scroll = ScrollController();
+  List<SupportOrder> _orders = [];
+  bool _loading = true, _failed = false, _hasNext = false;
+  int _page = 0, _generation = 0;
+  String? _status;
+  final _opening = <String>{};
+  static const statuses = [
+    'pending',
+    'confirmed',
+    'assigned',
+    'picking_up',
+    'delivering',
+    'risk_hold',
+    'return_approved',
+    'returning',
+    'returned',
+    'delivered',
+    'cancelled',
   ];
-
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabs.length, vsync: this);
-    _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) _fetch();
-    });
-    _fetch();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant AdminOrdersScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialQuery != widget.initialQuery) {
+      _search.text = widget.initialQuery;
+      _page = 0;
+      _load();
+    }
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _debounce?.cancel();
+    _search.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
-  Future<void> _fetch() async {
-    setState(() => _loading = true);
+  Future<void> _load() async {
+    final version = ++_generation;
+    setState(() {
+      _loading = true;
+      _failed = false;
+    });
     try {
-      final status = _tabs[_tabController.index]['status'];
-      final params = <String, dynamic>{};
-      if (status != null) params['p_status'] = status;
-      final data =
-          await _supabase.rpc('admin_list_orders', params: params)
-              as List<dynamic>;
-      _orders = data.map((o) => Map<String, dynamic>.from(o as Map)).toList();
-    } catch (_) {}
-    if (mounted) setState(() => _loading = false);
+      final rows = await _repository.fetchPage(
+        query: _search.text,
+        status: _status,
+        offset: _page * SupabaseAdminOrderRepository.pageSize,
+      );
+      if (!mounted || version != _generation) return;
+      setState(() {
+        _hasNext = rows.length > SupabaseAdminOrderRepository.pageSize;
+        _orders = rows.take(SupabaseAdminOrderRepository.pageSize).toList();
+      });
+    } catch (_) {
+      if (mounted && version == _generation) setState(() => _failed = true);
+    } finally {
+      if (mounted && version == _generation) setState(() => _loading = false);
+    }
   }
 
-  Color _statusColor(String status) => switch (status) {
-    'pending' => AppColors.warning,
-    'confirmed' => AppColors.info,
-    'assigned' => AppColors.info,
-    'picking_up' => AppColors.accent,
-    'delivering' => AppColors.accent,
-    'delivered' => AppColors.success,
-    'return_approved' || 'returning' => AppColors.warning,
-    'returned' => AppColors.success,
-    'cancelled' => AppColors.error,
-    _ => AppColors.textMuted,
-  };
+  Future<void> _open(SupportOrder row) async {
+    if (!_opening.add(row.id)) return;
+    try {
+      await showAdminOrderDetails(
+        context,
+        row.id,
+        _repository,
+        proofRepository: widget.proofRepository,
+      );
+    } finally {
+      _opening.remove(row.id);
+    }
+  }
 
-  String _statusLabel(String status) => switch (status) {
-    'pending' => 'Chờ xác nhận',
-    'confirmed' => 'Đã xác nhận',
-    'assigned' => 'Đã phân công',
-    'picking_up' => 'Đang lấy hàng',
-    'delivering' => 'Đang giao',
-    'delivered' => 'Đã giao',
-    'return_approved' => 'Đã duyệt hoàn',
-    'returning' => 'Đang hoàn hàng',
-    'returned' => 'Đã hoàn hàng',
-    'cancelled' => 'Đã hủy',
-    _ => status,
-  };
+  void _goPage(int page) {
+    _page = page;
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+    _load();
+  }
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
+  Widget build(BuildContext context) => RefreshIndicator(
+    onRefresh: _load,
+    child: ListView(
+      controller: _scroll,
+      key: const PageStorageKey('admin-orders-scroll'),
+      padding: const EdgeInsets.all(AppSpacing.xl2),
       children: [
-        Container(
-          color: AppColors.bgCard,
-          child: TabBar(
-            controller: _tabController,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            indicatorColor: AppColors.primary,
-            labelColor: AppColors.primary,
-            unselectedLabelColor: AppColors.textSecondary,
-            labelStyle: AppTextStyles.labelMedium,
-            unselectedLabelStyle: AppTextStyles.labelMedium.copyWith(
-              fontWeight: FontWeight.w500,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenH),
-            indicatorSize: TabBarIndicatorSize.label,
-            tabs: _tabs.map((t) => Tab(text: t['label']!)).toList(),
+        AdminHeading(
+          title: AdminStrings.ordersTitle,
+          subtitle: AdminStrings.ordersHint,
+          action: OutlinedButton.icon(
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text(AdminStrings.refresh),
           ),
         ),
-        Expanded(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _orders.isEmpty
-              ? Center(
-                  child: Text(
-                    'Không có đơn hàng nào',
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.textMuted,
-                    ),
+        const SizedBox(height: AppSpacing.xl2),
+        LayoutBuilder(
+          builder: (context, constraints) => Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.md,
+            children: [
+              SizedBox(
+                width: constraints.maxWidth < 540 ? constraints.maxWidth : 340,
+                child: TextField(
+                  controller: _search,
+                  decoration: InputDecoration(
+                    labelText: AdminStrings.orderSearch,
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: _search.text.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: AdminStrings.close,
+                            onPressed: () {
+                              _search.clear();
+                              _page = 0;
+                              _load();
+                            },
+                            icon: const Icon(Icons.close_rounded),
+                          ),
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _fetch,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(AppSpacing.screenH),
-                    itemCount: _orders.length,
-                    itemBuilder: (_, i) => _OrderCard(
-                      order: _orders[i],
-                      statusColor: _statusColor(_orders[i]['status'] ?? ''),
-                      statusLabel: _statusLabel(_orders[i]['status'] ?? ''),
-                    ),
-                  ),
+                  onChanged: (_) {
+                    _debounce?.cancel();
+                    _debounce = Timer(const Duration(milliseconds: 350), () {
+                      _page = 0;
+                      _load();
+                    });
+                  },
                 ),
+              ),
+              SizedBox(
+                width: constraints.maxWidth < 540 ? constraints.maxWidth : 240,
+                child: DropdownButtonFormField<String>(
+                  initialValue: _status ?? '',
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: AdminStrings.status,
+                  ),
+                  items: [
+                    const DropdownMenuItem(
+                      value: '',
+                      child: Text(AdminStrings.all),
+                    ),
+                    for (final status in statuses)
+                      DropdownMenuItem(
+                        value: status,
+                        child: Text(SupportOrderUi.statusLabel(status)),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    _status = value == '' ? null : value;
+                    _page = 0;
+                    _load();
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        if (_loading) const LinearProgressIndicator(color: AppColors.accent),
+        if (_failed)
+          AdminFailure(onRetry: _load)
+        else if (!_loading && _orders.isEmpty)
+          const AdminSurface(child: Text(AdminStrings.emptyOrders))
+        else if (_orders.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.md),
+          IgnorePointer(
+            ignoring: _loading,
+            child: AdminOrderTable(orders: _orders, onOpen: _open),
+          ),
+        ],
+        const SizedBox(height: AppSpacing.lg),
+        Wrap(
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.sm,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            OutlinedButton.icon(
+              onPressed: _loading || _page == 0
+                  ? null
+                  : () {
+                      _goPage(_page - 1);
+                    },
+              icon: const Icon(Icons.chevron_left_rounded),
+              label: const Text(AdminStrings.previous),
+            ),
+            Text(AdminStrings.page(_page + 1), style: AppTextStyles.bodySmall),
+            OutlinedButton.icon(
+              onPressed: _loading || !_hasNext || _failed
+                  ? null
+                  : () {
+                      _goPage(_page + 1);
+                    },
+              icon: const Icon(Icons.chevron_right_rounded),
+              label: const Text(AdminStrings.next),
+            ),
+          ],
         ),
       ],
-    );
-  }
-}
-
-class _OrderCard extends StatelessWidget {
-  final Map<String, dynamic> order;
-  final Color statusColor;
-  final String statusLabel;
-  const _OrderCard({
-    required this.order,
-    required this.statusColor,
-    required this.statusLabel,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: AppRadius.md,
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppShadow.subtle,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.08),
-                  borderRadius: AppRadius.sm,
-                ),
-                child: const Icon(
-                  Icons.inventory_2_rounded,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      order['tracking_code'] ?? '',
-                      style: AppTextStyles.mono.copyWith(
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      order['customer_name'] ?? '',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xs,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.1),
-                  borderRadius: AppRadius.full,
-                  border: Border.all(color: statusColor.withValues(alpha: 0.3)),
-                ),
-                child: Text(
-                  statusLabel,
-                  style: AppTextStyles.labelSmall.copyWith(color: statusColor),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              const Icon(
-                Icons.location_on_outlined,
-                size: 14,
-                color: AppColors.textMuted,
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  order['pickup_address'] ?? '',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Row(
-            children: [
-              const Icon(
-                Icons.flag_outlined,
-                size: 14,
-                color: AppColors.textMuted,
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  order['delivery_address'] ?? '',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          if (order['driver_name'] != null) ...[
-            const SizedBox(height: AppSpacing.xs),
-            Row(
-              children: [
-                const Icon(
-                  Icons.person_outline,
-                  size: 14,
-                  color: AppColors.textMuted,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Tài xế: ${order['driver_name']}',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ],
-          if (order['total_price'] != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                formatVnd((order['total_price'] as num?) ?? 0),
-                style: AppTextStyles.headingSmall.copyWith(
-                  color: AppColors.primary,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
+    ),
+  );
 }

@@ -131,7 +131,7 @@ class _LoginExperimentViewState extends State<LoginExperimentView>
     required bool compactVertical,
     required bool hideSecondaryActions,
   }) {
-    return LoginExperimentFormSurface(
+    final form = LoginExperimentFormSurface(
       isWide: isWide,
       compactVertical: compactVertical,
       hideSecondaryActions: hideSecondaryActions,
@@ -149,6 +149,12 @@ class _LoginExperimentViewState extends State<LoginExperimentView>
       onRegister: widget.onRegister,
       onPasswordSubmitted: widget.onPasswordSubmitted,
     );
+    return widget.errorMessage == null
+        ? form
+        : SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: form,
+          );
   }
 }
 
@@ -239,7 +245,8 @@ class _CompactLoginLayout extends StatelessWidget {
         : availableHeight >= 760
         ? (availableHeight * 0.38).clamp(280.0, 310.0)
         : (availableHeight * 0.34).clamp(205.0, 250.0);
-    final sheetTop = (heroHeight - 30).clamp(72.0, availableHeight - 260);
+    final maximumSheetTop = (availableHeight - 260).clamp(0.0, availableHeight);
+    final sheetTop = (heroHeight - 30).clamp(0.0, maximumSheetTop);
 
     return SizedBox.expand(
       child: Stack(

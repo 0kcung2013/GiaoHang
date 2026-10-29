@@ -1,10 +1,37 @@
 import 'package:giaohang_mobile/core/models/order_model.dart';
 import 'package:giaohang_mobile/core/models/order_finance.dart';
 import 'package:giaohang_mobile/core/services/customer_order_command_service.dart';
+import 'package:giaohang_mobile/core/services/customer_order_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('CustomerOrderCommandService', () {
+    test(
+      'the cash order facade preserves a definitive settings rejection',
+      () async {
+        final client = SupabaseClient('https://test.invalid', 'key');
+        addTearDown(client.dispose);
+        final service = CustomerOrderService(
+          client: client,
+          commandService: CustomerOrderCommandService(
+            rpcInvoker: (_, _) async {
+              throw const PostgrestException(message: 'SETTINGS_QUOTE_EXPIRED');
+            },
+          ),
+        );
+        await expectLater(
+          service.createOrderWithTracking(_order()),
+          throwsA(
+            isA<CustomerOrderCommandException>().having(
+              (e) => e.needsSettingsReview,
+              'needs review',
+              true,
+            ),
+          ),
+        );
+      },
+    );
     test('creates an order through one atomic RPC command', () async {
       final calls = <({String functionName, Map<String, dynamic> params})>[];
       final service = CustomerOrderCommandService(
@@ -36,6 +63,7 @@ void main() {
           'recipient_name': 'Nguyễn Văn A',
           'recipient_phone': '0900000000',
           'delivery_fee': 18000.0,
+          'quoted_customer_fee': 0,
           'service_type': 'express',
           'item_name': 'Hồ sơ',
           'item_category': 'document',

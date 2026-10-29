@@ -56,6 +56,8 @@ class SupportChatSheet extends StatefulWidget {
     this.initialTicket,
     this.attachmentDraft,
     this.embedded = false,
+    this.initialBody,
+    this.contextMarker,
     super.key,
   });
 
@@ -69,6 +71,7 @@ class SupportChatSheet extends StatefulWidget {
   final SupportTicket? initialTicket;
   final SupportChatAttachmentDraft? attachmentDraft;
   final bool embedded;
+  final String? initialBody, contextMarker;
 
   @override
   State<SupportChatSheet> createState() => _SupportChatSheetState();
@@ -108,6 +111,9 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
         widget.attachmentDraft ??
         SupportChatAttachmentDraft(contextId: widget.orderId ?? '');
     _ticket = widget.initialTicket;
+    if (_ticket == null && widget.initialBody != null) {
+      _composerController.text = widget.initialBody!;
+    }
     _messages = _ticket == null ? const [] : null;
     if (_ticket != null) {
       unawaited(_connectToTicket());
@@ -332,7 +338,9 @@ class _SupportChatSheetState extends State<SupportChatSheet> {
             requesterId: widget.requesterId,
             orderId: widget.orderId,
             subject: widget.subject,
-            message: body,
+            message: widget.contextMarker == null
+                ? body
+                : '${widget.contextMarker!}\n$body',
             priority: widget.priority,
           ),
         );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/utils/money_formatter.dart';
+import '../../../../../core/utils/platform_fee_strings.dart';
 import '../utils/order_form_data.dart';
 import '../utils/order_payment_strings.dart';
 import 'confirmation_components.dart';
@@ -52,6 +53,13 @@ class OrderFinanceSummary extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
         ],
         _MoneyLine(label: 'Phí giao hàng', amount: finance.deliveryFee),
+        if (finance.customerPlatformFeeAmount > 0) ...[
+          const SizedBox(height: AppSpacing.sm),
+          _MoneyLine(
+            label: PlatformFeeText.fee,
+            amount: finance.customerPlatformFeeAmount,
+          ),
+        ],
         const Divider(height: AppSpacing.xl2, color: AppColors.border),
         _MoneyLine(
           label: OrderPaymentText.total,

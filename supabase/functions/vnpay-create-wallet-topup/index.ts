@@ -6,12 +6,14 @@ import {
   type VnpayParams,
 } from "../_shared/vnpay.ts";
 
-const paymentUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
+import { resolveVnpayPaymentUrl } from "../_shared/vnpay_gateway.mjs";
 
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return cors(new Response(null));
   if (request.method !== "POST") return json({ error: "METHOD_NOT_ALLOWED" }, 405);
   try {
+    const paymentUrl = resolveVnpayPaymentUrl(
+      Deno.env.get("VNPAY_ENVIRONMENT") ?? "sandbox", Deno.env.get("VNPAY_PAYMENT_URL"));
     const authorization = request.headers.get("Authorization");
     if (!authorization) return json({ error: "AUTH_REQUIRED" }, 401);
     const supabaseUrl = requiredEnv("SUPABASE_URL");
@@ -26,7 +28,9 @@ Deno.serve(async (request) => {
 
     const body = await request.json() as { amount?: unknown };
     const amount = Number(body.amount);
-    if (!Number.isSafeInteger(amount) || amount < 5000 || amount > 10000000) {
+    const { data: settings, error: settingsError } = await client.rpc('get_business_settings');
+    if (settingsError) throw settingsError;
+    if (!Number.isSafeInteger(amount) || amount < settings.values.topup_min || amount > settings.values.topup_max) {
       return json({ error: "TOPUP_AMOUNT_INVALID" }, 400);
     }
 

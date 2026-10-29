@@ -1,3 +1,4 @@
+import 'package:device_preview/device_preview.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,7 +53,16 @@ Future<void> runMobileApp(MobileAppRole role) async {
       overrides: [
         driverLocationModeProvider.overrideWith((ref) => driverLocationMode),
       ],
-      child: DeliveryApp(initialLocation: initialLocation, role: role),
+      child: BusinessSettingsLifecycle(
+        client: Supabase.instance.client,
+        child: DevicePreview(
+          enabled: kIsWeb,
+          defaultDevice: Devices.ios.iPhone13,
+          backgroundColor: AppColors.border,
+          builder: (_) =>
+              DeliveryApp(initialLocation: initialLocation, role: role),
+        ),
+      ),
     ),
   );
 }
@@ -101,6 +111,7 @@ class _DeliveryAppState extends State<DeliveryApp> {
     return MaterialApp.router(
       debugShowCheckedModeBanner: false,
       title: widget.role.appName,
+      locale: DevicePreview.locale(context),
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: AppColors.accent,
@@ -109,6 +120,7 @@ class _DeliveryAppState extends State<DeliveryApp> {
         useMaterial3: true,
         scaffoldBackgroundColor: AppColors.bgLight,
       ),
+      builder: DevicePreview.appBuilder,
       routerConfig: _router,
     );
   }
