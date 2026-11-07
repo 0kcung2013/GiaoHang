@@ -10,6 +10,7 @@ import '../../../../core/mobile_app_role.dart';
 import '../../../help_center/screens/general_support_chat_screen.dart';
 import 'constants/customer_account_strings.dart';
 import 'widgets/account_components.dart';
+import '../../wallet_pin/widgets/customer_wallet_pin_settings_tile.dart';
 
 class CustomerSettingsScreen extends StatefulWidget {
   const CustomerSettingsScreen({super.key});
@@ -120,6 +121,8 @@ class _CustomerSettingsScreenState extends State<CustomerSettingsScreen> {
                             minimumSize: const Size(48, 48),
                           ),
                         ),
+                        const Divider(color: AppColors.border),
+                        const CustomerWalletPinSettingsTile(),
                       ],
                     ),
                   ),

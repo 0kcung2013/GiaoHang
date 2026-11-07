@@ -1,0 +1,59 @@
+class DispatchPreferencesStrings {
+  static const title = 'Chế độ nhận đơn';
+  static const nearby = 'Gần tôi';
+  static const area = 'Vùng hoạt động';
+  static const destination = 'Về điểm đến';
+  static const nearbyHint = 'Nhận lời mời gần vị trí hiện tại.';
+  static const areaHint = 'Chỉ nhận đơn có điểm lấy và giao trong vùng.';
+  static const destinationHint = 'Mỗi đơn giao giúp bạn gần nơi muốn về hơn.';
+  static const nearbyTitle = 'Gần vị trí hiện tại';
+  static const nearbyDescription = 'Chọn quãng đường giao phù hợp với bạn.';
+  static const areaTitle = 'Chọn vùng hoạt động';
+  static const destinationTitle = 'Nhận đơn trên đường về';
+  static const deliveryRange = 'Quãng đường từ điểm lấy đến điểm giao';
+  static const underFive = 'Dưới 5 km';
+  static const underTen = 'Dưới 10 km';
+  static const unlimited = 'Không giới hạn';
+  static const pickupTwo = 'Điểm lấy trong 2 km đường bộ';
+  static const pickupThree = 'Điểm lấy trong 3 km đường bộ';
+  static const newOffersOnly = 'Áp dụng cho lời mời mới';
+  static const selectProvince = 'Chọn tỉnh / thành phố';
+  static const selectArea = 'Chọn vùng nhận đơn';
+  static const selectProvinceFirst = 'Chọn tỉnh / thành phố trước';
+  static const filterAreas = 'Tìm theo tên khu vực';
+  static const noAreasFound = 'Không tìm thấy khu vực phù hợp.';
+  static const close = 'Đóng';
+  static const catalogInfo = 'Thông tin vùng hoạt động';
+  static const legacyLabel = 'Địa giới trước 07/2025';
+  static const destinationField = 'Nơi muốn về';
+  static const destinationPlaceholder = 'Tìm địa chỉ hoặc chọn trên bản đồ';
+  static const destinationSession = 'Hiệu lực 8 giờ sau khi lưu';
+  static const legacyHint = 'Vùng hoạt động theo địa giới cũ trước 07/2025.';
+  static const coverageHint = 'Chỉ hiển thị khu vực đã có dữ liệu ranh giới.';
+  static const province = 'Tỉnh / thành phố';
+  static const district = 'Vùng nhận đơn';
+  static const chooseDestination = 'Chọn điểm đến';
+  static const search = 'Tìm địa điểm';
+  static const searchAction = 'Tìm';
+  static const searchEmpty = 'Không tìm thấy địa điểm. Thử từ khóa khác.';
+  static const pickHint = 'Chạm bản đồ hoặc tìm địa điểm để chọn.';
+  static const confirmDestination = 'Dùng điểm đến này';
+  static const destinationDuration =
+      'Có hiệu lực 8 giờ; đến nơi hãy kết thúc chế độ.';
+  static const expired = 'Đã hết thời gian · chưa nhận thêm lời mời';
+  static const end = 'Kết thúc về điểm đến';
+  static const save = 'Lưu chế độ';
+  static const saved = 'Đã cập nhật chế độ nhận đơn';
+  static const retry = 'Thử lại';
+  static const loadError = 'Chưa tải được chế độ nhận đơn.';
+  static const saveError = 'Chưa lưu được chế độ. Vui lòng thử lại.';
+  static const pendingOffer =
+      'Hãy xử lý lời mời hiện tại trước khi đổi chế độ.';
+  static const catalogError = 'Chưa tải được danh sách vùng hoạt động.';
+  static const catalogEmpty = 'Chưa có vùng hoạt động khả dụng.';
+  static const routeError = 'Chưa tải được tuyến đường. Bạn có thể thử lại.';
+  static const searchError = 'Chưa tìm được địa điểm. Vui lòng thử lại.';
+  static const change = 'Thay đổi';
+  static String coordinates(double lat, double lng) =>
+      '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}';
+}

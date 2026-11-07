@@ -57,7 +57,7 @@ Future<void> runMobileApp(MobileAppRole role) async {
         client: Supabase.instance.client,
         child: DevicePreview(
           enabled: kIsWeb,
-          defaultDevice: Devices.ios.iPhone13,
+          defaultDevice: Devices.android.samsungGalaxyS20,
           backgroundColor: AppColors.border,
           builder: (_) =>
               DeliveryApp(initialLocation: initialLocation, role: role),

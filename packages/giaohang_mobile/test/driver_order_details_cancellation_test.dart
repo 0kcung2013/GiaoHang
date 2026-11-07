@@ -336,6 +336,7 @@ class _NoopLocationServices implements RealtimeService, LocationIngestService {
     required double lat,
     required double lng,
     double? speedKmh,
+    DateTime? sampledAt,
   }) async {}
 
   @override

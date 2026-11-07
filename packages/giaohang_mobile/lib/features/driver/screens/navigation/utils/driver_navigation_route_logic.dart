@@ -21,25 +21,22 @@ class DriverNavigationRouteLogic {
   }) {
     final pickup = LatLng(order.pickupLat, order.pickupLng);
     final delivery = LatLng(order.deliveryLat, order.deliveryLng);
-    final distanceToPickup = const Distance().as(
-      LengthUnit.Meter,
-      driverPosition,
-      pickup,
-    );
-
-    if (distanceToPickup > 150000) {
-      debugPrint(
-        '[OSRM_DEBUG_DRIVER] Driver too far '
-        '(${distanceToPickup.toStringAsFixed(0)}m). '
-        'Routing [pickup→delivery].',
-      );
-      return [pickup, delivery];
-    }
-
     if (order.status == 'delivering') {
       return [driverPosition, delivery];
     }
     return [driverPosition, pickup];
+  }
+
+  static double distanceFromRoute(List<LatLng> route, LatLng current) {
+    if (route.length < 2) return double.infinity;
+    return const Distance(roundResult: false)(
+      current,
+      DeliveryMapUtils.snapToRoute(
+        fullRoute: route,
+        current: current,
+        maxSnapMeters: double.infinity,
+      ),
+    );
   }
 
   static int nearestRouteIndex(List<LatLng> points, LatLng position) {

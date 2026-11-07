@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import 'driver_online_pin_input.dart';
+import '../../../../../core/location/online_location_request.dart';
+import '../../../../../core/location/driver_presence_strings.dart';
 
 typedef DriverOnlinePinVerifier = Future<void> Function(String pin);
 
@@ -46,6 +48,7 @@ class _DriverOnlinePinVerificationSheetState
 
   bool _obscurePin = true;
   bool _isVerifying = false;
+  bool _locationError = false;
   String? _errorMessage;
   String? _lastAttempt;
 
@@ -87,7 +90,10 @@ class _DriverOnlinePinVerificationSheetState
 
   void _clearErrorWhileEditing() {
     if (_errorMessage == null || _isVerifying) return;
-    setState(() => _errorMessage = null);
+    setState(() {
+      _errorMessage = null;
+      _locationError = false;
+    });
   }
 
   void _validateSetupAndVerify() {
@@ -106,6 +112,7 @@ class _DriverOnlinePinVerificationSheetState
   }
 
   Future<void> _verify(String pin) async {
+    if (pin.length != 6) return;
     final attempt = widget.isSetup
         ? '$pin:${_confirmationController.text}'
         : pin;
@@ -114,6 +121,7 @@ class _DriverOnlinePinVerificationSheetState
     _lastAttempt = attempt;
     setState(() {
       _isVerifying = true;
+      _locationError = false;
       _errorMessage = null;
     });
 
@@ -123,16 +131,19 @@ class _DriverOnlinePinVerificationSheetState
       Navigator.of(context).pop(pin);
     } catch (error) {
       if (!mounted) return;
-      HapticFeedback.mediumImpact();
+      final locationError = error is OnlineLocationException;
+      if (!locationError) HapticFeedback.mediumImpact();
       final message = error.toString().replaceFirst('Exception: ', '').trim();
       setState(() {
         _isVerifying = false;
+        _locationError = locationError;
         _errorMessage = message.isEmpty
             ? 'Không thể xác thực mã PIN. Vui lòng thử lại.'
             : message;
       });
 
       _lastAttempt = null;
+      if (locationError) return;
       if (widget.isSetup) {
         _confirmationController.clear();
         _confirmationFocusNode.requestFocus();
@@ -240,7 +251,8 @@ class _DriverOnlinePinVerificationSheetState
                 obscureText: _obscurePin,
                 autofocus: true,
                 enabled: !_isVerifying,
-                hasError: _errorMessage != null && !widget.isSetup,
+                hasError:
+                    _errorMessage != null && !_locationError && !widget.isSetup,
                 textInputAction: widget.isSetup
                     ? TextInputAction.next
                     : TextInputAction.done,
@@ -258,7 +270,7 @@ class _DriverOnlinePinVerificationSheetState
                   label: 'Nhập lại mã PIN',
                   obscureText: _obscurePin,
                   enabled: !_isVerifying,
-                  hasError: _errorMessage != null,
+                  hasError: _errorMessage != null && !_locationError,
                   textInputAction: TextInputAction.done,
                   onChanged: _handleConfirmationChanged,
                 ),
@@ -270,8 +282,22 @@ class _DriverOnlinePinVerificationSheetState
                   key: ValueKey((_isVerifying, _errorMessage)),
                   isVerifying: _isVerifying,
                   errorMessage: _errorMessage,
+                  isLocationError: _locationError,
                 ),
               ),
+              if (_locationError && !_isVerifying)
+                TextButton.icon(
+                  onPressed: () => _verify(_pinController.text),
+                  icon: const Icon(Icons.my_location_rounded),
+                  label: Text(
+                    DriverPresenceStrings.retryOnlinePosition,
+                    style: AppTextStyles.labelLarge,
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.accent,
+                    minimumSize: const Size(48, 48),
+                  ),
+                ),
             ],
           ),
         ),

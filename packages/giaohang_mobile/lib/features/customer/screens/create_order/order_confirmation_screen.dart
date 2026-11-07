@@ -12,6 +12,9 @@ import '../../../../core/providers/customer_providers.dart';
 import '../../../../core/providers/customer_wallet_providers.dart';
 import '../../../../core/providers/business_settings_providers.dart';
 import '../../../../core/services/customer_order_command_service.dart';
+import '../../../../core/services/customer_wallet_pin_service.dart';
+import '../../../../core/models/customer_wallet_pin.dart';
+import '../../wallet_pin/customer_wallet_payment_pin_sheet.dart';
 import 'services/order_confirmation_completion_service.dart';
 import 'utils/order_form_data.dart';
 import 'utils/order_form_validators.dart';
@@ -40,6 +43,7 @@ class OrderConfirmationScreen extends ConsumerStatefulWidget {
 class _OrderConfirmationScreenState
     extends ConsumerState<OrderConfirmationScreen> {
   bool _isSubmitting = false;
+  bool _walletPromptOpen = false;
   late final OrderConfirmationPaymentController _payment;
   late final OrderConfirmationWalletController _wallet;
   late bool _useVnpay;
@@ -105,7 +109,8 @@ class _OrderConfirmationScreenState
     if (revision > _latestSettingsRevision) _latestSettingsRevision = revision;
     final needsReview = _needsSettingsReview;
     final prepaid = widget.formData.deliveryFeePayer == DeliveryFeePayer.sender;
-    final busy = _isSubmitting || _payment.isBusy || _wallet.isBusy;
+    final busy =
+        _isSubmitting || _walletPromptOpen || _payment.isBusy || _wallet.isBusy;
     final walletPayment = prepaid && !_useVnpay;
     final walletSummary = walletPayment
         ? ref.watch(customerWalletSummaryProvider)
@@ -184,7 +189,12 @@ class _OrderConfirmationScreenState
   }
 
   Future<void> _submitOrder() async {
-    if (_isSubmitting || _payment.isBusy || _wallet.isBusy) return;
+    if (_isSubmitting ||
+        _walletPromptOpen ||
+        _payment.isBusy ||
+        _wallet.isBusy) {
+      return;
+    }
     if (_needsSettingsReview) {
       _reviewSettings();
       return;
@@ -284,7 +294,49 @@ class _OrderConfirmationScreenState
         _showSnackBar(_payment.error!, isError: true);
       }
     } else {
-      await _wallet.submit(order.copyWith(paymentMethod: 'wallet'));
+      final walletOrder = order.copyWith(paymentMethod: 'wallet');
+      if (_wallet.hasAttempt && !_wallet.hasCreatedOrder) {
+        // Resolve a lost response using its receipt before asking for PIN again.
+        await _wallet.submit(walletOrder, deferCompletion: true);
+        if (!mounted) return;
+      }
+      if (!_wallet.hasCreatedOrder) {
+        if (_walletPromptOpen) return;
+        setState(() => _walletPromptOpen = true);
+        try {
+          final confirmed = await showCustomerWalletPaymentPinSheet(
+            context,
+            service: CustomerWalletPinService(),
+            amount: walletOrder.customerServiceCharge,
+            balance: ref
+                .read(customerWalletSummaryProvider)
+                .valueOrNull
+                ?.availableBalance,
+            onConfirm: (pin) async {
+              await _wallet.submit(
+                walletOrder,
+                pin: pin,
+                deferCompletion: true,
+              );
+              if (!_wallet.hasCreatedOrder) {
+                throw _wallet.pinFailure ??
+                    CustomerWalletPinException(
+                      _wallet.error ?? OrderPaymentText.walletRetry,
+                    );
+              }
+            },
+          );
+          if (confirmed != true || !mounted) return;
+        } catch (_) {
+          if (mounted) {
+            _showSnackBar(OrderPaymentText.walletRetry, isError: true);
+          }
+          return;
+        } finally {
+          if (mounted) setState(() => _walletPromptOpen = false);
+        }
+      }
+      await _wallet.submit(walletOrder);
       if (mounted) ref.invalidate(customerWalletSummaryProvider);
     }
   }

@@ -28,6 +28,8 @@ Map<String, dynamic> buildOrderSubmissionPayload(OrderModel order) {
     'item_description': order.itemDescription,
     'item_image_url': order.itemImageUrl,
     if (order.itemWeightKg != null) 'item_weight_kg': order.itemWeightKg,
+    if (order.cargoDetails != null)
+      'cargo_details': order.cargoDetails!.toSubmission(),
     'goods_value': order.goodsValue,
     'cod_collection_amount': order.codCollectionAmount,
     'delivery_fee_payer': order.deliveryFeePayer.databaseValue,

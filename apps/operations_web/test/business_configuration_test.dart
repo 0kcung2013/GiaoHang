@@ -65,6 +65,106 @@ class _DelayedRepository extends _Repository {
 }
 
 void main() {
+  test(
+    'cargo settings preserve old servers and validate ordered limits',
+    () async {
+      final oldRepo = _Repository();
+      final oldController = BusinessSettingsController(oldRepo);
+      await oldController.load();
+      expect(
+        oldController.validValues!.containsKey('cargo_pricing_enabled'),
+        isFalse,
+      );
+      oldController.dispose();
+
+      final repo = _Repository()
+        ..settings = BusinessSettings(values: CargoPricingPolicy.defaults);
+      final controller = BusinessSettingsController(repo);
+      await controller.load();
+      controller.edit('cargo_pricing_enabled', '1');
+      controller.edit('cargo_large_fee', '18.000');
+      expect(controller.pricingChanged, isTrue);
+      expect(controller.draftPricing!.number('cargo_large_fee'), 18000);
+      controller.edit('cargo_large_weight_g', '4');
+      expect(controller.validValues, isNull);
+      expect(controller.relationsError, isNotNull);
+      controller.edit('cargo_large_weight_g', '10');
+      controller.reason = 'Bật phụ phí hàng đã kiểm tra';
+      expect(await controller.save(), isTrue);
+      expect(repo.settings.number('cargo_pricing_enabled'), 1);
+      expect(repo.settings.number('cargo_large_fee'), 18000);
+      controller.dispose();
+    },
+  );
+
+  testWidgets('simulator includes highest cargo tier in total', (tester) async {
+    final settings = BusinessSettings(
+      values: {...CargoPricingPolicy.defaults, 'cargo_pricing_enabled': 1},
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: PricingSimulator(settings: settings),
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byKey(const ValueKey('pricing-weight')), '12');
+    await tester.pump();
+    expect(find.text('Phụ phí hàng · Rất lớn'), findsOneWidget);
+    expect(find.text(formatVnd(63000)), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final width in [390.0, 1440.0]) {
+    testWidgets('cargo admin fields render and toggle at $width', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repo = _Repository()
+        ..settings = BusinessSettings(values: CargoPricingPolicy.defaults);
+      final boundaryKey = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RepaintBoundary(
+            key: boundaryKey,
+            child: Scaffold(
+              body: BusinessConfigurationScreen(repository: repo),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final toggle = find.byKey(const ValueKey('1-cargo_pricing_enabled'));
+      await _revealIn(tester, _contentScrollable(), toggle);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(tester.widget<SwitchListTile>(toggle).value, isTrue);
+      if (Platform.environment['CARGO_PRICING_CAPTURE'] == '1') {
+        await tester.runAsync(() async {
+          final boundary =
+              boundaryKey.currentContext!.findRenderObject()!
+                  as RenderRepaintBoundary;
+          final rendered = await boundary.toImage();
+          final bytes = await rendered.toByteData(
+            format: ui.ImageByteFormat.png,
+          );
+          final file = File(
+            '../../artifacts/cargo_pricing_20261031/admin-${width.toInt()}.png',
+          );
+          await file.parent.create(recursive: true);
+          await file.writeAsBytes(bytes!.buffer.asUint8List());
+          rendered.dispose();
+        });
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   test('admin edits percentage rates with two decimal places', () async {
     final repo = _Repository();
     final controller = BusinessSettingsController(repo);

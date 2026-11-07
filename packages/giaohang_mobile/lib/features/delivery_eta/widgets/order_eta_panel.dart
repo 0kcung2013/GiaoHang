@@ -51,6 +51,31 @@ class _OrderEtaPanelState extends ConsumerState<OrderEtaPanel> {
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
+    if (order.isRecipientHeld) {
+      final time = VietnamTime.toWallClock(order.recipientHold!.until);
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: const BoxDecoration(
+          color: AppColors.bgWarm,
+          borderRadius: AppRadius.md,
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.pause_circle_outline_rounded,
+              color: AppColors.warning,
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                'Khách hẹn giao lại lúc ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
+                style: AppTextStyles.labelMedium,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final active =
         order.driverId != null &&
         const {'assigned', 'picking_up', 'delivering'}.contains(order.status);

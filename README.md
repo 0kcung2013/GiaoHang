@@ -71,6 +71,9 @@ Workspace chỉ có một `pubspec.lock` ở root.
 Phân loại khách hàng và phí sàn thực thu cho Customer/Driver, cấu hình Admin,
 setup backend/callback/secrets và đối soát: [Tài liệu bàn giao phí sàn](docs/handoff/platform_fee_collection.md).
 
+PIN 6 số khi khách trả phí bằng Ví, giới hạn nhập sai và cấu hình email khôi phục:
+[Tài liệu bàn giao PIN thanh toán](docs/handoff/customer_wallet_payment_pin.md).
+
 ## Customer App và Driver App
 
 ```bash
@@ -90,10 +93,12 @@ Source chính:
 Mỗi app chỉ cho phép tài khoản đúng vai trò. Không có lựa chọn chuyển vai trò trên trang đăng nhập/đăng ký.
 
 Chạy thử trên trình duyệt bằng `flutter run -d chrome` tại thư mục app tương ứng.
-Customer và Driver tự hiển thị bên trong mẫu điện thoại iPhone 13 có thân máy,
-tai thỏ và vùng an toàn. Màn hình app luôn là 390×844dp; cả chiếc điện thoại
-thu phóng để vừa cửa sổ trình duyệt, kể cả cửa sổ hẹp. Dialog và bottom sheet
-cũng nằm trong màn hình điện thoại. Android/iOS dùng kích thước thiết bị thực tế.
+Customer và Driver mặc định dùng Device Preview với Samsung Galaxy S20 (Android).
+Có thể đổi thiết bị và hướng màn hình trong thanh công cụ preview; khung điện
+thoại thu phóng để vừa cửa sổ trình duyệt. Dialog và bottom sheet cũng nằm trong
+màn hình điện thoại. Device Preview lưu lựa chọn trên trình duyệt: nếu phiên cũ
+vẫn hiện iPhone 13, chọn Android → Samsung Galaxy S20 một lần trong thanh công cụ.
+Android/iOS dùng kích thước thiết bị thực tế.
 
 Kiểm thử nghiệp vụ dùng chung: `cd packages/giaohang_mobile` rồi `flutter test`.
 Chi tiết cấu hình, callback và chạy hai app: [Tách app mobile](docs/mobile_apps.md).

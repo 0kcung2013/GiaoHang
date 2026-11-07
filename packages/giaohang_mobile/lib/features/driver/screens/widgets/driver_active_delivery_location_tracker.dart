@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../../core/location/driver_arrival_fix.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -6,13 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../../core/location/driver_active_delivery_tracking_policy.dart';
-import '../../../../core/location/driver_location_producer_policy.dart';
 import '../../../../core/models/order_model.dart';
 import '../../../../core/models/delivery_eta_route_profile.dart';
 import '../../../../core/providers/customer_providers.dart';
 import '../../../../core/providers/driver_nav_session_provider.dart';
 import '../../../../core/providers/location_providers.dart';
-import '../home/utils/driver_home_formatters.dart';
+import '../../../../core/providers/driver_active_gps_provider.dart';
+import '../../../../core/providers/driver_position_publisher_provider.dart';
+import '../../../../core/providers/driver_task_priority_provider.dart';
 import '../navigation/models/driver_delivery_workflow.dart';
 import '../navigation/utils/driver_demo_movement_tracker.dart';
 import '../navigation/utils/driver_navigation_route_logic.dart';
@@ -47,8 +49,7 @@ class _DriverActiveDeliveryLocationTrackerState
 
   @override
   Widget build(BuildContext context) {
-    final orders = ref.watch(driverOrdersProvider(widget.userId)).valueOrNull;
-    final active = orders?.where(isActiveDriverOrder).firstOrNull;
+    final active = ref.watch(driverLocationOwnerProvider(widget.userId));
     if (active != null) {
       _monitoredOrderId = active.id;
       _pickupArrivedAt = active.pickupArrivedAt;
@@ -57,7 +58,13 @@ class _DriverActiveDeliveryLocationTrackerState
     final child = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (active != null && driver != null)
+        if (active != null &&
+            driver != null &&
+            DriverActiveDeliveryTrackingPolicy.usesRouteSimulation(
+              isWeb: kIsWeb,
+              locationMode: ref.watch(driverLocationModeProvider),
+              isTrafficDemo: active.trafficDemoKey != null,
+            ))
           DriverOrderLocationHeartbeat(
             orderId: active.id,
             driverProfileId: driver.id,
@@ -98,19 +105,28 @@ class _DriverActiveDeliveryLocationTrackerState
   Widget _buildMovement(BuildContext context) {
     final userId = widget.userId;
     final driver = ref.watch(driverByUserIdProvider(userId)).valueOrNull;
-    final orders = ref.watch(driverOrdersProvider(userId)).valueOrNull;
-    final activeOrders =
-        orders?.where(isActiveDriverOrder).toList() ?? const <OrderModel>[];
-    final activeOrder = activeOrders.isEmpty ? null : activeOrders.first;
+    final activeOrder = ref.watch(driverLocationOwnerProvider(userId));
     if (driver == null || activeOrder == null) {
       _stopDemoPublisher();
       return const SizedBox.shrink();
     }
 
+    final mode = ref.watch(driverLocationModeProvider);
+    if (!DriverActiveDeliveryTrackingPolicy.usesRouteSimulation(
+      isWeb: kIsWeb,
+      locationMode: mode,
+      isTrafficDemo: activeOrder.trafficDemoKey != null,
+    )) {
+      _stopDemoPublisher();
+      ref.watch(driverActiveGpsProvider(userId));
+      return const SizedBox.shrink();
+    }
+
     final session = ref.watch(driverNavSessionsProvider)[activeOrder.id];
     final locationMode = ref.watch(driverLocationModeProvider);
+    // A map for either task owns the single physical publisher.
     final isNavigationMapOpen =
-        ref.watch(activeDriverNavigationOrderProvider) == activeOrder.id;
+        ref.watch(activeDriverNavigationOrderProvider) != null;
     final hasRestoredNavigationSession =
         session != null &&
         session.canRestoreFor(
@@ -133,7 +149,9 @@ class _DriverActiveDeliveryLocationTrackerState
           canSimulateMovement: canSimulateMovement,
           isTrafficDemo: activeOrder.trafficDemoKey != null,
         );
-    if (shouldRunDemoPublisher && session?.movementRunning == true) {
+    if (!activeOrder.isRecipientHeld &&
+        shouldRunDemoPublisher &&
+        session?.movementRunning == true) {
       _requestDemoPublisher(
         _DemoPublisherRequest(
           order: activeOrder,
@@ -146,17 +164,6 @@ class _DriverActiveDeliveryLocationTrackerState
     }
     _stopDemoPublisher();
 
-    if (!DriverActiveDeliveryTrackingPolicy.shouldUseLiveGps(
-      isWeb: kIsWeb,
-      locationMode: locationMode,
-      isNavigationMapOpen: isNavigationMapOpen,
-      hasRestoredNavigationSession: hasRestoredNavigationSession,
-      isTrafficDemo: activeOrder.trafficDemoKey != null,
-    )) {
-      return const SizedBox.shrink();
-    }
-
-    ref.watch(driverLocationStreamProvider(driver.id));
     return const SizedBox.shrink();
   }
 
@@ -177,19 +184,39 @@ class _DriverActiveDeliveryLocationTrackerState
   }
 
   Future<void> _startDemoPublisher(_DemoPublisherRequest request) async {
-    final initialPosition = LatLng(request.session.lat, request.session.lng);
+    // Another task may have moved since this task's session was saved.
+    final driver = ref.read(driverByUserIdProvider(widget.userId)).valueOrNull;
+    final shared = ref.read(driverPhysicalPositionProvider);
+    final latest = driver?.currentLat != null && driver?.currentLng != null
+        ? LatLng(driver!.currentLat!, driver.currentLng!)
+        : null;
+    final initialPosition = shared ?? latest;
+    if (initialPosition == null) return;
     final waypoints = DriverNavigationRouteLogic.buildWaypoints(
       order: request.order,
       driverPosition: initialPosition,
     );
-    final profile = DeliveryEtaRouteProfile.forOrder(request.order);
-    if (request.order.trafficDemoKey != null && profile == null) return;
+    final candidate = request.order.trafficDemoKey == null
+        ? null
+        : DeliveryEtaRouteProfile.forOrder(request.order);
+    final profile =
+        candidate != null &&
+            DriverNavigationRouteLogic.distanceFromRoute(
+                  candidate.points,
+                  initialPosition,
+                ) <=
+                30 &&
+            const Distance()(candidate.points.last, waypoints.last) <= 100
+        ? candidate
+        : null;
+    if (request.order.trafficDemoKey != null && candidate == null) return;
     final route = profile != null
         ? null
         : await OsrmService().getRouteWithWaypoints(waypoints: waypoints);
-    if (!mounted || _requestedDemoKey != request.key) return;
+    if (!_ownsDemoPublisher(request)) return;
 
-    final points = profile?.points ?? route?.points ?? waypoints;
+    final points = profile?.points ?? route?.points;
+    if (points == null) return;
     if (points.length < 2) return;
 
     final nearest = DriverNavigationRouteLogic.nearestRouteIndex(
@@ -211,7 +238,7 @@ class _DriverActiveDeliveryLocationTrackerState
       metersForDuration: profile?.metersForDuration,
       geometryScale: profile?.geometryScale ?? 1,
       canMove: () =>
-          mounted &&
+          _ownsDemoPublisher(request) &&
           ref
                   .read(driverNavSessionsProvider)[request.order.id]
                   ?.movementRunning ==
@@ -244,34 +271,24 @@ class _DriverActiveDeliveryLocationTrackerState
     required bool reachedEnd,
     required double speedKmh,
   }) async {
-    if (!mounted || _requestedDemoKey != request.key) return;
-
-    unawaited(
-      ref
-          .read(realtimeServiceProvider)
-          .broadcastDriverLocation(
-            orderId: request.order.id,
-            lat: position.latitude,
-            lng: position.longitude,
-            speedKmh: speedKmh,
-          ),
-    );
-    unawaited(
-      ref
-          .read(locationIngestServiceProvider)
-          .ingest(
-            driverProfileId: request.driverProfileId,
-            driverUserId: request.driverUserId,
-            orderId: request.order.id,
-            lat: position.latitude,
-            lng: position.longitude,
-            prioritySync: true,
-            speed: speedKmh / 3.6,
-            accuracy: 0,
+    if (!_ownsDemoPublisher(request)) return;
+    await ref
+        .read(driverPositionPublisherProvider)
+        .publish(
+          driverUserId: request.driverUserId,
+          driverProfileId: request.driverProfileId,
+          orderId: request.order.id,
+          speedKmh: speedKmh,
+          fix: DriverArrivalFix(
+            position: position,
             capturedAt: DateTime.now(),
-            coordinateSpace: LocationIngestCoordinateSpace.mapCoordinates,
+            accuracy: 0,
+            simulated: true,
+            mode: ref.read(driverLocationModeProvider),
+            trafficDemoKey: request.order.trafficDemoKey,
           ),
-    );
+        );
+    if (!_ownsDemoPublisher(request)) return;
     await ref
         .read(driverNavSessionsProvider.notifier)
         .upsert(
@@ -286,6 +303,13 @@ class _DriverActiveDeliveryLocationTrackerState
           ),
         );
   }
+
+  bool _ownsDemoPublisher(_DemoPublisherRequest request) =>
+      mounted &&
+      _requestedDemoKey == request.key &&
+      ref.read(activeDriverNavigationOrderProvider) == null &&
+      ref.read(driverLocationOwnerProvider(widget.userId))?.id ==
+          request.order.id;
 }
 
 class _DemoPublisherRequest {

@@ -64,6 +64,13 @@ class SettingsHistory extends StatelessWidget {
                             revision.previousValues![key] !=
                             revision.settings.values[key],
                       ) ||
+                      revision.settings.values.keys
+                          .where((key) => key.startsWith('cargo_'))
+                          .any(
+                            (key) =>
+                                revision.previousValues![key] !=
+                                revision.settings.values[key],
+                          ) ||
                       revision.previousValues!.containsKey(
                             'long_distance_threshold_m',
                           ) !=

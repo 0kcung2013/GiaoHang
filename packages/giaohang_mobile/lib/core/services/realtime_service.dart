@@ -363,9 +363,11 @@ class RealtimeService {
   /// không phụ thuộc re-fetch có thể stale / loading.
   RealtimeChannel subscribeToDriverLocation(
     String driverId,
-    void Function(Map<String, dynamic>? newRecord) onLocationChange,
-  ) {
-    final channelName = 'driver_location:$driverId';
+    void Function(Map<String, dynamic>? newRecord) onLocationChange, {
+    String? subscriptionKey,
+  }) {
+    final channelName =
+        'driver_location:$driverId${subscriptionKey == null ? '' : ':$subscriptionKey'}';
 
     _removeChannel(channelName);
     debugPrint('[RealtimeService] Subscribing to $channelName');
@@ -409,6 +411,7 @@ class RealtimeService {
     required double lat,
     required double lng,
     double? speedKmh,
+    DateTime? sampledAt,
   }) async {
     final channelName = 'order_driver_loc:$orderId';
     var channel = _channels[channelName];
@@ -424,7 +427,7 @@ class RealtimeService {
           'lat': lat,
           'lng': lng,
           'speed_kmh': ?speedKmh,
-          'ts': DateTime.now().toUtc().toIso8601String(),
+          'ts': (sampledAt ?? DateTime.now()).toUtc().toIso8601String(),
         },
       );
     } catch (e) {

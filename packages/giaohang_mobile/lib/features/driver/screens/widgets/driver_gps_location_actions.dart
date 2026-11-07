@@ -10,16 +10,18 @@ class DriverGpsLocationActions extends StatelessWidget {
     required this.canUseDemo,
     required this.onUseDemoCurrentPosition,
     required this.onUseDemoHcm,
+    this.enabled = true,
   });
 
   final DriverLocationMode? applyingMode;
   final bool canUseDemo;
+  final bool enabled;
   final VoidCallback onUseDemoCurrentPosition;
   final VoidCallback onUseDemoHcm;
 
   @override
   Widget build(BuildContext context) {
-    final isApplying = applyingMode != null;
+    final isApplying = applyingMode != null || !enabled;
     final demoLabel = applyingMode == DriverLocationMode.demoHcm
         ? 'Đang áp dụng demo...'
         : 'Dùng vị trí demo TP.HCM';
@@ -31,8 +33,8 @@ class DriverGpsLocationActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SizedBox(
-          height: 52,
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 52),
           child: OutlinedButton.icon(
             key: const ValueKey('use-demo-current-position'),
             onPressed: isApplying ? null : onUseDemoCurrentPosition,
@@ -52,8 +54,8 @@ class DriverGpsLocationActions extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        SizedBox(
-          height: 52,
+        ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 52),
           child: FilledButton.icon(
             key: const ValueKey('use-demo-hcm'),
             onPressed: isApplying || !canUseDemo ? null : onUseDemoHcm,

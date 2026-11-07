@@ -11,13 +11,13 @@ void main() {
       expect(GeoUtils.enableTestDriverOffsets, isTrue);
     });
 
-    test('defaults the app session to device GPS', () {
+    test('defaults the demo app session to current-position demo', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
       expect(
         container.read(driverLocationModeProvider),
-        DriverLocationMode.deviceGps,
+        DriverLocationMode.demoCurrentPosition,
       );
     });
 
@@ -58,7 +58,7 @@ void main() {
       expect(resolved, const LatLng(21.0285, 105.8542));
       expect(
         DriverLocationMode.demoCurrentPosition.rawGpsCoordinateSpace,
-        LocationIngestCoordinateSpace.mapCoordinates,
+        LocationIngestCoordinateSpace.currentDemoGps,
       );
     });
   });

@@ -1,4 +1,6 @@
-import 'package:giaohang_domain/giaohang_domain.dart' show formatVndDigits;
+import 'package:giaohang_domain/giaohang_domain.dart'
+    show formatVndDigits, CargoPricingPolicy;
+import 'cargo_settings_fields.dart';
 
 class SettingsField {
   const SettingsField(
@@ -116,6 +118,7 @@ const settingsGroups = [
         description:
             'Tính trên cước giao đã chốt của đơn; đơn vị vận hành chi trả.',
       ),
+      ...cargoSettingsFields,
     ],
   ),
   SettingsGroup(
@@ -266,5 +269,5 @@ String? validateSettingsRelations(Map<String, dynamic> values) {
   if (n('offer_seconds') > n('assignment_minutes') * 60) {
     return 'Thời gian lời mời không được vượt thời gian tìm tài xế.';
   }
-  return null;
+  return CargoPricingPolicy.validateSettings(values);
 }

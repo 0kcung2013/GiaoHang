@@ -53,7 +53,7 @@ test("the table direction is every driver to pickup, including one-way streets",
   assert.match(request.pathname, /106\.7001,10\.8001;106\.705,10\.805;106\.7,10\.8$/);
 });
 
-test("road distance wins over duration; equal distances use duration and stable ID", async () => {
+test("road distance wins over duration", async () => {
   const result = await rankDriversByRoadDistance(candidates, pickup, {
     fetcher: matrix([[900], [700]], [[60], [120]]),
   });
@@ -106,4 +106,60 @@ test("FreePick includes the 3 km boundary and excludes every longer road route",
   ], { fetcher: matrix([[2500, 1500, 3000, 3000.1]], [[300, 150, 400, 500]]) });
   assert.deepEqual(result.map(x => x.id), ["near-gps", "at-limit"]);
   assert.equal(result[0].pickup_road_distance_meters, 2500);
+});
+
+
+test("equal road distances prefer rating over a shorter duration or lower driver ID", async () => {
+  const result = await rankDriversByRoadDistance([
+    { ...candidates[0], rating: 4.1 },
+    { ...candidates[1], rating: 4.9 },
+  ], pickup, { fetcher: matrix([[1000], [1000]], [[60], [300]]) });
+  assert.deepEqual(result.map(x => x.user_id), ["driver-b", "driver-a"]);
+});
+
+test("rating never overrules even a small real road distance difference", async () => {
+  const result = await rankDriversByRoadDistance([
+    { ...candidates[0], rating: 1 },
+    { ...candidates[1], rating: 5 },
+  ], pickup, { fetcher: matrix([[1000], [1000.1]], [[300], [60]]) });
+  assert.deepEqual(result.map(x => x.user_id), ["driver-a", "driver-b"]);
+});
+
+for (const unrated of [null, undefined, 0]) {
+  test(`unrated score ${unrated} loses a distance tie to an actual customer rating`, async () => {
+    const result = await rankDriversByRoadDistance([
+      { ...candidates[0], rating: unrated },
+      { ...candidates[1], rating: 1 },
+    ], pickup, { fetcher: matrix([[1000], [1000]], [[60], [300]]) });
+    assert.deepEqual(result.map(x => x.user_id), ["driver-b", "driver-a"]);
+  });
+}
+
+test("equal distance and rating keep duration and stable ID as final tie breakers", async () => {
+  const drivers = [
+    { user_id: "driver-c", lat: 10.81, lng: 106.71, rating: 4.8 },
+    { ...candidates[1], rating: 4.8 },
+    { ...candidates[0], rating: 4.8 },
+  ];
+  const result = await rankDriversByRoadDistance(drivers, pickup, {
+    fetcher: matrix([[1000], [1000], [1000]], [[60], [120], [120]]),
+  });
+  assert.deepEqual(result.map(x => x.user_id), ["driver-c", "driver-a", "driver-b"]);
+});
+
+test("rating ties are resolved across OSRM batches before the caller limits results", async () => {
+  const many = Array.from({ length: 60 }, (_, i) => ({
+    user_id: `driver-${i}`, lat: 10.8 + i * 0.00001, lng: 106.7,
+    rating: i === 59 ? 5 : 4,
+  }));
+  const result = await rankDriversByRoadDistance(many, pickup, {
+    fetcher: async (url) => {
+      const count = new URL(url).searchParams.get("sources").split(";").length;
+      return Response.json({ code: "Ok",
+        distances: Array.from({ length: count }, () => [1000]),
+        durations: Array.from({ length: count }, () => [100]),
+      });
+    },
+  });
+  assert.equal(result[0].user_id, "driver-59");
 });

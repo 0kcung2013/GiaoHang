@@ -8,10 +8,10 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  test('defaults to device GPS when no mode was selected', () async {
+  test('defaults to current-position demo when no mode was selected', () async {
     final store = DriverLocationModeStore();
 
-    expect(await store.load(), DriverLocationMode.deviceGps);
+    expect(await store.load(), DriverLocationMode.demoCurrentPosition);
   });
 
   test('restores the selected Utraffic demo mode', () async {

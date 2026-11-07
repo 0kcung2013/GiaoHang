@@ -4,6 +4,7 @@ import 'package:giaohang_design/giaohang_design.dart';
 import '../models/order_model.dart';
 import '../utils/order_cargo_utils.dart';
 import 'stored_media_image.dart';
+import 'cargo_pricing_summary.dart';
 
 class OrderCargoInfoBlock extends StatelessWidget {
   const OrderCargoInfoBlock({
@@ -63,6 +64,13 @@ class OrderCargoInfoBlock extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                if (order.cargoDetails != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  CargoPricingSummary(
+                    details: order.cargoDetails!,
+                    policy: order.businessPolicy,
+                  ),
+                ],
                 if ((order.itemDescription ?? '').trim().isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.xs),
                   Text(

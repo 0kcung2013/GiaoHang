@@ -20,6 +20,7 @@ export async function rankDriversByRoadDistance(candidates, pickup, options = {}
     });
   }
   return ranked.sort((a, b) => a.distance_meters - b.distance_meters ||
+    (b.rating ?? 0) - (a.rating ?? 0) ||
     a.duration_seconds - b.duration_seconds || String(a.user_id).localeCompare(String(b.user_id)));
 }
 
@@ -47,6 +48,32 @@ export async function quotePickupRoute(driver, pickup, options = {}) {
   const origin = point(driver);
   const target = point(pickup);
   return cell(await loadTable([origin, target], [0], [1], options), 0, 0, origin, target);
+}
+
+// Batch the extra legs used by destination dispatch. At most 50 coordinates per
+// OSRM request; avoid two sequential HTTP requests for every candidate.
+export async function quoteDestinationLegs(candidates, pickup, delivery, options = {}) {
+  const results = [];
+  const pick = point(pickup), drop = point(delivery);
+  for (let offset = 0; offset < candidates.length; offset += 24) {
+    const batch = candidates.slice(offset, offset + 24);
+    const origins = batch.map(point);
+    const targets = batch.map(c => point({lat: c.destination_lat, lng: c.destination_lng}));
+    const points = [pick, drop, ...origins, ...targets];
+    const sources = [0, 1, ...origins.map((_, i) => i + 2)];
+    const destinations = [1, ...targets.map((_, i) => i + 2 + origins.length)];
+    try {
+      const table = await loadTable(points, sources, destinations, options);
+      const deliveryQuote = cell(table, 0, 0, pick, drop);
+      batch.forEach((candidate, i) => {
+        const direct = cell(table, i + 2, i + 1, origins[i], targets[i]);
+        const remaining = cell(table, 1, i + 1, drop, targets[i]);
+        if (deliveryQuote && direct && remaining) results.push({candidate,
+          direct: direct.distance_meters, delivery: deliveryQuote.distance_meters, remaining: remaining.distance_meters});
+      });
+    } catch { /* Exclude unroutable destination batches, retaining ordinary drivers. */ }
+  }
+  return results;
 }
 
 async function loadTable(points, sources, destinations, {

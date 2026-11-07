@@ -76,6 +76,35 @@ class SupportOrderCargoCard extends StatelessWidget {
             ),
           ],
         ),
+        if (order.cargoDetails != null) ...[
+          const SizedBox(height: AppSpacing.lg),
+          SupportOrderInfoFacts(
+            children: [
+              SupportOrderInfoFact(
+                label: 'Số kiện',
+                value: '${order.cargoDetails!.packageCount}',
+              ),
+              SupportOrderInfoFact(
+                label: 'Kích thước khi xếp chung',
+                value: order.cargoDetails!.sizeGroup.label,
+              ),
+              SupportOrderInfoFact(
+                label:
+                    'Phụ phí hàng · ${order.cargoDetails!.tier?.label ?? ''}',
+                value: formatVnd(order.cargoDetails!.surcharge),
+              ),
+              if (order.businessPolicy != null &&
+                  CargoPricingPolicy.supported(order.businessPolicy!))
+                SupportOrderInfoFact(
+                  label: 'Giới hạn kích thước đã chốt',
+                  value: CargoPricingPolicy.dimensions(
+                    order.businessPolicy!,
+                    order.cargoDetails!.sizeGroup,
+                  ),
+                ),
+            ],
+          ),
+        ],
         if (order.itemDescription?.trim().isNotEmpty == true) ...[
           const SizedBox(height: AppSpacing.lg),
           SupportOrderInfoFact(

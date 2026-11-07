@@ -1,5 +1,10 @@
 # Không liên lạc được người nhận — luồng đã chốt
 
+> Bổ sung 2026-10-29: khi đã liên lạc và người nhận chủ động hẹn giao lại, dùng
+> [luồng Giữ đơn](handoff/driver_recipient_hold.md), hỗ trợ một đơn giữ và một đơn
+> đang thực hiện. Các giới hạn “chưa mở nhận đơn mới” bên dưới mô tả luồng báo
+> không liên lạc cũ, không áp dụng cho yêu cầu giữ đơn mới đã ghi nhận trên server.
+
 ## Luồng hiện tại
 
 1. Tài xế xác nhận đã đến điểm giao; thời gian chờ 10 phút được ghi nhận bằng

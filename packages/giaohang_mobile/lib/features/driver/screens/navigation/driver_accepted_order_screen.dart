@@ -8,6 +8,7 @@ import 'driver_navigation_screen.dart';
 import 'widgets/driver_order_cancellation_guard.dart';
 import '../home/utils/driver_home_formatters.dart';
 import '../home/widgets/driver_order_offer_summary.dart';
+import '../../recipient_hold/driver_held_order_card.dart';
 
 void openDriverAcceptedOrder(BuildContext context, String orderId) {
   prepareDriverAcceptedOrderNavigation(context, orderId)();
@@ -47,6 +48,15 @@ class DriverAcceptedOrderScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final order = ref.watch(orderByIdProvider(orderId));
     final accepted = order.valueOrNull;
+    if (accepted?.isRecipientHeld == true) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Đơn đang giữ')),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: DriverHeldOrderCard(order: accepted!),
+        ),
+      );
+    }
     if (accepted != null &&
         accepted.driverId?.isNotEmpty == true &&
         isActiveDriverOrder(accepted)) {

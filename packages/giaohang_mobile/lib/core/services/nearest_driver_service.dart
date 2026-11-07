@@ -61,7 +61,7 @@ class NearestDriverService {
     }
   }
 
-  /// Chỉ giữ đơn mà tài xế hiện tại là ứng viên hợp lệ gần nhất.
+  /// Ưu tiên khoảng cách đường bộ, rồi rating cao hơn khi bằng khoảng cách.
   Future<List<OrderModel>> filterOrdersForNearestDriver(
     List<OrderModel> orders,
     String driverUserId,
@@ -226,6 +226,8 @@ class NearestDriverService {
     withDistance.sort((left, right) {
       final byDistance = left.distanceMeters!.compareTo(right.distanceMeters!);
       if (byDistance != 0) return byDistance;
+      final byRating = right.rating.compareTo(left.rating);
+      if (byRating != 0) return byRating;
       return left.userId.compareTo(right.userId);
     });
     return withDistance;

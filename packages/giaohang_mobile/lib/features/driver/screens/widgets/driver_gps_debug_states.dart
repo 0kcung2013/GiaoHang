@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
+import 'driver_gps_debug_strings.dart';
 
 class DriverGpsLoadingState extends StatelessWidget {
   const DriverGpsLoadingState({super.key});
@@ -10,10 +11,10 @@ class DriverGpsLoadingState extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Đang lấy GPS hiện tại...', style: AppTextStyles.headingSmall),
+        Text(DriverGpsDebugStrings.loading, style: AppTextStyles.headingSmall),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          'Quá trình này có thể mất vài giây.',
+          DriverGpsDebugStrings.loadingHint,
           style: AppTextStyles.bodySmall.copyWith(
             color: AppColors.textSecondary,
           ),
@@ -81,7 +82,12 @@ class DriverGpsErrorState extends StatelessWidget {
             child: FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Thử lại'),
+              label: Text(
+                'Thử lại',
+                style: AppTextStyles.labelMedium.copyWith(
+                  color: AppColors.textOnAccent,
+                ),
+              ),
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.accent,
                 foregroundColor: AppColors.textOnAccent,

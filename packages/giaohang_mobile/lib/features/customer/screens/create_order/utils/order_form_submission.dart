@@ -31,6 +31,7 @@ OrderModel buildOrderFromForm({
       : data.itemDescription.trim(),
   itemImageUrl: itemImageUrl,
   itemWeightKg: data.itemWeightKg,
+  cargoDetails: data.cargoDetails,
   quotedDistanceMeters: data.settingsRevision != null
       ? data.distanceMeters
       : null,

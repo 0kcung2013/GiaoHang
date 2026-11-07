@@ -4,16 +4,13 @@ import 'driver_location_producer_policy.dart';
 class DriverActiveDeliveryTrackingPolicy {
   const DriverActiveDeliveryTrackingPolicy._();
 
-  /// Web không có foreground GPS ổn định. Android/iOS cũng dùng mô phỏng tuyến
-  /// khi tài xế chủ động chọn vị trí demo, thay vì để GPS thật ghi đè demo.
+  /// Chỉ mô phỏng khi tài xế chọn demo hoặc đơn thuộc kịch bản traffic demo.
   static bool usesRouteSimulation({
     required bool isWeb,
     required DriverLocationMode locationMode,
     bool isTrafficDemo = false,
   }) {
-    return isTrafficDemo ||
-        isWeb ||
-        locationMode != DriverLocationMode.deviceGps;
+    return isTrafficDemo || locationMode != DriverLocationMode.deviceGps;
   }
 
   /// Khi map đóng, GPS thật tiếp tục chạy ở device mode. Với session mô phỏng,
@@ -25,16 +22,11 @@ class DriverActiveDeliveryTrackingPolicy {
     required bool hasRestoredNavigationSession,
     bool isTrafficDemo = false,
   }) {
-    if (isNavigationMapOpen || isTrafficDemo) return false;
-    if (hasRestoredNavigationSession &&
-        usesRouteSimulation(
-          isWeb: isWeb,
-          locationMode: locationMode,
-          isTrafficDemo: isTrafficDemo,
-        )) {
-      return false;
-    }
-    return true;
+    return !usesRouteSimulation(
+      isWeb: isWeb,
+      locationMode: locationMode,
+      isTrafficDemo: isTrafficDemo,
+    );
   }
 
   /// Khi map mô phỏng đã đóng, shell tiếp tục phát tiến trình của chặng hiện tại.

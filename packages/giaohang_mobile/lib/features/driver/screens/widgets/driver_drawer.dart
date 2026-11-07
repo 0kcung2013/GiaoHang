@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../core/services/auth_service.dart';
 import 'driver_drawer_availability.dart';
+import '../../dispatch_preferences/dispatch_preferences_strings.dart';
 import '../../../help_center/help_center_strings.dart';
 
 class DriverDrawer extends StatelessWidget {
@@ -94,6 +95,12 @@ class DriverDrawer extends StatelessWidget {
                       child: DriverDrawerAvailability(userId: userId!),
                     ),
                   const SizedBox(height: AppSpacing.md),
+                  _DrawerItem(
+                    icon: Icons.tune_rounded,
+                    label: DispatchPreferencesStrings.title,
+                    active: currentIndex == 5,
+                    onTap: () => _navigate(context, 5),
+                  ),
                   _DrawerItem(
                     icon: Icons.home_rounded,
                     label: 'Tổng quan',

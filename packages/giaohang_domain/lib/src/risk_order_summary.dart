@@ -1,4 +1,5 @@
 import 'cargo_weight.dart';
+import 'cargo_pricing.dart';
 import 'driver_monitoring.dart';
 import 'business_settings.dart';
 
@@ -26,6 +27,7 @@ class RiskOrderSummary {
     this.itemDescription,
     this.itemImageUrl,
     this.itemWeightKg,
+    this.cargoDetails,
     this.note,
     this.statusNote,
     this.serviceType,
@@ -71,6 +73,7 @@ class RiskOrderSummary {
   final String? itemDescription;
   final String? itemImageUrl;
   final double? itemWeightKg;
+  final CargoDetails? cargoDetails;
   final String? note;
   final String? statusNote;
   final String? serviceType;
@@ -141,6 +144,7 @@ class RiskOrderSummary {
       itemDescription: json['item_description']?.toString(),
       itemImageUrl: json['item_image_url']?.toString(),
       itemWeightKg: parseCargoWeightKg(json['item_weight_kg']),
+      cargoDetails: CargoDetails.fromJson(json['cargo_details']),
       note: json['note']?.toString(),
       statusNote: json['status_note']?.toString(),
       serviceType: json['service_type']?.toString(),
@@ -189,6 +193,7 @@ class RiskOrderSummary {
     'item_description': itemDescription,
     'item_image_url': itemImageUrl,
     'item_weight_kg': itemWeightKg,
+    if (cargoDetails != null) 'cargo_details': cargoDetails!.toJson(),
     'note': note,
     'status_note': statusNote,
     'service_type': serviceType,

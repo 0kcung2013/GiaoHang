@@ -5,6 +5,7 @@ export 'src/business_settings.dart';
 export 'src/driver_model.dart';
 export 'src/driver_profile_change_request.dart';
 export 'src/delivery_pricing_policy.dart';
+export 'src/cargo_pricing.dart';
 export 'src/money_formatter.dart';
 export 'src/order_return.dart';
 export 'src/case_message.dart';

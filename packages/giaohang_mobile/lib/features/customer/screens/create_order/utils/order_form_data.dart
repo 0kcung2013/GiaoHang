@@ -1,5 +1,6 @@
 import 'package:image_picker/image_picker.dart';
-import 'package:giaohang_domain/giaohang_domain.dart' show BusinessSettings;
+import 'package:giaohang_domain/giaohang_domain.dart'
+    show BusinessSettings, CargoDetails;
 
 import '../../../../../core/utils/delivery_eta_calculator.dart';
 import '../../../../../core/utils/delivery_pricing_policy.dart';
@@ -27,6 +28,7 @@ class OrderFormData {
   final String itemCategory;
   final String itemDescription;
   final double? itemWeightKg;
+  final CargoDetails? cargoDetails;
   final XFile? cargoImage;
   final String paymentMethod;
   final DeliveryFeePayer deliveryFeePayer;
@@ -74,6 +76,7 @@ class OrderFormData {
     required this.itemCategory,
     required this.itemDescription,
     this.itemWeightKg,
+    this.cargoDetails,
     required this.cargoImage,
     required this.paymentMethod,
     required this.deliveryFeePayer,

@@ -2,8 +2,8 @@ import 'package:latlong2/latlong.dart';
 
 /// Nội suy vị trí chỉ cho lớp hiển thị trên bản đồ điều hướng.
 ///
-/// Tọa độ GPS đã snap vẫn là dữ liệu chính xác để tính trạng thái và gửi lên
-/// server; nội suy giúp icon đi liên tục giữa hai lần nhận mẫu GPS.
+/// Chỉ dùng để tiến bước trên tuyến mô phỏng được chọn rõ ràng.
+/// GPS thực không bị sửa theo geometry của tuyến.
 class DriverNavigationMotion {
   const DriverNavigationMotion._();
 

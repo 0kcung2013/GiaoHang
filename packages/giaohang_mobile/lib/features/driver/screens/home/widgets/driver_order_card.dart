@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../recipient_hold/driver_held_order_card.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
@@ -226,6 +227,9 @@ class _DriverOrderCardState extends ConsumerState<DriverOrderCard> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.order.isRecipientHeld) {
+      return DriverHeldOrderCard(order: widget.order);
+    }
     final order = widget.order;
     final color = statusColor(order.status);
     final canAccept = widget.acceptDriverId != null && isAvailableOrder(order);

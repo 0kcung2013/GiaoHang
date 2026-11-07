@@ -18,9 +18,12 @@ class PricingSimulator extends StatefulWidget {
 
 class _PricingSimulatorState extends State<PricingSimulator> {
   final _distance = TextEditingController(text: '5');
+  final _weight = TextEditingController(text: '1');
+  CargoSizeGroup _size = CargoSizeGroup.standard;
   @override
   void dispose() {
     _distance.dispose();
+    _weight.dispose();
     super.dispose();
   }
 
@@ -29,10 +32,19 @@ class _PricingSimulatorState extends State<PricingSimulator> {
     final settings = widget.settings;
     final km = double.tryParse(_distance.text.trim().replaceAll(',', '.'));
     final valid = km != null && km.isFinite && km >= 0 && km <= 2000;
-    final fee = settings != null && valid
+    final cargoEnabled =
+        settings != null && CargoPricingPolicy.enabled(settings);
+    final weight = parseCargoWeightKg(_weight.text);
+    final weightValid =
+        !cargoEnabled ||
+        (isCargoWeightInput(_weight.text) &&
+            weight! * 1000 <= settings.number('cargo_extra_large_weight_g'));
+    final fee = settings != null && valid && weightValid
         ? DeliveryPricingPolicy.calculate(
             distanceMeters: km * 1000,
             settings: settings,
+            weightKg: weight,
+            cargo: cargoEnabled ? CargoDetails(sizeGroup: _size) : null,
           )
         : null;
     return Column(
@@ -68,6 +80,45 @@ class _PricingSimulatorState extends State<PricingSimulator> {
             ),
           ),
         ),
+        if (cargoEnabled) ...[
+          const SizedBox(height: AppSpacing.md),
+          TextFormField(
+            key: const ValueKey('pricing-weight'),
+            controller: _weight,
+            enabled: widget.enabled,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            style: AppTextStyles.bodyMedium,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              labelText: 'Tổng cân nặng',
+              suffixText: 'kg',
+              errorText: weightValid
+                  ? null
+                  : 'Cân nặng không hợp lệ hoặc vượt giới hạn.',
+              errorMaxLines: 3,
+              border: const OutlineInputBorder(borderRadius: AppRadius.md),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          DropdownButtonFormField<CargoSizeGroup>(
+            initialValue: _size,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Kích thước khi xếp chung',
+              border: OutlineInputBorder(borderRadius: AppRadius.md),
+            ),
+            items: [
+              for (final group in CargoSizeGroup.values)
+                DropdownMenuItem(
+                  value: group,
+                  child: Text(group.label, style: AppTextStyles.bodyMedium),
+                ),
+            ],
+            onChanged: widget.enabled
+                ? (value) => setState(() => _size = value!)
+                : null,
+          ),
+        ],
         if (fee != null) ...[
           const SizedBox(height: AppSpacing.lg),
           _FeeLine(label: SettingsStrings.baseFee, value: fee.baseFee),
@@ -79,6 +130,11 @@ class _PricingSimulatorState extends State<PricingSimulator> {
             )
           else
             Text(SettingsStrings.includedOnly, style: AppTextStyles.bodySmall),
+          if (fee.cargoDetails != null)
+            _FeeLine(
+              label: 'Phụ phí hàng · ${fee.cargoDetails!.tier!.label}',
+              value: fee.cargoSurcharge,
+            ),
           _FeeLine(
             label: SettingsStrings.rounding,
             value: fee.roundingAdjustment,

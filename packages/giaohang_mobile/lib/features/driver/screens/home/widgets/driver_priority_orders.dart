@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../../core/providers/driver_task_priority_provider.dart';
+import '../../../recipient_hold/driver_held_order_card.dart';
+import '../../../recipient_hold/driver_working_order_card.dart';
+import '../../../../../core/location/driver_workload_policy.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
@@ -10,7 +15,7 @@ import 'driver_order_card.dart';
 ///
 /// Đơn đang thực hiện luôn đứng trước. Đơn có thể nhận được xếp theo khoảng
 /// cách đến điểm lấy hàng nếu đã có vị trí tài xế.
-class DriverPriorityOrders extends StatelessWidget {
+class DriverPriorityOrders extends ConsumerWidget {
   const DriverPriorityOrders({
     super.key,
     required this.availableOrders,
@@ -27,8 +32,49 @@ class DriverPriorityOrders extends StatelessWidget {
   final LatLng? driverPosition;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final activeOrders = driverOrders.where(isActiveDriverOrder).toList();
+    final held = activeOrders.where((o) => o.isRecipientHeld).firstOrNull;
+    if (held != null ||
+        (activeOrders.length > 1 &&
+            activeOrders.any((o) => o.recipientHold != null))) {
+      final priority = DriverWorkloadPolicy.locationOwner(
+        activeOrders,
+        preferredOrderId: ref.watch(driverPriorityOrderIdProvider),
+      );
+      final working =
+          activeOrders.where(DriverWorkloadPolicy.isWorking).toList()..sort(
+            (a, b) => (a.id == priority?.id ? 0 : 1).compareTo(
+              b.id == priority?.id ? 0 : 1,
+            ),
+          );
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Việc cần làm · ${activeOrders.length} đơn',
+            style: AppTextStyles.headingSmall,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          for (final order in working) ...[
+            DriverWorkingOrderCard(
+              order: order,
+              isPriority: order.id == priority?.id,
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
+          if (held != null) DriverHeldOrderCard(order: held),
+          if (working.isEmpty && availableOrders.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.lg),
+            DriverOrderCard(
+              order: availableOrders.first,
+              acceptDriverId: driverUserId,
+              driverPosition: driverPosition,
+            ),
+          ],
+        ],
+      );
+    }
     final sortedAvailable = [...availableOrders]
       ..sort((left, right) {
         final leftDistance = pickupDistancesMeters[left.id];

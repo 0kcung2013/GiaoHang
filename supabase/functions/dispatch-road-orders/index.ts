@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import { rankDriversByRoadDistance } from '../_shared/road_distance.mjs';
+import { rankDispatchDrivers } from '../_shared/destination_dispatch.mjs';
 import { createRoadRedis, roadRouteOptions, withRoadLease } from '../_shared/road_redis.mjs';
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -25,8 +25,7 @@ Deno.serve(async req => {
         const { data: candidates, error } = await admin.rpc('road_dispatch_candidates', { p_order_id: order.id });
         if (error) throw new Error('DISPATCH_LOOKUP_FAILED');
         if (!candidates?.length) { waiting++; continue; }
-        const ranked = await rankDriversByRoadDistance(candidates,
-          { lat: order.pickup_lat, lng: order.pickup_lng },
+        const ranked = await rankDispatchDrivers(candidates, order,
           {...roadRouteOptions(redis, Deno.env.get('OSRM_BASE_URL')),
             automaticRoadLimit: order.business_policy?.values?.auto_radius_m ?? 2000});
         await assertOwner();

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../core/location/driver_workload_policy.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -93,21 +94,28 @@ class DriverDashboardBody extends ConsumerWidget {
         final hasActiveOrder = activeCount > 0;
 
         final visibleAvailable =
-            driver.isAvailable && !hasActiveOrder && !acceptanceLocked
+            driver.isAvailable &&
+                DriverWorkloadPolicy.canReceive(
+                  driverOrders,
+                  acceptance.now(),
+                ) &&
+                !acceptanceLocked
             ? rawAvailableOrders
             : const <OrderModel>[];
         final activeOrders = driverOrders.where(isActiveDriverOrder).toList();
         final showIdleBanner = !hasActiveOrder && visibleAvailable.isEmpty;
         final currentPosition = currentPositionAsync.valueOrNull;
         final locationMode = ref.watch(driverLocationModeProvider);
-        final dashboardPosition = resolveDriverDashboardPosition(
-          locationMode: locationMode,
-          email: email,
-          rawLat: currentPosition?.latitude,
-          rawLng: currentPosition?.longitude,
-          storedLat: driver.currentLat,
-          storedLng: driver.currentLng,
-        );
+        final dashboardPosition =
+            ref.watch(driverPhysicalPositionProvider) ??
+            resolveDriverDashboardPosition(
+              locationMode: locationMode,
+              email: email,
+              rawLat: currentPosition?.latitude,
+              rawLng: currentPosition?.longitude,
+              storedLat: driver.currentLat,
+              storedLng: driver.currentLng,
+            );
         final offerPosition = resolveDriverOfferPosition(
           dashboardPosition: dashboardPosition,
           storedLat: driver.currentLat,
@@ -131,8 +139,6 @@ class DriverDashboardBody extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (driver.isAvailable || hasActiveOrder)
-              _GpsTracker(driverId: driver.id),
             if (acceptanceLocked) ...[
               DriverAcceptanceLockCard(
                 lockedUntil: acceptance.lockedUntil!,
@@ -200,16 +206,4 @@ Map<String, double> _pickupDistances({
     if (meters != null) distances[order.id] = meters;
   }
   return distances;
-}
-
-class _GpsTracker extends ConsumerWidget {
-  final String driverId;
-
-  const _GpsTracker({required this.driverId});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(driverLocationStreamProvider(driverId));
-    return const SizedBox.shrink();
-  }
 }

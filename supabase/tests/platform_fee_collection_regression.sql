@@ -1,12 +1,12 @@
 -- Synthetic fixtures and all money/configuration changes are rolled back.
 BEGIN;
 UPDATE public.system_settings SET value=(value||'{"platform_fee_version":1}'::jsonb)
- ||jsonb_build_object('values',(value->'values')||'{"customer_individual_fee_bps":500,"customer_business_fee_bps":300,"driver_platform_fee_bps":1000}'::jsonb)
+ ||jsonb_build_object('values',(value->'values')||'{"customer_individual_fee_bps":500,"customer_business_fee_bps":300,"driver_platform_fee_bps":1000,"base_fee":18000,"included_distance_m":2000,"standard_per_km":5000,"long_distance_per_km":4000,"long_distance_threshold_m":10000,"rounding_unit":1000}'::jsonb)
 WHERE key='business_settings';
 DO $test$
 DECLARE c uuid:=gen_random_uuid(); d uuid:=gen_random_uuid(); staff uuid:=gen_random_uuid(); seed uuid:=gen_random_uuid();
  o public.orders; again public.orders; p jsonb; session_row record; activated record; rev bigint;
- request_id uuid:=gen_random_uuid(); scenario text; pickup_code text; report_id uuid; balance bigint;
+ request_id uuid:=gen_random_uuid(); scenario text; pickup_code text; report_id uuid; balance bigint; pin_result jsonb;
 BEGIN
  INSERT INTO public.users(id,email,full_name,role,customer_type) VALUES
  (c,c||'@fee-test.invalid','Fee customer','customer','individual'),
@@ -25,12 +25,11 @@ BEGIN
    'delivery_fee',18000,'goods_value',50000,'cod_collection_amount',0,'delivery_fee_payer','sender',
    'quoted_distance_m',2000,'settings_revision',rev,'quoted_customer_fee',900);
  PERFORM set_config('request.jwt.claim.sub',c::text,true);
- BEGIN
-   PERFORM public.create_customer_order_with_wallet(p||'{"quoted_customer_fee":0}',gen_random_uuid());
-   RAISE EXCEPTION 'Accepted forged fee quote';
- EXCEPTION WHEN invalid_parameter_value THEN ASSERT SQLERRM='SETTINGS_QUOTE_FEE_MISMATCH'; END;
- SELECT * INTO o FROM public.create_customer_order_with_wallet(p,request_id);
- SELECT * INTO again FROM public.create_customer_order_with_wallet(p,request_id);
+ PERFORM public.set_customer_wallet_pin('001234',NULL);
+ pin_result:=public.create_customer_order_with_wallet(p||'{"quoted_customer_fee":0}',gen_random_uuid(),'001234');
+ ASSERT pin_result->>'code'='SETTINGS_QUOTE_FEE_MISMATCH','Accepted forged fee quote';
+ SELECT * INTO o FROM jsonb_populate_record(NULL::public.orders,public.create_customer_order_with_wallet(p,request_id,'001234')->'order');
+ SELECT * INTO again FROM jsonb_populate_record(NULL::public.orders,public.create_customer_order_with_wallet(p,request_id,NULL)->'order');
  ASSERT o.id=again.id,'Duplicate wallet order';
  ASSERT o.total_price=18900 AND o.customer_platform_fee_amount=900 AND o.platform_fee_amount=1800
    AND o.driver_net_earning=16200 AND o.receiver_collection_amount=0,'Wallet snapshot mismatch';
@@ -96,7 +95,7 @@ BEGIN
          SELECT * INTO o FROM private.create_customer_order_from_payload(c,p||jsonb_build_object('delivery_fee_payer','recipient',
            'cod_collection_amount',20000,'quoted_customer_fee',CASE WHEN scenario='cash_full_fee' THEN 18000 ELSE 900 END),'not_required',NULL);
        ELSE
-         SELECT * INTO o FROM public.create_customer_order_with_wallet(p,gen_random_uuid());
+         SELECT * INTO o FROM jsonb_populate_record(NULL::public.orders,public.create_customer_order_with_wallet(p,gen_random_uuid(),'001234')->'order');
        END IF;
        IF scenario='wallet_timeout_retry' THEN
          UPDATE public.orders SET assignment_timed_out_at=clock_timestamp(),assignment_expires_at=clock_timestamp()-interval '1 minute' WHERE id=o.id;
@@ -165,7 +164,7 @@ BEGIN
  -- Business classification selects its own rate; earlier orders remain fixed.
  UPDATE public.users SET customer_type='business',business_name='Shop',business_address='123 Business address' WHERE id=c;
  PERFORM set_config('request.jwt.claim.sub',c::text,true);
- SELECT * INTO o FROM public.create_customer_order_with_wallet(p||'{"quoted_customer_fee":540}',gen_random_uuid());
+ SELECT * INTO o FROM jsonb_populate_record(NULL::public.orders,public.create_customer_order_with_wallet(p||'{"quoted_customer_fee":540}',gen_random_uuid(),'001234')->'order');
  ASSERT o.customer_platform_fee_rate_bps=300 AND o.customer_platform_fee_amount=540,'Business rate ignored';
  ASSERT NOT has_function_privilege('authenticated','private.settle_platform_fees()','EXECUTE'),'Settlement helper exposed';
  ASSERT NOT has_function_privilege('anon','public.complete_customer_order_payment(text,text,boolean,text)','EXECUTE'),'Payment callback exposed';

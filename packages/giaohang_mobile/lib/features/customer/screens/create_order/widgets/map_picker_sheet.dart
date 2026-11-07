@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
@@ -17,6 +18,7 @@ import 'address_picker/address_picker_search_panel.dart';
 import 'address_picker/address_picker_states.dart';
 import 'address_picker/address_picker_tabs.dart';
 import 'address_picker/map_address_tab.dart';
+import 'address_picker/pickup_reference_card.dart';
 import 'address_picker/recent_addresses_tab.dart';
 import 'address_picker/saved_addresses_tab.dart';
 
@@ -30,6 +32,8 @@ class MapPickerSheet extends ConsumerStatefulWidget {
     this.initialSelection,
     this.saveOnly = false,
     this.savedAddressToEdit,
+    this.pickupSelection,
+    this.tileProvider,
   });
 
   final LatLng initialPosition;
@@ -37,6 +41,8 @@ class MapPickerSheet extends ConsumerStatefulWidget {
   final MapPickerResult? initialSelection;
   final bool saveOnly;
   final SavedAddressModel? savedAddressToEdit;
+  final MapPickerResult? pickupSelection;
+  final TileProvider? tileProvider;
 
   String get title => saveOnly
       ? AddressPickerStrings.addressBookTitle
@@ -58,8 +64,13 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
   late final AddressPickerController _controller;
   String? _busyAddressId;
   bool _isClearingHistory = false;
+  final _mapKey = GlobalKey();
 
   String? get _userId => ref.read(currentAddressUserIdProvider);
+  MapPickerResult? get _pickupReference =>
+      !widget.saveOnly && widget.addressType == RecentAddressType.delivery
+      ? widget.pickupSelection
+      : null;
 
   @override
   void initState() {
@@ -67,6 +78,7 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
     final editing = widget.savedAddressToEdit;
     _controller = AddressPickerController(
       initialPosition: widget.initialPosition,
+      pickupReferencePosition: _pickupReference?.position,
       initialSelection:
           widget.initialSelection ??
           (editing == null
@@ -96,9 +108,7 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-    return AnimatedPadding(
-      duration: AppDuration.normal,
-      curve: AppCurve.decelerate,
+    return Padding(
       padding: EdgeInsets.only(bottom: keyboardInset),
       child: FractionallySizedBox(
         heightFactor: 0.97,
@@ -115,37 +125,66 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
                   children: [
                     _AddressPickerHeader(
                       title: widget.title,
+                      compact: keyboardInset > 0,
                       onClose: () => Navigator.pop(context),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.screenH,
-                      ),
-                      child: AddressPickerSearchPanel(
-                        controller: _controller.searchController,
-                        focusNode: _controller.searchFocusNode,
-                        isSearching: _controller.isSearching,
-                        results: _controller.searchResults,
-                        error: _controller.searchError,
-                        onChanged: _controller.onSearchChanged,
-                        onSearch: _controller.search,
-                        onClear: _controller.clearSearch,
-                        onSelect: _controller.selectSearchResult,
+                    Expanded(
+                      child: CustomScrollView(
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: Column(
+                              children: [
+                                if (_pickupReference != null &&
+                                    keyboardInset == 0)
+                                  PickupReferenceCard(
+                                    pickup: _pickupReference!,
+                                    onShowBoth: _showBothStops,
+                                  ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.screenH,
+                                  ),
+                                  child: AddressPickerSearchPanel(
+                                    controller: _controller.searchController,
+                                    focusNode: _controller.searchFocusNode,
+                                    isSearching: _controller.isSearching,
+                                    results: _controller.searchResults,
+                                    error: _controller.searchError,
+                                    onChanged: _controller.onSearchChanged,
+                                    onSearch: _controller.search,
+                                    onClear: _controller.clearSearch,
+                                    onSelect: (result) {
+                                      _controller.selectSearchResult(result);
+                                      if (_pickupReference != null) {
+                                        _showBothStops();
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.md),
+                                if (!widget.saveOnly && keyboardInset == 0)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: AppSpacing.screenH,
+                                    ),
+                                    child: AddressPickerTabs(
+                                      value: _controller.activeTab,
+                                      onChanged: _controller.selectTab,
+                                    ),
+                                  ),
+                                const SizedBox(height: AppSpacing.xs),
+                              ],
+                            ),
+                          ),
+                          if (_controller.activeTab == AddressPickerTab.map)
+                            SliverToBoxAdapter(child: _buildActiveTab())
+                          else
+                            SliverFillRemaining(child: _buildActiveTab()),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.md),
-                    if (!widget.saveOnly)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.screenH,
-                        ),
-                        child: AddressPickerTabs(
-                          value: _controller.activeTab,
-                          onChanged: _controller.selectTab,
-                        ),
-                      ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Expanded(child: _buildActiveTab()),
                     if (_controller.activeTab == AddressPickerTab.map)
                       AddressPickerConfirmBar(
                         label: widget.confirmLabel,
@@ -169,9 +208,14 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
     switch (_controller.activeTab) {
       case AddressPickerTab.map:
         return MapAddressTab(
+          key: _mapKey,
+          shrinkWrap: true,
           controller: _controller,
           onLocate: _locateMe,
           saveRequired: widget.saveOnly,
+          pickupSelection: _pickupReference,
+          isPickup: widget.addressType == RecentAddressType.pickup,
+          tileProvider: widget.tileProvider,
         );
       case AddressPickerTab.saved:
         final userId = _userId;
@@ -181,8 +225,10 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
         return SavedAddressesTab(
           userId: userId,
           busyAddressId: _busyAddressId,
-          onSelect: (address) =>
-              _controller.selectSavedAddress(address, forEditing: false),
+          onSelect: (address) {
+            _controller.selectSavedAddress(address, forEditing: false);
+            if (_pickupReference != null) _showBothStops();
+          },
           onAdd: _controller.prepareNewSavedAddress,
           onAction: _handleSavedAction,
         );
@@ -195,8 +241,10 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
           userId: userId,
           busyAddressId: _busyAddressId,
           isClearing: _isClearingHistory,
-          onSelect: (address) =>
-              _controller.selectRecentAddress(address, saveAfterReview: false),
+          onSelect: (address) {
+            _controller.selectRecentAddress(address, saveAfterReview: false);
+            if (_pickupReference != null) _showBothStops();
+          },
           onSave: (address) =>
               _controller.selectRecentAddress(address, saveAfterReview: true),
           onDelete: _deleteRecentAddress,
@@ -208,6 +256,25 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
   Future<void> _locateMe() async {
     final error = await _controller.locateMe();
     if (error != null && mounted) _showMessage(error, isError: true);
+  }
+
+  void _showBothStops() {
+    final pickup = _pickupReference;
+    if (pickup == null) return;
+    _controller.selectTab(AddressPickerTab.map);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _controller.showPickupContext(pickup.position);
+      final mapContext = _mapKey.currentContext;
+      if (mapContext != null) {
+        Scrollable.ensureVisible(
+          mapContext,
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : AppDuration.fast,
+        );
+      }
+    });
   }
 
   Future<void> _confirmLocation() async {
@@ -384,25 +451,32 @@ class _MapPickerSheetState extends ConsumerState<MapPickerSheet> {
 }
 
 class _AddressPickerHeader extends StatelessWidget {
-  const _AddressPickerHeader({required this.title, required this.onClose});
+  const _AddressPickerHeader({
+    required this.title,
+    required this.onClose,
+    this.compact = false,
+  });
 
   final String title;
   final VoidCallback onClose;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
+      padding: EdgeInsets.fromLTRB(
         AppSpacing.screenH,
+        compact ? AppSpacing.xs : AppSpacing.md,
         AppSpacing.md,
-        AppSpacing.md,
-        AppSpacing.md,
+        compact ? AppSpacing.xs : AppSpacing.md,
       ),
       child: Row(
         children: [
           Expanded(
             child: Text(
               title,
+              maxLines: compact ? 1 : null,
+              overflow: compact ? TextOverflow.ellipsis : null,
               style: AppTextStyles.headingMedium.copyWith(
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.w800,

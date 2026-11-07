@@ -60,25 +60,21 @@ class _AvailabilityToggleCardState
         }
         if (!mounted) return;
 
-        final position = await ref
-            .read(locationServiceProvider)
-            .getCurrentPosition();
-        if (position == null) {
-          throw Exception(
-            'Hãy bật GPS và cấp quyền vị trí trước khi nhận đơn.',
-          );
-        }
-        if (!mounted) return;
-
         var isPinConfigured = pinStatus.isConfigured;
+        var verificationOpen = true;
         final pin = await showDriverOnlinePinVerificationSheet(
           context,
           isSetup: !pinStatus.isConfigured,
           onVerify: (pin) async {
+            final position = await ref
+                .read(locationServiceProvider)
+                .getOnlinePosition();
+            if (!mounted || !verificationOpen) return;
             if (!isPinConfigured) {
               await driverService.configureOnlinePin(pin);
               isPinConfigured = true;
             }
+            if (!mounted || !verificationOpen) return;
 
             final locationMode = ref.read(driverLocationModeProvider);
             offeredOrderId = await driverService.setOnlineWithLocation(
@@ -91,7 +87,7 @@ class _AvailabilityToggleCardState
               coordinateSpace: locationMode.rawGpsCoordinateSpace,
             );
           },
-        );
+        ).whenComplete(() => verificationOpen = false);
         if (pin == null) return;
         ref.invalidate(currentPositionProvider);
         ref.invalidate(availableOrdersProvider(widget.driver.userId));

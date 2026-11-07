@@ -12,6 +12,10 @@ class DriverMonitoring {
     this.incidentReason,
     this.driverTicketId,
     this.customerTicketId,
+    this.lastCapturedAt,
+    this.lastLat,
+    this.lastLng,
+    this.lastAccuracy,
   });
 
   final String assignmentId;
@@ -25,6 +29,10 @@ class DriverMonitoring {
   final String? incidentReason;
   final String? driverTicketId;
   final String? customerTicketId;
+  final DateTime? lastCapturedAt;
+  final double? lastLat;
+  final double? lastLng;
+  final double? lastAccuracy;
 
   bool get isReclaimed => reclaimedAt != null;
   bool get hasStarted => departedAt != null || atPickupAt != null;
@@ -47,6 +55,10 @@ class DriverMonitoring {
       driverId: driverId,
       acceptedAt: acceptedAt,
       lastReceivedAt: _date(json['last_received_at']),
+      lastCapturedAt: _date(json['last_captured_at']),
+      lastLat: _number(json['last_lat']),
+      lastLng: _number(json['last_lng']),
+      lastAccuracy: _number(json['last_accuracy']),
       departedAt: _date(json['departed_at']),
       atPickupAt: _date(json['at_pickup_at']),
       reclaimedAt: _date(json['reclaimed_at']),
@@ -69,8 +81,15 @@ class DriverMonitoring {
     'incident_reason': incidentReason,
     'driver_ticket_id': driverTicketId,
     'customer_ticket_id': customerTicketId,
+    if (lastCapturedAt != null)
+      'last_captured_at': lastCapturedAt!.toUtc().toIso8601String(),
+    if (lastLat != null) 'last_lat': lastLat,
+    if (lastLng != null) 'last_lng': lastLng,
+    if (lastAccuracy != null) 'last_accuracy': lastAccuracy,
   };
 
+  static double? _number(dynamic value) =>
+      value is num ? value.toDouble() : double.tryParse('$value');
   static DateTime? _date(dynamic value) =>
       DateTime.tryParse(value?.toString() ?? '')?.toUtc();
   static Duration _positiveDifference(DateTime end, DateTime start) =>

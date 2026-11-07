@@ -3,16 +3,30 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../location/driver_location_producer_policy.dart';
 import '../location/location_ingest_config.dart';
 import '../location/tracking_location_freshness.dart';
+import '../location/physical_gps_policy.dart';
+import '../location/driver_arrival_fix.dart';
 import '../models/driver_location_model.dart';
 import '../services/location_service.dart';
 import 'customer_providers.dart';
+import 'driver_online_presence_provider.dart';
+
+final driverPhysicalPositionProvider = StateProvider.autoDispose<LatLng?>(
+  (ref) => null,
+);
+
+final driverArrivalFixProvider = StateProvider.autoDispose<DriverArrivalFix?>(
+  (ref) => null,
+);
 
 final locationServiceProvider = Provider<LocationService>((ref) {
-  return LocationService();
+  final service = LocationService();
+  ref.onDispose(service.dispose);
+  return service;
 });
 
 final hasLocationPermissionProvider = FutureProvider<bool>((ref) async {
@@ -26,7 +40,7 @@ final currentPositionProvider = FutureProvider<Position?>((ref) async {
 });
 
 final driverLocationModeProvider = StateProvider<DriverLocationMode>(
-  (ref) => DriverLocationMode.deviceGps,
+  (ref) => DriverLocationMode.defaultMode,
 );
 
 /// Order đang sở hữu quyền publish vị trí từ màn navigation.
@@ -41,81 +55,144 @@ final activeDriverNavigationOrderProvider = StateProvider<String?>(
 ///
 /// [driverId] = `drivers.id` (profile).
 final driverLocationStreamProvider = StreamProvider.autoDispose
-    .family<Position, String>((ref, driverId) {
-      final locationMode = ref.watch(driverLocationModeProvider);
-      final activeNavigationOrderId = ref.watch(
-        activeDriverNavigationOrderProvider,
+    .family<Position, String>(
+      (ref, driverId) =>
+          ref.watch(driverPresenceSessionProvider(driverId)).positions,
+    );
+
+/// Active deliveries must not use discovery's lower-precision browser fixes.
+final driverActiveLocationStreamProvider = StreamProvider.autoDispose
+    .family<Position, String>(
+      (ref, driverId) =>
+          _driverPositionStream(ref, driverId, onlinePresence: false),
+    );
+
+Stream<Position> _driverPositionStream(
+  Ref ref,
+  String driverId, {
+  required bool onlinePresence,
+}) {
+  final locationMode = ref.watch(driverLocationModeProvider);
+  final activeNavigationOrderId = ref.watch(
+    activeDriverNavigationOrderProvider,
+  );
+  if (!DriverLocationProducerPolicy.canPublishBackgroundGps(
+    activeNavigationOrderId,
+  )) {
+    return const Stream<Position>.empty();
+  }
+
+  final locationService = ref.watch(locationServiceProvider);
+  final ingest = ref.watch(locationIngestServiceProvider);
+  final publish = ingest.ingest;
+
+  final controller = StreamController<Position>();
+  Timer? presenceTimer;
+  var presenceSyncInFlight = false;
+
+  void rememberPosition(Position position) {
+    final point = ingest.resolveCoordinates(
+      coordinateSpace: locationMode.rawGpsCoordinateSpace,
+      lat: position.latitude,
+      lng: position.longitude,
+    );
+    ref.read(driverPhysicalPositionProvider.notifier).state = point;
+    if (PhysicalGpsPolicy.accepts(
+      now: DateTime.now(),
+      capturedAt: position.timestamp,
+      accuracy: position.accuracy,
+    )) {
+      ref.read(driverArrivalFixProvider.notifier).state = DriverArrivalFix(
+        position: point,
+        capturedAt: position.timestamp,
+        accuracy: position.accuracy,
+        mode: locationMode,
+        simulated: locationMode != DriverLocationMode.deviceGps,
       );
-      if (!DriverLocationProducerPolicy.canPublishBackgroundGps(
-        activeNavigationOrderId,
+    }
+  }
+
+  Future<void> syncPresence() async {
+    if (presenceSyncInFlight) return;
+    presenceSyncInFlight = true;
+    try {
+      final position = await locationService.getCurrentPosition();
+      if (position == null || controller.isClosed) return;
+      if (!PhysicalGpsPolicy.accepts(
+        now: DateTime.now(),
+        capturedAt: position.timestamp,
+        accuracy: position.accuracy,
+        onlinePresence: onlinePresence,
       )) {
-        return const Stream<Position>.empty();
+        return;
       }
+      rememberPosition(position);
+      controller.add(position);
+      await publish(
+        driverProfileId: driverId,
+        lat: position.latitude,
+        lng: position.longitude,
+        heading: position.heading,
+        speed: position.speed,
+        accuracy: position.accuracy,
+        capturedAt: position.timestamp,
+        coordinateSpace: locationMode.rawGpsCoordinateSpace,
+      );
+    } finally {
+      presenceSyncInFlight = false;
+    }
+  }
 
-      final locationService = ref.watch(locationServiceProvider);
-      final ingest = ref.watch(locationIngestServiceProvider);
-
-      final controller = StreamController<Position>();
-      Timer? presenceTimer;
-      var presenceSyncInFlight = false;
-
-      Future<void> syncPresence() async {
-        if (presenceSyncInFlight) return;
-        presenceSyncInFlight = true;
-        try {
-          final position = await locationService.getCurrentPosition();
-          if (position == null || controller.isClosed) return;
-          controller.add(position);
-          await ingest.ingest(
-            driverProfileId: driverId,
-            lat: position.latitude,
-            lng: position.longitude,
-            heading: position.heading,
-            speed: position.speed,
-            coordinateSpace: locationMode.rawGpsCoordinateSpace,
-          );
-        } finally {
-          presenceSyncInFlight = false;
-        }
+  locationService.startTracking(
+    // distanceFilter phía OS: lọc sớm trước throttle app.
+    distanceFilterMeters: LocationIngestConfig.minDistanceMeters.round().clamp(
+      10,
+      100,
+    ),
+    onPosition: (position) {
+      if (controller.isClosed ||
+          !PhysicalGpsPolicy.accepts(
+            now: DateTime.now(),
+            capturedAt: position.timestamp,
+            accuracy: position.accuracy,
+            onlinePresence: onlinePresence,
+          )) {
+        return;
       }
-
-      locationService.startTracking(
-        // distanceFilter phía OS: lọc sớm trước throttle app.
-        distanceFilterMeters: LocationIngestConfig.minDistanceMeters
-            .round()
-            .clamp(10, 100),
-        onPosition: (position) {
-          controller.add(position);
-          unawaited(
-            ingest.ingest(
-              driverProfileId: driverId,
-              lat: position.latitude,
-              lng: position.longitude,
-              heading: position.heading,
-              speed: position.speed,
-              coordinateSpace: locationMode.rawGpsCoordinateSpace,
-            ),
-          );
-        },
-        onError: (error) {
-          debugPrint('[GPS] Tracking error: $error');
-        },
+      rememberPosition(position);
+      controller.add(position);
+      unawaited(
+        publish(
+          driverProfileId: driverId,
+          lat: position.latitude,
+          lng: position.longitude,
+          heading: position.heading,
+          speed: position.speed,
+          accuracy: position.accuracy,
+          capturedAt: position.timestamp,
+          coordinateSpace: locationMode.rawGpsCoordinateSpace,
+        ),
       );
+    },
+    onError: (error) {
+      debugPrint('[GPS] Tracking error: $error');
+    },
+  );
 
-      unawaited(syncPresence());
-      presenceTimer = Timer.periodic(
-        LocationIngestConfig.onlinePresenceInterval,
-        (_) => unawaited(syncPresence()),
-      );
+  unawaited(syncPresence());
+  presenceTimer = Timer.periodic(
+    LocationIngestConfig.onlinePresenceInterval,
+    (_) => unawaited(syncPresence()),
+  );
 
-      ref.onDispose(() {
-        presenceTimer?.cancel();
-        locationService.stopTracking();
-        controller.close();
-      });
+  ref.onDispose(() {
+    presenceTimer?.cancel();
+    locationService.stopTracking();
+    controller.close();
+  });
 
-      return controller.stream;
-    });
+  return controller.stream;
+}
 
 typedef LocationRealtimeRequest = ({String driverId, String orderId});
 
@@ -184,14 +261,14 @@ final driverLocationRealtimeProvider = FutureProvider.autoDispose
           }
         }
         ref.invalidate(assignedDriverProvider(request.orderId));
-      });
+      }, subscriptionKey: request.orderId);
 
       ref.onDispose(() async {
         await realtimeService.unsubscribe(
           'order_driver_loc:${request.orderId}',
         );
         await realtimeService.unsubscribe(
-          'driver_location:${request.driverId}',
+          'driver_location:${request.driverId}:${request.orderId}',
         );
       });
     });

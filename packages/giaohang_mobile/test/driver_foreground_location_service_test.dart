@@ -7,7 +7,7 @@ void main() {
     'Android foreground location service declares the required capabilities',
     () {
       final manifest = File(
-        'android/app/src/main/AndroidManifest.xml',
+        '../../apps/driver_app/android/app/src/main/AndroidManifest.xml',
       ).readAsStringSync();
       final service = File(
         'lib/core/location/driver_foreground_location_service.dart',

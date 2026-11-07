@@ -31,6 +31,59 @@ const _arrived = LatLng(11.036028, 106.618844);
 const _request = (driverId: 'driver-1', orderId: 'order-1');
 
 void main() {
+  test(
+    'two parcels share physical GPS without replacing each other\'s subscription',
+    () async {
+      final client = _createClient();
+      final realtime = _FakeLocationRealtime(client);
+      final container = ProviderContainer(
+        overrides: [realtimeServiceProvider.overrideWithValue(realtime)],
+      );
+      const second = (driverId: 'driver-1', orderId: 'order-2');
+      final firstListener = container.listen(
+        driverLocationRealtimeProvider(_request),
+        (_, _) {},
+      );
+      final secondListener = container.listen(
+        driverLocationRealtimeProvider(second),
+        (_, _) {},
+      );
+      await container.read(driverLocationRealtimeProvider(_request).future);
+      await container.read(driverLocationRealtimeProvider(second).future);
+      expect(
+        realtime.persistedByOrder.keys,
+        containsAll(['order-1', 'order-2']),
+      );
+      for (final callback in realtime.persistedByOrder.values) {
+        callback({
+          'current_lat': _arrived.latitude,
+          'current_lng': _arrived.longitude,
+          'location_updated_at': realtime.sampledAt.toIso8601String(),
+        });
+      }
+      expect(container.read(liveDriverLatLngProvider('order-1')), (
+        lat: _arrived.latitude,
+        lng: _arrived.longitude,
+      ));
+      expect(container.read(liveDriverLatLngProvider('order-2')), (
+        lat: _arrived.latitude,
+        lng: _arrived.longitude,
+      ));
+      firstListener.close();
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        realtime.unsubscribed,
+        contains('driver_location:driver-1:order-1'),
+      );
+      expect(
+        realtime.unsubscribed,
+        isNot(contains('driver_location:driver-1:order-2')),
+      );
+      secondListener.close();
+      container.dispose();
+      await client.dispose();
+    },
+  );
   setUpAll(() async {
     await prepareUtrafficCaptureFonts();
     const loader = SvgAssetLoader(DriverVehicleMarker.assetPath);
@@ -106,6 +159,63 @@ void main() {
       lng: _arrived.longitude,
     ));
   });
+
+  _testWithMapTiles(
+    'a parcel polyline cannot move the customer driver marker onto another road',
+    (tester) async {
+      final client = (await tester.runAsync(() async => _createClient()))!;
+      final realtime = _FakeLocationRealtime(client);
+      final profiled = _order.copyWith(
+        deliveryEtaData: {
+          'driver_id': 'driver-1',
+          'calculation_mode': 'assignment_once_v1',
+          'computed_at': '2026-10-30T10:00:00Z',
+          'approach': {
+            'distance_meters': 1000,
+            'forecast_at': '2026-10-30T10:00:00Z',
+            'route_points': [
+              [106.621, 11.031062],
+              [106.624, 11.031062],
+            ],
+            'speed_profile': [
+              {'start_meters': 0, 'end_meters': 1000, 'speed_kmh': 25},
+            ],
+          },
+        },
+      );
+      final container = _motionContainer(client, realtime, order: profiled);
+      addTearDown(() async {
+        container.dispose();
+        await tester.runAsync(client.dispose);
+      });
+      addTearDown(() => tester.pumpWidget(const SizedBox.shrink()));
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(
+              body: TrackingScreen(initialTrackingCode: 'GH-10191'),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      realtime.broadcast(_start.latitude, _start.longitude);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 5));
+      expect(
+        tester
+            .widget<TrackingMapCanvas>(find.byType(TrackingMapCanvas))
+            .fullRoute!
+            .first
+            .latitude,
+        11.031062,
+      );
+      _expectMarkerAt(tester, _start);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   _testWithMapTiles(
     'five-second samples do not finish moving after 1.1 seconds',
@@ -393,6 +503,7 @@ ProviderContainer _motionContainer(
   SupabaseClient client,
   _FakeLocationRealtime realtime, {
   DateTime Function()? clock,
+  OrderModel? order,
 }) => ProviderContainer(
   overrides: [
     if (clock != null)
@@ -404,7 +515,9 @@ ProviderContainer _motionContainer(
     driverServiceProvider.overrideWithValue(
       _DelayedDriverService(client, Completer<DriverModel?>()),
     ),
-    orderByTrackingCodeProvider.overrideWith((ref, code) async => _order),
+    orderByTrackingCodeProvider.overrideWith(
+      (ref, code) async => order ?? _order,
+    ),
     assignedDriverProvider.overrideWith((ref, id) async => _driverAtStart),
     trackedOrderRealtimeProvider.overrideWith((ref, request) async {}),
     orderStatusLogsProvider.overrideWith((ref, id) async => const []),
@@ -433,6 +546,8 @@ class _FakeLocationRealtime extends RealtimeService {
   DateTime sampledAt = DateTime.utc(2026, 10, 8, 14, 20);
   late void Function(double, double) broadcast;
   late void Function(Map<String, dynamic>?) persisted;
+  final persistedByOrder = <String, void Function(Map<String, dynamic>?)>{};
+  final unsubscribed = <String>[];
 
   @override
   RealtimeChannel subscribeToOrderDriverBroadcast(
@@ -451,14 +566,20 @@ class _FakeLocationRealtime extends RealtimeService {
   @override
   RealtimeChannel subscribeToDriverLocation(
     String driverId,
-    void Function(Map<String, dynamic>?) onLocationChange,
-  ) {
+    void Function(Map<String, dynamic>?) onLocationChange, {
+    String? subscriptionKey,
+  }) {
     persisted = onLocationChange;
+    if (subscriptionKey != null) {
+      persistedByOrder[subscriptionKey] = onLocationChange;
+    }
     return _UnusedChannel();
   }
 
   @override
-  Future<void> unsubscribe(String name) async {}
+  Future<void> unsubscribe(String name) async {
+    unsubscribed.add(name);
+  }
 }
 
 class _UnusedChannel implements RealtimeChannel {

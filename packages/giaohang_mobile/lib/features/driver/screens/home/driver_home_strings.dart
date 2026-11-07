@@ -36,7 +36,7 @@ class DriverHomeStrings {
   static const walletCloseAction = 'Đóng thông báo số dư';
 
   static const bannerTitle = 'Chủ động từng chuyến';
-  static const bannerOnlineSubtitle = 'Đang tìm đơn phù hợp gần bạn.';
+  static const bannerOnlineSubtitle = 'Đơn phù hợp sẽ xuất hiện tại đây.';
   static const bannerOfflineSubtitle = 'Mở menu để bật nhận đơn.';
   static const bannerSemanticLabel =
       'Minh họa tài xế kiểm tra lộ trình bên xe máy có thùng và kiện hàng.';

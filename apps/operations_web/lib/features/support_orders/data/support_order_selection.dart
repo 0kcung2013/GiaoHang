@@ -4,7 +4,7 @@ const supportOrderSelection = '''
   pickup_address, pickup_lat, pickup_lng,
   delivery_address, delivery_lat, delivery_lng,
   recipient_name, recipient_phone,
-  item_name, item_category, item_description, item_image_url, item_weight_kg,
+  item_name, item_category, item_description, item_image_url, item_weight_kg, cargo_details,
   note, status_note, service_type,
   total_price, delivery_fee, payment_method, payment_status, delivery_fee_payer,
   goods_value, cod_collection_amount, driver_advance_amount,

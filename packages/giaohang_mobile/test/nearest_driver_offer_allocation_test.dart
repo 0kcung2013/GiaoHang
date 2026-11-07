@@ -135,6 +135,78 @@ void main() {
     expect(allocations['order-rating'], 'driver-nearest');
   });
 
+  for (final scenario in [
+    (
+      name: 'equal road distances prefer the higher customer review rating',
+      drivers: [
+        _candidate('driver-a', 100, 4.1),
+        _candidate('driver-z', 100, 4.9),
+      ],
+      expected: 'driver-z',
+    ),
+    (
+      name: 'a small real distance difference still takes priority over rating',
+      drivers: [
+        _candidate('driver-a', 100, 4.1),
+        _candidate('driver-z', 100.1, 4.9),
+      ],
+      expected: 'driver-a',
+    ),
+    (
+      name: 'a rated driver wins a distance tie against an unrated driver',
+      drivers: [_candidate('driver-a', 100), _candidate('driver-z', 100, 1)],
+      expected: 'driver-z',
+    ),
+    (
+      name: 'equal distance and rating keep the stable driver ID order',
+      drivers: [
+        _candidate('driver-z', 100, 4.8),
+        _candidate('driver-a', 100, 4.8),
+      ],
+      expected: 'driver-a',
+    ),
+  ]) {
+    test(scenario.name, () async {
+      final now = DateTime.utc(2026, 11, 3, 10);
+      final client = SupabaseClient('http://localhost:54321', 'test-anon-key');
+      addTearDown(client.dispose);
+      final service = NearestDriverService(
+        client: client,
+        now: () => now,
+        assignableDriverLoader:
+            ({required double nearLat, required double nearLng}) async =>
+                scenario.drivers,
+      );
+      final order = _order(id: 'order-rating-tie', createdAt: now);
+
+      final allocations = await service.allocateOrderOffers([order]);
+      expect(allocations[order.id], scenario.expected);
+      expect(
+        await service.findNextNearestDriverUserId(
+          order: order,
+          excludingUserId: 'another-driver',
+        ),
+        scenario.expected,
+      );
+
+      final remaining = scenario.drivers
+          .firstWhere((driver) => driver.userId != scenario.expected)
+          .userId;
+      final rejected = order.copyWith(rejectedBy: [scenario.expected]);
+      expect(
+        (await service.allocateOrderOffers([rejected]))[order.id],
+        remaining,
+      );
+      expect(
+        await service.findNextNearestDriverUserId(
+          order: order,
+          excludingUserId: scenario.expected,
+        ),
+        remaining,
+      );
+    });
+  }
+
   test('prefers the nearest driver across the candidate pool', () async {
     final now = DateTime.utc(2026, 8, 3, 10, 1);
     final client = SupabaseClient('http://localhost:54321', 'test-anon-key');
@@ -358,6 +430,21 @@ void main() {
     expect(driverOneOrders.map((order) => order.id), ['order-1']);
     expect(driverTwoOrders.map((order) => order.id), ['order-2']);
   });
+}
+
+AssignableDriverPoint _candidate(
+  String userId,
+  double distanceMeters, [
+  double rating = 0,
+]) {
+  return AssignableDriverPoint(
+    userId: userId,
+    lat: 10,
+    lng: 106,
+    distanceMeters: distanceMeters,
+    rating: rating,
+    locationUpdatedAt: DateTime.utc(2026, 11, 3, 10),
+  );
 }
 
 OrderModel _order({required String id, required DateTime createdAt}) {

@@ -1,4 +1,5 @@
 import 'business_settings.dart';
+import 'cargo_pricing.dart';
 
 class DeliveryFeeBreakdown {
   const DeliveryFeeBreakdown({
@@ -11,6 +12,8 @@ class DeliveryFeeBreakdown {
     required this.total,
     this.standardPerKm = 5000,
     this.longDistancePerKm = 4000,
+    this.cargoSurcharge = 0,
+    this.cargoDetails,
   });
 
   final double baseFee;
@@ -22,9 +25,12 @@ class DeliveryFeeBreakdown {
   final double total;
   final double standardPerKm;
   final double longDistancePerKm;
+  final double cargoSurcharge;
+  final CargoDetails? cargoDetails;
 
   double get distanceFee => standardDistanceFee + longDistanceFee;
-  double get roundingAdjustment => total - baseFee - distanceFee;
+  double get roundingAdjustment =>
+      total - baseFee - distanceFee - cargoSurcharge;
 }
 
 /// Giá đơn mới: phí cơ bản + một đơn giá cho phần khoảng cách vượt gói.
@@ -42,8 +48,18 @@ class DeliveryPricingPolicy {
   static DeliveryFeeBreakdown calculate({
     required double distanceMeters,
     BusinessSettings? settings,
+    double? weightKg,
+    CargoDetails? cargo,
   }) {
     final values = settings ?? BusinessSettings();
+    final cargoDetails = cargo == null
+        ? null
+        : CargoPricingPolicy.calculate(
+            settings: values,
+            weightKg: weightKg ?? double.nan,
+            declaration: cargo,
+          );
+    final surcharge = cargoDetails?.surcharge.toDouble() ?? 0;
     final includedDistanceKm = values.number('included_distance_m') / 1000;
     final legacy = values.usesLegacyPricing;
     final longDistanceThresholdKm = legacy
@@ -65,7 +81,8 @@ class DeliveryPricingPolicy {
     final standardDistanceFee = standardBillableKm * standardPerKm;
     final longDistanceFee = longBillableKm * longDistancePerKm;
     final total =
-        ((baseFee + standardDistanceFee + longDistanceFee) / roundingUnit)
+        ((baseFee + standardDistanceFee + longDistanceFee + surcharge) /
+                roundingUnit)
             .ceil() *
         roundingUnit;
     return DeliveryFeeBreakdown(
@@ -78,6 +95,8 @@ class DeliveryPricingPolicy {
       total: total,
       standardPerKm: standardPerKm,
       longDistancePerKm: longDistancePerKm,
+      cargoSurcharge: surcharge,
+      cargoDetails: cargoDetails,
     );
   }
 }

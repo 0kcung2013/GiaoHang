@@ -37,6 +37,12 @@ class PricingImpactComparison extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
         ],
         Text(SettingsStrings.effectiveHint, style: AppTextStyles.bodySmall),
+        if (CargoPricingPolicy.supported(before) ||
+            CargoPricingPolicy.supported(after))
+          Text(
+            'Bảng quãng đường chưa gồm phụ phí hàng. Ví dụ kiện hàng ở bên dưới.',
+            style: AppTextStyles.bodySmall,
+          ),
         const SizedBox(height: AppSpacing.md),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -103,6 +109,23 @@ class PricingImpactComparison extends StatelessWidget {
             );
           },
         ),
+        if (CargoPricingPolicy.supported(before) ||
+            CargoPricingPolicy.supported(after)) ...[
+          const SizedBox(height: AppSpacing.md),
+          for (final (weight, size) in [
+            (1.0, CargoSizeGroup.standard),
+            (7.0, CargoSizeGroup.large),
+            (12.0, CargoSizeGroup.extraLarge),
+          ])
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+              child: Text(
+                '5 km · $weight kg · kích thước ${size.label}: '
+                '${_cargoPrice(before, weight, size)} → ${_cargoPrice(after, weight, size)}',
+                style: AppTextStyles.bodySmall,
+              ),
+            ),
+        ],
       ],
     );
   }
@@ -110,6 +133,25 @@ class PricingImpactComparison extends StatelessWidget {
   String _difference(int delta) => delta == 0
       ? SettingsStrings.unchanged
       : '${delta > 0 ? 'Tăng' : 'Giảm'} ${formatVnd(delta.abs())}';
+
+  String _cargoPrice(
+    BusinessSettings settings,
+    double weight,
+    CargoSizeGroup size,
+  ) {
+    try {
+      return formatVnd(
+        DeliveryPricingPolicy.calculate(
+          distanceMeters: 5000,
+          settings: settings,
+          weightKg: weight,
+          cargo: CargoDetails(sizeGroup: size),
+        ).total,
+      );
+    } on FormatException {
+      return 'Vượt giới hạn';
+    }
+  }
 }
 
 class _Cell extends StatelessWidget {

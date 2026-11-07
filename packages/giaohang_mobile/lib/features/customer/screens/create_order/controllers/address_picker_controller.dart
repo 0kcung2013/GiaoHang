@@ -13,6 +13,7 @@ import '../address_picker_strings.dart';
 import '../models/address_picker_result.dart';
 import '../utils/address_search_result.dart';
 import '../utils/address_search_service.dart';
+import '../utils/pickup_context_camera_fit.dart';
 
 part 'address_picker_selection.dart';
 
@@ -24,6 +25,7 @@ class AddressPickerController extends ChangeNotifier {
     MapPickerResult? initialSelection,
     AddressSearchService? searchService,
     ReverseGeocodingService? geocodingService,
+    this.pickupReferencePosition,
   }) : _selectedPosition = initialSelection?.position ?? initialPosition,
        _searchService = searchService ?? AddressSearchService(),
        _geocodingService = geocodingService ?? ReverseGeocodingService() {
@@ -40,6 +42,7 @@ class AddressPickerController extends ChangeNotifier {
   }
 
   final mapController = MapController();
+  final LatLng? pickupReferencePosition;
   final searchController = TextEditingController();
   final searchFocusNode = FocusNode();
   final detailController = TextEditingController();
@@ -285,9 +288,30 @@ class AddressPickerController extends ChangeNotifier {
   }
 
   void moveMapTo(LatLng position) {
+    final pickup = pickupReferencePosition;
+    _moveCamera(() {
+      if (pickup == null) {
+        mapController.move(position, 18);
+      } else {
+        mapController.fitCamera(
+          PickupContextCameraFit(pickup: pickup, selection: position),
+        );
+      }
+    });
+  }
+
+  void showPickupContext(LatLng pickup) {
+    _moveCamera(
+      () => mapController.fitCamera(
+        PickupContextCameraFit(pickup: pickup, selection: _selectedPosition),
+      ),
+    );
+  }
+
+  void _moveCamera(VoidCallback move) {
     _isProgrammaticMove = true;
     try {
-      mapController.move(position, 18);
+      move();
     } catch (_) {
       // Map có thể chưa mount khi item được chọn trong frame đầu tiên.
     }

@@ -251,6 +251,17 @@ class _FeeBreakdown extends StatelessWidget {
           ),
         ],
         const SizedBox(height: AppSpacing.sm),
+        if (fee.cargoDetails != null) ...[
+          _FeeLine(
+            label: 'Phụ phí hàng · ${fee.cargoDetails!.tier?.label ?? ''}',
+            value: fee.cargoSurcharge,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+        if (fee.roundingAdjustment != 0) ...[
+          _FeeLine(label: 'Làm tròn cước', value: fee.roundingAdjustment),
+          const SizedBox(height: AppSpacing.sm),
+        ],
         _FeeLine(label: PlatformFeeText.fee, value: platformFee.toDouble()),
         const SizedBox(height: AppSpacing.md),
         Container(height: 1, color: AppColors.border),

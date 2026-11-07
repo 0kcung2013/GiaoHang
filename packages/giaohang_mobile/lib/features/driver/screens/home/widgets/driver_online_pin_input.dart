@@ -208,10 +208,12 @@ class DriverOnlinePinStatus extends StatelessWidget {
     super.key,
     required this.isVerifying,
     required this.errorMessage,
+    this.isLocationError = false,
   });
 
   final bool isVerifying;
   final String? errorMessage;
+  final bool isLocationError;
 
   @override
   Widget build(BuildContext context) {
@@ -220,9 +222,13 @@ class DriverOnlinePinStatus extends StatelessWidget {
     }
 
     final isError = errorMessage != null;
-    final color = isError ? AppColors.error : AppColors.info;
-    final icon = isError ? Icons.error_outline_rounded : Icons.sync_rounded;
-    final message = errorMessage ?? 'Đang kiểm tra mã PIN...';
+    final color = isLocationError
+        ? AppColors.warning
+        : (isError ? AppColors.error : AppColors.info);
+    final icon = isLocationError
+        ? Icons.location_searching_rounded
+        : (isError ? Icons.error_outline_rounded : Icons.sync_rounded);
+    final message = errorMessage ?? 'Đang xác thực và lấy vị trí…';
 
     return Semantics(
       liveRegion: true,

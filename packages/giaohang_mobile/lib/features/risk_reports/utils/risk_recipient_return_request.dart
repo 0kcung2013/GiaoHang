@@ -10,6 +10,8 @@ abstract final class RiskRecipientReturnRequest {
       'được người nhận. Đề nghị CSKH cho phép hoàn hàng về điểm lấy ban đầu.';
 
   static const maximumDescriptionLength = 4000;
+  static const holdMessage =
+      '[Yêu cầu hoàn hàng] Đã hết giờ khách hẹn giao lại và chờ thêm 5 phút.';
   static int get descriptionLimit =>
       maximumDescriptionLength - message.length - 2;
 
@@ -17,7 +19,8 @@ abstract final class RiskRecipientReturnRequest {
       '$message\n\n${description.trim()}';
 
   static bool isIncludedIn(String description) =>
-      description.startsWith('$message\n\n');
+      description.startsWith('$message\n\n') ||
+      description.startsWith(holdMessage);
 
   static bool isRequestMessage(String body) =>
       body == message || body == legacyMessage;

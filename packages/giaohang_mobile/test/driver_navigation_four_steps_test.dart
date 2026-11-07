@@ -15,6 +15,9 @@ import 'package:giaohang_mobile/core/services/delivery_proof_service.dart';
 import 'package:giaohang_mobile/features/order_handoff/data/pickup_handoff_service.dart';
 import 'package:giaohang_mobile/core/services/delivery_proof_watermark_service.dart';
 import 'package:giaohang_mobile/core/services/realtime_service.dart';
+import 'package:giaohang_mobile/core/services/osrm_service.dart';
+import 'package:giaohang_mobile/features/driver/screens/navigation/data/driver_navigation_routing_provider.dart';
+import 'support/return_map_test_tiles.dart';
 import 'package:giaohang_mobile/features/driver/cancellation/data/driver_cancellation_repository.dart';
 import 'package:giaohang_mobile/features/driver/cancellation/driver_cancellation_providers.dart';
 import 'package:giaohang_mobile/features/driver/screens/navigation/driver_navigation_screen.dart';
@@ -32,6 +35,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
+  setUpAll(ReturnMapTestTiles.prepare);
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
     SharedPreferences.setMockInitialValues({});
@@ -90,6 +94,15 @@ void main() {
                     _Handoff(orders),
                   ),
                   driverNavSessionsProvider.overrideWith((ref) => sessions),
+                  driverNavigationRoutingProvider.overrideWith(
+                    (ref) => _Routing(),
+                  ),
+                  driverNavigationTilesProvider.overrideWith(
+                    (ref) => ReturnMapTestTiles(),
+                  ),
+                  driverPhysicalPositionProvider.overrideWith(
+                    (ref) => const LatLng(10.771, 106.703),
+                  ),
                   driverLocationModeProvider.overrideWith(
                     (ref) => DriverLocationMode.demoHcm,
                   ),
@@ -448,6 +461,7 @@ class _Location implements LocationIngestService, RealtimeService {
     required double lat,
     required double lng,
     double? speedKmh,
+    DateTime? sampledAt,
   }) async {}
   @override
   Future<void> ingest({
@@ -468,4 +482,15 @@ class _Location implements LocationIngestService, RealtimeService {
   }) async {}
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Routing extends OsrmService {
+  @override
+  Future<OsrmRouteResult?> getRouteWithWaypoints({
+    required List<LatLng> waypoints,
+  }) async => OsrmRouteResult(
+    points: waypoints,
+    distanceMeters: const Distance()(waypoints.first, waypoints.last),
+    durationSeconds: 30,
+  );
 }

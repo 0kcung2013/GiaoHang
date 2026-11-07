@@ -1,7 +1,8 @@
 -- Synthetic orders/sessions only; no committed orders, wallet movements or settings changes.
 BEGIN;
+-- Isolate fixtures from the operator's current prices and cargo toggle.
 UPDATE public.system_settings SET value=value||jsonb_build_object('values',
-  (value->'values')||'{"customer_individual_fee_bps":0,"customer_business_fee_bps":0,"driver_platform_fee_bps":0}'::jsonb)
+  private.cargo_business_defaults())
 WHERE key='business_settings';
 DO $test$
 DECLARE
@@ -12,7 +13,8 @@ DECLARE
  old_order public.orders%ROWTYPE; new_order public.orders%ROWTYPE; paid_order public.orders%ROWTYPE;
 BEGIN
  ASSERT NOT (current_policy->'values' ? 'long_distance_threshold_m'), 'Current pricing still has long-distance tier';
- ASSERT (SELECT count(*) FROM jsonb_object_keys(current_policy->'values'))=20, 'Wrong current settings shape';
+ ASSERT (SELECT count(*) FROM jsonb_object_keys(current_policy->'values'))=
+   (SELECT count(*) FROM jsonb_object_keys(private.cargo_business_defaults())), 'Wrong current settings shape';
  ASSERT private.calculate_business_delivery_fee(12000,current_policy)=68000, 'Single rate price';
  ASSERT private.calculate_business_delivery_fee(20000,current_policy)=108000, 'Single rate long route';
  ASSERT private.calculate_business_delivery_fee(12000,legacy_policy)=66000, 'Repriced legacy snapshot';

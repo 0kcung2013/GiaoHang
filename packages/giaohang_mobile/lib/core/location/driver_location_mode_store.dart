@@ -16,7 +16,7 @@ class DriverLocationModeStore {
 
     return DriverLocationMode.values.firstWhere(
       (mode) => mode.name == storedName,
-      orElse: () => DriverLocationMode.deviceGps,
+      orElse: () => DriverLocationMode.defaultMode,
     );
   }
 

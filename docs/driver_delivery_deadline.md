@@ -1,5 +1,10 @@
 # Hạn giao hàng
 
+Ngoại lệ giữ đơn theo yêu cầu người nhận được triển khai ngày 2026-10-29:
+[quy tắc khoảng chờ và hạn gốc](handoff/driver_recipient_hold.md).
+Khoảng giữ được ghi trên server mới được miễn; chờ người nhận thông thường
+không tự động kéo dài hạn giao.
+
 Chính sách được duyệt ngày 11/10/2026:
 
 ```

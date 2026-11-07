@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../../core/models/order_model.dart';
+import '../../../../../core/models/customer_wallet_pin.dart';
 import '../../../../../core/services/customer_order_payment_service.dart';
 import '../utils/order_payment_strings.dart';
 
@@ -24,29 +25,49 @@ class OrderConfirmationWalletController extends ChangeNotifier {
   bool _insufficient = false;
   bool needsSettingsReview = false;
   String? _error;
+  CustomerWalletPinException? pinFailure;
 
   bool get isBusy => _busy;
   bool get hasAttempt => _snapshot != null;
+  bool get hasCreatedOrder => _created != null;
   bool get canSwitchPayment => !hasAttempt || _insufficient;
   OrderModel? get orderSnapshot => _snapshot;
   String? get error => _error;
 
-  Future<void> submit(OrderModel order) async {
+  Future<void> submit(
+    OrderModel order, {
+    String? pin,
+    bool deferCompletion = false,
+  }) async {
     if (_disposed || _busy || _completed) return;
     _snapshot ??= order;
     _busy = true;
     _error = null;
+    pinFailure = null;
     _notify();
     try {
       _created ??= await service.createWalletOrder(
         _snapshot!,
         requestId: requestId,
+        pin: pin,
       );
       _insufficient = false;
       if (_disposed) return;
+      if (deferCompletion) return;
       await onCreated(_created!);
       _completed = true;
     } catch (error) {
+      if (_created == null &&
+          error is CustomerWalletPinException &&
+          const {
+            'PIN_REQUIRED',
+            'PIN_FORMAT',
+            'PIN_INVALID',
+            'PIN_LOCKED',
+          }.contains(error.code)) {
+        pinFailure = error;
+        _snapshot = null;
+      }
       if (_created == null &&
           error is CustomerWalletOrderPaymentException &&
           error.needsSettingsReview) {
@@ -56,7 +77,9 @@ class OrderConfirmationWalletController extends ChangeNotifier {
       _insufficient =
           error is CustomerWalletOrderPaymentException &&
           error.insufficientBalance;
-      _error = error is CustomerWalletOrderPaymentException
+      _error = error is CustomerWalletPinException
+          ? error.message
+          : error is CustomerWalletOrderPaymentException
           ? error.message
           : OrderPaymentText.walletRetry;
     } finally {

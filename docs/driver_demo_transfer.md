@@ -1,13 +1,22 @@
 # Demo chuyển đơn tại TP.HCM
 
-Tuyến demo hiện tại lấy hàng tại **Cửa hàng Thiên Anh · 19A Linh Đông**
+Tuyến demo TP.HCM lấy hàng tại **Cửa hàng Thiên Anh · 19A Linh Đông**
 `(10.8456193, 106.7459414)`, giao tại **Co.op Food · 103 Linh Đông**.
 Hai lựa chọn Cao điểm và Ngoài cao điểm dùng cùng tọa độ lấy/giao.
 
 ## Vị trí tài xế
 
+Từ 2026-11-03, build demo mặc định dùng **Mô phỏng từ vị trí hiện tại**:
+`taixe` giữ GPS của thiết bị, `taixe2` và `taixe3` lệch khoảng 160 m và 320 m
+về phía đông bắc. Trên cùng một máy, ba phiên không còn cùng một tọa độ.
+Chọn **Dùng vị trí demo TP.HCM** riêng trên từng phiên để dùng nhóm Linh Đông
+bên dưới. Lựa chọn đã lưu được giữ qua restart; không tự đổi theo app khách.
+
+Chi tiết setup, công thức và giới hạn:
+[driver_demo_relative_positions.md](handoff/driver_demo_relative_positions.md).
+
 Tọa độ được khai báo tập trung trong
-`apps/delivery_app/lib/core/utils/geo_utils.dart`.
+`packages/giaohang_mobile/lib/core/utils/geo_utils.dart`.
 OSRM xác nhận ngày 2026-10-12:
 
 | Tài khoản | GPS demo TP.HCM | Quãng đường đến điểm lấy |
@@ -20,11 +29,11 @@ Cả ba nằm trên đường Linh Đông, có quãng đường tăng dần và 
 **2 km đường bộ** của phân công tự động. Tọa độ cũ của `taixe2` và `taixe3`
 cách điểm lấy lần lượt 9,45 km và 17,62 km đường bộ, nên không được mời sau khi
 `taixe` chuyển đơn. Fixture OSRM nằm tại
-`apps/delivery_app/test/fixtures/traffic_demo_transfer_dispatch.json`.
+`packages/giaohang_mobile/test/fixtures/traffic_demo_transfer_dispatch.json`.
 
 ## Cách thử
 
-1. Chạy lại/hot restart Delivery App trên các phiên tài xế để nạp tọa độ mới.
+1. Chạy lại/hot restart Driver App trên các phiên tài xế để nạp tọa độ mới.
 2. Dùng ba phiên đăng nhập riêng cho ba tài khoản. Trong **Kiểm tra vị trí**,
    chọn **Dùng vị trí demo TP.HCM** trên từng phiên và chờ thông báo đồng bộ
    thành công. Thao tác này gửi vị trí mới qua pipeline hiện có và kiểm tra
@@ -49,7 +58,7 @@ theo quy tắc hiện có. Demo nhiều lượt phải tính đến giới hạn
 
 ## Kiểm thử tập trung
 
-Chạy từ `apps/delivery_app`:
+Chạy từ `packages/giaohang_mobile`:
 
 ```powershell
 flutter test --no-pub test/geo_utils_test.dart test/driver_location_mode_test.dart test/traffic_demo_driver_availability_test.dart

@@ -4,7 +4,8 @@ import '../models/delivery_eta_route_profile.dart';
 import 'delivery_eta_calculator.dart';
 import 'delivery_pricing_policy.dart';
 import 'geo_utils.dart';
-import 'package:giaohang_domain/giaohang_domain.dart' show BusinessSettings;
+import 'package:giaohang_domain/giaohang_domain.dart'
+    show BusinessSettings, CargoDetails;
 
 /// Ước tính phí giao hàng theo khoảng cách (haversine / OSRM).
 class DeliveryFeeEstimate {
@@ -33,6 +34,26 @@ class DeliveryFeeEstimate {
   final DeliveryEtaEstimate eta;
 
   double get distanceKm => distanceMeters / 1000;
+
+  DeliveryFeeEstimate withCargo(double weightKg, CargoDetails cargo) {
+    final fee = DeliveryPricingPolicy.calculate(
+      distanceMeters: distanceMeters,
+      settings: settings,
+      weightKg: weightKg,
+      cargo: cargo,
+    );
+    return DeliveryFeeEstimate(
+      distanceMeters: distanceMeters,
+      deliveryFee: fee.total,
+      totalPrice: fee.total,
+      serviceType: serviceType,
+      source: source,
+      durationSeconds: durationSeconds,
+      settings: settings,
+      feeBreakdown: fee,
+      eta: eta,
+    );
+  }
 }
 
 class DeliveryFeeCalculator {

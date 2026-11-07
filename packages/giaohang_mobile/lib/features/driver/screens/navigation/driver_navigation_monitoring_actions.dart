@@ -3,75 +3,56 @@ part of 'driver_navigation_screen.dart';
 extension _DriverNavigationMonitoringActions on _DriverNavigationScreenState {
   Future<void> _publishMonitoringHeartbeat() async {
     if (!mounted ||
+        _navigationOwner.state != _currentOrder.id ||
         _monitoringHeartbeatPending ||
         _exitingForOrderCancellation ||
         _authenticatedUser == null) {
       return;
     }
+    // Real GPS is owned by Driver Shell, regardless of the displayed order.
+    if (!_usesRouteSimulation) return;
     _monitoringHeartbeatPending = true;
     try {
+      final position = ref.read(driverPhysicalPositionProvider);
       final order = _currentOrder;
-      if (_usesRouteSimulation) {
-        final position = _driverPos;
-        if (position == null || order.driverId == null) return;
-        await ref
-            .read(locationIngestServiceProvider)
-            .ingest(
-              driverUserId: order.driverId,
-              orderId: order.id,
-              lat: position.latitude,
-              lng: position.longitude,
-              accuracy: 0,
+      if (position == null || order.driverId == null) return;
+      await ref
+          .read(driverPositionPublisherProvider)
+          .publish(
+            driverUserId: order.driverId!,
+            orderId: order.id,
+            speedKmh: _movementSpeedKmh,
+            fix: DriverArrivalFix(
+              position: position,
               capturedAt: DateTime.now(),
-              prioritySync: true,
-              speed: _movementSpeedKmh / 3.6,
-              coordinateSpace: LocationIngestCoordinateSpace.mapCoordinates,
-            );
-        unawaited(
-          ref
-              .read(realtimeServiceProvider)
-              .broadcastDriverLocation(
-                orderId: order.id,
-                lat: position.latitude,
-                lng: position.longitude,
-                speedKmh: _movementSpeedKmh,
-              ),
-        );
-      } else {
-        final position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 10),
-          ),
-        );
-        if (!mounted || _exitingForOrderCancellation) return;
-        await _onDriverMoved(
-          LatLng(position.latitude, position.longitude),
-          source: DriverPositionSource.deviceGps,
-          gpsTimestamp: position.timestamp,
-          gpsAccuracy: position.accuracy,
-        );
-      }
+              accuracy: 0,
+              mode: ref.read(driverLocationModeProvider),
+              simulated: true,
+              trafficDemoKey: order.trafficDemoKey,
+            ),
+          );
     } finally {
       _monitoringHeartbeatPending = false;
     }
   }
 
   Future<void> _recoverMonitoringGps() async {
-    if (!_usesRouteSimulation) {
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        throw StateError('LOCATION_PERMISSION_REQUIRED');
-      }
+    if (_usesRouteSimulation) {
+      await _publishMonitoringHeartbeat();
+    } else {
+      final position = await ref
+          .read(locationServiceProvider)
+          .getCurrentPosition();
+      if (position == null) throw StateError('LOCATION_PERMISSION_REQUIRED');
       if (!mounted) return;
-      await _startGpsStream();
-      await _startForegroundLocationService();
+      await _onDriverMoved(
+        LatLng(position.latitude, position.longitude),
+        source: DriverPositionSource.deviceGps,
+        gpsTimestamp: position.timestamp,
+        gpsAccuracy: position.accuracy,
+        forceSync: true,
+      );
     }
-    await _publishMonitoringHeartbeat();
     if (mounted) ref.invalidate(driverMonitoringProvider(_currentOrder.id));
   }
 
@@ -81,7 +62,6 @@ extension _DriverNavigationMonitoringActions on _DriverNavigationScreenState {
     _simTimer?.cancel();
     _routeRefreshTimer?.cancel();
     _monitoringHeartbeatTimer?.cancel();
-    await _posStream?.cancel();
     if (!mounted) return;
     await handleDriverMonitoringRelease(
       context,

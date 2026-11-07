@@ -2,14 +2,15 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 import '../../../../core/providers/customer_providers.dart';
 import '../../../../core/providers/location_providers.dart';
-import '../../../../core/providers/driver_nav_session_provider.dart';
+import '../../../../core/providers/driver_position_publisher_provider.dart';
+import '../../../../core/location/driver_arrival_fix.dart';
 import '../../../../core/location/driver_foreground_location_service.dart';
-import '../../../../core/location/driver_location_producer_policy.dart';
 import '../../../../core/location/driver_active_delivery_tracking_policy.dart';
 
-/// Giữ mẫu mới khi đã nhận đơn nhưng chưa mở điều hướng hoặc đang chờ lấy hàng.
+/// Giữ mẫu mô phỏng khi đóng map; GPS thực thuộc Driver Shell.
 class DriverOrderLocationHeartbeat extends ConsumerStatefulWidget {
   const DriverOrderLocationHeartbeat({
     required this.orderId,
@@ -31,7 +32,6 @@ class _DriverOrderLocationHeartbeatState
     extends ConsumerState<DriverOrderLocationHeartbeat> {
   Timer? _timer;
   bool _pending = false;
-  String? _foregroundOrderId;
   bool _usingRouteSimulation = false;
   @override
   void initState() {
@@ -60,14 +60,13 @@ class _DriverOrderLocationHeartbeatState
   Future<void> _sample() async {
     if (!mounted ||
         _pending ||
-        ref.read(activeDriverNavigationOrderProvider) == widget.orderId) {
+        ref.read(activeDriverNavigationOrderProvider) != null) {
       return;
     }
     final orderId = widget.orderId;
     final mode = ref.read(driverLocationModeProvider);
     _pending = true;
     try {
-      final ingest = ref.read(locationIngestServiceProvider);
       if (DriverActiveDeliveryTrackingPolicy.usesRouteSimulation(
         isWeb: kIsWeb,
         locationMode: mode,
@@ -75,53 +74,41 @@ class _DriverOrderLocationHeartbeatState
       )) {
         if (!_usingRouteSimulation) {
           await DriverForegroundLocationService.stop();
-          _foregroundOrderId = null;
           _usingRouteSimulation = true;
         }
-        final session = ref.read(driverNavSessionsProvider)[orderId];
         final driver = ref
             .read(driverByUserIdProvider(widget.driverUserId))
             .valueOrNull;
-        final lat = session?.lat ?? driver?.currentLat;
-        final lng = session?.lng ?? driver?.currentLng;
+        final shared = ref.read(driverPhysicalPositionProvider);
+        final lat = shared?.latitude ?? driver?.currentLat;
+        final lng = shared?.longitude ?? driver?.currentLng;
         if (lat == null || lng == null) return;
-        await ingest.ingest(
-          driverProfileId: widget.driverProfileId,
-          driverUserId: widget.driverUserId,
-          orderId: orderId,
-          lat: lat,
-          lng: lng,
-          accuracy: 0,
-          capturedAt: DateTime.now(),
-          prioritySync: true,
-          coordinateSpace: LocationIngestCoordinateSpace.mapCoordinates,
-        );
-      } else {
-        _usingRouteSimulation = false;
-        if (_foregroundOrderId != orderId) {
-          final started = await DriverForegroundLocationService.start(
-            driverProfileId: widget.driverProfileId,
-            driverUserId: widget.driverUserId,
-            orderId: orderId,
-          );
-          if (started) _foregroundOrderId = orderId;
+        final fix = ref
+            .read(driverArrivalFixProvider)
+            ?.sampleStationarySimulation(
+              current: LatLng(lat, lng),
+              currentMode: mode,
+              now: DateTime.now(),
+            );
+        if (fix != null) {
+          ref.read(driverArrivalFixProvider.notifier).state = fix;
         }
-        if (!mounted) return;
-        final position = await ref
-            .read(locationServiceProvider)
-            .getCurrentPosition();
-        if (position == null || !mounted || widget.orderId != orderId) return;
-        await ingest.ingest(
-          driverProfileId: widget.driverProfileId,
-          driverUserId: widget.driverUserId,
-          orderId: orderId,
-          lat: position.latitude,
-          lng: position.longitude,
-          accuracy: position.accuracy,
-          capturedAt: position.timestamp,
-          prioritySync: true,
-          coordinateSpace: mode.rawGpsCoordinateSpace,
-        );
+        await ref
+            .read(driverPositionPublisherProvider)
+            .publish(
+              driverProfileId: widget.driverProfileId,
+              driverUserId: widget.driverUserId,
+              orderId: orderId,
+              fix:
+                  fix ??
+                  DriverArrivalFix(
+                    position: LatLng(lat, lng),
+                    capturedAt: DateTime.now(),
+                    accuracy: 0,
+                    mode: mode,
+                    simulated: true,
+                  ),
+            );
       }
     } catch (error) {
       debugPrint('[DriverMonitoring] heartbeat pending: $error');

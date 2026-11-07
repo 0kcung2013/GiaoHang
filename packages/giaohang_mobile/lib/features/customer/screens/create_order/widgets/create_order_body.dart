@@ -26,6 +26,7 @@ class CreateOrderBody extends StatelessWidget {
     required this.onRemoveImage,
     required this.onAutofillDemo,
     this.trafficDemoRouteCard,
+    this.cargoPricingFields,
   });
 
   final GlobalKey<FormState> formKey;
@@ -45,6 +46,7 @@ class CreateOrderBody extends StatelessWidget {
   final VoidCallback onRemoveImage;
   final VoidCallback onAutofillDemo;
   final Widget? trafficDemoRouteCard;
+  final Widget? cargoPricingFields;
 
   @override
   Widget build(BuildContext context) {
@@ -90,6 +92,7 @@ class CreateOrderBody extends StatelessWidget {
                       itemCategory: itemCategory,
                       requiredText: requiredText,
                       onCategoryChanged: onCategoryChanged,
+                      pricingFields: cargoPricingFields,
                     ),
                     const SizedBox(height: AppSpacing.lg),
                     CreateOrderPhotosSection(

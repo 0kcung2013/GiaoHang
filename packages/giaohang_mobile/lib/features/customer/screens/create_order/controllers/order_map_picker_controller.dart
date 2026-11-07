@@ -14,6 +14,7 @@ class OrderMapPickerController {
     required MapPickerResult? currentSelection,
     required Position? currentPosition,
     required Future<Position?> Function() locate,
+    MapPickerResult? pickupSelection,
   }) async {
     var position = currentPosition;
     var usedFallback = false;
@@ -21,6 +22,9 @@ class OrderMapPickerController {
 
     if (currentSelection != null) {
       initialPosition = currentSelection.position;
+    } else if (addressType == RecentAddressType.delivery &&
+        pickupSelection != null) {
+      initialPosition = pickupSelection.position;
     } else {
       position ??= await locate();
       if (position == null) {
@@ -46,6 +50,9 @@ class OrderMapPickerController {
         initialPosition: initialPosition,
         addressType: addressType,
         initialSelection: currentSelection,
+        pickupSelection: addressType == RecentAddressType.delivery
+            ? pickupSelection
+            : null,
       ),
     );
 

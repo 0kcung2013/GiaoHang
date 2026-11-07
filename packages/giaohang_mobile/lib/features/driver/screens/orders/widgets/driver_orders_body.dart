@@ -1,11 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../../../../core/location/driver_workload_policy.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../../core/models/order_model.dart';
 import '../../../../../core/providers/customer_providers.dart';
-import '../../home/utils/driver_home_formatters.dart';
 import '../../home/widgets/driver_state_widgets.dart';
 import '../utils/driver_order_filter.dart';
 import 'driver_orders_filter_bar.dart';
@@ -89,7 +89,10 @@ class _DriverOrdersBodyState extends ConsumerState<DriverOrdersBody> {
             availableOrdersAsync.valueOrNull ?? const <OrderModel>[];
         final driverOrders =
             driverOrdersAsync.valueOrNull ?? const <OrderModel>[];
-        final hasActiveOrder = driverOrders.any(isActiveDriverOrder);
+        final hasActiveOrder = !DriverWorkloadPolicy.canReceive(
+          driverOrders,
+          DateTime.now(),
+        );
         final availableOrders = driver.isAvailable && !hasActiveOrder
             ? rawAvailableOrders
             : const <OrderModel>[];

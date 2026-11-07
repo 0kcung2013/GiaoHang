@@ -3,6 +3,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import '../../../../core/location/driver_location_producer_policy.dart';
+import 'driver_gps_debug_strings.dart';
 
 class DriverGpsSheetHeader extends StatelessWidget {
   const DriverGpsSheetHeader({super.key, required this.email});
@@ -112,7 +113,9 @@ class DriverGpsDemoBanner extends StatelessWidget {
         ? 'Offset demo đang tắt'
         : 'Đang dùng GPS thực tế';
     final description = isCurrentDemo
-        ? 'Xe sẽ tự chạy theo tuyến từ GPS hiện tại khi bắt đầu chặng.'
+        ? (offsetMeters >= 1
+              ? DriverGpsDebugStrings.currentDemoOffset(offsetMeters)
+              : DriverGpsDebugStrings.currentDemoAtAnchor)
         : isUsingDeviceGps
         ? 'Tuyến đường và khoảng cách sẽ tính từ GPS thiết bị.'
         : hasOffset

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:giaohang_domain/giaohang_domain.dart' show formatCargoWeightKg;
+import '../../../../../core/widgets/cargo_pricing_summary.dart';
 import '../../../../../core/utils/order_cargo_utils.dart';
 import '../../../../../core/utils/cargo_weight_strings.dart';
 import '../utils/order_form_data.dart';
@@ -351,6 +352,10 @@ class _CargoCard extends StatelessWidget {
           label: CargoWeightStrings.weight,
           value: formatCargoWeightKg(data.itemWeightKg),
         ),
+        if (data.cargoDetails != null) ...[
+          const SizedBox(height: AppSpacing.md),
+          CargoPricingSummary(details: data.cargoDetails!),
+        ],
         if (data.cargoImage != null) ...[
           const SizedBox(height: AppSpacing.md),
           ConfirmationInfoRow(

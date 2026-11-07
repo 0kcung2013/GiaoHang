@@ -23,6 +23,8 @@ extension _DriverNavigationArrivalActions on _DriverNavigationScreenState {
       await _onDriverMoved(
         LatLng(fix.latitude, fix.longitude),
         source: DriverPositionSource.deviceGps,
+        gpsTimestamp: fix.timestamp,
+        gpsAccuracy: fix.accuracy,
         forceSync: true,
       );
     }

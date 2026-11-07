@@ -101,6 +101,7 @@ void main() {
       await tester.tap(find.text(peak.deliveryAddress));
       await tester.pumpAndSettle();
       expect(step(tester).delivery, changedDelivery);
+      expect(picker.pickupReferences.first?.position, peak.pickup);
       expect(
         step(tester).quotedAt.isAtSameMomentAs(offPeak.forecastAt),
         isTrue,
@@ -163,6 +164,7 @@ void main() {
         await tester.pumpAndSettle();
         step(tester).onPickDelivery();
         await tester.pumpAndSettle();
+        expect(picker.pickupReferences.last?.position, changedPickup);
         await chooseTime(tester, peak);
         await chooseTime(tester, offPeak);
         expect(step(tester).pickup, changedPickup);
@@ -201,6 +203,7 @@ class _Picker extends OrderMapPickerController {
   _Picker(this.responses);
   final List<MapPickerResult?> responses;
   int calls = 0;
+  final pickupReferences = <MapPickerResult?>[];
 
   @override
   Future<OrderMapPickerOutcome> pick({
@@ -209,11 +212,15 @@ class _Picker extends OrderMapPickerController {
     required MapPickerResult? currentSelection,
     required Position? currentPosition,
     required Future<Position?> Function() locate,
-  }) async => OrderMapPickerOutcome(
-    selection: responses[calls++],
-    currentPosition: currentPosition,
-    usedFallback: false,
-  );
+    MapPickerResult? pickupSelection,
+  }) async {
+    pickupReferences.add(pickupSelection);
+    return OrderMapPickerOutcome(
+      selection: responses[calls++],
+      currentPosition: currentPosition,
+      usedFallback: false,
+    );
+  }
 }
 
 class _NoRoute extends OsrmService {

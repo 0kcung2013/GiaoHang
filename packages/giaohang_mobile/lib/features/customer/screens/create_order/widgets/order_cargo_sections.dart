@@ -17,6 +17,7 @@ class CreateOrderCargoSection extends StatelessWidget {
     required this.itemCategory,
     required this.requiredText,
     required this.onCategoryChanged,
+    this.pricingFields,
   });
 
   final TextEditingController itemNameController;
@@ -25,6 +26,7 @@ class CreateOrderCargoSection extends StatelessWidget {
   final String itemCategory;
   final String? Function(String?) Function(String message) requiredText;
   final ValueChanged<String> onCategoryChanged;
+  final Widget? pricingFields;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +50,9 @@ class CreateOrderCargoSection extends StatelessWidget {
         CreateOrderTextField(
           key: const Key('order-cargo-weight'),
           controller: itemWeightController,
-          label: CargoWeightStrings.inputLabel,
+          label: pricingFields == null
+              ? CargoWeightStrings.inputLabel
+              : CargoWeightStrings.totalInputLabel,
           hint: CargoWeightStrings.inputHint,
           icon: Icons.scale_rounded,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -57,6 +61,10 @@ class CreateOrderCargoSection extends StatelessWidget {
           requiredField: true,
         ),
         const SizedBox(height: AppSpacing.lg),
+        if (pricingFields != null) ...[
+          pricingFields!,
+          const SizedBox(height: AppSpacing.lg),
+        ],
         OrderFieldLabel(
           'Danh mục',
           style: AppTextStyles.labelMedium.copyWith(

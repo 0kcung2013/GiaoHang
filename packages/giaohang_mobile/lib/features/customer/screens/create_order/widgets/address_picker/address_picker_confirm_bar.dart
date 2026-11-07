@@ -39,12 +39,16 @@ class AddressPickerConfirmBar extends StatelessWidget {
           enabled: onPressed != null,
           label: label,
           child: SizedBox(
-            height: 56,
             width: double.infinity,
             child: FilledButton.icon(
               key: addressPickerConfirmButtonKey,
               onPressed: isBusy ? null : onPressed,
               style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(56),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
+                ),
                 backgroundColor: AppColors.accent,
                 foregroundColor: AppColors.textOnAccent,
                 disabledBackgroundColor: AppColors.border,

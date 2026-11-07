@@ -5,7 +5,10 @@ import 'package:giaohang_design/giaohang_design.dart';
 
 import '../../address_picker_strings.dart';
 import '../../controllers/address_picker_controller.dart';
+import '../../models/address_picker_result.dart';
+import '../../utils/pickup_context_camera_fit.dart';
 import 'address_detail_form.dart';
+import 'address_map_dot.dart';
 
 class MapAddressTab extends StatelessWidget {
   const MapAddressTab({
@@ -13,15 +16,25 @@ class MapAddressTab extends StatelessWidget {
     required this.controller,
     required this.onLocate,
     this.saveRequired = false,
+    this.pickupSelection,
+    this.isPickup = false,
+    this.tileProvider,
+    this.shrinkWrap = false,
   });
 
   final AddressPickerController controller;
   final VoidCallback onLocate;
   final bool saveRequired;
+  final MapPickerResult? pickupSelection;
+  final bool isPickup;
+  final TileProvider? tileProvider;
+  final bool shrinkWrap;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
+      shrinkWrap: shrinkWrap,
+      physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: EdgeInsets.zero,
       children: [
@@ -34,39 +47,69 @@ class MapAddressTab extends StatelessWidget {
                 options: MapOptions(
                   initialCenter: controller.selectedPosition,
                   initialZoom: 18,
-                  minZoom: 5,
+                  initialCameraFit: pickupSelection == null
+                      ? null
+                      : PickupContextCameraFit(
+                          pickup: pickupSelection!.position,
+                          selection: controller.selectedPosition,
+                        ),
+                  minZoom: pickupSelection == null ? 5 : 0,
                   maxZoom: 19,
                   onMapEvent: controller.onMapMoved,
                 ),
                 children: [
                   TileLayer(
+                    tileProvider: tileProvider,
                     urlTemplate:
                         'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.datn.giaohang',
                     maxNativeZoom: 19,
                   ),
-                  SimpleAttributionWidget(
-                    source: Text(
-                      'OpenStreetMap contributors',
-                      style: AppTextStyles.labelSmall.copyWith(
-                        fontSize: 9,
-                        color: AppColors.textSecondary,
+                  if (pickupSelection != null)
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          key: const ValueKey('address-picker-pickup-marker'),
+                          point: pickupSelection!.position,
+                          width: AddressMapDot.diameter,
+                          height: AddressMapDot.diameter,
+                          alignment: Alignment.center,
+                          child: AddressMapDot(
+                            color: AppColors.markerPickup,
+                            label:
+                                '${AddressPickerStrings.pickupSelected}: ${pickupSelection!.address}',
+                          ),
+                        ),
+                      ],
+                    ),
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: ColoredBox(
+                      color: AppColors.bgCard.withValues(alpha: 0.86),
+                      child: Padding(
+                        padding: const EdgeInsets.all(3),
+                        child: Text(
+                          AddressPickerStrings.mapAttribution,
+                          style: AppTextStyles.labelSmall.copyWith(
+                            fontSize: 9,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
                       ),
                     ),
-                    backgroundColor: AppColors.bgCard.withValues(alpha: 0.86),
                   ),
                 ],
               ),
-              const IgnorePointer(
+              IgnorePointer(
                 child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.only(bottom: 36),
-                    child: Icon(
-                      Icons.location_on_rounded,
-                      color: AppColors.accent,
-                      size: 48,
-                      shadows: AppShadow.card,
-                    ),
+                  child: AddressMapDot(
+                    key: const ValueKey('address-picker-selection-marker'),
+                    label: isPickup
+                        ? AddressPickerStrings.pickupShort
+                        : AddressPickerStrings.deliveryShort,
+                    color: isPickup
+                        ? AppColors.markerPickup
+                        : AppColors.markerDrop,
                   ),
                 ),
               ),
@@ -109,7 +152,9 @@ class MapAddressTab extends StatelessWidget {
               ),
               Positioned(
                 right: AppSpacing.md,
-                bottom: AppSpacing.md,
+                bottom: pickupSelection == null
+                    ? AppSpacing.md
+                    : AppSpacing.xl3,
                 child: Semantics(
                   button: true,
                   label: AddressPickerStrings.locateMe,
@@ -134,6 +179,30 @@ class MapAddressTab extends StatelessWidget {
                   ),
                 ),
               ),
+              if (pickupSelection != null)
+                Positioned(
+                  left: AppSpacing.md,
+                  bottom: AppSpacing.xl3,
+                  child: Material(
+                    color: AppColors.bgCard,
+                    borderRadius: AppRadius.md,
+                    elevation: 2,
+                    child: IconButton(
+                      tooltip: AddressPickerStrings.showBothStops,
+                      constraints: const BoxConstraints(
+                        minWidth: 48,
+                        minHeight: 48,
+                      ),
+                      onPressed: () => controller.showPickupContext(
+                        pickupSelection!.position,
+                      ),
+                      icon: const Icon(
+                        Icons.zoom_out_map_rounded,
+                        color: AppColors.info,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

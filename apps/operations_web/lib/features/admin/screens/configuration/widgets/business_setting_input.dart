@@ -20,54 +20,67 @@ class BusinessSettingInput extends StatelessWidget {
   final ValueChanged<String> onChanged;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Text(field.label, style: AppTextStyles.labelMedium),
-      const SizedBox(height: AppSpacing.sm),
-      Semantics(
-        label: field.label,
-        child: TextFormField(
+  Widget build(BuildContext context) => field.key == 'cargo_pricing_enabled'
+      ? SwitchListTile.adaptive(
           key: inputKey,
-          initialValue: value,
-          enabled: enabled,
-          keyboardType: field.numeric
-              ? TextInputType.numberWithOptions(decimal: !field.monetary)
-              : field.key == 'support_email'
-              ? TextInputType.emailAddress
-              : TextInputType.text,
-          textInputAction: TextInputAction.next,
-          inputFormatters: field.monetary
-              ? const [SettingsCurrencyFormatter()]
-              : null,
-          autovalidateMode: attempted
-              ? AutovalidateMode.always
-              : AutovalidateMode.onUserInteraction,
-          validator: (text) => field.validate(text ?? ''),
-          onChanged: onChanged,
-          style: AppTextStyles.bodyMedium,
-          decoration: InputDecoration(
-            errorMaxLines: 3,
-            suffixText: field.unit.isEmpty ? null : field.unit,
-            filled: true,
-            fillColor: AppColors.bgLight,
-            border: const OutlineInputBorder(borderRadius: AppRadius.md),
-            enabledBorder: const OutlineInputBorder(
-              borderRadius: AppRadius.md,
-              borderSide: BorderSide(color: AppColors.border),
+          value: value == '1',
+          onChanged: enabled ? (value) => onChanged(value ? '1' : '0') : null,
+          activeTrackColor: AppColors.primary,
+          title: Text(field.label, style: AppTextStyles.labelMedium),
+          subtitle: Text(
+            'Áp dụng cho đơn mới; kiểm tra ngưỡng trước khi bật.',
+            style: AppTextStyles.bodySmall,
+          ),
+          contentPadding: EdgeInsets.zero,
+        )
+      : Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(field.label, style: AppTextStyles.labelMedium),
+            const SizedBox(height: AppSpacing.sm),
+            Semantics(
+              label: field.label,
+              child: TextFormField(
+                key: inputKey,
+                initialValue: value,
+                enabled: enabled,
+                keyboardType: field.numeric
+                    ? TextInputType.numberWithOptions(decimal: !field.monetary)
+                    : field.key == 'support_email'
+                    ? TextInputType.emailAddress
+                    : TextInputType.text,
+                textInputAction: TextInputAction.next,
+                inputFormatters: field.monetary
+                    ? const [SettingsCurrencyFormatter()]
+                    : null,
+                autovalidateMode: attempted
+                    ? AutovalidateMode.always
+                    : AutovalidateMode.onUserInteraction,
+                validator: (text) => field.validate(text ?? ''),
+                onChanged: onChanged,
+                style: AppTextStyles.bodyMedium,
+                decoration: InputDecoration(
+                  errorMaxLines: 3,
+                  suffixText: field.unit.isEmpty ? null : field.unit,
+                  filled: true,
+                  fillColor: AppColors.bgLight,
+                  border: const OutlineInputBorder(borderRadius: AppRadius.md),
+                  enabledBorder: const OutlineInputBorder(
+                    borderRadius: AppRadius.md,
+                    borderSide: BorderSide(color: AppColors.border),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
-      if (field.description != null) ...[
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          field.description!,
-          style: AppTextStyles.bodySmall.copyWith(
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ],
-    ],
-  );
+            if (field.description != null) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                field.description!,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ],
+        );
 }

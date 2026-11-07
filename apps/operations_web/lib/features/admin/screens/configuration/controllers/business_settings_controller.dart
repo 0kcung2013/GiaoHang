@@ -79,7 +79,12 @@ class BusinessSettingsController extends ChangeNotifier {
 
   bool isFieldChanged(SettingsField field) =>
       current != null &&
+      current!.values.containsKey(field.key) &&
       texts[field.key] != field.display(current!.values[field.key]!);
+
+  Iterable<SettingsField> get activeFields => settingsFields.where(
+    (field) => current?.values.containsKey(field.key) == true,
+  );
 
   Iterable<SettingsField> get changedFields =>
       settingsFields.where(isFieldChanged);
@@ -87,19 +92,19 @@ class BusinessSettingsController extends ChangeNotifier {
   int changesIn(SettingsGroup group) =>
       group.fields.where(isFieldChanged).length;
 
-  Iterable<SettingsField> get invalidFields => settingsFields.where(
+  Iterable<SettingsField> get invalidFields => activeFields.where(
     (field) => field.validate(texts[field.key] ?? '') != null,
   );
 
   String? get relationsError => invalidFields.isNotEmpty
       ? null
       : validateSettingsRelations({
-          for (final f in settingsFields) f.key: f.parse(texts[f.key] ?? ''),
+          for (final f in activeFields) f.key: f.parse(texts[f.key] ?? ''),
         });
 
   Map<String, dynamic>? get validValues {
     final values = <String, dynamic>{};
-    for (final field in settingsFields) {
+    for (final field in activeFields) {
       final text = texts[field.key] ?? '';
       if (field.validate(text) != null) return null;
       values[field.key] = field.parse(text);
@@ -116,12 +121,16 @@ class BusinessSettingsController extends ChangeNotifier {
   BusinessSettings? get draftPricing {
     if (current == null) return null;
     final values = Map<String, dynamic>.from(current!.asSingleRate().values);
-    for (final key in pricingFieldKeys) {
+    for (final key in {
+      ...pricingFieldKeys,
+      ...current!.values.keys.where((key) => key.startsWith('cargo_')),
+    }) {
       final field = settingsFields.firstWhere((f) => f.key == key);
       final text = texts[key] ?? '';
       if (field.validate(text) != null) return null;
       values[key] = field.parse(text);
     }
+    if (validateSettingsRelations(values) != null) return null;
     return BusinessSettings(revision: current!.revision, values: values);
   }
 
@@ -129,13 +138,14 @@ class BusinessSettingsController extends ChangeNotifier {
       current != null &&
       draftPricing != null &&
       (current!.usesLegacyPricing ||
-          pricingFieldKeys.any(
-            (key) => current!.values[key] != draftPricing!.values[key],
-          ));
+          {
+            ...pricingFieldKeys,
+            ...current!.values.keys.where((key) => key.startsWith('cargo_')),
+          }.any((key) => current!.values[key] != draftPricing!.values[key]));
 
   void useValues(Map<String, dynamic> values) {
-    for (final f in settingsFields) {
-      texts[f.key] = f.display(values[f.key]!);
+    for (final f in activeFields) {
+      texts[f.key] = f.display(values[f.key] ?? current!.values[f.key]!);
     }
     reason = '';
     attempted = false;

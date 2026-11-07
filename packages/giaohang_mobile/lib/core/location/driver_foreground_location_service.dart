@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:giaohang_config/giaohang_config.dart';
 import 'location_ingest_service.dart';
+import 'driver_location_producer_policy.dart';
 
 /// Quyền vị trí đạt được khi tài xế bắt đầu giao hàng.
 ///
@@ -273,6 +274,7 @@ class _DriverForegroundLocationTaskHandler extends TaskHandler {
           accuracy: position.accuracy,
           capturedAt: position.timestamp,
           prioritySync: true,
+          coordinateSpace: LocationIngestCoordinateSpace.mapCoordinates,
         );
         FlutterForegroundTask.sendDataToMain({
           'type': 'driver_location',

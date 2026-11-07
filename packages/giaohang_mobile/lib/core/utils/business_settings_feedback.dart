@@ -1,6 +1,9 @@
 abstract final class BusinessSettingsFeedback {
   static String? forError(Object error) {
     final text = error.toString();
+    if (text.contains('CARGO_')) {
+      return 'Thông tin hàng chưa hợp lệ hoặc vượt giới hạn. Vui lòng kiểm tra cân nặng, số kiện và kích thước.';
+    }
     if (text.contains('SETTINGS_QUOTE_')) {
       return 'Giá cước đã thay đổi. Vui lòng quay lại bước báo giá để tính lại trước khi đặt đơn.';
     }

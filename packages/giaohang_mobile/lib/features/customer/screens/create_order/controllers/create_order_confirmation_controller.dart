@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:giaohang_domain/giaohang_domain.dart' show BusinessSettings;
+import 'package:giaohang_domain/giaohang_domain.dart'
+    show BusinessSettings, CargoDetails, CargoPricingPolicy;
 
 import '../../../../../core/models/order_finance.dart';
 import '../../../../../core/utils/delivery_fee_calculator.dart';
@@ -42,6 +43,7 @@ class CreateOrderConfirmationController {
     required String itemCategory,
     required String itemDescription,
     required double itemWeightKg,
+    CargoDetails? cargoDetails,
     required XFile? cargoImage,
     required int codCollectionAmount,
     required int goodsValue,
@@ -58,6 +60,14 @@ class CreateOrderConfirmationController {
       itemWeight: itemWeightKg.toString(),
     );
     if (error != null) throw CreateOrderPreparationException(error);
+    if (quote.settings != null && CargoPricingPolicy.enabled(quote.settings!)) {
+      if (cargoDetails == null) {
+        throw const CreateOrderPreparationException(
+          'Vui lòng khai báo kích thước và số kiện hàng.',
+        );
+      }
+      quote = quote.withCargo(itemWeightKg, cargoDetails);
+    }
     late final SenderContactData sender;
     try {
       sender = await loadSenderContact(ref);
@@ -93,6 +103,7 @@ class CreateOrderConfirmationController {
       itemCategory: itemCategory,
       itemDescription: itemDescription,
       itemWeightKg: itemWeightKg,
+      cargoDetails: quote.feeBreakdown.cargoDetails,
       cargoImage: cargoImage,
       paymentMethod: deliveryFeePayer == DeliveryFeePayer.sender
           ? 'wallet'

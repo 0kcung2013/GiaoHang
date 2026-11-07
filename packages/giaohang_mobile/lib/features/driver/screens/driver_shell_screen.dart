@@ -11,6 +11,7 @@ import '../../../core/location/driver_foreground_location_service.dart';
 import '../../../core/models/order_model.dart';
 import '../../../core/providers/customer_providers.dart';
 import '../../../core/providers/location_providers.dart';
+import '../../../core/providers/driver_task_priority_provider.dart';
 import '../../notifications/models/notification_inbox_item.dart';
 import '../../notifications/widgets/notification_bell_button.dart';
 import 'account/driver_account_screen.dart';
@@ -25,9 +26,12 @@ import 'orders/driver_orders_screen.dart';
 import 'widgets/driver_drawer.dart';
 import 'widgets/driver_active_delivery_location_tracker.dart';
 import 'widgets/driver_cold_start_gate.dart';
+import 'widgets/driver_online_presence_host.dart';
 import 'widgets/driver_gps_debug_dialog.dart';
 import '../cancellation/driver_cancellation_providers.dart';
 import '../../help_center/widgets/help_center_button.dart';
+import '../dispatch_preferences/dispatch_preferences_page.dart';
+import '../dispatch_preferences/dispatch_preferences_strings.dart';
 
 class DriverShellScreen extends ConsumerStatefulWidget {
   const DriverShellScreen({super.key, this.initialTab = 0});
@@ -45,11 +49,13 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
     'Ví & Thu nhập',
     'Tài khoản',
     'FreePick',
+    DispatchPreferencesStrings.title,
   ];
 
   late int _currentIndex;
   late bool _hasOpenedEarnings;
   late bool _hasOpenedFreePick;
+  late bool _hasOpenedDispatchPreferences;
   String? _lastHandledCancellationEventId;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -59,6 +65,7 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
     _currentIndex = widget.initialTab.clamp(0, _titles.length - 1);
     _hasOpenedEarnings = _currentIndex == 2;
     _hasOpenedFreePick = _currentIndex == 4;
+    _hasOpenedDispatchPreferences = _currentIndex == 5;
   }
 
   @override
@@ -68,12 +75,19 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
       _currentIndex = widget.initialTab.clamp(0, _titles.length - 1);
       if (_currentIndex == 2) _hasOpenedEarnings = true;
       if (_currentIndex == 4) _hasOpenedFreePick = true;
+      if (_currentIndex == 5) _hasOpenedDispatchPreferences = true;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final currentUser = Supabase.instance.client.auth.currentUser;
+    if (currentUser != null) {
+      // Retain one physical position across tabs/maps; release it on logout.
+      ref.watch(driverPhysicalPositionProvider.select((_) => null));
+      ref.watch(driverArrivalFixProvider.select((_) => null));
+      ref.watch(driverPriorityOrderIdProvider.select((_) => null));
+    }
     final acceptanceState = currentUser == null
         ? null
         : ref.watch(driverAcceptanceStateProvider(currentUser.id)).valueOrNull;
@@ -186,6 +200,7 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
               _currentIndex = index;
               if (index == 2) _hasOpenedEarnings = true;
               if (index == 4) _hasOpenedFreePick = true;
+              if (index == 5) _hasOpenedDispatchPreferences = true;
             }),
           ),
           body: SafeArea(
@@ -194,7 +209,10 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
                 ? _buildDriverContent(currentUser)
                 : DriverColdStartGate(
                     userId: currentUser.id,
-                    child: _buildDriverContent(currentUser),
+                    child: DriverOnlinePresenceHost(
+                      userId: currentUser.id,
+                      child: _buildDriverContent(currentUser),
+                    ),
                   ),
           ),
         ),
@@ -226,6 +244,10 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
               const DriverFreePickScreen()
             else
               const SizedBox.shrink(),
+            if (_hasOpenedDispatchPreferences && currentUser != null)
+              DispatchPreferencesPage(userId: currentUser.id)
+            else
+              const SizedBox.shrink(),
           ],
         ),
         if (currentUser != null)
@@ -241,14 +263,16 @@ class _DriverShellScreenState extends ConsumerState<DriverShellScreen> {
     if (driver == null) return null;
 
     final currentPosition = ref.watch(currentPositionProvider).valueOrNull;
-    final dashboardPosition = resolveDriverDashboardPosition(
-      locationMode: ref.watch(driverLocationModeProvider),
-      email: currentUser.email,
-      rawLat: currentPosition?.latitude,
-      rawLng: currentPosition?.longitude,
-      storedLat: driver.currentLat,
-      storedLng: driver.currentLng,
-    );
+    final dashboardPosition =
+        ref.watch(driverPhysicalPositionProvider) ??
+        resolveDriverDashboardPosition(
+          locationMode: ref.watch(driverLocationModeProvider),
+          email: currentUser.email,
+          rawLat: currentPosition?.latitude,
+          rawLng: currentPosition?.longitude,
+          storedLat: driver.currentLat,
+          storedLng: driver.currentLng,
+        );
     final offerPosition = resolveDriverOfferPosition(
       dashboardPosition: dashboardPosition,
       storedLat: driver.currentLat,

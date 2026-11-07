@@ -9,6 +9,50 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
   test(
+    'PIN rejection leaves the order editable and reports remaining attempts',
+    () async {
+      final controller = _controller((_, params) async {
+        expect(params['p_pin'], '001234');
+        return {'ok': false, 'code': 'PIN_INVALID', 'attempts_remaining': 4};
+      }, (_) async => fail('Wrong PIN cannot finish an order'));
+      addTearDown(controller.dispose);
+      await controller.submit(_order(), pin: '001234');
+      expect(controller.hasAttempt, isFalse);
+      expect(controller.canSwitchPayment, isTrue);
+      expect(controller.pinFailure?.code, 'PIN_INVALID');
+      expect(controller.error, contains('4 lần thử'));
+    },
+  );
+
+  test('malformed response keeps an uncertain attempt protected', () async {
+    final controller = _controller((_, _) async => null, (_) async {});
+    addTearDown(controller.dispose);
+    await controller.submit(_order(), pin: '001234');
+    expect(controller.hasAttempt, isTrue);
+    expect(controller.canSwitchPayment, isFalse);
+  });
+
+  test(
+    'PIN authorization closes before completion and completion never debits twice',
+    () async {
+      var debits = 0;
+      var finishes = 0;
+      final controller = _controller((_, params) async {
+        debits++;
+        expect(params['p_pin'], '001234');
+        return _createdJson();
+      }, (_) async => finishes++);
+      addTearDown(controller.dispose);
+      await controller.submit(_order(), pin: '001234', deferCompletion: true);
+      expect(controller.hasCreatedOrder, isTrue);
+      expect(finishes, 0);
+      await controller.submit(_order());
+      expect(debits, 1);
+      expect(finishes, 1);
+    },
+  );
+
+  test(
     'definitive quote rejection clears the unpaid snapshot for requoting',
     () async {
       final controller = _controller((_, _) async {
@@ -32,12 +76,15 @@ void main() {
       return _createdJson();
     }, (_) async => finishes++);
     addTearDown(controller.dispose);
-    await controller.submit(_order());
+    await controller.submit(_order(), pin: '001234');
     expect(controller.canSwitchPayment, isFalse);
     await controller.submit(_order().copyWith(deliveryFee: 99999));
     await controller.submit(_order());
     expect(calls, hasLength(2));
-    expect(calls[0], calls[1]);
+    expect(calls[0]['p_order_payload'], calls[1]['p_order_payload']);
+    expect(calls[0]['p_request_id'], calls[1]['p_request_id']);
+    expect(calls[0]['p_pin'], '001234');
+    expect(calls[1]['p_pin'], isNull);
     expect(calls[0]['p_request_id'], 'request-1');
     expect((calls[0]['p_order_payload'] as Map)['delivery_fee'], 18000);
     expect(finishes, 1);
@@ -84,9 +131,12 @@ void main() {
     'only confirmed insufficient balance permits switching to VNPAY',
     () async {
       final controller = _controller((_, _) async {
-        throw const PostgrestException(
-          message: 'CUSTOMER_WALLET_INSUFFICIENT_BALANCE',
-        );
+        return {
+          'ok': false,
+          'error_kind': 'payment',
+          'code': 'CUSTOMER_WALLET_INSUFFICIENT_BALANCE',
+          'sqlstate': 'P0001',
+        };
       }, (_) async => fail('An unpaid order cannot complete'));
       addTearDown(controller.dispose);
       await controller.submit(_order());
@@ -138,10 +188,13 @@ OrderConfirmationWalletController _controller(
 );
 
 Map<String, dynamic> _createdJson() => {
-  ..._order().toJson(),
-  'id': 'order-1',
-  'tracking_code': 'GH-10001',
-  'payment_status': 'paid',
+  'ok': true,
+  'order': {
+    ..._order().toJson(),
+    'id': 'order-1',
+    'tracking_code': 'GH-10001',
+    'payment_status': 'paid',
+  },
 };
 
 OrderModel _order() => OrderModel(

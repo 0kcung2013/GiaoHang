@@ -17,6 +17,10 @@ void main() {
       expect(order.driver?.email, 'driver@example.invalid');
       expect(order.predictedDeliveryAt, DateTime.parse('2026-10-11T01:35:00Z'));
       expect(RiskOrderSummary.fromJson(order.toJson()).itemWeightKg, 2.75);
+      expect(
+        RiskOrderSummary.fromJson(order.toJson()).cargoDetails!.surcharge,
+        15000,
+      );
       final stale = RiskOrderSummary.fromJson({
         ...order.toJson(),
         'driver_id': 'new-driver',
@@ -210,6 +214,12 @@ RiskOrderSummary _order() => RiskOrderSummary.fromJson({
   'item_name': 'Hộp bánh sinh nhật',
   'item_category': 'food',
   'item_weight_kg': '2.750',
+  'cargo_details': {
+    'size_group': 'large',
+    'package_count': 2,
+    'tier': 'large',
+    'surcharge': 15000,
+  },
   'item_description': 'Hộp bánh lớn, giữ thẳng khi di chuyển.',
   'note': 'Không xếp nghiêng; gọi trước khi đến.',
   'goods_value': '200000',

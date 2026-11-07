@@ -1,8 +1,9 @@
+import 'recipient_hold.dart';
 import 'order_finance.dart';
 import 'order_route_distance.dart';
 import 'traffic_demo_clock.dart';
 import 'package:giaohang_domain/giaohang_domain.dart'
-    show parseCargoWeightKg, DriverMonitoring, BusinessSettings;
+    show parseCargoWeightKg, DriverMonitoring, BusinessSettings, CargoDetails;
 
 class OrderModel {
   const OrderModel({
@@ -37,6 +38,7 @@ class OrderModel {
     this.itemDescription,
     this.itemImageUrl,
     this.itemWeightKg,
+    this.cargoDetails,
     required this.deliveryFee,
     required this.serviceType,
     required this.paymentMethod,
@@ -62,6 +64,7 @@ class OrderModel {
     this.pickupRoadOriginLng,
     this.routeDistance,
     this.driverMonitoring,
+    this.recipientHold,
     this.trafficDemoKey,
     this.deliveryEtaData,
     this.quotedDistanceMeters,
@@ -105,6 +108,7 @@ class OrderModel {
   final String? itemDescription;
   final String? itemImageUrl;
   final double? itemWeightKg;
+  final CargoDetails? cargoDetails;
   final double deliveryFee;
   final String serviceType;
   final String paymentMethod;
@@ -142,6 +146,9 @@ class OrderModel {
 
   /// Trạng thái chỉ đọc; không gửi vào payload tạo/sửa đơn.
   final DriverMonitoring? driverMonitoring;
+  final RecipientHold? recipientHold;
+  bool get isRecipientHeld =>
+      status == 'delivering' && recipientHold?.isHolding == true;
   final String? trafficDemoKey;
 
   /// Read-only backend forecast; never included in order submission writes.
@@ -196,6 +203,7 @@ class OrderModel {
       itemDescription: json['item_description']?.toString(),
       itemImageUrl: json['item_image_url']?.toString(),
       itemWeightKg: parseCargoWeightKg(json['item_weight_kg']),
+      cargoDetails: CargoDetails.fromJson(json['cargo_details']),
       deliveryFee: _parseDouble(json['delivery_fee']) ?? 0,
       serviceType: json['service_type']?.toString() ?? 'standard',
       paymentMethod: json['payment_method']?.toString() ?? 'cash',
@@ -231,6 +239,7 @@ class OrderModel {
         json['driver_id']?.toString(),
       ),
       driverMonitoring: DriverMonitoring.fromJson(json['driver_monitoring']),
+      recipientHold: RecipientHold.fromJson(json['delivery_hold']),
       trafficDemoKey: TrafficDemoClock.validKey(
         json['traffic_demo_key']?.toString(),
       ),
@@ -295,6 +304,7 @@ class OrderModel {
       'item_description': itemDescription,
       'item_image_url': itemImageUrl,
       if (itemWeightKg != null) 'item_weight_kg': itemWeightKg,
+      if (cargoDetails != null) 'cargo_details': cargoDetails!.toJson(),
       'delivery_fee': deliveryFee,
       'service_type': serviceType,
       'payment_method': paymentMethod,
@@ -369,6 +379,7 @@ class OrderModel {
     String? itemDescription,
     String? itemImageUrl,
     double? itemWeightKg,
+    CargoDetails? cargoDetails,
     double? deliveryFee,
     String? serviceType,
     String? paymentMethod,
@@ -408,6 +419,7 @@ class OrderModel {
           ? deliveryEtaData ?? this.deliveryEtaData
           : null,
       status: status ?? this.status,
+      recipientHold: recipientHold,
       driverMonitoring: driverId == null || driverId == this.driverId
           ? driverMonitoring
           : null,
@@ -438,6 +450,7 @@ class OrderModel {
       itemDescription: itemDescription ?? this.itemDescription,
       itemImageUrl: itemImageUrl ?? this.itemImageUrl,
       itemWeightKg: itemWeightKg ?? this.itemWeightKg,
+      cargoDetails: cargoDetails ?? this.cargoDetails,
       deliveryFee: deliveryFee ?? this.deliveryFee,
       serviceType: serviceType ?? this.serviceType,
       paymentMethod: paymentMethod ?? this.paymentMethod,

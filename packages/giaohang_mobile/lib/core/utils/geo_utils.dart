@@ -63,4 +63,21 @@ class GeoUtils {
     if (key == null || key.isEmpty) return LatLng(lat, lng);
     return testDriverDemoPositions[key] ?? LatLng(lat, lng);
   }
+
+  /// Translate the HCM demo group's relative layout to the current device GPS.
+  /// Driver 1 is the anchor; driver 2/3 stay approximately 160/320m from it.
+  static LatLng applyCurrentPositionDriverOffset({
+    required String? email,
+    required double lat,
+    required double lng,
+  }) {
+    final base = LatLng(lat, lng);
+    if (!hasTestDriverOffset(email)) return base;
+    final origin = testDriverDemoPositions['taixe@gmail.com']!;
+    final driver = testDriverDemoPositions[email!.trim().toLowerCase()]!;
+    return LatLng(
+      lat + (driver.latitude - origin.latitude),
+      lng + (driver.longitude - origin.longitude),
+    );
+  }
 }

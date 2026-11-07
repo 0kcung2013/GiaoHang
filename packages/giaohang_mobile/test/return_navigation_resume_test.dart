@@ -544,6 +544,7 @@ class _Realtime extends RealtimeService {
     required double lat,
     required double lng,
     double? speedKmh,
+    DateTime? sampledAt,
   }) async {}
 }
 

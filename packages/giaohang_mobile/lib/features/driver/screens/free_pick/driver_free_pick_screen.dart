@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../../../../core/location/driver_workload_policy.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
@@ -163,7 +164,8 @@ class _DriverFreePickScreenState extends ConsumerState<DriverFreePickScreen> {
           storedLng: driver.currentLng,
         );
         final hasActiveOrder =
-            ordersAsync.valueOrNull?.any(isActiveDriverOrder) ?? false;
+            ordersAsync.valueOrNull?.any(DriverWorkloadPolicy.isWorking) ??
+            false;
         final hasActiveOffer = offersAsync.valueOrNull?.isNotEmpty ?? false;
         final enabled =
             driver.isAvailable &&

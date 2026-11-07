@@ -6,6 +6,8 @@ import '../../../../../core/utils/platform_fee_strings.dart';
 import '../utils/create_order_formatters.dart';
 import '../utils/delivery_eta_strings.dart';
 import '../utils/traffic_demo_strings.dart';
+import 'package:giaohang_domain/giaohang_domain.dart' show CargoPricingPolicy;
+import 'cargo_pricing_fields.dart';
 
 class OrderQuoteStep extends StatelessWidget {
   const OrderQuoteStep({
@@ -36,6 +38,15 @@ class OrderQuoteStep extends StatelessWidget {
           ),
           children: [
             _PriceCard(quote: quote, isTrafficDemo: isTrafficDemo),
+            if (quote.settings != null &&
+                CargoPricingPolicy.enabled(quote.settings!))
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.md),
+                child: Text(
+                  CargoPricingText.preliminary,
+                  style: AppTextStyles.bodySmall,
+                ),
+              ),
             const SizedBox(height: AppSpacing.lg),
             _RouteCard(
               pickupAddress: pickupAddress,
@@ -140,6 +151,15 @@ class _PriceCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xl),
           _QuoteMetrics(quote: quote),
+          if (quote.feeBreakdown.cargoDetails != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              CargoPricingText.included(
+                formatDeliveryFee(quote.feeBreakdown.cargoSurcharge),
+              ),
+              style: AppTextStyles.labelMedium,
+            ),
+          ],
           const SizedBox(height: AppSpacing.sm),
           Text(
             DeliveryEtaStrings.afterAssignment,

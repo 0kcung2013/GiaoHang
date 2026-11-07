@@ -87,6 +87,9 @@ class AddressPickerStrings {
   static const recentLimit = '15 địa chỉ dùng gần nhất';
   static const pickupShort = 'Điểm lấy';
   static const deliveryShort = 'Điểm giao';
+  static const pickupSelected = 'Điểm lấy đã chọn';
+  static const showBothStops = 'Xem hai điểm';
+  static const mapAttribution = 'flutter_map | © OpenStreetMap contributors';
   static const today = 'Hôm nay';
   static const yesterday = 'Hôm qua';
   static const usedOnce = 'Đã dùng 1 lần';

@@ -6,7 +6,6 @@ extension _DriverNavigationSupportActions on _DriverNavigationScreenState {
     _exitingForOrderCancellation = true;
     _simTimer?.cancel();
     _routeRefreshTimer?.cancel();
-    unawaited(_posStream?.cancel());
     _navigationOwner.state = null;
   }
 
@@ -15,13 +14,11 @@ extension _DriverNavigationSupportActions on _DriverNavigationScreenState {
     _exitingForOrderCancellation = true;
     _simTimer?.cancel();
     _routeRefreshTimer?.cancel();
-    await _posStream?.cancel();
     _navigationOwner.state = null;
     final order = _currentOrder;
     final driverId = order.driverId;
     try {
       await _navSessionsNotifier.remove(order.id);
-      await DriverForegroundLocationService.stop();
     } catch (error) {
       debugPrint('[SupportCancellation] navigation cleanup: $error');
     }

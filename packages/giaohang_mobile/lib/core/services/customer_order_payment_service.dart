@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/order_finance.dart';
 import '../models/order_model.dart';
 import '../models/order_submission_payload.dart';
+import '../models/customer_wallet_pin.dart';
 import '../utils/business_settings_feedback.dart';
 
 typedef CustomerOrderPaymentFunctionInvoker =
@@ -24,6 +25,7 @@ class CustomerOrderPaymentService {
   Future<OrderModel> createWalletOrder(
     OrderModel order, {
     required String requestId,
+    String? pin,
   }) async {
     if (order.deliveryFeePayer != DeliveryFeePayer.sender ||
         order.codCollectionAmount != 0) {
@@ -35,8 +37,16 @@ class CustomerOrderPaymentService {
       final response = await _rpcInvoker('create_customer_order_with_wallet', {
         'p_order_payload': buildOrderSubmissionPayload(order),
         'p_request_id': requestId,
+        'p_pin': pin,
       });
-      final created = OrderModel.fromJson(_singleRow(response));
+      if (response is Map && response['error_kind'] == 'payment') {
+        throw PostgrestException(
+          message: response['code']?.toString() ?? 'WALLET_PAYMENT_FAILED',
+          code: response['sqlstate']?.toString(),
+        );
+      }
+      final receipt = CustomerWalletPinException.checkedResponse(response);
+      final created = OrderModel.fromJson(_singleRow(receipt['order']));
       if (created.id.isEmpty || created.paymentMethod != 'wallet') {
         throw const CustomerWalletOrderPaymentException(
           'Chưa xác nhận được đơn thanh toán bằng ví. Vui lòng thử lại.',

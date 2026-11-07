@@ -162,15 +162,13 @@ class DriverService {
         LocationIngestCoordinateSpace.rawGps,
   }) async {
     try {
-      final adjusted = coordinateSpace.shouldApplyDemoOffset
-          ? GeoUtils.applyTestDriverOffset(
-              email: _supabase.auth.currentUser?.email,
-              lat: lat,
-              lng: lng,
-            )
-          : null;
-      final effectiveLat = adjusted?.latitude ?? lat;
-      final effectiveLng = adjusted?.longitude ?? lng;
+      final adjusted = coordinateSpace.resolveCoordinates(
+        email: _supabase.auth.currentUser?.email,
+        lat: lat,
+        lng: lng,
+      );
+      final effectiveLat = adjusted.latitude;
+      final effectiveLng = adjusted.longitude;
 
       await _publishLocation(
         driverProfileId: driverProfileId,

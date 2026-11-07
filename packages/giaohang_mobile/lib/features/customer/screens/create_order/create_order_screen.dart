@@ -7,7 +7,9 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
 
 import 'package:giaohang_design/giaohang_design.dart';
-import 'package:giaohang_domain/giaohang_domain.dart' show parseCargoWeightKg;
+import 'package:giaohang_domain/giaohang_domain.dart'
+    show parseCargoWeightKg, CargoDetails, CargoSizeGroup, CargoPricingPolicy;
+import 'widgets/cargo_pricing_fields.dart';
 import '../../../../core/models/recent_address_model.dart';
 import '../../../../core/providers/location_providers.dart';
 import '../../../../core/providers/business_settings_providers.dart';
@@ -63,6 +65,8 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   final _itemNameController = TextEditingController();
   final _itemDescriptionController = TextEditingController();
   final _itemWeightController = TextEditingController();
+  final _packageCountController = TextEditingController(text: '1');
+  String _cargoSizeValue = '';
   final _financeController = OrderFinanceFormController();
 
   String _itemCategory = '';
@@ -85,6 +89,8 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   @override
   void initState() {
     super.initState();
+    _itemWeightController.addListener(_cargoChanged);
+    _packageCountController.addListener(_cargoChanged);
     _preloadCurrentPosition();
   }
 
@@ -99,6 +105,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       _itemNameController,
       _itemDescriptionController,
       _itemWeightController,
+      _packageCountController,
     ]) {
       controller.dispose();
     }
@@ -129,6 +136,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
           ? RecentAddressType.pickup
           : RecentAddressType.delivery,
       currentSelection: isPickup ? _pickupSelection : _deliverySelection,
+      pickupSelection: isPickup ? null : _pickupSelection,
       currentPosition: _currentPosition,
       locate: () => ref.read(locationServiceProvider).getCurrentPosition(),
     );
@@ -202,6 +210,30 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   bool get _hasPickupPin => _pickupLat != 0 && _pickupLng != 0;
   bool get _hasDeliveryPin => _deliveryLat != 0 && _deliveryLng != 0;
 
+  void _cargoChanged() => setState(() {});
+
+  bool get _cargoEnabled =>
+      _quote?.settings != null && CargoPricingPolicy.enabled(_quote!.settings!);
+
+  CargoDetails? get _cargoDeclaration {
+    if (!_cargoEnabled) return null;
+    final size = CargoSizeGroup.parse(_cargoSizeValue);
+    final count = int.tryParse(_packageCountController.text);
+    if (size == null || count == null || count < 1 || count > 100) return null;
+    return CargoDetails(sizeGroup: size, packageCount: count);
+  }
+
+  DeliveryFeeEstimate? get _effectiveQuote {
+    final cargo = _cargoDeclaration;
+    final weight = parseCargoWeightKg(_itemWeightController.text);
+    if (cargo == null || weight == null) return _quote;
+    try {
+      return _quote?.withCargo(weight, cargo);
+    } on FormatException {
+      return _quote;
+    }
+  }
+
   Future<void> _goToQuote([OsrmRouteResult? previewRoute]) async {
     showDialog<void>(
       context: context,
@@ -242,7 +274,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
   Future<void> _goToConfirmation() async {
     if (!validateOrderForm(_paymentFormKey)) return;
     FocusScope.of(context).unfocus();
-    final quote = _quote;
+    final quote = _effectiveQuote;
     if (quote == null) {
       _showSnackBar('Vui lòng xem phí giao hàng trước.', isError: true);
       setState(() => _step = 0);
@@ -283,6 +315,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
         itemCategory: _itemCategory,
         itemDescription: _itemDescriptionController.text.trim(),
         itemWeightKg: parseCargoWeightKg(_itemWeightController.text)!,
+        cargoDetails: _cargoDeclaration,
         cargoImage: _cargoImage,
         codCollectionAmount: _financeController.codCollectionAmount,
         goodsValue: _financeController.goodsValue,
@@ -344,7 +377,7 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
       _currentPosition?.longitude ?? 106.660172,
     );
     final isLocationStep = _step == 0;
-    final quote = _quote;
+    final quote = _effectiveQuote;
     final latestRevision =
         ref.watch(businessSettingsProvider).valueOrNull?.revision ?? 0;
     final needsReview =
@@ -439,6 +472,16 @@ class _CreateOrderScreenState extends ConsumerState<CreateOrderScreen> {
                   itemNameController: _itemNameController,
                   itemDescriptionController: _itemDescriptionController,
                   itemWeightController: _itemWeightController,
+                  cargoPricingFields: _cargoEnabled
+                      ? CargoPricingFields(
+                          settings: _quote!.settings!,
+                          weightController: _itemWeightController,
+                          countController: _packageCountController,
+                          sizeValue: _cargoSizeValue,
+                          onSizeChanged: (value) =>
+                              setState(() => _cargoSizeValue = value),
+                        )
+                      : null,
                   itemCategory: _itemCategory,
                   cargoImage: _cargoImage,
                   requiredText: requiredOrderText,

@@ -2,19 +2,47 @@ import 'package:latlong2/latlong.dart';
 
 import '../utils/geo_utils.dart';
 
-enum LocationIngestCoordinateSpace { rawGps, mapCoordinates }
+enum LocationIngestCoordinateSpace { rawGps, mapCoordinates, currentDemoGps }
 
 extension LocationIngestCoordinateSpaceRules on LocationIngestCoordinateSpace {
   bool get shouldApplyDemoOffset =>
-      this == LocationIngestCoordinateSpace.rawGps;
+      this != LocationIngestCoordinateSpace.mapCoordinates;
+
+  LatLng resolveCoordinates({
+    required String? email,
+    required double lat,
+    required double lng,
+  }) => switch (this) {
+    LocationIngestCoordinateSpace.rawGps => GeoUtils.applyTestDriverOffset(
+      email: email,
+      lat: lat,
+      lng: lng,
+    ),
+    LocationIngestCoordinateSpace.currentDemoGps =>
+      GeoUtils.applyCurrentPositionDriverOffset(
+        email: email,
+        lat: lat,
+        lng: lng,
+      ),
+    LocationIngestCoordinateSpace.mapCoordinates => LatLng(lat, lng),
+  };
 }
 
-enum DriverLocationMode { demoHcm, deviceGps, demoCurrentPosition }
+enum DriverLocationMode {
+  demoHcm,
+  deviceGps,
+  demoCurrentPosition;
+
+  static DriverLocationMode get defaultMode =>
+      GeoUtils.enableTestDriverOffsets ? demoCurrentPosition : deviceGps;
+}
 
 extension DriverLocationModeRules on DriverLocationMode {
   LocationIngestCoordinateSpace get rawGpsCoordinateSpace => switch (this) {
     DriverLocationMode.demoHcm => LocationIngestCoordinateSpace.rawGps,
-    DriverLocationMode.deviceGps || DriverLocationMode.demoCurrentPosition =>
+    DriverLocationMode.demoCurrentPosition =>
+      LocationIngestCoordinateSpace.currentDemoGps,
+    DriverLocationMode.deviceGps =>
       LocationIngestCoordinateSpace.mapCoordinates,
   };
 
@@ -22,15 +50,11 @@ extension DriverLocationModeRules on DriverLocationMode {
     required String? email,
     required double lat,
     required double lng,
-  }) => switch (this) {
-    DriverLocationMode.demoHcm => GeoUtils.applyTestDriverOffset(
-      email: email,
-      lat: lat,
-      lng: lng,
-    ),
-    DriverLocationMode.deviceGps ||
-    DriverLocationMode.demoCurrentPosition => LatLng(lat, lng),
-  };
+  }) => rawGpsCoordinateSpace.resolveCoordinates(
+    email: email,
+    lat: lat,
+    lng: lng,
+  );
 }
 
 class DriverLocationProducerPolicy {

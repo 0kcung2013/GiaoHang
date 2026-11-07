@@ -46,7 +46,7 @@ void main() {
     );
 
     test(
-      'leaves location publishing to the navigation map while it is open',
+      'keeps the shared live GPS running while a navigation map is open',
       () {
         expect(
           DriverActiveDeliveryTrackingPolicy.shouldUseLiveGps(
@@ -55,7 +55,7 @@ void main() {
             isNavigationMapOpen: true,
             hasRestoredNavigationSession: false,
           ),
-          isFalse,
+          isTrue,
         );
       },
     );
@@ -98,13 +98,13 @@ void main() {
       );
     });
 
-    test('uses route simulation for web and Android demo mode', () {
+    test('web uses real GPS unless demo was explicitly selected', () {
       expect(
         DriverActiveDeliveryTrackingPolicy.usesRouteSimulation(
           isWeb: true,
           locationMode: DriverLocationMode.deviceGps,
         ),
-        isTrue,
+        isFalse,
       );
       expect(
         DriverActiveDeliveryTrackingPolicy.usesRouteSimulation(

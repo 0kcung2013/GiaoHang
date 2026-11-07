@@ -6,6 +6,7 @@ import '../../../../../core/models/order_model.dart';
 import '../../../../../core/utils/order_cargo_utils.dart';
 import '../../../../../core/utils/cargo_weight_strings.dart';
 import '../../../../../core/widgets/stored_media_image.dart';
+import '../../../../../core/widgets/cargo_pricing_summary.dart';
 import '../../home/widgets/driver_order_offer_summary.dart';
 
 class DriverOrderCargoDetails extends StatelessWidget {
@@ -97,6 +98,13 @@ class DriverOrderCargoDetails extends StatelessWidget {
           ),
         ],
       ),
+      if (order.cargoDetails != null) ...[
+        const SizedBox(height: AppSpacing.md),
+        CargoPricingSummary(
+          details: order.cargoDetails!,
+          policy: order.businessPolicy,
+        ),
+      ],
       if (order.itemDescription?.trim().isNotEmpty == true) ...[
         const SizedBox(height: AppSpacing.md),
         Text(order.itemDescription!.trim(), style: AppTextStyles.bodyMedium),

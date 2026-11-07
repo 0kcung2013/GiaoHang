@@ -1,0 +1,295 @@
+{
+  "available": 638,
+  "missing": [
+    {
+      "province": "Thành phố Hà Nội",
+      "district": "Huyện Mê Linh",
+      "code": 250
+    },
+    {
+      "province": "Thành phố Hà Nội",
+      "district": "Huyện Mỹ Đức",
+      "code": 282
+    },
+    {
+      "province": "Tỉnh Hà Giang",
+      "district": "Huyện Quản Bạ",
+      "code": 29
+    },
+    {
+      "province": "Tỉnh Cao Bằng",
+      "district": "Huyện Quảng Hòa",
+      "code": 49
+    },
+    {
+      "province": "Tỉnh Thái Nguyên",
+      "district": "Thành phố Phổ Yên",
+      "code": 172
+    },
+    {
+      "province": "Tỉnh Quảng Ninh",
+      "district": "Thành phố Móng Cái",
+      "code": 194
+    },
+    {
+      "province": "Tỉnh Quảng Ninh",
+      "district": "Thành phố Uông Bí",
+      "code": 196
+    },
+    {
+      "province": "Tỉnh Quảng Ninh",
+      "district": "Huyện Vân Đồn",
+      "code": 203
+    },
+    {
+      "province": "Tỉnh Quảng Ninh",
+      "district": "Thành phố Đông Triều",
+      "code": 205
+    },
+    {
+      "province": "Tỉnh Quảng Ninh",
+      "district": "Thị xã Quảng Yên",
+      "code": 206
+    },
+    {
+      "province": "Tỉnh Quảng Ninh",
+      "district": "Huyện Cô Tô",
+      "code": 207
+    },
+    {
+      "province": "Tỉnh Bắc Giang",
+      "district": "Huyện Yên Thế",
+      "code": 215
+    },
+    {
+      "province": "Tỉnh Bắc Giang",
+      "district": "Thị xã Việt Yên",
+      "code": 222
+    },
+    {
+      "province": "Tỉnh Bắc Giang",
+      "district": "Huyện Hiệp Hòa",
+      "code": 223
+    },
+    {
+      "province": "Tỉnh Bắc Giang",
+      "district": "Thị xã Chũ",
+      "code": 224
+    },
+    {
+      "province": "Tỉnh Vĩnh Phúc",
+      "district": "Huyện Vĩnh Tường",
+      "code": 252
+    },
+    {
+      "province": "Tỉnh Vĩnh Phúc",
+      "district": "Huyện Sông Lô",
+      "code": 253
+    },
+    {
+      "province": "Tỉnh Bắc Ninh",
+      "district": "Thành phố Từ Sơn",
+      "code": 261
+    },
+    {
+      "province": "Tỉnh Hải Dương",
+      "district": "Huyện Thanh Miện",
+      "code": 300
+    },
+    {
+      "province": "Thành phố Hải Phòng",
+      "district": "Quận An Dương",
+      "code": 312
+    },
+    {
+      "province": "Thành phố Hải Phòng",
+      "district": "Huyện An Lão",
+      "code": 313
+    },
+    {
+      "province": "Thành phố Hải Phòng",
+      "district": "Huyện Vĩnh Bảo",
+      "code": 316
+    },
+    {
+      "province": "Thành phố Hải Phòng",
+      "district": "Huyện Cát Hải",
+      "code": 317
+    },
+    {
+      "province": "Thành phố Hải Phòng",
+      "district": "Huyện Bạch Long Vĩ",
+      "code": 318
+    },
+    {
+      "province": "Tỉnh Hưng Yên",
+      "district": "Thành phố Hưng Yên",
+      "code": 323
+    },
+    {
+      "province": "Tỉnh Hưng Yên",
+      "district": "Huyện Văn Giang",
+      "code": 326
+    },
+    {
+      "province": "Tỉnh Hưng Yên",
+      "district": "Huyện Khoái Châu",
+      "code": 330
+    },
+    {
+      "province": "Tỉnh Thái Bình",
+      "district": "Huyện Vũ Thư",
+      "code": 344
+    },
+    {
+      "province": "Tỉnh Thanh Hóa",
+      "district": "Huyện Quan Hóa",
+      "code": 385
+    },
+    {
+      "province": "Tỉnh Thanh Hóa",
+      "district": "Huyện Quan Sơn",
+      "code": 387
+    },
+    {
+      "province": "Tỉnh Thanh Hóa",
+      "district": "Thị xã Nghi Sơn",
+      "code": 407
+    },
+    {
+      "province": "Tỉnh Quảng Trị",
+      "district": "Huyện Cồn Cỏ",
+      "code": 471
+    },
+    {
+      "province": "Thành phố Huế",
+      "district": "Quận Thuận Hóa",
+      "code": 474
+    },
+    {
+      "province": "Thành phố Huế",
+      "district": "Quận Phú Xuân",
+      "code": 475
+    },
+    {
+      "province": "Thành phố Đà Nẵng",
+      "district": "Huyện Hoàng Sa",
+      "code": 498
+    },
+    {
+      "province": "Tỉnh Quảng Ngãi",
+      "district": "Huyện Sơn Tây",
+      "code": 530
+    },
+    {
+      "province": "Tỉnh Khánh Hòa",
+      "district": "Huyện Trường Sa",
+      "code": 576
+    },
+    {
+      "province": "Tỉnh Bình Thuận",
+      "district": "Huyện Phú Quí",
+      "code": 602
+    },
+    {
+      "province": "Tỉnh Kon Tum",
+      "district": "Huyện Ia H' Drai",
+      "code": 618
+    },
+    {
+      "province": "Tỉnh Đắk Lắk",
+      "district": "Huyện M'Đrắk",
+      "code": 652
+    },
+    {
+      "province": "Tỉnh Bình Phước",
+      "district": "Huyện Phú Riềng",
+      "code": 698
+    },
+    {
+      "province": "Tỉnh Bà Rịa - Vũng Tàu",
+      "district": "Huyện Long Đất",
+      "code": 753
+    },
+    {
+      "province": "Tỉnh Bà Rịa - Vũng Tàu",
+      "district": "Thị xã Phú Mỹ",
+      "code": 754
+    },
+    {
+      "province": "Tỉnh Bà Rịa - Vũng Tàu",
+      "district": "Huyện Côn Đảo",
+      "code": 755
+    },
+    {
+      "province": "Tỉnh Tiền Giang",
+      "district": "Thành phố Gò Công",
+      "code": 816
+    },
+    {
+      "province": "Tỉnh Tiền Giang",
+      "district": "Thị xã Cai Lậy",
+      "code": 817
+    },
+    {
+      "province": "Tỉnh Tiền Giang",
+      "district": "Huyện Cai Lậy",
+      "code": 820
+    },
+    {
+      "province": "Tỉnh Tiền Giang",
+      "district": "Huyện Chợ Gạo",
+      "code": 822
+    },
+    {
+      "province": "Tỉnh Tiền Giang",
+      "district": "Huyện Tân Phú Đông",
+      "code": 825
+    },
+    {
+      "province": "Tỉnh Đồng Tháp",
+      "district": "Thành phố Cao Lãnh",
+      "code": 866
+    },
+    {
+      "province": "Tỉnh Đồng Tháp",
+      "district": "Thành phố Hồng Ngự",
+      "code": 868
+    },
+    {
+      "province": "Tỉnh Đồng Tháp",
+      "district": "Huyện Hồng Ngự",
+      "code": 870
+    },
+    {
+      "province": "Tỉnh Đồng Tháp",
+      "district": "Huyện Cao Lãnh",
+      "code": 873
+    },
+    {
+      "province": "Tỉnh An Giang",
+      "district": "Thị xã Tịnh Biên",
+      "code": 890
+    },
+    {
+      "province": "Tỉnh Kiên Giang",
+      "district": "Thành phố Rạch Giá",
+      "code": 899
+    },
+    {
+      "province": "Tỉnh Kiên Giang",
+      "district": "Huyện Kiên Hải",
+      "code": 912
+    },
+    {
+      "province": "Tỉnh Hậu Giang",
+      "district": "Huyện Châu Thành A",
+      "code": 932
+    },
+    {
+      "province": "Tỉnh Hậu Giang",
+      "district": "Huyện Châu Thành",
+      "code": 933
+    }
+  ]
+}

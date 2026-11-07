@@ -258,7 +258,6 @@ extension _DriverNavigationDeliveryActions on _DriverNavigationScreenState {
         _pickupConfirmed = false;
       });
       await _navSessionsNotifier.remove(deliveredOrder.id);
-      await DriverForegroundLocationService.stop();
       if (!mounted) return;
       final deposit = await _loadGoodsDeposit(deliveryCompleted: true);
       if (!mounted) return;

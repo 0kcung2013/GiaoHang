@@ -44,7 +44,11 @@ class SettingsSectionEditor extends StatelessWidget {
                 spacing: AppSpacing.xl2,
                 runSpacing: AppSpacing.xl2,
                 children: [
-                  for (final field in group.fields)
+                  for (final field in group.fields.where(
+                    (field) =>
+                        controller.current?.values.containsKey(field.key) ==
+                        true,
+                  ))
                     SizedBox(
                       width: width,
                       child: BusinessSettingInput(

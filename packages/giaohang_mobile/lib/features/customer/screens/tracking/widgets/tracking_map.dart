@@ -31,8 +31,6 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
       _displayedDriverPosition.value = position;
   LatLng? _motionStart;
   LatLng? _motionTarget;
-  TrackingRouteProjection? _motionStartProjection;
-  TrackingRouteProjection? _motionTargetProjection;
   late final AnimationController _driverMotionController;
   DateTime? _lastRealtimeAt;
   bool _isPublishingPollFallback = false;
@@ -300,15 +298,8 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
             evaluatedAt: profile.forecastAt,
           );
     final progress = TrackingTrafficRouteProgress(snapshot);
-    final snappedCurrent = current == null
-        ? null
-        : TrackingLocationMotion.projectOntoRoute(
-            current,
-            snapshot.routePoints,
-          )?.point;
+    final currentPosition = current;
     _driverMotionController.stop();
-    _motionStartProjection = null;
-    _motionTargetProjection = null;
     if (hasDriverOrigin && !_routeHasDriverOrigin) {
       _hasInitialCameraFit = false;
     }
@@ -317,10 +308,10 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
       _routeHasDriverOrigin = hasDriverOrigin;
       _trafficSnapshot = snapshot;
       _trafficProgress = progress;
-      _visibleTrafficSegments = progress.advanceTo(snappedCurrent);
-      if (snappedCurrent != null) {
-        _stableDriverPos = snappedCurrent;
-        _displayedDriverPos = snappedCurrent;
+      _visibleTrafficSegments = progress.advanceTo(currentPosition);
+      if (currentPosition != null) {
+        _stableDriverPos = currentPosition;
+        _displayedDriverPos = currentPosition;
       }
     });
   }
@@ -343,34 +334,22 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
     if (!_routeHasDriverOrigin && _fullRoute != null) {
       // Tuyến tạm L → G không còn đúng khi đã biết vị trí tài xế.
       _driverMotionController.stop();
-      _motionStartProjection = null;
-      _motionTargetProjection = null;
       _fullRoute = null;
       _trafficSnapshot = null;
       _trafficProgress = null;
       _visibleTrafficSegments = const [];
       _hasInitialCameraFit = false;
     }
-    final route = _routeHasDriverOrigin ? _fullRoute : null;
-    final targetProjection = route == null
-        ? null
-        : TrackingLocationMotion.projectOntoRoute(target, route);
-    final snappedTarget = targetProjection?.point ?? target;
-    final current = _displayedDriverPos ?? _stableDriverPos ?? snappedTarget;
-    final startProjection = route == null
-        ? null
-        : TrackingLocationMotion.projectOntoRoute(current, route);
-    final snappedCurrent = startProjection?.point ?? current;
-    _motionStart = snappedCurrent;
-    _motionTarget = snappedTarget;
-    _motionStartProjection = startProjection;
-    _motionTargetProjection = targetProjection;
-    _stableDriverPos = snappedTarget;
-    final trafficSegments = _trafficProgress?.advanceTo(snappedTarget);
-    if (snappedCurrent == snappedTarget) {
+    final targetPosition = target;
+    final currentPosition = _displayedDriverPos ?? _stableDriverPos ?? target;
+    _motionStart = currentPosition;
+    _motionTarget = target;
+    _stableDriverPos = targetPosition;
+    final trafficSegments = _trafficProgress?.advanceTo(targetPosition);
+    if (currentPosition == targetPosition) {
       if (mounted) {
         setState(() {
-          _displayedDriverPos = snappedTarget;
+          _displayedDriverPos = targetPosition;
           if (trafficSegments != null) {
             _visibleTrafficSegments = trafficSegments;
           }
@@ -389,18 +368,11 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
     final to = _motionTarget;
     if (!mounted || from == null || to == null) return;
     final progress = _driverMotionController.value;
-    final route = _fullRoute;
-    final startProjection = _motionStartProjection;
-    final targetProjection = _motionTargetProjection;
-    _displayedDriverPos =
-        route != null && startProjection != null && targetProjection != null
-        ? TrackingLocationMotion.interpolateAlongRoute(
-            route: route,
-            from: startProjection,
-            to: targetProjection,
-            progress: progress,
-          )
-        : TrackingLocationMotion.interpolate(from, to, progress);
+    _displayedDriverPos = TrackingLocationMotion.interpolate(
+      from,
+      to,
+      progress,
+    );
   }
 
   @override
@@ -485,17 +457,15 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
 
     final resolvedDriverPosition =
         _displayedDriverPos ?? _resolveDriverPos(driverAsync.valueOrNull, live);
-    final snappedDriverPosition = resolvedDriverPosition == null
-        ? null
-        : _snapToRoute(resolvedDriverPosition);
-    final driverBearing = snappedDriverPosition == null || _fullRoute == null
+    final driverPosition = resolvedDriverPosition;
+    final driverBearing = driverPosition == null || _fullRoute == null
         ? null
         : TrackingLocationMotion.projectOntoRoute(
-            snappedDriverPosition,
+            driverPosition,
             _fullRoute!,
           )?.bearingDegrees;
     final driverPos = phase.visibleDriverPosition(
-      latestDriverPosition: snappedDriverPosition,
+      latestDriverPosition: driverPosition,
       delivery: deliveryPoint,
     );
 
@@ -533,13 +503,5 @@ class _TrackingMapState extends ConsumerState<_TrackingMap>
       clipBehavior: Clip.antiAlias,
       child: map,
     );
-  }
-
-  LatLng _snapToRoute(LatLng position) {
-    if (!_routeHasDriverOrigin) return position;
-    final route = _fullRoute;
-    if (route == null) return position;
-    return TrackingLocationMotion.projectOntoRoute(position, route)?.point ??
-        position;
   }
 }

@@ -60,6 +60,7 @@ class DriverNavigationView extends StatelessWidget {
     this.onStopSimulation,
     this.onReturnCancelled,
     this.monitoringPanel,
+    this.onHoldOrder,
   });
 
   final OrderModel order;
@@ -96,6 +97,7 @@ class DriverNavigationView extends StatelessWidget {
   final VoidCallback? onStopSimulation;
   final ValueChanged<ReturnRedeliveryResult>? onReturnCancelled;
   final Widget? monitoringPanel;
+  final VoidCallback? onHoldOrder;
 
   @override
   Widget build(BuildContext context) {
@@ -355,6 +357,22 @@ class DriverNavigationView extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (!blocksDelivery &&
+            onHoldOrder != null &&
+            arrivedAtTarget &&
+            order.status == 'delivering' &&
+            deliveryArrival?.arrivedAt != null &&
+            arrivalError == null)
+          TextButton.icon(
+            onPressed: isUpdatingStatus || arrivalLoading ? null : onHoldOrder,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.info,
+              minimumSize: const Size(48, 48),
+              textStyle: AppTextStyles.labelMedium,
+            ),
+            icon: const Icon(Icons.pause_circle_outline_rounded),
+            label: const Text('Giữ đơn'),
+          ),
         DriverNavigationArrivalBar(
           order: order,
           arrivedAtTarget: arrivedAtTarget,
