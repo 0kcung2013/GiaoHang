@@ -25,6 +25,7 @@ class LoginExperimentFormSurface extends StatelessWidget {
     required this.onRegister,
     required this.onPasswordSubmitted,
     this.errorMessage,
+    this.onForgotPassword,
   });
 
   final bool isWide;
@@ -43,6 +44,7 @@ class LoginExperimentFormSurface extends StatelessWidget {
   final VoidCallback onTogglePassword;
   final VoidCallback onRegister;
   final ValueChanged<String> onPasswordSubmitted;
+  final VoidCallback? onForgotPassword;
 
   @override
   Widget build(BuildContext context) {
@@ -176,19 +178,14 @@ class LoginExperimentFormSurface extends StatelessWidget {
               ],
               Align(
                 alignment: Alignment.centerRight,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-                  // UI placeholder; password recovery will be wired separately.
-                  child: Semantics(
-                    button: true,
-                    enabled: false,
-                    child: Text(
-                      AuthStrings.forgotPassword,
-                      style: AppTextStyles.labelMedium.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
+                child: TextButton(
+                  onPressed: isBusy ? null : onForgotPassword,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    minimumSize: const Size(48, 48),
+                    textStyle: AppTextStyles.labelMedium,
                   ),
+                  child: const Text(AuthStrings.forgotPassword),
                 ),
               ),
               LoginExperimentPrimaryButton(
@@ -196,13 +193,9 @@ class LoginExperimentFormSurface extends StatelessWidget {
                 onPressed: onEmailSignIn,
               ),
               if (!hideSecondaryActions) ...[
-                SizedBox(
-                  height: compactVertical ? AppSpacing.lg : AppSpacing.xl,
-                ),
+                SizedBox(height: AppSpacing.sm),
                 const LoginExperimentDivider(),
-                SizedBox(
-                  height: compactVertical ? AppSpacing.sm : AppSpacing.md,
-                ),
+                SizedBox(height: AppSpacing.xs),
                 LoginExperimentGoogleButton(
                   isBusy: isBusy,
                   onPressed: onGoogleSignIn,

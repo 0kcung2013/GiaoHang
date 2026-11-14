@@ -14,6 +14,26 @@ import 'helpers/admin_test_fixtures.dart';
 void main() {
   setUpAll(loadAdminTestFonts);
   testWidgets(
+    'business filtering is sent to the server and clears when changing role',
+    (tester) async {
+      final repository = FakeAccountRepository();
+      await tester.pumpWidget(
+        adminTestApp(AccountControlsScreen(repository: repository)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(ChoiceChip, AccountStrings.business),
+      );
+      await tester.pumpAndSettle();
+      expect(repository.customerType, 'business');
+      expect(repository.role, 'customer');
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Tài xế'));
+      await tester.pumpAndSettle();
+      expect(repository.customerType, isNull);
+      expect(repository.role, 'driver');
+    },
+  );
+  testWidgets(
     'support filters the server directory, retries load failure and can disable accounts',
     (tester) async {
       final repo = FakeAccountRepository()..fail = true;

@@ -7,6 +7,7 @@ DO $test$
 DECLARE c uuid:=gen_random_uuid(); d uuid:=gen_random_uuid(); staff uuid:=gen_random_uuid(); seed uuid:=gen_random_uuid();
  o public.orders; again public.orders; p jsonb; session_row record; activated record; rev bigint;
  request_id uuid:=gen_random_uuid(); scenario text; pickup_code text; report_id uuid; balance bigint; pin_result jsonb;
+ business_customer uuid:=gen_random_uuid(); business_seed uuid:=gen_random_uuid();
 BEGIN
  INSERT INTO public.users(id,email,full_name,role,customer_type) VALUES
  (c,c||'@fee-test.invalid','Fee customer','customer','individual'),
@@ -68,7 +69,10 @@ BEGIN
          ASSERT (SELECT sum(available_delta) FROM public.customer_wallet_transactions WHERE customer_id=c)=118900,'Late receipt lost money';
        ELSE
          IF scenario='session_snapshot' THEN
-           UPDATE public.users SET customer_type='business',business_name='Changed shop',business_address='123 Changed address' WHERE id=c;
+           BEGIN
+             UPDATE public.users SET customer_type='business',business_name='Changed shop',business_address='123 Changed address' WHERE id=c;
+             RAISE EXCEPTION 'Edited classified customer';
+           EXCEPTION WHEN insufficient_privilege THEN NULL; END;
            UPDATE public.system_settings SET value=value||jsonb_build_object('values',(value->'values')||'{"customer_individual_fee_bps":9000,"driver_platform_fee_bps":9000}') WHERE key='business_settings';
          END IF;
          SELECT * INTO activated FROM public.complete_customer_order_payment(session_row.txn_ref,'synthetic',true,'00');
@@ -162,8 +166,14 @@ BEGIN
    END;
  END LOOP;
  -- Business classification selects its own rate; earlier orders remain fixed.
- UPDATE public.users SET customer_type='business',business_name='Shop',business_address='123 Business address' WHERE id=c;
- PERFORM set_config('request.jwt.claim.sub',c::text,true);
+ INSERT INTO public.users(id,email,full_name,role,customer_type,business_name,business_address)
+ VALUES(business_customer,business_customer||'@fee-test.invalid','Business customer','customer','business','Shop','123 Business address');
+ INSERT INTO public.orders(id,customer_id,status,pickup_address,pickup_lat,pickup_lng,delivery_address,delivery_lat,delivery_lng,delivery_fee,total_price,business_policy)
+ VALUES(business_seed,business_customer,'cancelled','Seed',80,160,'Seed delivery',80.01,160.01,18000,18000,private.legacy_business_settings());
+ INSERT INTO public.customer_wallet_transactions(customer_id,order_id,transaction_type,amount,available_delta,idempotency_key)
+ VALUES(business_customer,business_seed,'delivery_credit',100000,100000,business_seed::text);
+ PERFORM set_config('request.jwt.claim.sub',business_customer::text,true);
+ PERFORM public.set_customer_wallet_pin('001234',NULL);
  SELECT * INTO o FROM jsonb_populate_record(NULL::public.orders,public.create_customer_order_with_wallet(p||'{"quoted_customer_fee":540}',gen_random_uuid(),'001234')->'order');
  ASSERT o.customer_platform_fee_rate_bps=300 AND o.customer_platform_fee_amount=540,'Business rate ignored';
  ASSERT NOT has_function_privilege('authenticated','private.settle_platform_fees()','EXECUTE'),'Settlement helper exposed';

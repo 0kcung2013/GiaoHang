@@ -295,7 +295,8 @@ Future<void> _pump(
     ProviderScope(
       overrides: [
         customerPaymentRepositoryProvider.overrideWithValue(
-          FakeCustomerPaymentRepository(),
+          FakeCustomerPaymentRepository()
+            ..rows = [paymentFixture(date: DateTime.now().toUtc())],
         ),
         reviewHistoryRepositoryProvider.overrideWithValue(
           FakeReviewHistoryRepository(),

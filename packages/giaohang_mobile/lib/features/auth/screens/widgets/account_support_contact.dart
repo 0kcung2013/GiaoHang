@@ -10,9 +10,16 @@ import '../../../../core/services/business_settings_service.dart';
 import 'package:giaohang_domain/giaohang_domain.dart' show BusinessSettings;
 
 class AccountSupportContact extends StatefulWidget {
-  const AccountSupportContact({super.key, this.launchEmail});
+  const AccountSupportContact({
+    super.key,
+    this.launchEmail,
+    this.emailSubject = AuthStrings.disabledAccountSubject,
+    this.emailBody = AuthStrings.disabledAccountBody,
+  });
 
   final Future<bool> Function(Uri)? launchEmail;
+  final String emailSubject;
+  final String emailBody;
 
   @override
   State<AccountSupportContact> createState() => _AccountSupportContactState();
@@ -52,16 +59,12 @@ class _AccountSupportContactState extends State<AccountSupportContact> {
     final uri = Uri(
       scheme: 'mailto',
       path: _email,
-      query:
-          {
-                'subject': AuthStrings.disabledAccountSubject,
-                'body': AuthStrings.disabledAccountBody,
-              }.entries
-              .map(
-                (entry) =>
-                    '${Uri.encodeComponent(entry.key)}=${Uri.encodeComponent(entry.value)}',
-              )
-              .join('&'),
+      query: {'subject': widget.emailSubject, 'body': widget.emailBody}.entries
+          .map(
+            (entry) =>
+                '${Uri.encodeComponent(entry.key)}=${Uri.encodeComponent(entry.value)}',
+          )
+          .join('&'),
     );
     try {
       final opened = await (widget.launchEmail?.call(uri) ?? launchUrl(uri));

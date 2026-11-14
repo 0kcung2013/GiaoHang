@@ -3,17 +3,19 @@ import 'package:giaohang_mobile/core/providers/customer_providers.dart';
 import 'package:giaohang_mobile/features/customer/screens/dashboard/dashboard_strings.dart';
 import 'package:giaohang_mobile/features/customer/screens/dashboard/widgets/dashboard_create_delivery_hero.dart';
 import 'package:giaohang_mobile/features/customer/screens/dashboard/widgets/dashboard_hero.dart';
-import 'package:giaohang_mobile/features/customer/screens/dashboard/widgets/dashboard_quick_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets('customer dashboard content fits a small phone', (tester) async {
-    await _setTestViewport(tester, const Size(375, 900));
+    await _setTestViewport(tester, const Size(320, 568));
 
     await tester.pumpWidget(
-      const _DashboardPreview(textScaler: TextScaler.noScaling),
+      const _SectionPreview(
+        textScaler: TextScaler.noScaling,
+        child: DashboardCreateDeliveryHero(isFirstDelivery: true),
+      ),
     );
     await tester.pumpAndSettle();
 
@@ -65,9 +67,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('dashboard sections support large accessible text', (
-    tester,
-  ) async {
+  testWidgets('dashboard hero supports large accessible text', (tester) async {
     await _setTestViewport(tester, const Size(375, 900));
 
     await tester.pumpWidget(
@@ -78,22 +78,6 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull, reason: 'hero must not overflow');
-
-    await tester.pumpWidget(
-      const _SectionPreview(
-        textScaler: TextScaler.linear(1.6),
-        child: DashboardQuickActions(hasActiveDelivery: true),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text(DashboardStrings.createOrder), findsOneWidget);
-    expect(find.text(DashboardStrings.trackOrder), findsOneWidget);
-    expect(find.text(DashboardStrings.orderHistory), findsOneWidget);
-    expect(
-      tester.takeException(),
-      isNull,
-      reason: 'quick actions must not overflow',
-    );
   });
 }
 
@@ -102,41 +86,6 @@ Future<void> _setTestViewport(WidgetTester tester, Size size) async {
   tester.view.physicalSize = size;
   addTearDown(tester.view.resetDevicePixelRatio);
   addTearDown(tester.view.resetPhysicalSize);
-}
-
-class _DashboardPreview extends StatelessWidget {
-  const _DashboardPreview({required this.textScaler});
-
-  final TextScaler textScaler;
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Builder(
-        builder: (context) {
-          final mediaQuery = MediaQuery.of(context);
-          return MediaQuery(
-            data: mediaQuery.copyWith(textScaler: textScaler),
-            child: const Scaffold(
-              body: SafeArea(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      DashboardCreateDeliveryHero(isFirstDelivery: true),
-                      SizedBox(height: 24),
-                      DashboardQuickActions(hasActiveDelivery: true),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
 }
 
 class _SectionPreview extends StatelessWidget {

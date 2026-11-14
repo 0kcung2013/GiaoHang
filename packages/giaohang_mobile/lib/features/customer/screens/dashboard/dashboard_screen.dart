@@ -14,7 +14,6 @@ import '../../../order_contact/widgets/order_message_alert_listener.dart';
 import 'widgets/dashboard_create_delivery_hero.dart';
 import 'widgets/dashboard_header.dart';
 import 'widgets/dashboard_hero.dart';
-import 'widgets/dashboard_quick_actions.dart';
 import 'widgets/dashboard_states.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -128,8 +127,6 @@ class _DashboardContent extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DashboardCreateDeliveryHero(isFirstDelivery: allOrders.isEmpty),
-          SizedBox(height: sectionGap),
-          DashboardQuickActions(hasActiveDelivery: activeOrders.isNotEmpty),
           if (activeOrders.isNotEmpty) ...[
             SizedBox(height: sectionGap),
             DashboardActiveDeliveryCard(activeOrders: activeOrders),

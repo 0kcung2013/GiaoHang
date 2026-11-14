@@ -17,10 +17,23 @@ class AccountDirectoryController extends ChangeNotifier {
   int page = 0, _generation = 0;
   bool _disposed = false;
   Timer? _debounce;
-  void filter({String? query, String? roleValue, bool? disabled}) {
+  String? customerType;
+  void filter({
+    String? query,
+    String? roleValue,
+    String? customerTypeValue,
+    bool? disabled,
+  }) {
     _debounce?.cancel();
     if (query != null) search = query;
-    if (roleValue != null) role = roleValue.isEmpty ? null : roleValue;
+    if (roleValue != null) {
+      role = roleValue.isEmpty ? null : roleValue;
+      if (role != 'customer') customerType = null;
+    }
+    if (customerTypeValue != null) {
+      customerType = customerTypeValue.isEmpty ? null : customerTypeValue;
+      if (customerType != null) role = 'customer';
+    }
     if (disabled != null) disabledOnly = disabled;
     page = 0;
     // Invalidate in-flight replies immediately, including during debounce.
@@ -46,6 +59,7 @@ class AccountDirectoryController extends ChangeNotifier {
       final result = await repository.list(
         search: search,
         role: role,
+        customerType: customerType,
         disabledOnly: disabledOnly,
         offset: page * SupabaseAccountControlRepository.pageSize,
       );

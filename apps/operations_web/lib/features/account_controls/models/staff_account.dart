@@ -12,12 +12,17 @@ class StaffAccount {
     this.reason,
     this.actorName,
     this.decidedAt,
+    this.customerType,
+    this.businessName,
+    this.businessAddress,
+    this.businessTaxCode,
   });
   final String id, name, role;
   final bool disabled;
   final int activeOrders;
   final String? email, phone, eventId, reason, actorName;
   final DateTime? disabledUntil, decidedAt;
+  final String? customerType, businessName, businessAddress, businessTaxCode;
   bool get controllable => role == 'customer' || role == 'driver';
   factory StaffAccount.fromJson(Map<String, dynamic> json) => StaffAccount(
     id: json['id'] as String,
@@ -25,6 +30,10 @@ class StaffAccount {
     role: json['role'] as String,
     disabled: json['disabled'] as bool,
     activeOrders: (json['active_orders'] as num).toInt(),
+    customerType: json['customer_type'] as String?,
+    businessName: json['business_name'] as String?,
+    businessAddress: json['business_address'] as String?,
+    businessTaxCode: json['business_tax_code'] as String?,
     email: json['email'] as String?,
     phone: json['phone'] as String?,
     eventId: json['event_id'] as String?,
@@ -41,6 +50,10 @@ class StaffAccount {
     'id': id,
     'full_name': name,
     'role': role,
+    'customer_type': customerType,
+    'business_name': businessName,
+    'business_address': businessAddress,
+    'business_tax_code': businessTaxCode,
     'disabled': disabled,
     'active_orders': activeOrders,
     'email': email,

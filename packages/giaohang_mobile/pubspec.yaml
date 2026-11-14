@@ -40,6 +40,8 @@ dependencies:
     path: ../giaohang_domain
   giaohang_storage:
     path: ../giaohang_storage
+  giaohang_reporting:
+    path: ../giaohang_reporting
 
   cupertino_icons: ^1.0.8
   flutter_map: ^7.0.0

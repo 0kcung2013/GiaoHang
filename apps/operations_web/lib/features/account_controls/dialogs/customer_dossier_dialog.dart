@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:giaohang_reporting/giaohang_reporting.dart';
 
 import '../../support_orders/data/support_order_repository.dart';
 import '../../support_transactions/data/transaction_repository.dart';
@@ -14,7 +15,7 @@ import '../widgets/customer_dossier_activity.dart';
 import '../widgets/customer_dossier_transactions.dart';
 import 'account_history_dialog.dart';
 
-enum CustomerDossierTab { overview, orders, transactions, support }
+enum CustomerDossierTab { overview, orders, transactions, support, reports }
 
 class CustomerDossierDialog extends StatefulWidget {
   const CustomerDossierDialog({
@@ -84,6 +85,15 @@ class _CustomerDossierDialogState extends State<CustomerDossierDialog> {
           (CustomerDossierStrings.name, widget.account.name),
           (CustomerDossierStrings.email, widget.account.email),
           (CustomerDossierStrings.phone, widget.account.phone),
+          (
+            AccountStrings.customerKind,
+            AccountStrings.customerKindLabel(widget.account.customerType),
+          ),
+          if (widget.account.customerType == 'business') ...[
+            (AccountStrings.businessName, widget.account.businessName),
+            (AccountStrings.businessAddress, widget.account.businessAddress),
+            (AccountStrings.businessTaxCode, widget.account.businessTaxCode),
+          ],
         ])
           Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.lg),
@@ -102,6 +112,10 @@ class _CustomerDossierDialogState extends State<CustomerDossierDialog> {
             ),
           ),
         AccountStatus(account: widget.account),
+        if (widget.account.customerType == 'business') ...[
+          const SizedBox(height: AppSpacing.md),
+          Text(AccountStrings.selfDeclared, style: AppTextStyles.bodySmall),
+        ],
         const SizedBox(height: AppSpacing.md),
         Text(
           AccountStrings.activeOrders(widget.account.activeOrders),
@@ -124,6 +138,10 @@ class _CustomerDossierDialogState extends State<CustomerDossierDialog> {
       userId: widget.account.id,
       repository: _repository,
       isAdmin: widget.isAdmin,
+    ),
+    CustomerDossierTab.reports => BusinessReportPanel(
+      customerId: widget.account.id,
+      staffView: true,
     ),
   };
 
@@ -181,7 +199,11 @@ class _CustomerDossierDialogState extends State<CustomerDossierDialog> {
                   spacing: AppSpacing.sm,
                   runSpacing: AppSpacing.sm,
                   children: [
-                    for (final tab in CustomerDossierTab.values)
+                    for (final tab in CustomerDossierTab.values.where(
+                      (t) =>
+                          t != CustomerDossierTab.reports ||
+                          widget.account.customerType == 'business',
+                    ))
                       ChoiceChip(
                         selected: _tab == tab,
                         selectedColor: AppColors.accentLight,
@@ -194,6 +216,8 @@ class _CustomerDossierDialogState extends State<CustomerDossierDialog> {
                             CustomerDossierStrings.transactions,
                           CustomerDossierTab.support =>
                             CustomerDossierStrings.support,
+                          CustomerDossierTab.reports =>
+                            BusinessReportStrings.title,
                         }),
                         onSelected: (_) => setState(() => _tab = tab),
                       ),

@@ -1,5 +1,7 @@
 library;
 
+export 'src/business_report.dart';
+
 export 'src/business_settings.dart';
 
 export 'src/driver_model.dart';

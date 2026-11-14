@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/services/auth_service.dart';
 import '../widgets/auth_strings.dart';
+import '../../password_recovery/password_recovery_screen.dart';
 import 'widgets/login_experiment_view.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -83,6 +84,21 @@ class _LoginScreenState extends State<LoginScreen> {
     context.go(route);
   }
 
+  Future<void> _forgotPassword() async {
+    final email = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) =>
+            PasswordRecoveryScreen(initialEmail: _emailController.text.trim()),
+      ),
+    );
+    if (!mounted || email == null) return;
+    setState(() {
+      _emailController.text = email;
+      _passwordController.clear();
+      _errorMessage = null;
+    });
+  }
+
   String? _validateEmail(String? value) {
     final email = value?.trim() ?? '';
     if (email.isEmpty) return AuthStrings.missingEmail;
@@ -113,6 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
           setState(() => _obscurePassword = !_obscurePassword),
       onRegister: () => context.push('/register'),
       onPasswordSubmitted: (_) => _signInWithEmail(),
+      onForgotPassword: _forgotPassword,
     );
   }
 }

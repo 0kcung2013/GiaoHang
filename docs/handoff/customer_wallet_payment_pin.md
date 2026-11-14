@@ -82,9 +82,13 @@ Google login và phiên password thường không đủ để đặt lại PIN.
 4. Gửi thử tới hộp thư kiểm thử do vận hành quản lý, kiểm tra inbox/spam, mã sai,
    hết hạn, gửi lại (UI chờ 60 giây), phiên app chính vẫn còn sau khi khôi phục.
 
-MCP Supabase hiện không cung cấp chỉnh email template/SMTP; môi trường phiên làm
-việc không có browser/native pipe để vào Dashboard. Chưa cấu hình/xác minh gửi
-email thực tế trong phiên này. Tạo/đổi PIN, thanh toán và khóa PIN không phụ thuộc SMTP.
+Ngày 2026-11-07 đã cấu hình Gmail SMTP và mẫu Recovery có `{{ .Token }}` trên
+project DATN bằng Management API sau khi chủ dự án xác thực. Mã email đã chuyển
+từ 8 sang 6 chữ số; hạn hiện có vẫn là 3600 giây, hạn mức email toàn project là
+30 thư/giờ. Đăng nhập SMTP đã kiểm tra thành công, chưa gửi email thực tế để
+kiểm tra inbox/spam hoặc khôi phục PIN. Chi tiết cấu hình và bước kiểm tra còn
+lại xem [password_recovery_otp.md](password_recovery_otp.md). Không ghi mật khẩu
+ứng dụng Gmail vào repo. Tạo/đổi PIN, thanh toán và khóa PIN không phụ thuộc SMTP.
 UI có liên kết CSKH nếu tài khoản chưa có email xác thực hoặc không nhận được mã.
 
 Tham chiếu chính thức:

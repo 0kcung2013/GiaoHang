@@ -11,14 +11,17 @@ Khi lưu xong, lần đăng nhập sau vào thẳng trang chủ.
 
 Doanh nghiệp bao gồm doanh nghiệp, hộ kinh doanh và shop. Tên đơn vị và địa chỉ
 bắt buộc; mã số thuế tùy chọn. Đây là thông tin tự khai, không phải xác minh doanh
-nghiệp hoặc cấp quyền ưu đãi. Khách có thể sửa tại Tài khoản → Loại khách hàng.
+nghiệp hoặc xác minh tư cách pháp lý. Từ 2026-11-07, khách chỉ chọn một lần;
+Tài khoản → Loại khách hàng / Hồ sơ kinh doanh chỉ hiển thị thông tin đã lưu.
+Khóa tại server cũng chặn client cũ sửa hoặc xóa lựa chọn. Hướng dẫn báo cáo,
+setup và giới hạn: [Bàn giao hồ sơ và báo cáo doanh nghiệp](handoff/customer_business_reporting.md).
 Họ tên, số điện thoại, avatar tiếp tục sửa tại Thông tin cá nhân.
 
 ## Lưu trữ và quyền
 
 Tái sử dụng `users`: `customer_type` (`individual`/`business` hoặc NULL khi chưa
-chọn), `business_name`, `business_address`, `business_tax_code`. Chuyển về cá nhân
-xóa thông tin doanh nghiệp trong cùng một lần cập nhật. Không suy đoán loại khách
+chọn), `business_name`, `business_address`, `business_tax_code`. Sau khi chọn,
+bốn trường này chỉ đọc; cập nhật không đổi giá trị vẫn được phép. Không suy đoán loại khách
 hàng cũ. Ràng buộc database kiểm tra dữ liệu và role; quyền UPDATE theo cột kết hợp
 RLS own-row và account-enabled hiện có. Không thay đổi role hay quyền đọc hồ sơ.
 

@@ -1,8 +1,22 @@
 class AccountStrings {
+  static const customerKind = 'Loại khách hàng';
+  static const allCustomers = 'Mọi loại khách';
+  static const individual = 'Cá nhân';
+  static const business = 'Doanh nghiệp / shop';
+  static const unclassified = 'Chưa phân loại';
+  static const businessName = 'Tên đơn vị / shop';
+  static const businessAddress = 'Địa chỉ kinh doanh';
+  static const businessTaxCode = 'Mã số thuế';
+  static const selfDeclared = 'Thông tin kinh doanh tự khai · Chỉ đọc';
+  static String customerKindLabel(String? type) => switch (type) {
+    'individual' => individual,
+    'business' => business,
+    _ => unclassified,
+  };
   static const title = 'Người dùng';
   static const supportHint = 'Tra cứu và vô hiệu hóa tài khoản khi có vi phạm.';
   static const adminHint = 'Xem, điều chỉnh và gỡ quyết định vô hiệu hóa.';
-  static const search = 'Tên, email, số điện thoại hoặc ID';
+  static const search = 'Tên, shop, mã số thuế, email, điện thoại hoặc ID';
   static const all = 'Tất cả';
   static const disabledOnly = 'Đang vô hiệu hóa';
   static const enabled = 'Đang hoạt động';

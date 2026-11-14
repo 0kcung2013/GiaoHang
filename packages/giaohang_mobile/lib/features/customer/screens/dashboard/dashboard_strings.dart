@@ -7,9 +7,6 @@ abstract final class DashboardStrings {
       'packages/giaohang_mobile/assets/images/customer_home_courier_v2.png';
   static const courierIllustrationSemantics =
       'Nhân viên giao hàng cầm bưu kiện bên cạnh xe máy';
-  static const createOrder = 'Tạo đơn';
-  static const trackOrder = 'Theo dõi';
-  static const orderHistory = 'Đơn hàng';
   static const liveBadge = 'LIVE';
   static const servicePromiseTitle = 'An tâm trên mọi hành trình';
   static const transparentPrice = 'Phí minh bạch';

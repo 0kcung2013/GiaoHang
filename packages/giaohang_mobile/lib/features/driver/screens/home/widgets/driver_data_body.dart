@@ -11,7 +11,6 @@ import '../utils/driver_dashboard_location.dart';
 import '../utils/driver_home_formatters.dart';
 import 'driver_home_banner.dart';
 import 'driver_home_layout.dart';
-import 'driver_new_order_alert.dart';
 import 'driver_priority_orders.dart';
 import 'driver_quick_stats.dart';
 import 'driver_state_widgets.dart';
@@ -103,7 +102,7 @@ class DriverDashboardBody extends ConsumerWidget {
             ? rawAvailableOrders
             : const <OrderModel>[];
         final activeOrders = driverOrders.where(isActiveDriverOrder).toList();
-        final showIdleBanner = !hasActiveOrder && visibleAvailable.isEmpty;
+        final showIdleBanner = !hasActiveOrder;
         final currentPosition = currentPositionAsync.valueOrNull;
         final locationMode = ref.watch(driverLocationModeProvider);
         final dashboardPosition =
@@ -121,20 +120,12 @@ class DriverDashboardBody extends ConsumerWidget {
           storedLat: driver.currentLat,
           storedLng: driver.currentLng,
         );
-        final pickupDistancesMeters = <String, double>{
-          ..._pickupDistances(
-            ref: ref,
-            orders: visibleAvailable,
-            driverId: driver.userId,
-            driverPosition: offerPosition,
-          ),
-          ..._pickupDistances(
-            ref: ref,
-            orders: activeOrders,
-            driverId: driver.userId,
-            driverPosition: dashboardPosition,
-          ),
-        };
+        final pickupDistancesMeters = _pickupDistances(
+          ref: ref,
+          orders: activeOrders,
+          driverId: driver.userId,
+          driverPosition: dashboardPosition,
+        );
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,13 +145,6 @@ class DriverDashboardBody extends ConsumerWidget {
               ),
               SizedBox(height: layout.sectionGap),
             ],
-            DriverNewOrderAlert(
-              orders: visibleAvailable,
-              pickupDistancesMeters: pickupDistancesMeters,
-              playFeedback: false,
-            ),
-            if (visibleAvailable.isNotEmpty)
-              SizedBox(height: layout.sectionGap),
             if (showIdleBanner && !acceptanceLocked) ...[
               DriverHomeBanner(isOnline: driver.isAvailable),
               SizedBox(height: layout.sectionGap),
@@ -169,10 +153,11 @@ class DriverDashboardBody extends ConsumerWidget {
               activeCount: activeCount,
               availableCount: visibleAvailable.length,
             ),
-            if (!showIdleBanner) ...[
+            if (hasActiveOrder) ...[
               SizedBox(height: layout.sectionGap),
               DriverPriorityOrders(
-                availableOrders: visibleAvailable,
+                // Lời mời chỉ do DriverIncomingOfferHost hiển thị toàn màn hình.
+                availableOrders: const [],
                 driverOrders: driverOrders,
                 driverUserId: driver.userId,
                 pickupDistancesMeters: pickupDistancesMeters,

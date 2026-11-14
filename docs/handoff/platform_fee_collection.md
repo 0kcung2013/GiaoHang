@@ -4,6 +4,11 @@ Tài liệu này là hướng dẫn hiện hành, thay cho phạm vi chỉ hiể
 `customer_classification_platform_fee_display`. Code mobile dùng chung tại
 `packages/giaohang_mobile`; cấu hình Admin tại `apps/operations_web`.
 
+Từ 2026-11-07, phân loại khách hàng đã chọn không được sửa. Hồ sơ chỉ đọc và
+báo cáo COD/chi phí được mô tả tại [Bàn giao báo cáo doanh nghiệp](customer_business_reporting.md).
+Các tình huống kiểm thử đổi hồ sơ cũ đã được thay bằng kiểm thử chặn đổi và
+fixture doanh nghiệp riêng; snapshot phí trên đơn vẫn giữ nguyên.
+
 ## 1. Chính sách đã triển khai
 
 | Đối tượng | Tỷ lệ khởi tạo | Cách thu |

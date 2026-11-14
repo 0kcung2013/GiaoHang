@@ -1,0 +1,29 @@
+name: giaohang_reporting
+description: Báo cáo kinh doanh dùng chung cho Customer và Operations.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+environment:
+  sdk: ^3.9.0
+dependencies:
+  flutter:
+    sdk: flutter
+  giaohang_design:
+    path: ../giaohang_design
+  giaohang_domain:
+    path: ../giaohang_domain
+  supabase_flutter: ^2.0.0
+  archive: 4.0.9
+  xml: 6.6.1
+  pdf: 3.12.0
+  share_plus: 11.1.0
+dev_dependencies:
+  google_fonts: ^6.3.3
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+flutter:
+  assets:
+    - assets/fonts/Roboto-Regular.ttf
+    - assets/fonts/Roboto-Bold.ttf
+    - assets/fonts/LICENSE.txt

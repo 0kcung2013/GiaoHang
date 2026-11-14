@@ -32,6 +32,7 @@ class FakeAccountRepository implements AccountControlRepository {
   bool fail = false, hasMore = false;
   String search = '';
   String? role;
+  String? customerType;
   int offset = 0, reads = 0;
   bool disabledOnly = false;
   Future<void> Function(AccountCommand)? onApply;
@@ -40,12 +41,14 @@ class FakeAccountRepository implements AccountControlRepository {
   Future<AccountPage<StaffAccount>> list({
     String search = '',
     String? role,
+    String? customerType,
     bool disabledOnly = false,
     int offset = 0,
   }) async {
     reads++;
     this.search = search;
     this.role = role;
+    this.customerType = customerType;
     this.disabledOnly = disabledOnly;
     this.offset = offset;
     if (onList != null) return onList!();

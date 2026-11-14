@@ -98,7 +98,14 @@ void main() {
           find.text(DriverHomeStrings.incomingOfferEarning),
           findsOneWidget,
         );
-        expect(find.text(formatVnd(order.driverNetEarning)), findsOneWidget);
+        expect(
+          tester
+              .widget<Text>(
+                find.byKey(const ValueKey('driver-incoming-offer-earning')),
+              )
+              .data,
+          formatVnd(order.driverNetEarning),
+        );
         expect(find.text(DriverHomeStrings.incomingOfferCod), findsOneWidget);
         expect(
           find.text(formatVnd(order.codCollectionAmount)),

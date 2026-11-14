@@ -59,22 +59,22 @@ void main() {
   });
 
   test(
-    'classification update is owner-scoped and switching clears business data',
+    'classification is owner-scoped and only writes an unclassified profile',
     () async {
       final client = await reviewTestClient((request) {
         expect(request.method, 'PATCH');
         expect(request.url.queryParameters['id'], 'eq.actor-1');
         expect(request.url.queryParameters['role'], 'eq.customer');
+        expect(request.url.queryParameters['customer_type'], 'is.null');
         expect(jsonDecode(request.body), {
           'customer_type': 'individual',
           'business_name': null,
           'business_address': null,
           'business_tax_code': null,
         });
-        return response(request, {
-          ...customerAccountFixture.toJson(),
-          'customer_type': 'individual',
-        });
+        return response(request, [
+          {...customerAccountFixture.toJson(), 'customer_type': 'individual'},
+        ]);
       });
       addTearDown(client.dispose);
       final repository = SupabaseCustomerClassificationRepository(client);
@@ -92,6 +92,72 @@ void main() {
       );
     },
   );
+
+  test(
+    'retry returns the saved classification but refuses a different choice',
+    () async {
+      final client = await reviewTestClient((request) {
+        if (request.method == 'PATCH') return response(request, []);
+        return response(request, {
+          ...customerAccountFixture.toJson(),
+          'customer_type': 'individual',
+        });
+      });
+      addTearDown(client.dispose);
+      final repository = SupabaseCustomerClassificationRepository(client);
+      expect(
+        (await repository.save(
+          userId: 'actor-1',
+          type: 'individual',
+        )).customerType,
+        'individual',
+      );
+      await expectLater(
+        repository.save(
+          userId: 'actor-1',
+          type: 'business',
+          businessName: 'Shop An',
+          businessAddress: '123 Test address',
+        ),
+        throwsA(isA<PostgrestException>()),
+      );
+    },
+  );
+
+  testWidgets('a saved business profile has no form or change action', (
+    tester,
+  ) async {
+    final repository = _Repository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          customerClassificationRepositoryProvider.overrideWithValue(
+            repository,
+          ),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: CustomerClassificationForm(
+              profile: UserModel.fromJson({
+                ...customerAccountFixture.toJson(),
+                'customer_type': 'business',
+                'business_name': 'Shop An',
+                'business_address': '123 Test address',
+                'business_tax_code': '1234567890',
+              }),
+              onboarding: false,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(TextFormField), findsNothing);
+    expect(find.text(CustomerClassificationStrings.save), findsNothing);
+    expect(find.text('Shop An'), findsOneWidget);
+    expect(find.text(CustomerClassificationStrings.locked), findsOneWidget);
+    expect(repository.savedType, isNull);
+  });
 
   test(
     'classification round trips and incomplete businesses stay incomplete',

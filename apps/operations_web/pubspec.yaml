@@ -25,6 +25,8 @@ dependencies:
     path: ../../packages/giaohang_domain
   giaohang_storage:
     path: ../../packages/giaohang_storage
+  giaohang_reporting:
+    path: ../../packages/giaohang_reporting
 
 dev_dependencies:
   flutter_test:

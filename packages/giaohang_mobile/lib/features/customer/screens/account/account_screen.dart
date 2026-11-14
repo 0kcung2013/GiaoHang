@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:giaohang_design/giaohang_design.dart';
 import 'package:go_router/go_router.dart';
+import 'package:giaohang_reporting/giaohang_reporting.dart';
 
 import '../../../../core/models/user_model.dart';
 import '../../../../core/widgets/platform_fee_card.dart';
@@ -118,7 +119,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                 _group(CustomerAccountStrings.yourInformation, [
                   CustomerAccountAction(
                     icon: Icons.badge_outlined,
-                    label: CustomerClassificationStrings.accountTitle,
+                    label: profile.valueOrNull?.customerType == 'business'
+                        ? CustomerClassificationStrings.businessProfile
+                        : CustomerClassificationStrings.accountTitle,
                     onTap: () => _open(const CustomerClassificationScreen()),
                   ),
                   CustomerAccountAction(
@@ -139,6 +142,13 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                   ),
                 ]),
                 _group(CustomerAccountStrings.activity, [
+                  if (profile.valueOrNull?.customerType == 'business')
+                    CustomerAccountAction(
+                      icon: Icons.summarize_rounded,
+                      label: BusinessReportStrings.title,
+                      onTap: () =>
+                          _open(BusinessReportScreen(customerId: userId)),
+                    ),
                   CustomerAccountAction(
                     icon: Icons.bar_chart_rounded,
                     label: PaymentStrings.title,

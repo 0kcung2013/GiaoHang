@@ -17,4 +17,12 @@ abstract final class CustomerClassificationStrings {
   static const selectType = 'Vui lòng chọn loại khách hàng.';
   static const activeOrders = 'Xem đơn hàng';
   static const support = 'Hỗ trợ';
+  static const businessProfile = 'Hồ sơ kinh doanh';
+  static const locked =
+      'Loại khách hàng đã được xác nhận và không thể thay đổi.';
+  static const beforeSave =
+      'Loại khách hàng không thể thay đổi sau khi xác nhận.';
+  static const declared = 'Thông tin tự khai';
+  static const correction = 'Liên hệ CSKH để đính chính thông tin';
+  static const missing = 'Chưa cung cấp';
 }

@@ -28,21 +28,30 @@ BEGIN
  BEGIN
    UPDATE public.users SET customer_type='business' WHERE id=customer_id;
    RAISE EXCEPTION 'Accepted incomplete business';
- EXCEPTION WHEN check_violation THEN NULL; END;
- UPDATE public.users SET customer_type='business', business_name='Example shop',
-   business_address='123 Example Street',business_tax_code=NULL WHERE id=customer_id;
- ASSERT (SELECT business_name='Example shop' FROM public.users WHERE id=customer_id), 'Shop without tax code rejected';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ PERFORM set_config('request.jwt.claim.sub',other_id::text,true);
+ PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',other_id,'role','authenticated')::text,true);
  BEGIN
-   UPDATE public.users SET business_tax_code='invalid' WHERE id=customer_id;
+   UPDATE public.users SET customer_type='business',business_name='Example shop',
+     business_address='123 Example Street',business_tax_code='invalid' WHERE id=other_id;
    RAISE EXCEPTION 'Accepted malformed tax code';
  EXCEPTION WHEN check_violation THEN NULL; END;
- UPDATE public.users SET customer_type='individual', business_name=NULL,
-   business_address=NULL,business_tax_code=NULL WHERE id=customer_id;
- ASSERT (SELECT business_name IS NULL FROM public.users WHERE id=customer_id), 'Business data retained after switch';
+ UPDATE public.users SET customer_type='business', business_name='Example shop',
+   business_address='123 Example Street',business_tax_code=NULL WHERE id=other_id;
+ ASSERT (SELECT business_name='Example shop' FROM public.users WHERE id=other_id), 'Shop without tax code rejected';
  BEGIN
-   UPDATE public.users SET customer_type='unknown' WHERE id=customer_id;
+   UPDATE public.users SET business_tax_code='1234567890' WHERE id=other_id;
+   RAISE EXCEPTION 'Edited locked business profile';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN
+   UPDATE public.users SET customer_type='individual', business_name=NULL,
+     business_address=NULL,business_tax_code=NULL WHERE id=other_id;
+   RAISE EXCEPTION 'Switched classified customer';
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN
+   UPDATE public.users SET customer_type='unknown' WHERE id=other_id;
    RAISE EXCEPTION 'Accepted unknown type';
- EXCEPTION WHEN check_violation THEN NULL; END;
+ EXCEPTION WHEN insufficient_privilege THEN NULL; END;
  BEGIN
    PERFORM public.update_business_settings(baseline->'values',(baseline->>'revision')::bigint,'Customer fee attempt');
    RAISE EXCEPTION 'Customer changed rates';

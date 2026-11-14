@@ -25,10 +25,11 @@ void main() {
     'directory is bounded, filters server side and parses server account state',
     () async {
       final client = clientWith((r) async {
-        expect(r.url.path, '/rest/v1/rpc/list_staff_accounts');
+        expect(r.url.path, '/rest/v1/rpc/list_staff_accounts_v2');
         expect(jsonDecode(r.body), {
           'p_search': 'an_%@example.invalid',
           'p_role': 'driver',
+          'p_customer_type': null,
           'p_disabled_only': true,
           'p_offset': 30,
           'p_limit': 30,

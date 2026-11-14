@@ -6,6 +6,7 @@ abstract interface class AccountControlRepository {
   Future<AccountPage<StaffAccount>> list({
     String search = '',
     String? role,
+    String? customerType,
     bool disabledOnly = false,
     int offset = 0,
   });
@@ -22,15 +23,17 @@ class SupabaseAccountControlRepository implements AccountControlRepository {
   Future<AccountPage<StaffAccount>> list({
     String search = '',
     String? role,
+    String? customerType,
     bool disabledOnly = false,
     int offset = 0,
   }) async {
     final result = await client
         .rpc(
-          'list_staff_accounts',
+          'list_staff_accounts_v2',
           params: {
             'p_search': search.trim(),
             'p_role': role,
+            'p_customer_type': customerType,
             'p_disabled_only': disabledOnly,
             'p_offset': offset,
             'p_limit': pageSize,

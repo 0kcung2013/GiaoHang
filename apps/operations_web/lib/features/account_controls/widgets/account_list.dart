@@ -119,6 +119,22 @@ class _AccountRow extends StatelessWidget {
                     color: AppColors.textSecondary,
                   ),
                 ),
+                if (account.role == 'customer') ...[
+                  Text(
+                    AccountStrings.customerKindLabel(account.customerType),
+                    style: AppTextStyles.labelMedium,
+                  ),
+                  if (account.businessName != null)
+                    Text(
+                      account.businessName!,
+                      style: AppTextStyles.bodyMedium,
+                    ),
+                  if (account.businessTaxCode != null)
+                    Text(
+                      '${AccountStrings.businessTaxCode}: ${account.businessTaxCode}',
+                      style: AppTextStyles.bodySmall,
+                    ),
+                ],
                 if (account.email?.isNotEmpty == true)
                   Text(account.email!, style: AppTextStyles.bodySmall),
                 if (account.phone?.isNotEmpty == true)

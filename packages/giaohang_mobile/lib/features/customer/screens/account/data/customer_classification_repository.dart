@@ -37,7 +37,7 @@ class SupabaseCustomerClassificationRepository
       throw const FormatException('CUSTOMER_TYPE_INVALID');
     }
     final business = type == 'business';
-    final row = await client
+    final rows = await client
         .from('users')
         .update({
           'customer_type': type,
@@ -49,9 +49,31 @@ class SupabaseCustomerClassificationRepository
         })
         .eq('id', id)
         .eq('role', 'customer')
+        .isFilter('customer_type', null)
         .select()
+        .timeout(const Duration(seconds: 15));
+    if (rows.isNotEmpty) return UserModel.fromJson(rows.single);
+    // A lost response can be retried safely without reopening classification.
+    final existing = await client
+        .from('users')
+        .select()
+        .eq('id', id)
+        .eq('role', 'customer')
         .single()
         .timeout(const Duration(seconds: 15));
-    return UserModel.fromJson(row);
+    final saved = UserModel.fromJson(existing);
+    if (saved.customerType == type &&
+        saved.businessName == (business ? businessName?.trim() : null) &&
+        saved.businessAddress == (business ? businessAddress?.trim() : null) &&
+        saved.businessTaxCode ==
+            (business && (taxCode?.trim().isNotEmpty ?? false)
+                ? taxCode!.trim()
+                : null)) {
+      return saved;
+    }
+    throw const PostgrestException(
+      message: 'CUSTOMER_CLASSIFICATION_LOCKED',
+      code: '42501',
+    );
   }
 }

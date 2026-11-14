@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../../core/services/auth_service.dart';
 import '../../widgets/auth_strings.dart';
+import '../../../password_recovery/password_recovery_screen.dart';
 
 class DriverLoginForm extends StatefulWidget {
   const DriverLoginForm({super.key});
@@ -72,6 +73,21 @@ class _DriverLoginFormState extends State<DriverLoginForm> {
     }
   }
 
+  Future<void> _forgotPassword() async {
+    final email = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) =>
+            PasswordRecoveryScreen(initialEmail: _emailCtrl.text.trim()),
+      ),
+    );
+    if (!mounted || email == null) return;
+    setState(() {
+      _emailCtrl.text = email;
+      _passwordCtrl.clear();
+      _errorMessage = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
@@ -130,7 +146,19 @@ class _DriverLoginFormState extends State<DriverLoginForm> {
                   const SizedBox(height: AppSpacing.lg),
                   DriverAuthNotice(message: _errorMessage!, error: true),
                 ],
-                const SizedBox(height: AppSpacing.xl2),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: _loading ? null : _forgotPassword,
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      minimumSize: const Size(48, 48),
+                      textStyle: AppTextStyles.labelMedium,
+                    ),
+                    child: const Text(AuthStrings.forgotPassword),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
                 DriverAuthButton(
                   label: DriverAuthStrings.login,
                   loadingLabel: DriverAuthStrings.loggingIn,

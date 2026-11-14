@@ -57,10 +57,11 @@ trang marketing có nhiều đoạn mô tả.
 - Header không có lời chào: giữ Hỗ trợ, thông báo và avatar/tài khoản.
 - Hero gồm hình giao hàng, một tiêu đề ngắn và một điểm vào luồng tạo đơn.
 - Ưu tiên thẻ “điểm lấy → điểm giao” hơn đoạn mô tả dịch vụ.
-- Tối đa 3 quick actions bằng icon; không cần heading nếu nhãn đã rõ.
+- Không hiển thị cụm nút Tạo đơn / Theo dõi / Đơn hàng trên Trang chủ;
+  tạo đơn từ hero, xem đơn và theo dõi bằng các tab tương ứng.
 - Không hiển thị khối marketing/cam kết dịch vụ khi không hỗ trợ quyết định tức thời.
-- Hero chibi luôn ở trên; nếu có đơn hoạt động, thẻ trạng thái đặt sau quick
-  actions và thay hoàn toàn danh sách “Giao gần đây”.
+- Hero chibi luôn ở trên; nếu có đơn hoạt động, thẻ trạng thái đặt ngay sau hero
+  và thay hoàn toàn danh sách “Giao gần đây”.
 - Lịch sử giao hàng chỉ hiển thị ở tab Đơn hàng, không lặp lại trên Trang chủ.
 
 ### Customer Orders — Đang xử lý và Lịch sử
@@ -120,6 +121,8 @@ trang marketing có nhiều đoạn mô tả.
 
 - Lời mời nhận đơn phủ toàn màn hình trên mọi tab, drawer và màn hình phụ đang mở.
   Dùng nền `bgCard`, chữ navy và CTA cam theo hướng giao diện đã duyệt.
+- Tổng quan không dựng banner hoặc card nhận lời mời, kể cả frame trước khi
+  màn hình lời mời mở. Danh sách công việc tại đây chỉ chứa đơn đã nhận.
 - Thứ tự đọc: Đơn mới + mã đơn → thu nhập dự kiến → COD/khoản giữ ví →
   khoảng cách hai chặng → điểm lấy và điểm giao. Lấy số tiền từ snapshot tài chính;
   chỉ hiện thời gian dự kiến khi đơn đã có dữ liệu. Giữ thông tin hàng hóa sau bước nhận đơn.

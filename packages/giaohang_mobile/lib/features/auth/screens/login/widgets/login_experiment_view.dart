@@ -21,6 +21,7 @@ class LoginExperimentView extends StatefulWidget {
     required this.onRegister,
     required this.onPasswordSubmitted,
     this.errorMessage,
+    this.onForgotPassword,
   });
 
   final GlobalKey<FormState> formKey;
@@ -36,6 +37,7 @@ class LoginExperimentView extends StatefulWidget {
   final VoidCallback onTogglePassword;
   final VoidCallback onRegister;
   final ValueChanged<String> onPasswordSubmitted;
+  final VoidCallback? onForgotPassword;
 
   @override
   State<LoginExperimentView> createState() => _LoginExperimentViewState();
@@ -148,13 +150,13 @@ class _LoginExperimentViewState extends State<LoginExperimentView>
       onTogglePassword: widget.onTogglePassword,
       onRegister: widget.onRegister,
       onPasswordSubmitted: widget.onPasswordSubmitted,
+      onForgotPassword: widget.onForgotPassword,
     );
-    return widget.errorMessage == null
-        ? form
-        : SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            child: form,
-          );
+    return CustomScrollView(
+      shrinkWrap: true,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      slivers: [SliverToBoxAdapter(child: form)],
+    );
   }
 }
 

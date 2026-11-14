@@ -18,7 +18,9 @@ GiaoHang/
 │   ├── giaohang_mobile/   # Nghiệp vụ, UI, assets dùng chung hai app mobile
 │   ├── giaohang_config/    # Supabase runtime config dùng chung
 │   ├── giaohang_design/    # AppColors, typography, spacing, radius
-│   └── giaohang_domain/    # Domain models dùng chung
+│   ├── giaohang_domain/    # Domain models dùng chung
+│   ├── giaohang_storage/   # R2 client và tham chiếu object
+│   └── giaohang_reporting/ # Báo cáo kinh doanh và xuất Excel/PDF dùng chung
 ├── supabase/
 │   ├── migrations/
 │   └── functions/

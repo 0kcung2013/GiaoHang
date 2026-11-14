@@ -167,6 +167,33 @@ class _AccountControlsScreenState extends State<AccountControlsScreen> {
               ],
             ),
             const SizedBox(height: AppSpacing.xl),
+            if (_controller.role == null || _controller.role == 'customer') ...[
+              Wrap(
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
+                children: [
+                  for (final kind in [
+                    '',
+                    'individual',
+                    'business',
+                    'unclassified',
+                  ])
+                    ChoiceChip(
+                      selected: (_controller.customerType ?? '') == kind,
+                      selectedColor: AppColors.accentLight,
+                      backgroundColor: AppColors.bgCard,
+                      label: Text(
+                        kind.isEmpty
+                            ? AccountStrings.allCustomers
+                            : AccountStrings.customerKindLabel(kind),
+                      ),
+                      onSelected: (_) =>
+                          _controller.filter(customerTypeValue: kind),
+                    ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+            ],
             if (_controller.loading)
               const LinearProgressIndicator(color: AppColors.accent)
             else if (_controller.failed)
